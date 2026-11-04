@@ -9,6 +9,7 @@ import { clearance, grid, layOut, margin } from "./layout.ts";
 import { route } from "./route.ts";
 import type { Box, Scene, SceneEdge, SceneNode } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
+import { type FontData, titleDiagnostics } from "./text.ts";
 import { validate } from "./validate.ts";
 
 export interface RenderResult {
@@ -18,6 +19,11 @@ export interface RenderResult {
 }
 
 export interface RenderOptions {
+	/**
+	 * Gives the SVG the bundled font's glyphs that it draws. Without it, the
+	 * SVG embeds no font, which suits callers that only look at the scene.
+	 */
+	fontData?: FontData;
 	/**
 	 * How many states each Edge's route search may visit. An Edge whose search
 	 * runs out falls back to a simple route, with a warning. The default is well
@@ -40,12 +46,12 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		grid,
 		nodes,
 		edges,
-		diagnostics,
+		diagnostics: [...titleDiagnostics(model, nodes), ...diagnostics],
 	};
 	return {
 		diagnostics: [...validation.diagnostics, ...scene.diagnostics],
 		scene,
-		svg: writeSvg(scene),
+		svg: writeSvg(scene, options.fontData),
 	};
 }
 

@@ -25,5 +25,6 @@ export type {
 	SceneText,
 	Side,
 } from "./core/scene.ts";
+export type { FontData, FontRequest, FontWeight } from "./core/text.ts";
 export type { ArchitectureEdgeKind, ArchitectureNodeKind } from "./notations/architecture.ts";
 export { architectureEdgeKinds, architectureNodeKinds } from "./notations/architecture.ts";
