@@ -74,12 +74,18 @@ export function checkIds(diagrams: CheckedDiagram[]): AtlasMessage[] {
 }
 
 /**
- * Every Link must resolve: a Link to an id, to an id that some Diagram
- * draws; a Link to a document, to a file in the repo and, when it names a
- * section, to a heading in that file.
+ * Every Link must resolve: a Link to an id, to an id in `drawn`; a Link to a
+ * document, to a file in the repo and, when it names a section, to a heading
+ * in that file.
+ *
+ * `drawn` holds the ids that any Diagram draws, including one with errors of
+ * its own, so that those errors don't also show up as broken Links.
  */
-export function checkLinks(root: string, diagrams: CheckedDiagram[]): AtlasMessage[] {
-	const drawn = new Set(diagrams.flatMap(({ model }) => model.nodes.map((node) => node.id)));
+export function checkLinks(
+	root: string,
+	diagrams: CheckedDiagram[],
+	drawn: ReadonlySet<string>,
+): AtlasMessage[] {
 	const anchors = new Map<string, Set<string>>();
 	const anchorsIn = (file: string) => {
 		const known = anchors.get(file) ?? headingAnchors(readFileSync(file, "utf8"));

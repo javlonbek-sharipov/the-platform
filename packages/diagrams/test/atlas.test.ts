@@ -132,6 +132,22 @@ describe("Links", () => {
 		});
 	});
 
+	test("lint doesn't blame a Link to an id whose Diagram has errors of its own", async () => {
+		const atlas = await sampleAtlas({
+			"docs/payments.diagram.ts": diagramModule("Payments", [
+				paymentsApi,
+				{ id: "ledger", kind: "databse", title: "Ledger" },
+			]),
+			"docs/shop.diagram.ts": diagramModule("Shop", [
+				{ id: "shop-api", kind: "service", title: "Shop API", links: [{ id: "payments-api" }] },
+			]),
+		});
+
+		expect((await runCli(["lint"], atlas)).stdout).toMatch(
+			/^docs\/payments\.diagram\.ts:5:4: error: .* \(unknown-kind\)\ndocs\/shop\.diagram\.svg: error: .* \(svg-missing\)\nChecked 2 Diagrams: 2 errors\.\n$/,
+		);
+	});
+
 	test("lint reports a Link to a document that isn't in the repo, or to a heading it doesn't have", async () => {
 		const pricing = "docs/adr/0001-price-in-cents.md";
 		const atlas = await sampleAtlas({
