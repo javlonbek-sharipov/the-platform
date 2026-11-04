@@ -138,6 +138,39 @@ function textBox({
 	return { x: point.x - width / 2, y: point.y - size / 2, width, height: size };
 }
 
+describe("every Technology in the logo table", () => {
+	test("draws its name in the bundled font, and its logo inside its square", () => {
+		const slugs = Object.keys(technologies);
+		const diagram = architecture({ title: "Logos" }, (d) => {
+			for (const slug of slugs) {
+				d.node({ id: slug, kind: "service", title: "API", technology: slug });
+			}
+		});
+		const glyphs = render(diagram).diagnostics.filter(({ rule }) => rule === "glyph-missing");
+		expect(glyphs).toEqual([]);
+
+		const drawn = draw(diagram);
+		for (const slug of slugs) {
+			const { logo } = nodeOf(drawn.scene, slug);
+			const path = descendants(groupOf(drawn, slug)).find(
+				(element) =>
+					element.attributes.get("d") === technologies[slug as keyof typeof technologies].path,
+			);
+			if (logo === undefined || path === undefined) {
+				throw new Error(`expected ${slug}'s logo`);
+			}
+			// Some logos' rounded coordinates pass their square, as Python's do by 0.06
+			// of its 24 units. The viewport each logo is drawn in clips that off.
+			const painted = paintedBounds(path, drawn.rules, "light");
+			const slack = 0.1;
+			expect(painted.left, slug).toBeGreaterThanOrEqual(logo.box.x - slack);
+			expect(painted.top, slug).toBeGreaterThanOrEqual(logo.box.y - slack);
+			expect(painted.right, slug).toBeLessThanOrEqual(logo.box.x + logo.box.width + slack);
+			expect(painted.bottom, slug).toBeLessThanOrEqual(logo.box.y + logo.box.height + slack);
+		}
+	});
+});
+
 describe("a Node with a Technology", () => {
 	const orders = architecture({ title: "Orders" }, (d) => {
 		d.node({ id: "orders-db", kind: "database", title: "Orders DB", technology: "postgres" });
