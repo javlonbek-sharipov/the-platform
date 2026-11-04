@@ -639,3 +639,12 @@ describe("an Edge between regions or zones", () => {
 		}
 	});
 });
+
+describe("the example Diagram", () => {
+	test("shows both Edge Kinds, a junction, and an Edge that crosses regions", () => {
+		const scene = sceneOf(example);
+		expect(new Set(scene.edges.map((edge) => edge.kind))).toEqual(new Set(["call", "message"]));
+		expect(scene.junctions.length).toBeGreaterThan(0);
+		expect(scene.edges.map((edge) => edge.crosses?.kind)).toContain("region");
+	});
+});

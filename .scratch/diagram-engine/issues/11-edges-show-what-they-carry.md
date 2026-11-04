@@ -50,8 +50,8 @@
 
 **Checks**
 
-- [ ] Golden files cover both Edge Kinds, a junction, and a cross-region Edge.
-- [ ] The example Diagram shows each of those.
+- [x] Golden files cover both Edge Kinds, a junction, and a cross-region Edge.
+- [x] The example Diagram shows each of those.
 
 ## Comments
 
