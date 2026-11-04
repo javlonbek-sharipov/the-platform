@@ -22,7 +22,11 @@
 				"useImportExtensions": "error"
 			},
 			"style": {
-				"useImportType": "error"
+				"useImportType": "error",
+				"noEnum": "error",
+				"noNamespace": "error",
+				"noParameterProperties": "error",
+				"noCommonJs": "error"
 			}
 		}
 	},
@@ -41,7 +45,12 @@
 	},
 	"overrides": [
 		{
-			"includes": ["packages/diagrams/src/core/**"],
+			"includes": [
+				"packages/diagrams/src/index.ts",
+				"packages/diagrams/src/authoring/**",
+				"packages/diagrams/src/notations/**",
+				"packages/diagrams/src/core/**"
+			],
 			"linter": {
 				"rules": {
 					"correctness": {
