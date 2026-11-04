@@ -6,7 +6,17 @@
 
 import { Resvg } from "@resvg/resvg-js";
 
+export interface PngOptions {
+	/** How many pixels the PNG has for each unit of the SVG's width and height. */
+	scale: number;
+}
+
 /** Draws an engine-made SVG as a PNG. */
-export function drawPng(svg: string): Uint8Array {
-	return new Resvg(svg, { font: { loadSystemFonts: false } }).render().asPng();
+export function drawPng(svg: string, { scale }: PngOptions): Uint8Array {
+	return new Resvg(svg, {
+		fitTo: { mode: "zoom", value: scale },
+		font: { loadSystemFonts: false },
+	})
+		.render()
+		.asPng();
 }

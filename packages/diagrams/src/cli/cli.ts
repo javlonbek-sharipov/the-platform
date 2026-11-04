@@ -121,21 +121,58 @@ async function lintCommand(options: string[], context: CliContext): Promise<numb
 }
 
 async function exportCommand(args: string[], context: CliContext): Promise<number> {
-	const [diagram] = args;
+	const parsed = parseOptions(args, ["--format", "--scale"]);
+	if ("error" in parsed) {
+		context.stderr.write(`${parsed.error}\n\n${usage}`);
+		return 2;
+	}
+	const [diagram] = parsed.positionals;
 	if (diagram === undefined) {
 		context.stderr.write(`Name the Diagram to export.\n\n${usage}`);
 		return 2;
 	}
+	const scale = Number(parsed.values.get("--scale") ?? "1");
 	const root = findRoot(context.cwd);
 	const [rendered] = await renderDiagrams(root, [resolve(context.cwd, diagram)]);
 	if (rendered?.svg === undefined || rendered.model?.id === undefined) {
 		return 1;
 	}
-	const file = join(root, cacheFolder, "export", `${rendered.model.id}.light.png`);
+	const name = `${rendered.model.id}.light${scale === 1 ? "" : `@${scale}x`}.png`;
+	const file = join(root, cacheFolder, "export", name);
 	mkdirSync(dirname(file), { recursive: true });
-	writeFileSync(file, drawPng(rendered.svg));
+	writeFileSync(file, drawPng(rendered.svg, { scale }));
 	context.stdout.write(`${file}\n`);
 	return 0;
+}
+
+/**
+ * Splits arguments into positional ones and the values of options, each
+ * written `--name value` or `--name=value`. Every option takes a value.
+ */
+function parseOptions(
+	args: string[],
+	names: readonly string[],
+): { positionals: string[]; values: Map<string, string> } | { error: string } {
+	const positionals: string[] = [];
+	const values = new Map<string, string>();
+	for (let index = 0; index < args.length; index++) {
+		const arg = args[index] ?? "";
+		if (!arg.startsWith("-")) {
+			positionals.push(arg);
+			continue;
+		}
+		const equals = arg.indexOf("=");
+		const name = equals < 0 ? arg : arg.slice(0, equals);
+		if (!names.includes(name)) {
+			return { error: `Unknown option \`${name}\`.` };
+		}
+		const value = equals < 0 ? args[++index] : arg.slice(equals + 1);
+		if (value === undefined) {
+			return { error: `The option \`${name}\` needs a value.` };
+		}
+		values.set(name, value);
+	}
+	return { positionals, values };
 }
 
 /**
