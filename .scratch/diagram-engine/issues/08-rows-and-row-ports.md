@@ -45,7 +45,7 @@
 
 ## Comments
 
-**Implementation, 4 November 2026** (branch `t3/8a066988`). Choices the spec left open are recorded in its "Decisions made during implementation", under Ticket 08.
+**Implementation, 4 November 2026** (branch `t3/diagram-row-ports`). Choices the spec left open are recorded in its "Decisions made during implementation", under Ticket 08.
 
 - **Manual check, by eye.** I rendered the example Diagram and three fixtures with the bundled font, and looked at them in headless Chrome at 2×. Each Row sits in its own band below a line under the header, with its name on the left and its value right-aligned. Every Edge attached to a Row leaves or enters level with the Row's text: on the right side when it starts there and on the left when it ends there, in both directions. A self-loop from one Row to another goes around its Node. Shortened Rows read `maximum conn…  4000` and `r…  eu-west-1, eu-ce…`.
 - **Manual check, lint.** In a sample Atlas, a Row too long for its Node printed a `text-shortened` warning at the `d.node(` line and column. A module that default-exports generated JSON naming a missing Row failed with an `edge-end` error that lists the Node's Rows, and `lint` exited with 1.
