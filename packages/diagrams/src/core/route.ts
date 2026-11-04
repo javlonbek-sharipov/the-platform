@@ -1,10 +1,11 @@
 /**
  * A minimal router: each Edge runs from its source's output Port to its
- * target's input Port. Ticket 03 replaces it with orthogonal routing.
+ * target's input Port, in a straight line when they line up and otherwise
+ * with a single bend. Ticket 03 replaces it with orthogonal routing.
  */
 
 import type { Diagram } from "../authoring/model.ts";
-import type { SceneEdge, SceneNode } from "./scene.ts";
+import type { Point, SceneEdge, SceneNode } from "./scene.ts";
 
 export function route(diagram: Diagram, nodes: SceneNode[]): SceneEdge[] {
 	const byId = new Map(nodes.map((node) => [node.id, node]));
@@ -19,7 +20,15 @@ export function route(diagram: Diagram, nodes: SceneNode[]): SceneEdge[] {
 			kind: edge.kind,
 			from: edge.from,
 			to: edge.to,
-			route: [from.output.point, to.input.point],
+			route: straightOrBent(from.output.point, to.input.point),
 		};
 	});
+}
+
+/** Runs along the source's side of the bend first, then into the target. */
+function straightOrBent(start: Point, end: Point): Point[] {
+	if (start.x === end.x || start.y === end.y) {
+		return [start, end];
+	}
+	return [start, { x: end.x, y: start.y }, end];
 }
