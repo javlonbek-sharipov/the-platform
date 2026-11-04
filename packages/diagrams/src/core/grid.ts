@@ -1,16 +1,18 @@
 /**
  * The routing grid (spec: Edge routing, step 1): a sparse set of horizontal
- * and vertical lines that keep clear of the Nodes. Lines run half a clearance
- * outside each side of each Node, through the end of each Port's stub, and
- * once more on each side, outside the whole drawing. Where two lines cross is
- * a vertex, and a segment joins two neighboring vertices on one line.
+ * and vertical lines that keep clear of the Nodes and the Group labels. Lines
+ * run half a clearance outside each side of each Node and each Group label,
+ * through the end of each Port's stub, and once more on each side, outside
+ * the whole drawing. Where two lines cross is a vertex, and a segment joins
+ * two neighboring vertices on one line.
  *
- * A segment is open only if it stays clear of every Node, border included. A
- * crossing inside a Node, or on its border, has no open segment, so no route
- * can reach it: the vertices that routes use all lie outside the Nodes.
+ * A segment is open only if it stays clear of every Node and every Group
+ * label, border included. A crossing inside one, or on its border, has no
+ * open segment, so no route can reach it: the vertices that routes use all
+ * lie outside them.
  */
 
-import type { Box, Point, SceneNode } from "./scene.ts";
+import type { Box, Point, SceneGroup, SceneNode } from "./scene.ts";
 
 export interface Grid {
 	/** The vertical lines, by x, in increasing order. */
@@ -26,20 +28,23 @@ export interface Grid {
 	openSouth: Uint8Array;
 }
 
-export function buildGrid(nodes: SceneNode[], clearance: number): Grid {
+export function buildGrid(nodes: SceneNode[], groups: SceneGroup[], clearance: number): Grid {
 	const half = clearance / 2;
-	const boxes = nodes.map((node) => node.box);
+	/** What no route may pass through: every Node, and every Group's label. */
+	const boxes = [...nodes.map((node) => node.box), ...groups.map((group) => group.label)];
 	const xs = new Set<number>();
 	const ys = new Set<number>();
-	for (const { box, input, output } of nodes) {
+	for (const box of boxes) {
 		xs.add(box.x - half).add(box.x + box.width + half);
 		ys.add(box.y - half).add(box.y + box.height + half);
+	}
+	for (const { input, output } of nodes) {
 		for (const { stub } of [input, output]) {
 			xs.add(stub.x);
 			ys.add(stub.y);
 		}
 	}
-	const drawing = boundsOf(boxes);
+	const drawing = boundsOf([...boxes, ...groups.map((group) => group.box)]);
 	xs.add(drawing.x - clearance).add(drawing.x + drawing.width + clearance);
 	ys.add(drawing.y - clearance).add(drawing.y + drawing.height + clearance);
 

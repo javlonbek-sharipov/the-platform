@@ -11,6 +11,7 @@ import {
 	type ScenePort,
 	type Side,
 } from "../src/index.ts";
+import { groupFixtures, labelInTheWay } from "./fixtures/groups.ts";
 
 const shop = architecture({ title: "Shop" }, (d) => {
 	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
@@ -56,6 +57,10 @@ const fixtures: [string, Diagram][] = [
 	["orders", orders],
 	["shop, drawn down", down(shop)],
 	["orders, drawn down", down(orders)],
+	...groupFixtures.flatMap(([name, fixture]): [string, Diagram][] => [
+		[name, fixture("right")],
+		[`${name}, drawn down`, fixture("down")],
+	]),
 ];
 
 function sceneOf(diagram: unknown): Scene {
@@ -138,6 +143,29 @@ function goesAround(route: Point[], box: Box): boolean {
 			? (a.y < box.y || a.y > box.y + box.height) && low <= box.x && high >= box.x + box.width
 			: (a.x < box.x || a.x > box.x + box.width) && low <= box.y && high >= box.y + box.height;
 	});
+}
+
+/** How long a stretch of the horizontal or vertical segment from `a` to `b` runs along a side of a box. */
+function alongSides(a: Point, b: Point, box: Box): number {
+	const [low, high, at, sides, from, to] =
+		a.y === b.y
+			? [
+					Math.min(a.x, b.x),
+					Math.max(a.x, b.x),
+					a.y,
+					[box.y, box.y + box.height],
+					box.x,
+					box.x + box.width,
+				]
+			: [
+					Math.min(a.y, b.y),
+					Math.max(a.y, b.y),
+					a.x,
+					[box.x, box.x + box.width],
+					box.y,
+					box.y + box.height,
+				];
+	return sides.includes(at) ? Math.max(0, Math.min(high, to) - Math.max(low, from)) : 0;
 }
 
 /** Whether `point` lies on the horizontal or vertical segment from `a` to `b`. */
@@ -291,6 +319,28 @@ describe.each(fixtures)("every route in %s", (_, diagram) => {
 		}
 	});
 
+	test("never passes through a Group label, nor touches one", () => {
+		const scene = sceneOf(diagram);
+		for (const { id, route } of scene.edges) {
+			for (const [a, b] of segmentsOf(route)) {
+				for (const group of scene.groups) {
+					expect(overlap(a, b, group.label), `${id} passes ${group.id}'s label`).toBeUndefined();
+				}
+			}
+		}
+	});
+
+	test("never runs along a Group's border", () => {
+		const scene = sceneOf(diagram);
+		for (const { id, route } of scene.edges) {
+			for (const [a, b] of segmentsOf(route)) {
+				for (const group of scene.groups) {
+					expect(alongSides(a, b, group.box), `${id} runs along ${group.id}`).toBe(0);
+				}
+			}
+		}
+	});
+
 	test("stays out of every Node, touching only its own two Ports", () => {
 		const scene = sceneOf(diagram);
 		for (const { id, route, fromPort, toPort } of scene.edges) {
@@ -310,6 +360,24 @@ describe.each(fixtures)("every route in %s", (_, diagram) => {
 				}
 			}
 		}
+	});
+});
+
+describe("a Group label in an Edge's way", () => {
+	test("makes the Edge go around it, half a clearance clear of it", () => {
+		const scene = sceneOf(labelInTheWay("down"));
+		const { label } = scene.groups[0] ?? { label: scene.bounds };
+		const route = scene.edges[0]?.route ?? [];
+		const half = scene.clearance / 2;
+		// A run beside the label passes it from top to bottom, half a clearance from one side.
+		const beside = segmentsOf(route).filter(
+			([a, b]) =>
+				a.x === b.x &&
+				(a.x === label.x - half || a.x === label.x + label.width + half) &&
+				Math.min(a.y, b.y) <= label.y &&
+				Math.max(a.y, b.y) >= label.y + label.height,
+		);
+		expect(beside).toHaveLength(1);
 	});
 });
 

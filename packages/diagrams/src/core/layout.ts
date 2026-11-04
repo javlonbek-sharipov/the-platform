@@ -29,11 +29,11 @@ export const margin = 24;
 
 /**
  * The room between a Group's border and its members, at its sides and its
- * bottom. It's more than half the clearance, so that the routing grid's lines
- * half a clearance outside the members fall inside the Group, not on its
- * border.
+ * bottom. It's a whole clearance, more than half of one, so that the routing
+ * grid's lines half a clearance outside the members run down the middle of
+ * the padding, never on the Group's border.
  */
-const groupPadding = 24;
+const groupPadding = clearance;
 /** The height of the band along the top of a Group that holds its label. */
 const labelBand = 24;
 /** Below its label band, a Group's members keep a clearance from its label. */

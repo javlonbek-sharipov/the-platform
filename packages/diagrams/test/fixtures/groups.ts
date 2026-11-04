@@ -68,9 +68,24 @@ export function deepNesting(direction: Direction): Diagram {
 	});
 }
 
+/**
+ * The web app calls the Payments API, whose system has a long title. Drawn
+ * down, the system's label lies between the two, right in the Edge's way.
+ */
+export function labelInTheWay(direction: Direction): Diagram {
+	return architecture({ id: "label-in-the-way", title: "Label in the way", direction }, (d) => {
+		const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+		d.group({ id: "payments", kind: "system", title: "Payments and refunds" }, (payments) => {
+			const api = payments.node({ id: "payments-api", kind: "service", title: "Payments API" });
+			d.edge(web, api, { kind: "call" });
+		});
+	});
+}
+
 /** Every Group fixture, for the properties that hold on all of them. */
 export const groupFixtures: [string, (direction: Direction) => Diagram][] = [
 	["a region with a zone", region],
 	["two regions", twoRegions],
 	["deep nesting", deepNesting],
+	["a label in the way", labelInTheWay],
 ];

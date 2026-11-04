@@ -39,7 +39,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 	}
 	const model = validation.diagram;
 	const { nodes, groups } = layOut(model);
-	const { edges, diagnostics } = route(model, nodes, options);
+	const { edges, diagnostics } = route(model, nodes, groups, options);
 	const scene: Scene = {
 		bounds: boundsOf(
 			[...nodes, ...groups].map(({ box }) => box),

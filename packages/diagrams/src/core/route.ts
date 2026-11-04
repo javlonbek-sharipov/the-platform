@@ -9,7 +9,16 @@ import type { Diagram, Direction } from "../authoring/model.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { buildGrid, type Grid, pointOf, vertexAt } from "./grid.ts";
 import { clearance } from "./layout.ts";
-import type { Box, Point, RoutePoint, SceneEdge, SceneNode, ScenePort, Side } from "./scene.ts";
+import type {
+	Box,
+	Point,
+	RoutePoint,
+	SceneEdge,
+	SceneGroup,
+	SceneNode,
+	ScenePort,
+	Side,
+} from "./scene.ts";
 import { type Heading, opposite, type Search, searchOn } from "./search.ts";
 
 export interface RouteOptions {
@@ -46,9 +55,14 @@ const outOf: Record<Side, Heading> = {
 	bottom: "south",
 };
 
-export function route(diagram: Diagram, nodes: SceneNode[], options: RouteOptions = {}): Routing {
+export function route(
+	diagram: Diagram,
+	nodes: SceneNode[],
+	groups: SceneGroup[],
+	options: RouteOptions = {},
+): Routing {
 	const byId = new Map(nodes.map((node) => [node.id, node]));
-	const grid = buildGrid(nodes, clearance);
+	const grid = buildGrid(nodes, groups, clearance);
 	const search = searchOn(grid);
 	const budget = options.searchBudget ?? defaultSearchBudget;
 	// Edges are routed in a stable order, by id, so that no route depends on
