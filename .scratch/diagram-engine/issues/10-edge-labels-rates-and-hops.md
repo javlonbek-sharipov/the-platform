@@ -51,7 +51,7 @@
 
 ## Comments
 
-**Implementation, 5 November 2026** (branch `t3/a6c68e0f`). Choices the spec left open are recorded in its "Decisions made during implementation", under Ticket 10.
+**Implementation, 5 November 2026** (branch `t3/edge-labels-rates-hops`). Choices the spec left open are recorded in its "Decisions made during implementation", under Ticket 10.
 
 - **Manual check, by eye.** I rendered labeled fixtures with the bundled font through resvg, as `diagrams export` does, and looked at them at 2× and 3×:
   - On the example, laid out right, each label sits 4 px above its run, centered in its gap between ranks: "Places orders" with `30/s` below it, "Creates orders" with `grpc`, "Announces orders", "Charges cards". Exported with `--theme dark`, the label boxes vanish into the background, the texts are light and the Technology and rate muted.
