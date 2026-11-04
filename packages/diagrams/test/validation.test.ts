@@ -910,6 +910,38 @@ describe("validation", () => {
 		}
 	});
 
+	test("accepts a Node's Technology written as a slug, and reports one written any other way", () => {
+		for (const technology of ["postgres", "aws-lambda", "go", "our-own-db"]) {
+			const diagram = shopJson();
+			diagram.nodes[2] = { ...diagram.nodes[2], technology } as (typeof diagram.nodes)[number];
+
+			expect(render(diagram).diagnostics, technology).toEqual([]);
+		}
+		for (const technology of ["PostgreSQL", "node.js", "google cloud", ""]) {
+			const diagram = shopJson();
+			diagram.nodes[2] = { ...diagram.nodes[2], technology } as (typeof diagram.nodes)[number];
+
+			expect(render(diagram).diagnostics, technology).toEqual([
+				{
+					severity: "error",
+					rule: "technology-format",
+					message: `Node \`shop-db\` has the Technology \`${technology}\`, which isn't a slug. Write a Technology as lowercase words joined by hyphens, such as \`postgres\` or \`grpc\`.`,
+					pointer: "/nodes/2/technology",
+				},
+			]);
+		}
+		const diagram = shopJson();
+		diagram.nodes[2] = { ...diagram.nodes[2], technology: 7 } as never;
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "model-shape",
+				message: "`/nodes/2/technology` must be a string.",
+				pointer: "/nodes/2/technology",
+			},
+		]);
+	});
+
 	test("reports an Edge's label, Technology or rate that isn't shaped like one", () => {
 		const cases: [field: string, value: unknown, what: string][] = [
 			["label", "", "a string with some text in it"],

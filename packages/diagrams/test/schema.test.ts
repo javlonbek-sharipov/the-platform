@@ -84,6 +84,8 @@ const brokenModels: [what: string, pointer: string, value: unknown, rule: string
 	["a Node without a Kind", "/nodes/1/kind", undefined, "model-shape"],
 	["a Node Kind the Notation doesn't have", "/nodes/2/kind", "servce", "unknown-kind"],
 	["a Node without a title", "/nodes/3/title", undefined, "model-shape"],
+	["a Node Technology that isn't a slug", "/nodes/1/technology", "React", "technology-format"],
+	["a Node Technology that isn't a string", "/nodes/3/technology", ["postgres"], "model-shape"],
 	["an External flag that isn't true or false", "/nodes/4/external", "yes", "model-shape"],
 	["a status the Notation doesn't have", "/nodes/2/status", "broken", "unknown-status"],
 	["a status that isn't a string", "/nodes/2/status", 3, "model-shape"],

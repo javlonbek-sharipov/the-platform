@@ -151,6 +151,9 @@ export function validate(input: unknown): Validation {
 				),
 			);
 		}
+		diagnostics.push(
+			...checkTechnology(`Node \`${node.id}\``, node.technology, `/nodes/${index}/technology`),
+		);
 		const rowNames = new Set<string>();
 		node.rows?.forEach((row, rowIndex) => {
 			if (rowNames.has(row.name)) {
@@ -273,16 +276,9 @@ export function validate(input: unknown): Validation {
 				),
 			);
 		}
-		// A slug without a logo is drawn as its name, which isn't an error.
-		if (edge.technology !== undefined && !slugPattern.test(edge.technology)) {
-			diagnostics.push(
-				error(
-					"technology-format",
-					`Edge \`${edge.id}\` has the Technology \`${edge.technology}\`, which isn't a slug. Write a Technology as lowercase words joined by hyphens, such as \`postgres\` or \`grpc\`.`,
-					`/edges/${index}/technology`,
-				),
-			);
-		}
+		diagnostics.push(
+			...checkTechnology(`Edge \`${edge.id}\``, edge.technology, `/edges/${index}/technology`),
+		);
 		if (edge.rate !== undefined && !ratePattern.test(edge.rate)) {
 			diagnostics.push(
 				error(
@@ -326,6 +322,26 @@ function checkDefaultEdgeIds(diagram: Diagram): Diagnostic[] {
 			),
 		];
 	});
+}
+
+/**
+ * A Technology must be a slug. Any slug is valid: one without a logo is drawn
+ * as its name, which isn't an error. `owner` is the Node or Edge that has it.
+ */
+function checkTechnology(
+	owner: string,
+	technology: string | undefined,
+	pointer: string,
+): Diagnostic[] {
+	return technology === undefined || slugPattern.test(technology)
+		? []
+		: [
+				error(
+					"technology-format",
+					`${owner} has the Technology \`${technology}\`, which isn't a slug. Write a Technology as lowercase words joined by hyphens, such as \`postgres\` or \`grpc\`.`,
+					pointer,
+				),
+			];
 }
 
 /** A Link to an id must name it as the model writes ids. `owner` is the Node or Group that has the Links. */
