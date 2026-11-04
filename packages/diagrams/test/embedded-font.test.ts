@@ -225,11 +225,17 @@ describe("the SVG's style", () => {
 		}
 	});
 
-	test("sets the embedded family first in the SVG's font stack", () => {
+	test("sets text in the embedded family, falling back only to fonts no wider than Inter", () => {
 		const svg = renderWithFont(shop).svg ?? "";
-		const scope = rootClassOf(svg);
-		const fontFamily = declarationsFor(styleOf(svg), `.${scope}`).get("font-family") ?? "";
-		expect(fontFamily.split(",")[0]).toBe(`"${familyOf(shop)}"`);
+		const root = declarationsFor(styleOf(svg), `.${rootClassOf(svg)}`);
+		expect(root.get("font-family")).toBe(`"${familyOf(shop)}", Helvetica, Arial`);
 		expect(svg).not.toMatch(/ font-family="/);
+	});
+
+	test("turns kerning and ligatures off, as measuring ignores them", () => {
+		const svg = renderWithFont(shop).svg ?? "";
+		const root = declarationsFor(styleOf(svg), `.${rootClassOf(svg)}`);
+		expect(root.get("font-kerning")).toBe("none");
+		expect(root.get("font-variant-ligatures")).toBe("none");
 	});
 });

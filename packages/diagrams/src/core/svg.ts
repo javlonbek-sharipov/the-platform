@@ -14,7 +14,12 @@ type Attribute = readonly [name: string, value: string | number];
 const ink = "#1f2328";
 const line = "#57606a";
 const surface = "#ffffff";
-const fallbackFonts = "Helvetica, Arial, sans-serif";
+/**
+ * Where the embedded font can't be used, text falls back to fonts no wider
+ * than Inter, so that text shortened to fit still fits. There's no generic
+ * family at the end, since that could be a wider font.
+ */
+const fallbackFonts = "Helvetica, Arial";
 const fontWeights: Record<FontWeight, number> = { regular: 400, semibold: 600 };
 
 export function writeSvg(scene: Scene, fontData?: FontData): string {
@@ -80,7 +85,10 @@ function embeddedFonts(scene: Scene, fontData: FontData): EmbeddedFont[] {
 	});
 }
 
-/** The font's faces, and one rule for the SVG's root, which every text inherits from. */
+/**
+ * The font's faces, and one rule for the SVG's root, which every text inherits
+ * from. It turns kerning and ligatures off, since measuring ignores them.
+ */
 function style(scope: string, fonts: EmbeddedFont[]): string[] {
 	return [
 		"<style>",
@@ -90,7 +98,10 @@ function style(scope: string, fonts: EmbeddedFont[]): string[] {
 				`@font-face { font-family: "${scope}"; font-weight: ${fontWeights[font.weight]}; src: url("data:font/ttf;base64,${font.data}") format("truetype"); }`,
 			),
 		),
-		indent(1, `.${scope} { font-family: "${scope}", ${fallbackFonts}; }`),
+		indent(
+			1,
+			`.${scope} { font-family: "${scope}", ${fallbackFonts}; font-kerning: none; font-variant-ligatures: none; }`,
+		),
 		"</style>",
 	];
 }

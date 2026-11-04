@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" class="diagram-c454a7a9fc10b3a2" viewBox="0 0 1232 176" width="1232" height="176">
   <style>
-    .diagram-c454a7a9fc10b3a2 { font-family: "diagram-c454a7a9fc10b3a2", Helvetica, Arial, sans-serif; }
+    .diagram-c454a7a9fc10b3a2 { font-family: "diagram-c454a7a9fc10b3a2", Helvetica, Arial; font-kerning: none; font-variant-ligatures: none; }
   </style>
   <g fill="none" stroke="#57606a" stroke-width="1.5">
     <g data-edge="shop-web-&gt;shop-gateway" data-kind="call" data-from="shop-web" data-to="shop-gateway">
