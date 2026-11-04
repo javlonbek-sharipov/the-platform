@@ -8,7 +8,7 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { cacheFolder, lintAtlas, renderDiagrams } from "../atlas/atlas.ts";
 import { AtlasError, discover, findRoot } from "../atlas/discover.ts";
 import { type AtlasMessage, placeText } from "../atlas/messages.ts";
-import { drawPng } from "./png.ts";
+import { drawPng, type Theme, themes } from "./png.ts";
 
 export interface Output {
 	write(text: string): unknown;
@@ -121,7 +121,7 @@ async function lintCommand(options: string[], context: CliContext): Promise<numb
 }
 
 async function exportCommand(args: string[], context: CliContext): Promise<number> {
-	const parsed = parseOptions(args, ["--format", "--scale"]);
+	const parsed = parseOptions(args, ["--format", "--theme", "--scale"]);
 	if ("error" in parsed) {
 		context.stderr.write(`${parsed.error}\n\n${usage}`);
 		return 2;
@@ -131,16 +131,21 @@ async function exportCommand(args: string[], context: CliContext): Promise<numbe
 		context.stderr.write(`Name the Diagram to export.\n\n${usage}`);
 		return 2;
 	}
+	const theme = parsed.values.get("--theme") ?? "light";
+	if (!themes.includes(theme as Theme)) {
+		context.stderr.write(`Choose \`--theme light\` or \`--theme dark\`.\n\n${usage}`);
+		return 2;
+	}
 	const scale = Number(parsed.values.get("--scale") ?? "1");
 	const root = findRoot(context.cwd);
 	const [rendered] = await renderDiagrams(root, [resolve(context.cwd, diagram)]);
 	if (rendered?.svg === undefined || rendered.model?.id === undefined) {
 		return 1;
 	}
-	const name = `${rendered.model.id}.light${scale === 1 ? "" : `@${scale}x`}.png`;
+	const name = `${rendered.model.id}.${theme}${scale === 1 ? "" : `@${scale}x`}.png`;
 	const file = join(root, cacheFolder, "export", name);
 	mkdirSync(dirname(file), { recursive: true });
-	writeFileSync(file, drawPng(rendered.svg, { scale }));
+	writeFileSync(file, drawPng(rendered.svg, { theme: theme as Theme, scale }));
 	context.stdout.write(`${file}\n`);
 	return 0;
 }
