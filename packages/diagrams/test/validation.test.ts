@@ -23,9 +23,132 @@ function shopJson() {
 	};
 }
 
+/** A valid model with nested Groups: the web app calls into a region, whose zone holds the database. */
+function regionJson() {
+	return {
+		version: 1,
+		notation: "architecture",
+		title: "Shop",
+		direction: "right",
+		members: ["web-app", "eu-west"],
+		nodes: [
+			{ id: "web-app", kind: "client", title: "Web app" },
+			{ id: "shop-api", kind: "service", title: "Shop API" },
+			{ id: "shop-db", kind: "database", title: "Shop database" },
+		],
+		groups: [
+			{ id: "eu-west", kind: "region", title: "EU West", members: ["shop-api", "eu-west-a"] },
+			{ id: "eu-west-a", kind: "zone", title: "Zone A", members: ["shop-db"] },
+		] as { id: string; kind: string; title: string; members: string[] }[],
+		edges: [
+			{ id: "web-app->shop-api", kind: "call", from: "web-app", to: "shop-api" },
+			{ id: "shop-api->shop-db", kind: "call", from: "shop-api", to: "shop-db" },
+		],
+		walkthroughs: [],
+	};
+}
+
+/** An error of the nesting rule. */
+function nesting(message: string, pointer: string) {
+	return { severity: "error", rule: "nesting", message, pointer };
+}
+
 describe("validation", () => {
 	test("accepts the valid fixture", () => {
 		expect(render(shopJson()).diagnostics).toEqual([]);
+	});
+
+	test("accepts the valid fixture with nested Groups", () => {
+		expect(render(regionJson()).diagnostics).toEqual([]);
+	});
+
+	test("reports a Node or a Group that is a member of two parents, or twice of one", () => {
+		const diagram = regionJson();
+		diagram.members.push("eu-west-a");
+		diagram.groups[1]?.members.push("shop-api", "shop-db");
+
+		expect(render(diagram).diagnostics).toEqual([
+			nesting(
+				"Group `eu-west-a` is a member of both the Diagram and Group `eu-west`. Every Node and Group has exactly one parent: the Diagram, or one Group.",
+				"/groups/0/members/1",
+			),
+			nesting(
+				"Node `shop-api` is a member of both Group `eu-west` and Group `eu-west-a`. Every Node and Group has exactly one parent: the Diagram, or one Group.",
+				"/groups/1/members/1",
+			),
+			nesting(
+				"Node `shop-db` is listed twice among the members of Group `eu-west-a`. Every Node and Group has exactly one parent: the Diagram, or one Group.",
+				"/groups/1/members/2",
+			),
+		]);
+	});
+
+	test("reports a Node or a Group that is a member of no parent", () => {
+		const diagram = regionJson();
+		diagram.members = ["web-app"];
+		diagram.groups[1] = { id: "eu-west-a", kind: "zone", title: "Zone A", members: [] };
+
+		expect(render(diagram).diagnostics).toEqual([
+			nesting(
+				"Node `shop-db` isn't a member of the Diagram or of any Group. List it among the members of the Diagram, or of one Group.",
+				"/nodes/2",
+			),
+			nesting(
+				"Group `eu-west` isn't a member of the Diagram or of any Group. List it among the members of the Diagram, or of one Group.",
+				"/groups/0",
+			),
+		]);
+	});
+
+	test("reports a member that isn't a Node or a Group on the Diagram", () => {
+		const diagram = regionJson();
+		diagram.members.push("mailer");
+		diagram.groups[0]?.members.push("shop-cache");
+
+		expect(render(diagram).diagnostics).toEqual([
+			nesting(
+				"The Diagram has the member `mailer`, which isn't a Node or a Group on this Diagram.",
+				"/members/2",
+			),
+			nesting(
+				"Group `eu-west` has the member `shop-cache`, which isn't a Node or a Group on this Diagram.",
+				"/groups/0/members/2",
+			),
+		]);
+	});
+
+	test("reports Groups that contain each other in a cycle, and a Group that contains itself", () => {
+		const twoGroups = regionJson();
+		twoGroups.members = ["web-app"];
+		twoGroups.groups[1]?.members.push("eu-west");
+
+		expect(render(twoGroups).diagnostics).toEqual([
+			nesting(
+				"Groups `eu-west` and `eu-west-a` contain each other. Groups nest as a tree, rooted at the Diagram.",
+				"/groups/0/members/1",
+			),
+		]);
+
+		const threeGroups = regionJson();
+		threeGroups.members = ["web-app"];
+		threeGroups.groups[1]?.members.push("us-east");
+		threeGroups.groups.push(
+			{ id: "us-east", kind: "region", title: "US East", members: ["us-east-a"] },
+			{ id: "us-east-a", kind: "zone", title: "Zone A", members: ["eu-west-a"] },
+		);
+		threeGroups.groups[0]?.members.splice(1, 1);
+		threeGroups.groups[0]?.members.push("eu-west");
+
+		expect(render(threeGroups).diagnostics).toEqual([
+			nesting(
+				"Group `eu-west` contains itself. Groups nest as a tree, rooted at the Diagram.",
+				"/groups/0/members/1",
+			),
+			nesting(
+				"Groups `eu-west-a`, `us-east` and `us-east-a` contain each other in a cycle. Groups nest as a tree, rooted at the Diagram.",
+				"/groups/1/members/1",
+			),
+		]);
 	});
 
 	test("reports a model version that this engine can't read, and reads no further", () => {
@@ -145,9 +268,11 @@ describe("validation", () => {
 		]);
 	});
 
-	test("reports two Nodes with one id", () => {
+	test("reports two Nodes with one id, and nothing more about it", () => {
 		const diagram = shopJson();
 		diagram.nodes[2] = { id: "shop-api", kind: "database", title: "Shop database" };
+		// As the builder would write it, declaring `shop-api` twice.
+		diagram.members[2] = "shop-api";
 		diagram.edges = [];
 
 		expect(render(diagram).diagnostics).toEqual([
@@ -183,6 +308,7 @@ describe("validation", () => {
 	test("reports a Node id that isn't lowercase kebab-case", () => {
 		const diagram = shopJson();
 		diagram.nodes[2] = { id: "Shop_DB", kind: "database", title: "Shop database" };
+		diagram.members[2] = "Shop_DB";
 		diagram.edges = [];
 
 		expect(render(diagram).diagnostics).toEqual([
@@ -304,6 +430,7 @@ describe("validation", () => {
 	test("accepts ids with digits, and context namespaces", () => {
 		const diagram = shopJson();
 		diagram.nodes[2] = { id: "billing/s3-archive", kind: "storage", title: "Archive" };
+		diagram.members[2] = "billing/s3-archive";
 		diagram.edges[1] = {
 			id: "shop-api->billing/s3-archive",
 			kind: "call",
