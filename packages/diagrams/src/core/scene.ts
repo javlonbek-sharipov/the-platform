@@ -84,13 +84,19 @@ export interface SceneRow {
 export interface SceneEdge {
 	id: string;
 	kind: string;
-	/** The id of the Node whose output Port the route leaves. */
+	/** The id of the Node that the route leaves. */
 	from: string;
-	/** The id of the Node whose input Port the route enters. */
+	/** The id of the Node that the route enters. */
 	to: string;
-	/** The Port the route leaves: the `from` Node's output Port. */
+	/**
+	 * The Port the route leaves: the `from` Node's output Port, or, when the
+	 * Edge starts at one of its Rows, that Row's output Port.
+	 */
 	fromPort: ScenePort;
-	/** The Port the route enters: the `to` Node's input Port. */
+	/**
+	 * The Port the route enters: the `to` Node's input Port, or, when the Edge
+	 * ends at one of its Rows, that Row's input Port.
+	 */
 	toPort: ScenePort;
 	/**
 	 * The route, from the source's Port to the target's: an orthogonal

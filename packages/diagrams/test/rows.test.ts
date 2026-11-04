@@ -4,6 +4,7 @@ import {
 	type Diagram,
 	type Direction,
 	type Row,
+	type RowEnd,
 	render,
 	type Scene,
 	type SceneNode,
@@ -179,6 +180,81 @@ describe.each(directions)("the Ports of a Diagram laid out %s", (direction) => {
 			expect(input.point).toEqual({ x: title.point.x, y: box.y });
 			expect(output.point).toEqual({ x: title.point.x, y: box.y + box.height });
 		}
+	});
+});
+
+/**
+ * Edges attached to Rows: the Orders API publishes to the `order-placed`
+ * topic, which the Payments API reads, and the Payments API publishes back
+ * to `order-paid`, against the direction. Each API writes to its own table
+ * in the Orders database.
+ */
+function attached(direction: Direction): Diagram {
+	return architecture({ title: "Attached", direction }, (d) => {
+		const api = d.node({ id: "orders-api", kind: "service", title: "Orders API" });
+		const events = d.node({
+			id: "order-events",
+			kind: "queue",
+			title: "Order events",
+			rows: [{ name: "order-placed" }, { name: "order-paid" }],
+		});
+		const payments = d.node({ id: "payments-api", kind: "service", title: "Payments API" });
+		const db = d.node({
+			id: "orders-db",
+			kind: "database",
+			title: "Orders database",
+			rows: [
+				{ name: "orders", value: "table" },
+				{ name: "payments", value: "table" },
+			],
+		});
+		d.edge(api, events.row("order-placed"), { kind: "message" });
+		d.edge(events.row("order-placed"), payments, { kind: "message" });
+		d.edge(payments, events.row("order-paid"), { kind: "message" });
+		d.edge(api, db.row("orders"), { kind: "call" });
+		d.edge(payments, db.row("payments"), { kind: "call" });
+	});
+}
+
+/** The Row that an Edge end names, as the scene draws it. */
+function rowAt(scene: Scene, diagram: Diagram, end: RowEnd) {
+	const index = diagram.nodes
+		.find((node) => node.id === end.node)
+		?.rows?.findIndex((row) => row.name === end.row);
+	const row = nodeOf(scene, end.node).rows[index ?? -1];
+	if (row === undefined) {
+		throw new Error(`no Row ${end.row} on ${end.node}`);
+	}
+	return row;
+}
+
+describe.each(directions)("an Edge attached to a Row, on a Diagram laid out %s", (direction) => {
+	test("leaves or enters at that Row's Port on the matching side, level with the Row", () => {
+		const diagram = attached(direction);
+		const scene = sceneOf(diagram);
+		let attachments = 0;
+		for (const { id, from, to } of diagram.edges) {
+			const edge = scene.edges.find((candidate) => candidate.id === id);
+			const [first, last] = [edge?.route[0], edge?.route.at(-1)];
+			if (typeof from !== "string") {
+				const row = rowAt(scene, diagram, from);
+				const { box } = nodeOf(scene, from.node);
+				expect(edge?.fromPort, id).toEqual(row.output);
+				expect(first && { x: first.x, y: first.y }, id).toEqual({
+					x: box.x + box.width,
+					y: row.name.point.y,
+				});
+				attachments += 1;
+			}
+			if (typeof to !== "string") {
+				const row = rowAt(scene, diagram, to);
+				const { box } = nodeOf(scene, to.node);
+				expect(edge?.toPort, id).toEqual(row.input);
+				expect(last && { x: last.x, y: last.y }, id).toEqual({ x: box.x, y: row.name.point.y });
+				attachments += 1;
+			}
+		}
+		expect(attachments).toBe(5);
 	});
 });
 

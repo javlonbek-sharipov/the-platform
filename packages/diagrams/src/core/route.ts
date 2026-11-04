@@ -5,7 +5,7 @@
  * the Edge falls back to a simple route, and the router warns about it.
  */
 
-import { type Diagram, type Direction, endNode } from "../authoring/model.ts";
+import { type Diagram, type Direction, endNode, type RowEnd } from "../authoring/model.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { buildGrid, type Grid, pointOf, vertexAt } from "./grid.ts";
 import { clearance } from "./layout.ts";
@@ -48,6 +48,20 @@ const outOf: Record<Side, Heading> = {
 
 export function route(diagram: Diagram, nodes: SceneNode[], options: RouteOptions = {}): Routing {
 	const byId = new Map(nodes.map((node) => [node.id, node]));
+	const rowNames = new Map(
+		diagram.nodes.map((node) => [node.id, (node.rows ?? []).map((row) => row.name)]),
+	);
+	/**
+	 * The Port an Edge end uses on the given side: its Node's header Port, or
+	 * the Port of the Row it names.
+	 */
+	const portOf = (end: string | RowEnd, side: "input" | "output"): ScenePort | undefined => {
+		const node = byId.get(endNode(end));
+		if (typeof end === "string") {
+			return node?.[side];
+		}
+		return node?.rows[rowNames.get(end.node)?.indexOf(end.row) ?? -1]?.[side];
+	};
 	const grid = buildGrid(nodes, clearance);
 	const search = searchOn(grid);
 	const budget = options.searchBudget ?? defaultSearchBudget;
@@ -57,18 +71,22 @@ export function route(diagram: Diagram, nodes: SceneNode[], options: RouteOption
 	for (const edge of [...diagram.edges].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
 		const from = byId.get(endNode(edge.from));
 		const to = byId.get(endNode(edge.to));
-		if (from === undefined || to === undefined) {
-			throw new Error(`Edge ${edge.id} ends at a Node that validation should have rejected`);
+		const fromPort = portOf(edge.from, "output");
+		const toPort = portOf(edge.to, "input");
+		if (from === undefined || to === undefined || fromPort === undefined || toPort === undefined) {
+			throw new Error(`Edge ${edge.id} ends at a Port that validation should have rejected`);
 		}
-		const found = searchRoute(grid, search, from.output, to.input, budget);
+		const found = searchRoute(grid, search, fromPort, toPort, budget);
 		routed.set(edge.id, {
 			id: edge.id,
 			kind: edge.kind,
 			from: from.id,
 			to: to.id,
-			fromPort: from.output,
-			toPort: to.input,
-			route: roundCorners(polyline(found ?? fallbackRoute(from, to, diagram.direction))),
+			fromPort,
+			toPort,
+			route: roundCorners(
+				polyline(found ?? fallbackRoute(fromPort, toPort, [from.box, to.box], diagram.direction)),
+			),
 			fellBack: found === undefined,
 		});
 	}
@@ -125,19 +143,24 @@ function searchRoute(
  * beyond both Nodes, travels back past them, and enters the target from its
  * input side.
  */
-function fallbackRoute(from: SceneNode, to: SceneNode, direction: Direction): Point[] {
+function fallbackRoute(
+	fromPort: ScenePort,
+	toPort: ScenePort,
+	nodeBoxes: Box[],
+	direction: Direction,
+): Point[] {
 	// Worked out as if the direction were `right`: for `down`, x and y swap
 	// on the way in, and swap back on the way out.
 	const turn = direction === "down" ? transpose : (point: Point) => point;
-	const start = turn(from.output.point);
-	const out = turn(from.output.stub);
-	const end = turn(to.input.point);
-	const into = turn(to.input.stub);
+	const start = turn(fromPort.point);
+	const out = turn(fromPort.stub);
+	const end = turn(toPort.point);
+	const into = turn(toPort.stub);
 	if (into.x >= out.x) {
 		const middle = (start.x + end.x) / 2;
 		return [start, { x: middle, y: start.y }, { x: middle, y: end.y }, end].map(turn);
 	}
-	const boxes = [from.box, to.box].map((box) => (direction === "down" ? transposeBox(box) : box));
+	const boxes = nodeBoxes.map((box) => (direction === "down" ? transposeBox(box) : box));
 	const above = Math.min(...boxes.map((box) => box.y)) - clearance / 2;
 	const below = Math.max(...boxes.map((box) => box.y + box.height)) + clearance / 2;
 	const lane =
