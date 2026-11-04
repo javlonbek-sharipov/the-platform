@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1232 176" width="1232" height="176">
+  <g fill="none" stroke="#57606a" stroke-width="1.5">
+    <g data-edge="shop-web-&gt;shop-gateway" data-kind="call" data-from="shop-web" data-to="shop-gateway">
+      <path d="M 184 48 L 280 48"/>
+    </g>
+    <g data-edge="shop-gateway-&gt;orders-api" data-kind="call" data-from="shop-gateway" data-to="orders-api">
+      <path d="M 440 48 L 536 48"/>
+    </g>
+    <g data-edge="orders-api-&gt;orders-db" data-kind="call" data-from="orders-api" data-to="orders-db">
+      <path d="M 696 48 L 792 48"/>
+    </g>
+    <g data-edge="orders-api-&gt;order-events" data-kind="message" data-from="orders-api" data-to="order-events">
+      <path d="M 696 48 L 792 48 L 792 128"/>
+    </g>
+    <g data-edge="order-events-&gt;payments-api" data-kind="message" data-from="order-events" data-to="payments-api">
+      <path d="M 952 128 L 1048 128 L 1048 48"/>
+    </g>
+  </g>
+  <g font-family="Inter, Helvetica, Arial, sans-serif" font-size="14" text-anchor="middle" dominant-baseline="central">
+    <g data-node="shop-web" data-kind="client">
+      <rect x="24" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
+      <text x="104" y="48" fill="#1f2328">Shop web app</text>
+    </g>
+    <g data-node="shop-gateway" data-kind="gateway">
+      <rect x="280" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
+      <text x="360" y="48" fill="#1f2328">Shop gateway</text>
+    </g>
+    <g data-node="orders-api" data-kind="service">
+      <rect x="536" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
+      <text x="616" y="48" fill="#1f2328">Orders API</text>
+    </g>
+    <g data-node="payments-api" data-kind="service">
+      <rect x="1048" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
+      <text x="1128" y="48" fill="#1f2328">Payments API</text>
+    </g>
+    <g data-node="orders-db" data-kind="database">
+      <rect x="792" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
+      <text x="872" y="48" fill="#1f2328">Orders database</text>
+    </g>
+    <g data-node="order-events" data-kind="queue">
+      <rect x="792" y="104" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
+      <text x="872" y="128" fill="#1f2328">Order events</text>
+    </g>
+  </g>
+</svg>
