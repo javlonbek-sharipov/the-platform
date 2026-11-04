@@ -9,7 +9,7 @@
 
 **Blocked by:** 01 A Diagram from source to committed SVG.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Spec:**
 
@@ -59,3 +59,5 @@
 - **The example's subset** is 4.1 KB, or 5.4 KB in base64, and the whole SVG is 8.3 KB. That's under the spec's 10–30 KB estimate, because the subset has no hinting, glyph names or layout tables. A test keeps it under 30 KB.
 - **Not checked: fonts on GitHub.** The repo has no GitHub remote yet, so the spec's first risk is still open. The research notes say `<img>` contexts accept `data:` fonts, and the raw view of an SVG doesn't.
 - **Found, not fixed.** A title holding a C0 control character other than tab, line feed or carriage return still produces an SVG that isn't well-formed XML. That predates this ticket, and is left for validation to reject.
+
+Merged into diagram-engine in a857b68.
