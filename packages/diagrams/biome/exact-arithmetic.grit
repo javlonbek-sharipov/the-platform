@@ -1,0 +1,34 @@
+// The core's geometry must come out the same in every JavaScript engine, so
+// that a scene computed in a browser matches one computed in Node. IEEE 754
+// rounds addition, subtraction, multiplication, division and square root
+// exactly, and rounding, min and max are exact too. Everything else that Math
+// offers, and the ** operator, may differ from engine to engine.
+
+language js
+
+or {
+	`Math.$name` where {
+		not $name <: or {
+			`abs`,
+			`ceil`,
+			`floor`,
+			`max`,
+			`min`,
+			`round`,
+			`sign`,
+			`sqrt`,
+			`trunc`
+		},
+		register_diagnostic(span=$name, message="The core uses only arithmetic that gives the same result in every JavaScript engine: addition, subtraction, multiplication, division, square root, rounding, min and max.")
+	},
+	`const { $names } = Math` as $destructuring where {
+		register_diagnostic(span=$destructuring, message="Call Math's functions by name, so that the core's arithmetic can be checked.")
+	},
+	`$base ** $exponent` as $power where {
+		register_diagnostic(span=$power, message="Exponentiation may give different results in different JavaScript engines. Multiply instead.")
+	},
+	JsAssignmentExpression() as $assignment where {
+		$assignment <: r"(?s).*\*\*=.*",
+		register_diagnostic(span=$assignment, message="Exponentiation may give different results in different JavaScript engines. Multiply instead.")
+	}
+}

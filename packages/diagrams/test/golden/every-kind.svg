@@ -1,67 +1,67 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 336" width="2000" height="336">
   <g fill="none" stroke="#57606a" stroke-width="1.5">
     <g data-edge="shopper-&gt;web-app" data-kind="call" data-from="shopper" data-to="web-app">
-      <path d="M 184 48 L 280 48"/>
+      <path d="M 184 128 L 280 128"/>
     </g>
     <g data-edge="web-app-&gt;edge-cdn" data-kind="call" data-from="web-app" data-to="edge-cdn">
-      <path d="M 440 48 L 536 48"/>
+      <path d="M 440 128 L 536 128"/>
     </g>
     <g data-edge="edge-cdn-&gt;shop" data-kind="call" data-from="edge-cdn" data-to="shop">
-      <path d="M 696 48 L 792 48"/>
+      <path d="M 696 128 L 792 128"/>
     </g>
     <g data-edge="shop-&gt;shop-api" data-kind="call" data-from="shop" data-to="shop-api">
-      <path d="M 952 48 L 1048 48"/>
+      <path d="M 952 128 L 1048 128"/>
     </g>
     <g data-edge="shop-api-&gt;shop-db" data-kind="call" data-from="shop-api" data-to="shop-db">
-      <path d="M 1208 48 L 1304 48"/>
+      <path d="M 1208 128 L 1304 128 L 1304 48"/>
     </g>
     <g data-edge="shop-api-&gt;session-cache" data-kind="call" data-from="shop-api" data-to="session-cache">
-      <path d="M 1208 48 L 1304 48 L 1304 128"/>
+      <path d="M 1208 128 L 1304 128"/>
     </g>
     <g data-edge="shop-api-&gt;product-search" data-kind="call" data-from="shop-api" data-to="product-search">
-      <path d="M 1208 48 L 1304 48 L 1304 288"/>
+      <path d="M 1208 128 L 1304 128 L 1304 288"/>
     </g>
     <g data-edge="shop-api-&gt;shop-events" data-kind="message" data-from="shop-api" data-to="shop-events">
-      <path d="M 1208 48 L 1304 48 L 1304 208"/>
+      <path d="M 1208 128 L 1304 128 L 1304 208"/>
     </g>
     <g data-edge="shop-events-&gt;mailer" data-kind="message" data-from="shop-events" data-to="mailer">
-      <path d="M 1464 208 L 1560 208 L 1560 128"/>
+      <path d="M 1464 208 L 1560 208 L 1560 288"/>
     </g>
     <g data-edge="shop-events-&gt;resize-image" data-kind="message" data-from="shop-events" data-to="resize-image">
-      <path d="M 1464 208 L 1560 208 L 1560 48"/>
+      <path d="M 1464 208 L 1560 208"/>
     </g>
     <g data-edge="resize-image-&gt;image-store" data-kind="call" data-from="resize-image" data-to="image-store">
-      <path d="M 1720 48 L 1816 48"/>
+      <path d="M 1720 208 L 1816 208"/>
     </g>
   </g>
   <g font-family="Inter, Helvetica, Arial, sans-serif" font-size="14" text-anchor="middle" dominant-baseline="central">
     <g data-node="shopper" data-kind="person">
-      <rect x="24" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
-      <text x="104" y="48" fill="#1f2328">Shopper</text>
+      <rect x="24" y="104" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
+      <text x="104" y="128" fill="#1f2328">Shopper</text>
     </g>
     <g data-node="web-app" data-kind="client">
-      <rect x="280" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
-      <text x="360" y="48" fill="#1f2328">Web app</text>
+      <rect x="280" y="104" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
+      <text x="360" y="128" fill="#1f2328">Web app</text>
     </g>
     <g data-node="edge-cdn" data-kind="gateway">
-      <rect x="536" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
-      <text x="616" y="48" fill="#1f2328">CDN</text>
+      <rect x="536" y="104" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
+      <text x="616" y="128" fill="#1f2328">CDN</text>
     </g>
     <g data-node="shop" data-kind="system">
-      <rect x="792" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
-      <text x="872" y="48" fill="#1f2328">Shop</text>
+      <rect x="792" y="104" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
+      <text x="872" y="128" fill="#1f2328">Shop</text>
     </g>
     <g data-node="shop-api" data-kind="service">
-      <rect x="1048" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
-      <text x="1128" y="48" fill="#1f2328">Shop API</text>
+      <rect x="1048" y="104" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
+      <text x="1128" y="128" fill="#1f2328">Shop API</text>
     </g>
     <g data-node="resize-image" data-kind="function">
-      <rect x="1560" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
-      <text x="1640" y="48" fill="#1f2328">Resize image</text>
+      <rect x="1560" y="184" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
+      <text x="1640" y="208" fill="#1f2328">Resize image</text>
     </g>
     <g data-node="mailer" data-kind="worker">
-      <rect x="1560" y="104" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
-      <text x="1640" y="128" fill="#1f2328">Mailer</text>
+      <rect x="1560" y="264" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
+      <text x="1640" y="288" fill="#1f2328">Mailer</text>
     </g>
     <g data-node="shop-db" data-kind="database">
       <rect x="1304" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
@@ -76,8 +76,8 @@
       <text x="1384" y="208" fill="#1f2328">Shop events</text>
     </g>
     <g data-node="image-store" data-kind="storage">
-      <rect x="1816" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
-      <text x="1896" y="48" fill="#1f2328">Image store</text>
+      <rect x="1816" y="184" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
+      <text x="1896" y="208" fill="#1f2328">Image store</text>
     </g>
     <g data-node="product-search" data-kind="search">
       <rect x="1304" y="264" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>

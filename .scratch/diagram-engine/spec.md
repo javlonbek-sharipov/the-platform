@@ -1291,6 +1291,36 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
     - Every dependency is MIT, ISC, BSD or Apache-2.0, except lightningcss (MPL-2.0), which Vite pulls in for Vitest.
     - It's dev-only, unmodified and never shipped, so it gets the same allowance as an MPL-2.0 dependency of the CLI.
 
+**Ticket 02**
+
+1. **Direction in the builder.** `architecture({ title, direction: "down" }, …)` chooses `down`. The default stays `right`, and the builder always writes `direction`.
+2. **The scene states its spacing.** It carries `clearance` (32 px) and `grid` (8 px), so that tests, the router and, later, the editor read them instead of repeating constants.
+3. **A layout of one level.**
+   - The ranks, order and coordinates of one level live in a module of their own, which ticket 06 can run once per Group.
+   - It takes members, measured along and across the ranks, and the connections between them. It works with the rank axis as x, and `down` turns its result.
+4. **Declaration order** is the order of the Diagram's `nodes`, until ticket 06 brings levels and `members`.
+5. **Placeholders.**
+   - In each rank, placeholders start after the Nodes, in the order of their Edges.
+   - A placeholder has no size, and keeps the clearance from its neighbors, as a Node does.
+6. **Order.**
+   - There are eight sweeps, alternating forward and backward and starting forward. They stop early at zero crossings.
+   - A member with no neighbors in the rank before keeps its place in a sweep.
+   - Crossings are counted between neighboring ranks, placeholders included, and parallel Edges count once there too.
+   - Edges that close a cycle take no part in ordering or alignment either. The router takes them around.
+7. **Alignment.**
+   - Layout keeps Brandes and Köpf's four alignments, each packed as tightly as the order and the clearance allow, but doesn't balance them. The one that leaves the fewest segments bent wins, then the one whose bends are shortest in total, then the first of up-left, up-right, down-left and down-right.
+   - Balancing often puts a Node between two neighbors, so that neither Edge runs straight. Picking one alignment keeps it level with one of them, and still centers a fan of three on its middle Node.
+   - The paper's marking of segments that cross a segment between two placeholders is left out, since no test can see it while no router follows placeholders.
+   - Each block goes as near the start of its rank as the blocks before it allow, instead of the paper's classes and shifts.
+8. **The grid** is 8 px.
+   - Separations within a rank, and the lines of the ranks, round up to whole steps of it, so that the clearance and the order survive snapping.
+   - Node sizes are multiples of 16 px, twice the grid, so that a Node centered on a grid line has its corners on the grid too. Tickets 07 and 08 should keep to that.
+9. **Spacing.** The clearance is 32 px, the gap between ranks a fixed 96 px, and the margin 24 px.
+10. **Header Ports for `down`** sit at the middle of the top and bottom sides.
+11. **Arithmetic.**
+    - A Biome GritQL plugin, `packages/diagrams/biome/exact-arithmetic.grit`, allows only Math's `abs`, `ceil`, `floor`, `max`, `min`, `round`, `sign`, `sqrt` and `trunc` in the core. It rejects `**`, `**=` and destructuring Math.
+    - It covers the whole core, routing included.
+
 ### References
 
 **Routing and layout papers**

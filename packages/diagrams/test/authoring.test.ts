@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { architecture } from "../src/index.ts";
+import { type ArchitectureBuilder, architecture } from "../src/index.ts";
 
 describe("the architecture builder", () => {
 	test("produces a version-1 JSON model", () => {
@@ -23,6 +23,16 @@ describe("the architecture builder", () => {
 			edges: [{ id: "web-app->shop-api", kind: "call", from: "web-app", to: "shop-api" }],
 			walkthroughs: [],
 		});
+	});
+
+	test("lays a Diagram out to the right unless its author chooses down", () => {
+		const build = (d: ArchitectureBuilder) => {
+			d.node({ id: "shop-api", kind: "service", title: "Shop API" });
+		};
+
+		expect(architecture({ title: "Shop" }, build).direction).toBe("right");
+		expect(architecture({ title: "Shop", direction: "right" }, build).direction).toBe("right");
+		expect(architecture({ title: "Shop", direction: "down" }, build).direction).toBe("down");
 	});
 
 	test("keeps an Edge's explicit id", () => {
