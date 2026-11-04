@@ -8,26 +8,34 @@
  * show a negative zero, and lines end with LF, as does the file.
  */
 
+import type { Diagram } from "../authoring/model.ts";
 import {
+	type ArchitectureEdgeLook,
 	type ArchitectureNodeLook,
 	type ArchitectureStatus,
+	architectureEdgeLooks,
 	architectureFamilies,
 	architectureNodeKinds,
 	architectureNodeLooks,
 	architectureStatuses,
 } from "../notations/architecture.ts";
+import { compareText } from "./bundles.ts";
+import { descriptionOf } from "./description.ts";
 import { outlines, type PathData } from "./outlines.ts";
 import type {
 	Point,
 	RoutePoint,
 	Scene,
+	SceneChevron,
 	SceneEdge,
 	SceneGroup,
+	SceneJunction,
 	SceneLabel,
 	SceneNode,
+	ScenePort,
 	SceneText,
 } from "./scene.ts";
-import { type FontData, type FontWeight, hasCharacter } from "./text.ts";
+import { collapseSpaces, type FontData, type FontWeight, hasCharacter } from "./text.ts";
 import { type ColorName, palette } from "./theme.ts";
 
 type Attribute = readonly [name: string, value: string | number];
@@ -69,7 +77,7 @@ const statusMarks: Record<ArchitectureStatus, { path: string; color: ColorName; 
 	unknown: { path: "M 1.75 1.75 H 10.25 V 10.25 H 1.75 Z", color: "muted", line: false },
 };
 
-export function writeSvg(scene: Scene, fontData?: FontData): string {
+export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): string {
 	const { bounds } = scene;
 	// Labels are drawn over every Edge, so that no route runs across one.
 	const labels = scene.edges.flatMap(({ id, label }): [string, SceneLabel][] =>
@@ -79,6 +87,14 @@ export function writeSvg(scene: Scene, fontData?: FontData): string {
 		["viewBox", [bounds.x, bounds.y, bounds.width, bounds.height].map(number).join(" ")],
 		["width", bounds.width],
 		["height", bounds.height],
+	];
+	// What the SVG says about itself: to screen readers, and to the web
+	// component, which needs nothing but the SVG. No style reaches any of it,
+	// so it stays out of the scope's name, and editing it changes only these lines.
+	const about = [
+		indent(1, element("title", [], collapseSpaces(diagram.title))),
+		indent(1, element("desc", [], descriptionOf(diagram, scene))),
+		indent(1, element("metadata", [], modelText(diagram))),
 	];
 	const body = [
 		indent(
@@ -94,7 +110,7 @@ export function writeSvg(scene: Scene, fontData?: FontData): string {
 		...(scene.groups.length === 0
 			? []
 			: [
-					indent(1, start("g", [["class", "diagram-groups"], ...textAttributes])),
+					indent(1, start("g", [["class", "diagram-groups"]])),
 					...scene.groups.flatMap((group) => writeGroup(group).map((text) => indent(2, text))),
 					indent(1, "</g>"),
 				]),
@@ -103,19 +119,30 @@ export function writeSvg(scene: Scene, fontData?: FontData): string {
 			start("g", [
 				["class", "diagram-edges"],
 				["fill", "none"],
-				["stroke-width", 1.5],
 			]),
 		),
-		...scene.edges.flatMap((edge) => writeEdge(edge).map((text) => indent(2, text))),
+		// Edges that cross between regions or zones go beneath the others, so a
+		// trunk they share with Edges that don't shows the plain color.
+		...[
+			...scene.edges.filter((edge) => edge.crosses !== undefined),
+			...scene.edges.filter((edge) => edge.crosses === undefined),
+		].flatMap((edge) => writeEdge(edge).map((text) => indent(2, text))),
+		...(scene.junctions.length === 0
+			? []
+			: [
+					indent(2, start("g", [["class", "diagram-junctions"]])),
+					...scene.junctions.map((junction) => indent(3, writeJunction(junction))),
+					indent(2, "</g>"),
+				]),
 		indent(1, "</g>"),
 		...(labels.length === 0
 			? []
 			: [
-					indent(1, start("g", [["class", "diagram-labels"], ...textAttributes])),
+					indent(1, start("g", [["class", "diagram-labels"]])),
 					...labels.flatMap(([id, label]) => writeLabel(id, label).map((text) => indent(2, text))),
 					indent(1, "</g>"),
 				]),
-		indent(1, start("g", textAttributes)),
+		indent(1, start("g", [["class", "diagram-nodes"]])),
 		...scene.nodes.flatMap((node) => writeNode(node).map((text) => indent(2, text))),
 		indent(1, "</g>"),
 	];
@@ -131,19 +158,19 @@ export function writeSvg(scene: Scene, fontData?: FontData): string {
 	];
 	const scope = `diagram-${hash(contents.join("\n"))}`;
 	const lines = [
-		start("svg", [["xmlns", "http://www.w3.org/2000/svg"], ["class", scope], ...size]),
+		start("svg", [
+			["xmlns", "http://www.w3.org/2000/svg"],
+			["class", scope],
+			["role", "img"],
+			...size,
+		]),
+		...about,
 		...style(scope, fonts, uses).map((text) => indent(1, text)),
 		...body,
 		"</svg>",
 	];
 	return `${lines.join("\n")}\n`;
 }
-
-/** Every text is centered on its point. */
-const textAttributes: Attribute[] = [
-	["text-anchor", "middle"],
-	["dominant-baseline", "central"],
-];
 
 interface EmbeddedFont {
 	weight: FontWeight;
@@ -225,7 +252,17 @@ function colorUses(scene: Scene): ColorUse[] {
 				] as const)),
 		...(scene.edges.length === 0
 			? []
-			: [{ selector: ".diagram-edges", property: "stroke", color: "muted" } as const]),
+			: ([
+					{ selector: ".diagram-edges", property: "color", color: "edge" },
+					{ selector: ".diagram-casing", property: "stroke", color: "edge-casing" },
+				] as const)),
+		...(scene.edges.every((edge) => edge.crosses === undefined)
+			? []
+			: ([
+					{ selector: "[data-crosses]", property: "color", color: "warn" },
+					{ selector: "[data-crosses] .diagram-casing", property: "stroke", color: "warn-casing" },
+					{ selector: ".diagram-badge", property: "stroke", color: "surface" },
+				] as const)),
 		...(labels.length === 0
 			? []
 			: [{ selector: ".diagram-label", property: "fill", color: "background" } as const]),
@@ -438,6 +475,12 @@ function writeNode(node: SceneNode): string[] {
 	];
 }
 
+/**
+ * A text, centered on its point. It sets its own anchor and baseline rather
+ * than inheriting them from a group: SVG 1.1 doesn't inherit
+ * `dominant-baseline`, so renderers that follow it, such as resvg, would set
+ * the text on its alphabetic baseline instead, 5 px high.
+ */
 function writeText(text: SceneText, className: string): string {
 	return element(
 		"text",
@@ -447,6 +490,8 @@ function writeText(text: SceneText, className: string): string {
 			["y", text.point.y],
 			["font-size", text.size],
 			["font-weight", fontWeights[text.weight]],
+			["text-anchor", "middle"],
+			["dominant-baseline", "central"],
 		],
 		text.text,
 	);
@@ -488,12 +533,70 @@ function lookOf(kind: string): ArchitectureNodeLook {
 	return look;
 }
 
+/**
+ * The JSON model, on one line, with every object's fields in code unit order,
+ * so that equal models give the same text however they were built.
+ */
+function modelText(diagram: Diagram): string {
+	return JSON.stringify(diagram, (_, value: unknown) =>
+		typeof value === "object" && value !== null && !Array.isArray(value)
+			? Object.fromEntries(
+					Object.keys(value)
+						.sort(compareText)
+						.map((key) => [key, (value as Record<string, unknown>)[key]]),
+				)
+			: value,
+	);
+}
+
 /** Path data, with its numbers written as every number in the SVG is. */
 function pathText(path: PathData): string {
 	return path.map((part) => (typeof part === "number" ? number(part) : part)).join(" ");
 }
 
+/** An Edge's line: a body, in the Edge's color, inside a wider, darker casing. */
+const bodyWidth = 1.5;
+const casingWidth = 3.5;
+/** The dashes of a dashed line, such as a message's: 6 px drawn, then 4 px left out. */
+const dashes = "6 4";
+/**
+ * The arrowhead at an Edge's target: how far it reaches back from its tip, and
+ * half its width there. Its outline is the casing's, a pixel wide.
+ */
+const arrowLength = 8;
+const arrowHalfWidth = 4.5;
+const arrowOutline = 1;
+/**
+ * A chevron: how far it reaches along its run, its tip half of that ahead of
+ * its point, and how far its arms reach to each side, past the casing.
+ */
+const chevronLength = 4;
+const chevronHalfWidth = 3.5;
+
+/**
+ * An Edge: its line, as a casing beneath a body; its chevrons, cased alike;
+ * its arrowhead; and its badge, if it crosses between regions or zones.
+ */
 function writeEdge(edge: SceneEdge): string[] {
+	const line = linePath(edge);
+	const dashed: Attribute[] =
+		edgeLookOf(edge.kind).line === "dashed" ? [["stroke-dasharray", dashes]] : [];
+	const rounded: Attribute[] = [
+		["stroke-linecap", "round"],
+		["stroke-linejoin", "round"],
+	];
+	const parts = [
+		...cased(line, dashed),
+		...(edge.chevrons.length === 0 ? [] : cased(edge.chevrons.map(chevronPath).join(" "), rounded)),
+		empty("path", [
+			["class", "diagram-casing"],
+			["d", arrowhead(edge.toPort)],
+			["fill", "currentColor"],
+			["stroke-width", arrowOutline],
+			["stroke-linejoin", "round"],
+		]),
+		...(edge.crosses === undefined ? [] : writeBadge(edge.crosses.badge)),
+	];
 	return [
 		start("g", [
 			["data-edge", edge.id],
@@ -502,9 +605,9 @@ function writeEdge(edge: SceneEdge): string[] {
 			...(edge.fromRow === undefined ? [] : [["data-from-row", edge.fromRow] as const]),
 			["data-to", edge.to],
 			...(edge.toRow === undefined ? [] : [["data-to-row", edge.toRow] as const]),
+			...(edge.crosses === undefined ? [] : [["data-crosses", edge.crosses.kind] as const]),
 		]),
-		// Each piece of the stroke is a path of its own within one, so that hops show as gaps.
-		indent(1, empty("path", [["d", edge.stroke.map(pathData).join(" ")]])),
+		...parts.map((text) => indent(1, text)),
 		"</g>",
 	];
 }
@@ -558,6 +661,164 @@ function writeLabel(id: string, label: SceneLabel): string[] {
 		...(rate === undefined ? [] : [indent(1, writeText(rate, "diagram-label-detail"))]),
 		"</g>",
 	];
+}
+
+/**
+ * The path data of an Edge's line: each piece of its stroke, between hops, as
+ * a subpath of its own, so that hops show as gaps in both casing and body.
+ * The piece at the target stops just inside the arrowhead, so that the
+ * casing doesn't show beside the tip. The pieces are written from the target
+ * back, so that the dashes of a dashed line start there: the Edges of one
+ * bundle end at one Port, hop together, and so dash alike along the trunk
+ * they share.
+ */
+function linePath({ route, stroke }: SceneEdge): string {
+	const pieces = stroke.length === 0 ? [route] : stroke;
+	return pieces
+		.map((piece, index) =>
+			index === pieces.length - 1 ? trimmed(piece, arrowLength - arrowOutline) : [...piece],
+		)
+		.reverse()
+		.map((piece) => pathData(piece.reverse()))
+		.join(" ");
+}
+
+/** A path stroked as an Edge's line is: a casing, then a body in the Edge's color over it. */
+function cased(d: string, attributes: Attribute[]): string[] {
+	return [
+		empty("path", [
+			["class", "diagram-casing"],
+			["d", d],
+			["stroke-width", casingWidth],
+			...attributes,
+		]),
+		empty("path", [
+			["d", d],
+			["stroke", "currentColor"],
+			["stroke-width", bodyWidth],
+			...attributes,
+		]),
+	];
+}
+
+function edgeLookOf(kind: string): ArchitectureEdgeLook {
+	const look = (architectureEdgeLooks as Partial<Record<string, ArchitectureEdgeLook>>)[kind];
+	if (look === undefined) {
+		throw new Error(`Edge Kind ${kind} has no look, so validation should have rejected it`);
+	}
+	return look;
+}
+
+/** The badge of an Edge that crosses between regions or zones: a disc in its color. */
+const badgeRadius = 7;
+const badgeOutline = 1;
+/** The globe on the badge: its radius, and the half-width of its meridian. */
+const globeRadius = 3.5;
+const meridian = 1.5;
+const globeStroke = 1;
+
+/** A badge, centered on its point: a disc, cased like the Edge, with a globe on it. */
+function writeBadge({ x, y }: Point): string[] {
+	const [left, right, top, bottom] = [
+		x - globeRadius,
+		x + globeRadius,
+		y - globeRadius,
+		y + globeRadius,
+	];
+	const r = number(globeRadius);
+	const globe = [
+		`M ${number(left)} ${number(y)} A ${r} ${r} 0 1 0 ${number(right)} ${number(y)}`,
+		`A ${r} ${r} 0 1 0 ${number(left)} ${number(y)} Z`,
+		`M ${number(x)} ${number(top)} A ${number(meridian)} ${r} 0 0 0 ${number(x)} ${number(bottom)}`,
+		`A ${number(meridian)} ${r} 0 0 0 ${number(x)} ${number(top)} Z`,
+		`M ${number(left)} ${number(y)} H ${number(right)}`,
+	].join(" ");
+	return [
+		empty("circle", [
+			["class", "diagram-casing"],
+			["cx", x],
+			["cy", y],
+			["r", badgeRadius],
+			["fill", "currentColor"],
+			["stroke-width", badgeOutline],
+		]),
+		empty("path", [
+			["class", "diagram-badge"],
+			["d", globe],
+			["stroke-width", globeStroke],
+		]),
+	];
+}
+
+/** A junction's mark: a dot in the Edges' color, cased like them. */
+const junctionRadius = 3;
+const junctionOutline = 1.5;
+
+/**
+ * The mark over a junction, where the Edges from one Port part. It carries
+ * the Port, as the Edges' groups carry their sources.
+ */
+function writeJunction(junction: SceneJunction): string {
+	return empty("circle", [
+		["class", "diagram-casing"],
+		["data-from", junction.node],
+		...(junction.row === undefined ? [] : [["data-from-row", junction.row] as const]),
+		["cx", junction.point.x],
+		["cy", junction.point.y],
+		["r", junctionRadius],
+		["fill", "currentColor"],
+		["stroke-width", junctionOutline],
+	]);
+}
+
+/** A chevron's path data: its two arms, which meet at its tip. */
+function chevronPath({ point, heading: way }: SceneChevron): string {
+	const tip = {
+		x: point.x + (way.x * chevronLength) / 2,
+		y: point.y + (way.y * chevronLength) / 2,
+	};
+	const back = {
+		x: point.x - (way.x * chevronLength) / 2,
+		y: point.y - (way.y * chevronLength) / 2,
+	};
+	const across = { x: -way.y * chevronHalfWidth, y: way.x * chevronHalfWidth };
+	return [
+		`M ${number(back.x + across.x)} ${number(back.y + across.y)}`,
+		`L ${number(tip.x)} ${number(tip.y)}`,
+		`L ${number(back.x - across.x)} ${number(back.y - across.y)}`,
+	].join(" ");
+}
+
+/**
+ * The arrowhead at a Port: a triangle whose tip touches the Node's side, and
+ * which points into the Node, along the Port's stub.
+ */
+function arrowhead({ point, stub }: ScenePort): string {
+	const into = heading(stub, point);
+	const base = { x: point.x - into.x * arrowLength, y: point.y - into.y * arrowLength };
+	const across = { x: -into.y * arrowHalfWidth, y: into.x * arrowHalfWidth };
+	return [
+		`M ${number(point.x)} ${number(point.y)}`,
+		`L ${number(base.x + across.x)} ${number(base.y + across.y)}`,
+		`L ${number(base.x - across.x)} ${number(base.y - across.y)}`,
+		"Z",
+	].join(" ");
+}
+
+/**
+ * A route with its target end moved back along its last run, by up to `by`,
+ * but never into the arc of the corner before it.
+ */
+function trimmed(route: RoutePoint[], by: number): RoutePoint[] {
+	const end = route.at(-1);
+	const before = route.at(-2);
+	if (end === undefined || before === undefined) {
+		return [...route];
+	}
+	const room = Math.abs(end.x - before.x) + Math.abs(end.y - before.y) - before.radius;
+	const cut = Math.max(0, Math.min(by, room));
+	const back = heading(end, before);
+	return [...route.slice(0, -1), { x: end.x + back.x * cut, y: end.y + back.y * cut, radius: 0 }];
 }
 
 /**
@@ -632,16 +893,33 @@ function number(value: number): string {
 	return String(rounded === 0 ? 0 : rounded);
 }
 
-const hashSize = 1n << 64n;
-
-/** A 64-bit FNV-1a hash of the text's UTF-16 code units, in hex. */
+/**
+ * A 64-bit FNV-1a hash of the text's UTF-16 code units, in hex. The hash is
+ * kept as four 16-bit limbs, lowest first, so that every step is exact in
+ * plain numbers, and much faster than in BigInts. Multiplying by the FNV prime,
+ * 2⁴⁰ + 0x1b3, is multiplying by 0x1b3 and adding the hash shifted up by 40
+ * bits, carrying from limb to limb and dropping what passes 64 bits.
+ */
 function hash(text: string): string {
-	let value = 0xcbf29ce484222325n;
+	let l0 = 0x2325;
+	let l1 = 0x8422;
+	let l2 = 0x9ce4;
+	let l3 = 0xcbf2;
 	for (let index = 0; index < text.length; index++) {
-		value ^= BigInt(text.charCodeAt(index));
-		value = (value * 0x100000001b3n) % hashSize;
+		l0 ^= text.charCodeAt(index);
+		let carry = l0 * 0x1b3;
+		const r0 = carry & 0xffff;
+		carry = (carry >>> 16) + l1 * 0x1b3;
+		const r1 = carry & 0xffff;
+		carry = (carry >>> 16) + l2 * 0x1b3 + ((l0 << 8) & 0xffff);
+		const r2 = carry & 0xffff;
+		carry = (carry >>> 16) + l3 * 0x1b3 + (((l1 << 8) | (l0 >>> 8)) & 0xffff);
+		l0 = r0;
+		l1 = r1;
+		l2 = r2;
+		l3 = carry & 0xffff;
 	}
-	return value.toString(16).padStart(16, "0");
+	return [l3, l2, l1, l0].map((limb) => limb.toString(16).padStart(4, "0")).join("");
 }
 
 const base64Digits = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
