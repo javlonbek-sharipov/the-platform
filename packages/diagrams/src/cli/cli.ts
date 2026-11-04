@@ -29,7 +29,7 @@ const usage = `Usage: diagrams <command>
 
 Commands:
   render [paths...]  Write each Diagram's SVG next to its source
-  lint               Check every Diagram, and that its SVG matches its source
+  lint [--json]      Check the whole Atlas: every Diagram, Link and SVG
 `;
 
 /** Runs one command, and returns its exit code. */
@@ -51,7 +51,7 @@ async function run(args: string[], context: CliContext): Promise<number> {
 		case "render":
 			return renderCommand(rest, context);
 		case "lint":
-			return lintCommand(context);
+			return lintCommand(rest, context);
 		case undefined:
 		case "help":
 		case "--help":
@@ -90,16 +90,36 @@ async function renderCommand(paths: string[], context: CliContext): Promise<numb
 	return failed ? 1 : 0;
 }
 
-async function lintCommand(context: CliContext): Promise<number> {
+async function lintCommand(options: string[], context: CliContext): Promise<number> {
+	const unknown = options.find((option) => option !== "--json");
+	if (unknown !== undefined) {
+		context.stderr.write(`Unknown option \`${unknown}\`.\n\n${usage}`);
+		return 2;
+	}
 	const { diagrams, messages } = await lintAtlas(findRoot(context.cwd));
-	print(messages, context);
 	const errors = messages.filter((message) => message.severity === "error").length;
 	const warnings = messages.length - errors;
-	const counts = [
-		errors === 0 ? "no errors" : plural(errors, "error"),
-		...(warnings === 0 ? [] : [plural(warnings, "warning")]),
-	];
-	context.stdout.write(`Checked ${plural(diagrams, "Diagram")}: ${counts.join(", ")}.\n`);
+	if (options.includes("--json")) {
+		const json = messages.map(({ file, line, column, severity, rule, message, pointer }) => ({
+			file: shown(file, context),
+			line,
+			column,
+			severity,
+			rule,
+			message,
+			pointer,
+		}));
+		context.stdout.write(
+			`${JSON.stringify({ diagrams, errors, warnings, messages: json }, null, 2)}\n`,
+		);
+	} else {
+		print(messages, context);
+		const counts = [
+			errors === 0 ? "no errors" : plural(errors, "error"),
+			...(warnings === 0 ? [] : [plural(warnings, "warning")]),
+		];
+		context.stdout.write(`Checked ${plural(diagrams, "Diagram")}: ${counts.join(", ")}.\n`);
+	}
 	return errors === 0 ? 0 : 1;
 }
 

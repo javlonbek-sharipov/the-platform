@@ -123,6 +123,55 @@ describe("diagrams render and lint", () => {
 		expect(lines.slice(4)).toEqual(["Checked 4 Diagrams: 4 errors.", ""]);
 	});
 
+	test("lint --json prints the same messages as JSON, with the same exit code", async () => {
+		const atlas = await sampleAtlas({
+			"docs/broken.diagram.ts": shopModule().replace('kind: "service"', 'kind: "servce"'),
+			"docs/shop.diagram.ts": shopModule(),
+		});
+
+		const lint = await runCli(["lint", "--json"], atlas);
+		expect(lint).toMatchObject({ code: 1, stderr: "" });
+		expect(JSON.parse(lint.stdout)).toEqual({
+			diagrams: 2,
+			errors: 2,
+			warnings: 0,
+			messages: [
+				{
+					file: "docs/broken.diagram.ts",
+					line: 5,
+					column: 16,
+					severity: "error",
+					rule: "unknown-kind",
+					message:
+						"Node `shop-api` has the Kind `servce`, which the architecture Notation doesn't have. Its Node Kinds are person, system, client, gateway, service, worker, function, database, cache, queue, storage and search.",
+					pointer: "/nodes/1/kind",
+				},
+				{
+					file: "docs/shop.diagram.svg",
+					severity: "error",
+					rule: "svg-missing",
+					message: "The SVG is missing. Run `diagrams render`, and commit the SVG with its source.",
+				},
+			],
+		});
+
+		await rm(join(atlas, "docs/broken.diagram.ts"));
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+		expect(await runCli(["lint", "--json"], join(atlas, "docs"))).toEqual({
+			code: 0,
+			stdout: '{\n  "diagrams": 1,\n  "errors": 0,\n  "warnings": 0,\n  "messages": []\n}\n',
+			stderr: "",
+		});
+	});
+
+	test("lint rejects an option it doesn't have, with exit code 2", async () => {
+		const atlas = await sampleAtlas({ "docs/shop.diagram.ts": shopModule() });
+
+		const lint = await runCli(["lint", "--jsno"], atlas);
+		expect(lint).toMatchObject({ code: 2, stdout: "" });
+		expect(lint.stderr).toMatch(/^Unknown option `--jsno`\.\n\nUsage: diagrams <command>/);
+	});
+
 	test("render writes only the SVGs of the paths it's given", async () => {
 		const atlas = await sampleAtlas({
 			"docs/shop.diagram.ts": shopModule("Shop"),
