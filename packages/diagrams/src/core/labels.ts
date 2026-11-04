@@ -18,6 +18,7 @@
  */
 
 import type { Direction, Edge } from "../authoring/model.ts";
+import { technologyOf } from "../notations/architecture.ts";
 import { compareText } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import type {
@@ -29,7 +30,13 @@ import type {
 	SceneLabel,
 	SceneNode,
 } from "./scene.ts";
-import { type LabelContent, labelBoxSize, labelTexts, labelWidth } from "./text.ts";
+import {
+	type LabelContent,
+	type LabelTechnology,
+	labelBoxSize,
+	labelTexts,
+	labelWidth,
+} from "./text.ts";
 
 /**
  * How labels keep clear: the gap between a label's box and the line it sits
@@ -50,7 +57,10 @@ const narrowest = 48;
 /** Two lines closer than this are one, as two routes in one lane are. */
 const sameLine = 0.5;
 
-/** What an Edge's label shows, if it shows anything. */
+/**
+ * What an Edge's label shows, if it shows anything. Its Technology shows by
+ * its display name, after its logo, or by its slug when it has no logo.
+ */
 export function labelContent(edge: Edge): LabelContent | undefined {
 	const { label, technology, rate } = edge;
 	if (label === undefined && technology === undefined && rate === undefined) {
@@ -58,9 +68,15 @@ export function labelContent(edge: Edge): LabelContent | undefined {
 	}
 	return {
 		...(label === undefined ? {} : { text: label }),
-		...(technology === undefined ? {} : { technology }),
+		...(technology === undefined ? {} : { technology: labelTechnology(technology) }),
 		...(rate === undefined ? {} : { rate }),
 	};
+}
+
+/** A Technology as a label shows it: by its name, after its logo if it has one. */
+function labelTechnology(slug: string): LabelTechnology {
+	const { name, logo } = technologyOf(slug);
+	return { slug, name, logo: logo !== undefined };
 }
 
 /** The size of an Edge's label box, if the Edge has a label, a Technology or a rate. */

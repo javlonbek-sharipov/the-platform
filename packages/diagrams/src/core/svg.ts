@@ -18,6 +18,8 @@ import {
 	architectureNodeKinds,
 	architectureNodeLooks,
 	architectureStatuses,
+	logoUnits,
+	technologyOf,
 } from "../notations/architecture.ts";
 import { compareText } from "./bundles.ts";
 import { descriptionOf } from "./description.ts";
@@ -31,6 +33,7 @@ import type {
 	SceneGroup,
 	SceneJunction,
 	SceneLabel,
+	SceneLogo,
 	SceneNode,
 	ScenePort,
 	SceneText,
@@ -288,6 +291,14 @@ function colorUses(scene: Scene): ColorUse[] {
 		...(scene.nodes.length === 0
 			? []
 			: [{ selector: ".diagram-text", property: "fill", color: "ink" } as const]),
+		...(scene.nodes.every((node) => node.technology === undefined)
+			? []
+			: [{ selector: ".diagram-technology", property: "fill", color: "muted" } as const]),
+		// Every logo is drawn in one color of the theme, never in its brand's.
+		...(scene.nodes.every((node) => node.logo === undefined) &&
+		labels.every((label) => label.logo === undefined)
+			? []
+			: [{ selector: ".diagram-logo", property: "fill", color: "muted" } as const]),
 		...(scene.nodes.every((node) => node.callout === undefined)
 			? []
 			: ([
@@ -323,6 +334,7 @@ function themeRules(scope: string, uses: ColorUse[]): string[] {
 function textsOf(node: SceneNode): SceneText[] {
 	return [
 		node.title,
+		...(node.technology === undefined ? [] : [node.technology]),
 		...rowTextsOf(node),
 		...(node.callout === undefined ? [] : [node.callout.text]),
 	];
@@ -374,12 +386,12 @@ function writeGroup(group: SceneGroup): string[] {
 
 /**
  * A Node: its Kind's outline, each shape of it filled with the surface, then
- * tinted and stroked in the Kind's hue; its badge and title; a line across it
- * above its Rows, and their names and values; its status mark; and its
- * callout's tag.
+ * tinted and stroked in the Kind's hue; its badge, its Technology's logo, its
+ * title and its Technology's name; a line across it above its Rows, and their
+ * names and values; its status mark; and its callout's tag.
  */
 function writeNode(node: SceneNode): string[] {
-	const { box, badge, title, rows, callout } = node;
+	const { box, badge, title, technology, logo, rows, callout } = node;
 	const look = lookOf(node.kind);
 	const outline = outlines[look.outline];
 	// A callout highlights the outline: wider, and in the accent color.
@@ -437,7 +449,9 @@ function writeNode(node: SceneNode): string[] {
 			["stroke-linecap", "round"],
 			["stroke-linejoin", "round"],
 		]),
+		...(logo === undefined ? [] : writeLogo(logo)),
 		writeText(title, "diagram-text"),
+		...(technology === undefined ? [] : [writeText(technology, "diagram-technology")]),
 		...(divider === undefined
 			? []
 			: [
@@ -472,6 +486,29 @@ function writeNode(node: SceneNode): string[] {
 		]),
 		...parts.map((text) => indent(1, text)),
 		"</g>",
+	];
+}
+
+/**
+ * A Technology's logo: its path data from the logo table, in a viewport of
+ * its own that scales the logo's square to the logo's box, exactly.
+ */
+function writeLogo({ technology, box }: SceneLogo): string[] {
+	const path = technologyOf(technology).logo;
+	if (path === undefined) {
+		throw new Error(`Technology ${technology} has no logo, so the scene should draw none`);
+	}
+	return [
+		start("svg", [
+			["class", "diagram-logo"],
+			["x", box.x],
+			["y", box.y],
+			["width", box.width],
+			["height", box.height],
+			["viewBox", `0 0 ${logoUnits} ${logoUnits}`],
+		]),
+		indent(1, empty("path", [["d", path]])),
+		"</svg>",
 	];
 }
 
@@ -623,10 +660,10 @@ const separatorRadius = 1.25;
 /**
  * An Edge's label: a box in the background's color, which hides whatever
  * passes behind it, its text, and its Technology and rate below it, muted,
- * with a dot between them.
+ * with a dot between them, and the Technology's logo before its name.
  */
 function writeLabel(id: string, label: SceneLabel): string[] {
-	const { box, text, technology, rate } = label;
+	const { box, text, technology, logo, rate } = label;
 	return [
 		start("g", [["data-edge-label", id]]),
 		indent(
@@ -641,6 +678,7 @@ function writeLabel(id: string, label: SceneLabel): string[] {
 			]),
 		),
 		...(text === undefined ? [] : [indent(1, writeText(text, "diagram-label-text"))]),
+		...(logo === undefined ? [] : writeLogo(logo).map((line) => indent(1, line))),
 		...(technology === undefined ? [] : [indent(1, writeText(technology, "diagram-label-detail"))]),
 		...(technology === undefined || rate === undefined
 			? []

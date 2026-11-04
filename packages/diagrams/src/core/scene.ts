@@ -64,6 +64,13 @@ export interface SceneNode {
 	/** Where the Kind's badge is drawn, at the start of the header. */
 	badge: Box;
 	title: SceneText;
+	/**
+	 * The name of the Node's Technology, if it has one, below its title: its
+	 * display name, or its slug when the logo table doesn't have it.
+	 */
+	technology?: SceneText;
+	/** The Technology's logo, at the end of the header, when the logo table has it. */
+	logo?: SceneLogo;
 	/** One for each of the Node's Rows, in order, in bands below its header. */
 	rows: SceneRow[];
 	/** Whether the Node stands for something we don't own or run, drawn with a dashed outline. */
@@ -87,6 +94,14 @@ export interface SceneRow {
 	input: ScenePort;
 	/** The Port on the Node's right side, where an Edge that starts at the Row leaves. */
 	output: ScenePort;
+}
+
+/** A Technology's logo from the logo table, drawn in one theme color. */
+export interface SceneLogo {
+	/** The slug of the Technology it stands for. */
+	technology: string;
+	/** The square it's drawn in. */
+	box: Box;
 }
 
 /** A Node's status, and where its mark is drawn, at the end of the header. */
@@ -181,8 +196,10 @@ export interface SceneLabel {
 	box: Box;
 	/** The label's own text, if the Edge has one. */
 	text?: SceneText;
-	/** The Edge's Technology, shown as its name. */
+	/** The Edge's Technology, shown as its name: its display name, or its slug when it has no logo. */
 	technology?: SceneText;
+	/** The Technology's logo, just before its name, when the logo table has it. */
+	logo?: SceneLogo;
 	/** The Edge's rate, after its Technology. */
 	rate?: SceneText;
 }

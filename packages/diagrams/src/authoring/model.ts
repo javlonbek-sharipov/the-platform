@@ -39,7 +39,7 @@ export interface Node {
 	title: string;
 	/**
 	 * The slug of the product, language or protocol the Node is built with,
-	 * such as `postgres` or `go`.
+	 * such as `postgres` or `go`, drawn in its header as its logo and its name.
 	 */
 	technology?: string;
 	/** Whether the Node stands for something we don't own or run, such as a third-party API. */

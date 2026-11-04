@@ -27,7 +27,7 @@
 		{
 			"id": "orders-db",
 			"kind": "database",
-			"title": "Orders database",
+			"title": "Orders DB",
 			"technology": "postgres",
 			"rows": [{ "name": "orders", "value": "table" }]
 		},

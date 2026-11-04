@@ -3,6 +3,7 @@ import { crowded } from "./fixtures/crowded.ts";
 import edges from "./fixtures/edges.ts";
 import everyKind from "./fixtures/every-kind.ts";
 import externalStatusCallout from "./fixtures/external-status-callout.ts";
+import technologies from "./fixtures/technologies.ts";
 import { renderWithFont } from "./support/fonts.ts";
 import { expectGolden } from "./support/golden.ts";
 
@@ -10,6 +11,7 @@ import { expectGolden } from "./support/golden.ts";
 const fixtures = {
 	"every-kind": everyKind,
 	"external-status-callout": externalStatusCallout,
+	technologies,
 	crowded: crowded(),
 	// Both Edge Kinds, junctions, and Edges that cross between zones and between regions.
 	edges,

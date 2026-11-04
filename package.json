@@ -13,7 +13,8 @@
 		"bench": "node packages/diagrams/scripts/benchmark.ts",
 		"check": "biome check",
 		"typecheck": "tsc -p .",
-		"generate:font-metrics": "node packages/diagrams/scripts/generate-font-metrics.ts"
+		"generate:font-metrics": "node packages/diagrams/scripts/generate-font-metrics.ts",
+		"generate:technologies": "node packages/diagrams/scripts/generate-technologies.ts"
 	},
 	"dependencies": {
 		"@the-platform/diagrams": "workspace:*"

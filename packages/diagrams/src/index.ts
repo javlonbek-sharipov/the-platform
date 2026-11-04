@@ -58,6 +58,8 @@ export type {
 	ArchitectureNodeKind,
 	ArchitectureNodeLook,
 	ArchitectureStatus,
+	KnownTechnology,
+	Technology,
 } from "./notations/architecture.ts";
 export {
 	architectureEdgeKinds,
@@ -68,3 +70,4 @@ export {
 	architectureNodeLooks,
 	architectureStatuses,
 } from "./notations/architecture.ts";
+export { technologies } from "./notations/technologies.ts";
