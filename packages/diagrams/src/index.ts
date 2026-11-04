@@ -4,24 +4,39 @@ export type {
 	ArchitectureBuilder,
 	ArchitectureNode,
 	ArchitectureOptions,
+	ArchitectureRow,
 	EdgeEnd,
 	EdgeHandle,
 	EdgeOptions,
 	NodeHandle,
 } from "./authoring/architecture.ts";
 export { architecture } from "./authoring/architecture.ts";
-export type { Diagram, Direction, Edge, Node } from "./authoring/model.ts";
+export type { AtlasConfig } from "./authoring/atlas.ts";
+export { atlas } from "./authoring/atlas.ts";
+export type {
+	Diagram,
+	Direction,
+	DocLink,
+	Edge,
+	IdLink,
+	Link,
+	Node,
+	Row,
+	RowEnd,
+} from "./authoring/model.ts";
 export type { Diagnostic, Severity } from "./core/diagnostics.ts";
 export type { RenderOptions, RenderResult } from "./core/render.ts";
 export { render } from "./core/render.ts";
 export type {
 	Box,
 	Point,
+	RoutePoint,
 	Scene,
 	SceneCallout,
 	SceneEdge,
 	SceneNode,
 	ScenePort,
+	SceneRow,
 	SceneStatus,
 	SceneText,
 	Side,

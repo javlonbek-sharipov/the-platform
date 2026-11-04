@@ -11,6 +11,11 @@ import { outlines } from "./outlines.ts";
 import type { Box, SceneCallout, SceneStatus, SceneText } from "./scene.ts";
 import { calloutText, nodeTitle } from "./text.ts";
 
+/**
+ * The band of each Row, below the header. It's two steps of 16 px, so that
+ * every Node's size stays a multiple of 16 px.
+ */
+export const rowHeight = 32;
 /** The room between the header's contents and the outline's face, on each side. */
 const padding = 12;
 const badgeSize = 16;
@@ -37,11 +42,24 @@ export interface NodeFrame {
 	tagRoom: number;
 }
 
+/** A Node's size: its Kind's, with a band for each Row below the header. */
 export function frameOf(node: Node): NodeFrame {
 	const { width, height, outline } = architectureNodeLooks[node.kind];
 	const { headRoom } = outlines[outline];
 	const tagRoom = node.callout === undefined ? 0 : tagGap + tagHeight;
-	return { width, height, headerTop: headRoom, headerHeight: height - headRoom, tagRoom };
+	return {
+		width,
+		height: height + (node.rows?.length ?? 0) * rowHeight,
+		headerTop: headRoom,
+		headerHeight: height - headRoom,
+		tagRoom,
+	};
+}
+
+/** The part of a Node's width that its outline's face covers, where its text goes. */
+export function faceOf(node: Node, box: Box): { x: number; width: number } {
+	const { inset } = outlines[architectureNodeLooks[node.kind].outline];
+	return { x: box.x + inset.left, width: box.width - inset.left - inset.right };
 }
 
 export interface NodeParts {

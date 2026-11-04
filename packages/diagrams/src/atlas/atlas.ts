@@ -1,116 +1,181 @@
 /**
- * The Atlas, on the Node side: it finds the diagram modules in the repo,
- * loads and renders them, and compares the SVGs on disk with fresh renders.
+ * The Atlas, on the Node side: it loads the config and the Diagrams that
+ * discovery finds, renders each Diagram, and runs every check, from the
+ * model's own rules to those that span Diagrams and the SVGs on disk.
  */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import type { Diagnostic } from "../core/diagnostics.ts";
+import { existsSync, readFileSync } from "node:fs";
+import { basename, join, relative, sep } from "node:path";
+import type { Declarations } from "../authoring/declarations.ts";
+import type { Diagram } from "../authoring/model.ts";
 import { render } from "../core/render.ts";
 import { bundledFontData } from "../fonts/bundled.ts";
-import { load } from "./load.ts";
+import { checkIds, checkLinks } from "./checks.ts";
+import {
+	type AtlasFiles,
+	byPath,
+	configFile,
+	discover,
+	moduleSuffix,
+	svgSuffix,
+} from "./discover.ts";
+import { type Loaded, load, type Place } from "./load.ts";
+import { type AtlasMessage, located, placeText } from "./messages.ts";
 
 /** The engine's cache folder, at the repo root. Git ignores it. */
 export const cacheFolder = ".diagrams-cache";
 
-const moduleSuffix = ".diagram.ts";
-
-/** A diagnostic, with the file it's about. */
-export interface AtlasMessage extends Diagnostic {
-	file: string;
-}
-
 export interface RenderedDiagram {
 	module: string;
 	svgFile: string;
-	/** The fresh render, when the Diagram has no errors. */
+	/** The fresh render, and the valid model, when the Diagram has no errors. */
 	svg?: string;
+	model?: Diagram;
+	declarations: Declarations;
 	messages: AtlasMessage[];
 }
 
-/**
- * The repo root: the nearest folder at or above `cwd` that holds `.git`.
- * Outside a git repo, it's `cwd` itself.
- */
-export function findRoot(cwd: string): string {
-	const start = resolve(cwd);
-	for (let folder = start; ; folder = dirname(folder)) {
-		if (existsSync(join(folder, ".git"))) {
-			return folder;
-		}
-		if (dirname(folder) === folder) {
-			return start;
-		}
-	}
-}
-
-/**
- * Every diagram module in `folder`, in path order. It skips `.git` and
- * `node_modules` everywhere, and the reference clones in the root's `repos`.
- * Ticket 05 replaces this walk with git's view of the repo.
- */
-export function discover(root: string, folder = root): string[] {
-	const top = resolve(root);
-	const modules: string[] = [];
-	const walk = (current: string) => {
-		const entries = readdirSync(current, { withFileTypes: true }).sort((a, b) =>
-			a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
-		);
-		for (const entry of entries) {
-			const path = join(current, entry.name);
-			if (entry.isDirectory()) {
-				const skipped =
-					entry.name === ".git" ||
-					entry.name === "node_modules" ||
-					(entry.name === "repos" && current === top);
-				if (!skipped) {
-					walk(path);
-				}
-			} else if (entry.isFile() && entry.name.endsWith(moduleSuffix)) {
-				modules.push(path);
-			}
-		}
-	};
-	walk(resolve(folder));
-	return modules;
+/** A Diagram's id: its module's path from the repo root, minus `.diagram.ts`. */
+function diagramIdOf(root: string, module: string): string {
+	return repoPath(root, module).slice(0, -moduleSuffix.length);
 }
 
 /** `x.diagram.ts` is drawn in `x.diagram.svg`, beside it. */
 export function svgFileOf(module: string): string {
-	return `${module.slice(0, -".ts".length)}.svg`;
+	return `${module.slice(0, -moduleSuffix.length)}${svgSuffix}`;
 }
 
 /** Loads each module, and renders its Diagram, embedding a subset of the bundled font. */
-export async function renderDiagrams(modules: string[]): Promise<RenderedDiagram[]> {
-	return (await load(modules)).map((loaded) => {
-		const svgFile = svgFileOf(loaded.module);
-		if ("error" in loaded) {
-			return {
-				module: loaded.module,
-				svgFile,
-				messages: [
-					{ file: loaded.module, severity: "error", rule: "module-load", message: loaded.error },
-				],
-			};
-		}
-		const { diagnostics, svg } = render(loaded.diagram, { fontData: bundledFontData });
-		const messages = diagnostics.map((diagnostic) => ({ file: loaded.module, ...diagnostic }));
-		return svg === undefined
-			? { module: loaded.module, svgFile, messages }
-			: { module: loaded.module, svgFile, svg, messages };
-	});
+export async function renderDiagrams(root: string, modules: string[]): Promise<RenderedDiagram[]> {
+	return (await load(modules)).map((loaded) => renderLoaded(root, loaded));
 }
 
-/** Renders every Diagram in the Atlas, and checks each SVG on disk against it. */
+/**
+ * Lints the whole Atlas. It loads the config and every Diagram, renders each
+ * Diagram, and runs every check: each model's own rules, the checks that span
+ * Diagrams, and each SVG on disk against its fresh render. The messages come
+ * file by file.
+ */
 export async function lintAtlas(
 	root: string,
 ): Promise<{ diagrams: number; messages: AtlasMessage[] }> {
-	const rendered = await renderDiagrams(discover(root));
-	const messages = rendered.flatMap((diagram) => {
-		const stale = diagram.svg === undefined ? undefined : checkSvg(diagram.svgFile, diagram.svg);
-		return stale === undefined ? diagram.messages : [...diagram.messages, stale];
-	});
-	return { diagrams: rendered.length, messages };
+	const files = await discover(root);
+	const [config, ...modules] = await load([join(root, configFile), ...files.modules]);
+	const rendered = modules.map((loaded) => renderLoaded(root, loaded));
+	const valid = rendered.flatMap(({ module, model, declarations }) =>
+		model === undefined ? [] : [{ module, id: diagramIdOf(root, module), model, declarations }],
+	);
+	const messages = [
+		...(config === undefined ? [] : checkConfig(root, config)),
+		...rendered.flatMap((diagram) => {
+			const stale = diagram.svg === undefined ? undefined : checkSvg(diagram.svgFile, diagram.svg);
+			return stale === undefined ? diagram.messages : [...diagram.messages, stale];
+		}),
+		...checkOrphans(files),
+		...checkIds(valid),
+		...checkLinks(root, valid, new Set(modules.flatMap(idsDrawnBy))),
+	];
+	return { diagrams: rendered.length, messages: messages.sort(byPlace) };
+}
+
+/** The ids of the Nodes that a module's Diagram draws, as far as its model can be read. */
+function idsDrawnBy(loaded: Loaded): string[] {
+	const nodes = "exported" in loaded ? (loaded.exported as { nodes?: unknown })?.nodes : undefined;
+	return Array.isArray(nodes)
+		? nodes.flatMap((node) => {
+				const id = (node as { id?: unknown } | null)?.id;
+				return typeof id === "string" ? [id] : [];
+			})
+		: [];
+}
+
+/** File by file, and top to bottom in each file. A message about a whole file comes first. */
+function byPlace(a: AtlasMessage, b: AtlasMessage): number {
+	return (
+		byPath(a.file, b.file) || (a.line ?? 0) - (b.line ?? 0) || (a.column ?? 0) - (b.column ?? 0)
+	);
+}
+
+function renderLoaded(root: string, loaded: Loaded): RenderedDiagram {
+	const { module } = loaded;
+	const svgFile = svgFileOf(module);
+	if ("failed" in loaded) {
+		return { module, svgFile, declarations: {}, messages: [loadFailure(root, loaded)] };
+	}
+	const { exported, declarations } = loaded;
+	if (exported === undefined) {
+		return {
+			module,
+			svgFile,
+			declarations,
+			messages: [moduleLoad({ file: module }, "The module doesn't default-export a Diagram.")],
+		};
+	}
+	if (typeof exported === "object" && exported !== null && !Array.isArray(exported)) {
+		// A Diagram's id is its module's path, which only the Atlas knows.
+		Object.assign(exported, { id: diagramIdOf(root, module) });
+	}
+	const { diagnostics, svg } = render(exported, { fontData: bundledFontData });
+	const messages = diagnostics.map((diagnostic) => located(module, declarations, diagnostic));
+	return svg === undefined
+		? { module, svgFile, declarations, messages }
+		: { module, svgFile, svg, model: exported as Diagram, declarations, messages };
+}
+
+/** The config must load, and default-export what `atlas()` returns. */
+function checkConfig(root: string, config: Loaded): AtlasMessage[] {
+	if ("failed" in config) {
+		return [loadFailure(root, config)];
+	}
+	const { exported } = config;
+	if (typeof exported !== "object" || exported === null || Array.isArray(exported)) {
+		return [
+			moduleLoad(
+				{ file: config.module },
+				"The config doesn't default-export an Atlas config. Write `export default atlas({});`.",
+			),
+		];
+	}
+	return [];
+}
+
+/**
+ * Why a module failed to load. When the error came from the module itself,
+ * the message points at its line; when it came from a module it imports, the
+ * message names that place.
+ */
+function loadFailure(root: string, failure: Extract<Loaded, { failed: unknown }>): AtlasMessage {
+	const { module, reason, at } = failure;
+	if (failure.failed === "json") {
+		return moduleLoad({ file: module }, `The module's default export isn't JSON: ${reason}`);
+	}
+	if (at?.file === module) {
+		return moduleLoad(at, `The module failed to load: ${reason}`);
+	}
+	const where = at === undefined ? "" : `${placeText({ ...at, file: repoPath(root, at.file) })}: `;
+	return moduleLoad({ file: module }, `The module failed to load: ${where}${reason}`);
+}
+
+function moduleLoad(place: Place | { file: string }, message: string): AtlasMessage {
+	return { ...place, severity: "error", rule: "module-load", message };
+}
+
+/** A path as the Atlas names it: from the repo root, with `/`. */
+function repoPath(root: string, file: string): string {
+	return relative(root, file).split(sep).join("/");
+}
+
+/** Every SVG needs its source beside it. */
+function checkOrphans({ modules, svgs }: AtlasFiles): AtlasMessage[] {
+	const drawn = new Set(modules.map(svgFileOf));
+	return svgs
+		.filter((svg) => !drawn.has(svg))
+		.map((svg) => ({
+			file: svg,
+			severity: "error",
+			rule: "svg-orphaned",
+			message: `The SVG's source, \`${basename(svg).slice(0, -svgSuffix.length)}${moduleSuffix}\`, isn't in the Atlas. Delete the SVG, or restore its source.`,
+		}));
 }
 
 function checkSvg(svgFile: string, svg: string): AtlasMessage | undefined {

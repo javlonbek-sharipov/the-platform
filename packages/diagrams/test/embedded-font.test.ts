@@ -289,7 +289,8 @@ describe("an SVG", () => {
 		const embedded = [...committed.matchAll(/base64,([A-Za-z0-9+/=]+)/g)].map(
 			([, data]) => data ?? "",
 		);
-		expect(embedded).toHaveLength(1);
+		// One for each weight it draws: regular for Rows, and semibold for titles.
+		expect(embedded).toHaveLength(2);
 		const size = embedded.reduce((total, data) => total + data.length, 0);
 		expect(size).toBeGreaterThan(1024);
 		expect(size).toBeLessThanOrEqual(30 * 1024);

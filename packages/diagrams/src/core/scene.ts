@@ -11,6 +11,15 @@ export interface Point {
 	y: number;
 }
 
+/** A point of an Edge's route. */
+export interface RoutePoint extends Point {
+	/**
+	 * The radius of the arc that rounds the route's corner here, at most half
+	 * of either run that meets at the corner. It's zero at the route's ends.
+	 */
+	radius: number;
+}
+
 export interface Box {
 	x: number;
 	y: number;
@@ -24,6 +33,11 @@ export interface ScenePort {
 	side: Side;
 	/** Where an Edge attaches, on the Node's side. */
 	point: Point;
+	/**
+	 * The far end of the Port's stub: a short, straight run out of the side,
+	 * at a right angle to it. Every Edge at the Port runs along it.
+	 */
+	stub: Point;
 }
 
 /** A piece of text, drawn centered on its point, in the bundled font. */
@@ -50,16 +64,29 @@ export interface SceneNode {
 	/** Where the Kind's badge is drawn, at the start of the header. */
 	badge: Box;
 	title: SceneText;
+	/** One for each of the Node's Rows, in order, in bands below its header. */
+	rows: SceneRow[];
 	/** Whether the Node stands for something we don't own or run, drawn with a dashed outline. */
 	external: boolean;
 	status?: SceneStatus;
 	callout?: SceneCallout;
 }
 
-/** A Node's callout: a tag just above the Node, holding the callout's text. */
-export interface SceneCallout {
-	tag: Box;
-	text: SceneText;
+/**
+ * A Row of a Node: a band across the Node, below its header, with a Port on
+ * each side of the Node, whatever the direction.
+ */
+export interface SceneRow {
+	/** The Row's band. */
+	box: Box;
+	/** Its name, on the left. */
+	name: SceneText;
+	/** Its value, on the right, if it has one. */
+	value?: SceneText;
+	/** The Port on the Node's left side, where an Edge that ends at the Row enters. */
+	input: ScenePort;
+	/** The Port on the Node's right side, where an Edge that starts at the Row leaves. */
+	output: ScenePort;
 }
 
 /** A Node's status, and where its mark is drawn, at the end of the header. */
@@ -68,15 +95,44 @@ export interface SceneStatus {
 	mark: Box;
 }
 
+/** A Node's callout: a tag just above the Node, holding the callout's text. */
+export interface SceneCallout {
+	tag: Box;
+	text: SceneText;
+}
+
 export interface SceneEdge {
 	id: string;
 	kind: string;
-	/** The id of the Node whose output Port the route leaves. */
+	/** The id of the Node that the route leaves. */
 	from: string;
-	/** The id of the Node whose input Port the route enters. */
+	/** The name of the Row it leaves from, when the Edge starts at one. */
+	fromRow?: string;
+	/** The id of the Node that the route enters. */
 	to: string;
-	/** An orthogonal polyline, from the source's Port to the target's. */
-	route: Point[];
+	/** The name of the Row it enters at, when the Edge ends at one. */
+	toRow?: string;
+	/**
+	 * The Port the route leaves: the `from` Node's output Port, or, when the
+	 * Edge starts at one of its Rows, that Row's output Port.
+	 */
+	fromPort: ScenePort;
+	/**
+	 * The Port the route enters: the `to` Node's input Port, or, when the Edge
+	 * ends at one of its Rows, that Row's input Port.
+	 */
+	toPort: ScenePort;
+	/**
+	 * The route, from the source's Port to the target's: an orthogonal
+	 * polyline whose runs take turns between horizontal and vertical, with
+	 * every corner rounded.
+	 */
+	route: RoutePoint[];
+	/**
+	 * Whether the search found no route, so that the Edge fell back to the
+	 * simple route, which may cross Nodes.
+	 */
+	fellBack: boolean;
 }
 
 export interface Scene {

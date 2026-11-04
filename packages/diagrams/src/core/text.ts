@@ -5,7 +5,7 @@
  * matches measured text.
  */
 
-import type { Diagram } from "../authoring/model.ts";
+import type { Diagram, Row } from "../authoring/model.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { fontMetrics } from "./font-metrics.ts";
 import type { Box, SceneNode, SceneText } from "./scene.ts";
@@ -44,6 +44,11 @@ const metrics: Record<FontWeight, Metrics> = {
 
 const titleSize = 14;
 const calloutSize = 11;
+const rowSize = 12;
+/** The room a Row leaves on each side, between its text and the edge of its Node. */
+const rowPadding = 12;
+/** The least room between a Row's name and its value. */
+const rowGap = 8;
 const ellipsis = "…";
 
 /**
@@ -80,40 +85,120 @@ export function calloutText(
 }
 
 /**
- * A warning for each title or callout with characters that the font lacks,
- * and for each one shortened, Node by Node.
+ * A Row's text, level in the middle of its band: its name on the left, and
+ * its value, if it has one, on the right. When the two don't fit side by
+ * side, the name is shortened first, as far as its first character and an
+ * ellipsis, and only then the value.
+ */
+export function rowTexts(row: Row, band: Box): { name: SceneText; value?: SceneText } {
+	const y = band.y + band.height / 2;
+	const left = band.x + rowPadding;
+	const right = band.x + band.width - rowPadding;
+	const room = right - left;
+	const text = (fitted: Fitted, x: number): SceneText => ({
+		...fitted,
+		point: { x, y },
+		weight: "regular",
+		size: rowSize,
+	});
+	const name = collapseSpaces(row.name);
+	const value = row.value === undefined ? "" : collapseSpaces(row.value);
+	if (value === "") {
+		const alone = fit(name, "regular", rowSize, room);
+		return { name: text(alone, left + alone.width / 2) };
+	}
+	const shortest = fit(name, "regular", rowSize, rowWidthOf(`${[...name][0] ?? ""}${ellipsis}`));
+	const fittedValue = fit(value, "regular", rowSize, room - rowGap - shortest.width);
+	const fittedName = fittedValue.shortened
+		? shortest
+		: fit(name, "regular", rowSize, room - rowGap - fittedValue.width);
+	return {
+		name: text(fittedName, left + fittedName.width / 2),
+		value: text(fittedValue, right - fittedValue.width / 2),
+	};
+}
+
+/** A text's width in a Row: its characters' advance widths, summed. */
+function rowWidthOf(text: string): number {
+	const units = [...text].reduce((sum, character) => sum + unitsOf(character, "regular"), 0);
+	return (units * rowSize) / metrics.regular.unitsPerEm;
+}
+
+/**
+ * A warning for each piece of text with characters that the font lacks, and
+ * for each one shortened: every Node's title, its Rows' names and values, and
+ * its callout.
  */
 export function textDiagnostics(diagram: Diagram, nodes: SceneNode[]): Diagnostic[] {
 	const drawn = new Map(nodes.map((node) => [node.id, node]));
 	return diagram.nodes.flatMap((node, index) => {
 		const scene = drawn.get(node.id);
-		return [
-			...warnings(node.id, "title", node.title, scene?.title, `/nodes/${index}/title`, "its Node"),
-			...(node.callout === undefined
+		const named = `Node \`${node.id}\``;
+		const title: CheckedText = {
+			source: node.title,
+			drawn: scene?.title,
+			weight: "semibold",
+			pointer: `/nodes/${index}/title`,
+			lacking: (some) => `${named}'s title has ${some} that the bundled font lacks`,
+			shortened: (text) =>
+				`${named}'s title is too wide for its Node, so it's shortened to \`${text}\`. Choose a shorter title to show it in full.`,
+		};
+		const rows = (node.rows ?? []).flatMap((row, at) => {
+			const rowNamed = `${named}'s Row \`${collapseSpaces(row.name)}\``;
+			return (["name", "value"] as const).flatMap((field): CheckedText[] => {
+				const source = row[field];
+				return source === undefined
+					? []
+					: [
+							{
+								source,
+								drawn: scene?.rows[at]?.[field],
+								weight: "regular",
+								pointer: `/nodes/${index}/rows/${at}/${field}`,
+								lacking: (some) =>
+									`${rowNamed} has ${some} in its ${field} that the bundled font lacks`,
+								shortened: (text) =>
+									`${rowNamed} is too wide for its Node, so its ${field} is shortened to \`${text}\`. Choose a shorter name or value to show it in full.`,
+							},
+						];
+			});
+		});
+		const callout: CheckedText[] =
+			node.callout === undefined
 				? []
-				: warnings(
-						node.id,
-						"callout",
-						node.callout,
-						scene?.callout?.text,
-						`/nodes/${index}/callout`,
-						"its tag",
-					)),
-		];
+				: [
+						{
+							source: node.callout,
+							drawn: scene?.callout?.text,
+							weight: "semibold",
+							pointer: `/nodes/${index}/callout`,
+							lacking: (some) => `${named}'s callout has ${some} that the bundled font lacks`,
+							shortened: (text) =>
+								`${named}'s callout is too wide for its tag, so it's shortened to \`${text}\`. Choose a shorter callout to show it in full.`,
+						},
+					];
+		return [title, ...rows, ...callout].flatMap(warningsAbout);
 	});
 }
 
-/** The warnings about one of a Node's texts: the characters the font lacks, and shortening. */
-function warnings(
-	id: string,
-	what: "title" | "callout",
-	written: string,
-	drawn: SceneText | undefined,
-	pointer: string,
-	room: string,
-): Diagnostic[] {
+/** A piece of text that a Node draws, and how warnings about it read. */
+interface CheckedText {
+	/** The text as the model gives it. */
+	source: string;
+	/** The text as the scene draws it. */
+	drawn: SceneText | undefined;
+	weight: FontWeight;
+	pointer: string;
+	/** The start of a warning about characters the font lacks, given `a character` or `characters`. */
+	lacking: (some: string) => string;
+	/** A warning that the text was shortened, given the text drawn. */
+	shortened: (text: string) => string;
+}
+
+/** A warning if the text has characters that the font lacks, and one if it was shortened. */
+function warningsAbout(text: CheckedText): Diagnostic[] {
 	const diagnostics: Diagnostic[] = [];
-	const missing = missingCharacters(collapseSpaces(written), "semibold");
+	const missing = missingCharacters(collapseSpaces(text.source), text.weight);
 	if (missing.length > 0) {
 		const listed = list(missing.map((character) => `${character} (${codePointOf(character)})`));
 		diagnostics.push({
@@ -121,17 +206,17 @@ function warnings(
 			rule: "glyph-missing",
 			message:
 				missing.length === 1
-					? `Node \`${id}\`'s ${what} has a character that the bundled font lacks: ${listed}. It's measured at an average width, and drawn in a fallback font.`
-					: `Node \`${id}\`'s ${what} has characters that the bundled font lacks: ${listed}. They're measured at an average width, and drawn in a fallback font.`,
-			pointer,
+					? `${text.lacking("a character")}: ${listed}. It's measured at an average width, and drawn in a fallback font.`
+					: `${text.lacking("characters")}: ${listed}. They're measured at an average width, and drawn in a fallback font.`,
+			pointer: text.pointer,
 		});
 	}
-	if (drawn?.shortened === true) {
+	if (text.drawn?.shortened === true) {
 		diagnostics.push({
 			severity: "warning",
 			rule: "text-shortened",
-			message: `Node \`${id}\`'s ${what} is too wide for ${room}, so it's shortened to \`${drawn.text}\`. Choose a shorter ${what} to show it in full.`,
-			pointer,
+			message: text.shortened(text.drawn.text),
+			pointer: text.pointer,
 		});
 	}
 	return diagnostics;
@@ -163,17 +248,19 @@ function collapseSpaces(text: string): string {
 	return text.replace(/[ \t\n\r]+/g, " ").replace(/^ | $/g, "");
 }
 
+/** A text as it fits in a given width, and the width it's drawn at. */
+interface Fitted {
+	text: string;
+	width: number;
+	shortened: boolean;
+}
+
 /**
  * The text as it fits in `maxWidth`. A text that's too wide keeps the longest
  * start that fits with an ellipsis after it, leaving out spaces before the
  * ellipsis.
  */
-function fit(
-	text: string,
-	weight: FontWeight,
-	size: number,
-	maxWidth: number,
-): { text: string; width: number; shortened: boolean } {
+function fit(text: string, weight: FontWeight, size: number, maxWidth: number): Fitted {
 	const { unitsPerEm } = metrics[weight];
 	// Comparing in font units, multiplied out, keeps every comparison exact.
 	const fits = (units: number) => units * size <= maxWidth * unitsPerEm;

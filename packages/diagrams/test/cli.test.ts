@@ -65,7 +65,25 @@ describe("diagrams render and lint", () => {
 		});
 	});
 
-	test("an invalid Diagram gets no SVG, and the exit code is 1", async () => {
+	test("lint fails and names an SVG whose source is gone", async () => {
+		const atlas = await sampleAtlas({
+			"docs/shop.diagram.ts": shopModule("Shop"),
+			"docs/stock.diagram.ts": shopModule("Stock"),
+		});
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+
+		await rm(join(atlas, "docs/stock.diagram.ts"));
+
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 1,
+			stdout:
+				"docs/stock.diagram.svg: error: The SVG's source, `stock.diagram.ts`, isn't in the Atlas. Delete the SVG, or restore its source. (svg-orphaned)\n" +
+				"Checked 1 Diagram: 1 error.\n",
+			stderr: "",
+		});
+	});
+
+	test("an invalid Diagram gets no SVG, the exit code is 1, and the error names the line", async () => {
 		const atlas = await sampleAtlas({
 			"docs/broken.diagram.ts": shopModule().replace('kind: "service"', 'kind: "servce"'),
 			"docs/shop.diagram.ts": shopModule(),
@@ -74,7 +92,7 @@ describe("diagrams render and lint", () => {
 		const render = await runCli(["render"], atlas);
 		expect(render.code).toBe(1);
 		expect(render.stdout).toBe(
-			"docs/broken.diagram.ts: error: Node `shop-api` has the Kind `servce`, which the architecture Notation doesn't have. Its Node Kinds are person, system, client, gateway, service, worker, function, database, cache, queue, storage and search. (unknown-kind)\n" +
+			"docs/broken.diagram.ts:5:16: error: Node `shop-api` has the Kind `servce`, which the architecture Notation doesn't have. Its Node Kinds are person, system, client, gateway, service, worker, function, database, cache, queue, storage and search. (unknown-kind)\n" +
 				"Wrote docs/shop.diagram.svg\n",
 		);
 		expect(existsSync(join(atlas, "docs/broken.diagram.svg"))).toBe(false);
@@ -82,32 +100,96 @@ describe("diagrams render and lint", () => {
 
 		const lint = await runCli(["lint"], atlas);
 		expect(lint.code).toBe(1);
-		expect(lint.stdout).toMatch(/^docs\/broken\.diagram\.ts: error: .* \(unknown-kind\)\n/);
+		expect(lint.stdout).toMatch(/^docs\/broken\.diagram\.ts:5:16: error: .* \(unknown-kind\)\n/);
 		expect(lint.stdout).toMatch(/\nChecked 2 Diagrams: 1 error\.\n$/);
 	});
 
-	test("finds Diagrams anywhere in the repo, except in .git, node_modules and repos", async () => {
-		const unreachable = 'throw new Error("This module should never be loaded.");\n';
+	test("errors point at the line and column of the declaration they're about", async () => {
 		const atlas = await sampleAtlas({
-			".git/HEAD": "ref: refs/heads/main\n",
-			".git/hooks/hook.diagram.ts": unreachable,
-			"node_modules/some-lib/lib.diagram.ts": unreachable,
-			"packages/app/node_modules/other-lib/lib.diagram.ts": unreachable,
-			"repos/quorum/board.diagram.ts": unreachable,
-			"docs/repos/clones.diagram.ts": shopModule("Clones"),
-			"packages/app/app.diagram.ts": shopModule("App"),
+			"docs/shop.diagram.ts": shopModule().replace("d.edge(web, api", 'd.edge(web, "shop-apl"'),
 		});
 
-		expect(await runCli(["render"], join(atlas, "packages/app"))).toEqual({
-			code: 0,
-			stdout: "Wrote ../../docs/repos/clones.diagram.svg\nWrote app.diagram.svg\n",
-			stderr: "",
-		});
 		expect(await runCli(["lint"], atlas)).toEqual({
-			code: 0,
-			stdout: "Checked 2 Diagrams: no errors.\n",
+			code: 1,
+			stdout:
+				"docs/shop.diagram.ts:6:4: error: Edge `web-app->shop-apl` ends at `shop-apl`, which isn't a Node on this Diagram. (edge-end)\n" +
+				"Checked 1 Diagram: 1 error.\n",
 			stderr: "",
 		});
+	});
+
+	test("a module that throws, or doesn't default-export a Diagram, is an error that names its file", async () => {
+		const atlas = await sampleAtlas({
+			"docs/closed.diagram.ts":
+				'const reason: string = "The shop is closed.";\nthrow new Error(reason);\n',
+			"docs/empty.diagram.ts": "export const title = 'Shop';\n",
+			"docs/shared.diagram.ts": 'import { api } from "./shared/nodes.ts";\nexport default api;\n',
+			"docs/shared/nodes.ts": 'export const api = 1;\n\nthrow new TypeError("No API today.");\n',
+			"docs/typo.diagram.ts": shopModule().replace('title: "Web app" }', 'title: "Web app" ]'),
+		});
+
+		const lint = await runCli(["lint"], atlas);
+		expect(lint.code).toBe(1);
+		const lines = lint.stdout.split("\n");
+		expect(lines.slice(0, 3)).toEqual([
+			"docs/closed.diagram.ts:2:7: error: The module failed to load: The shop is closed. (module-load)",
+			"docs/empty.diagram.ts: error: The module doesn't default-export a Diagram. (module-load)",
+			"docs/shared.diagram.ts: error: The module failed to load: docs/shared/nodes.ts:3:7: No API today. (module-load)",
+		]);
+		// Node words syntax errors itself, and gives no column.
+		expect(lines[3]).toMatch(
+			/^docs\/typo\.diagram\.ts:4: error: The module failed to load: .+ \(module-load\)$/,
+		);
+		expect(lines.slice(4)).toEqual(["Checked 4 Diagrams: 4 errors.", ""]);
+	});
+
+	test("lint --json prints the same messages as JSON, with the same exit code", async () => {
+		const atlas = await sampleAtlas({
+			"docs/broken.diagram.ts": shopModule().replace('kind: "service"', 'kind: "servce"'),
+			"docs/shop.diagram.ts": shopModule(),
+		});
+
+		const lint = await runCli(["lint", "--json"], atlas);
+		expect(lint).toMatchObject({ code: 1, stderr: "" });
+		expect(JSON.parse(lint.stdout)).toEqual({
+			diagrams: 2,
+			errors: 2,
+			warnings: 0,
+			messages: [
+				{
+					file: "docs/broken.diagram.ts",
+					line: 5,
+					column: 16,
+					severity: "error",
+					rule: "unknown-kind",
+					message:
+						"Node `shop-api` has the Kind `servce`, which the architecture Notation doesn't have. Its Node Kinds are person, system, client, gateway, service, worker, function, database, cache, queue, storage and search.",
+					pointer: "/nodes/1/kind",
+				},
+				{
+					file: "docs/shop.diagram.svg",
+					severity: "error",
+					rule: "svg-missing",
+					message: "The SVG is missing. Run `diagrams render`, and commit the SVG with its source.",
+				},
+			],
+		});
+
+		await rm(join(atlas, "docs/broken.diagram.ts"));
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+		expect(await runCli(["lint", "--json"], join(atlas, "docs"))).toEqual({
+			code: 0,
+			stdout: '{\n  "diagrams": 1,\n  "errors": 0,\n  "warnings": 0,\n  "messages": []\n}\n',
+			stderr: "",
+		});
+	});
+
+	test("lint rejects an option it doesn't have, with exit code 2", async () => {
+		const atlas = await sampleAtlas({ "docs/shop.diagram.ts": shopModule() });
+
+		const lint = await runCli(["lint", "--jsno"], atlas);
+		expect(lint).toMatchObject({ code: 2, stdout: "" });
+		expect(lint.stderr).toMatch(/^Unknown option `--jsno`\.\n\nUsage: diagrams <command>/);
 	});
 
 	test("render writes only the SVGs of the paths it's given", async () => {
@@ -165,10 +247,10 @@ export default architecture({ title: "Offices" }, (d) => {
 		const lint = await runCli(["lint"], atlas);
 		expect(lint.code).toBe(0);
 		expect(lint.stdout).toMatch(
-			/^docs\/offices\.diagram\.ts(:\d+:\d+)?: warning: Node `translations`'s title is too wide for its Node, so it's shortened to `Internationaliz.*…`\. .* \(text-shortened\)$/m,
+			/^docs\/offices\.diagram\.ts:4:4: warning: Node `translations`'s title is too wide for its Node, so it's shortened to `Internationaliz.*…`\. .* \(text-shortened\)$/m,
 		);
 		expect(lint.stdout).toMatch(
-			/^docs\/offices\.diagram\.ts(:\d+:\d+)?: warning: Node `tokyo`'s title has characters that the bundled font lacks: 東 \(U\+6771\) and 京 \(U\+4EAC\)\. .* \(glyph-missing\)$/m,
+			/^docs\/offices\.diagram\.ts:5:4: warning: Node `tokyo`'s title has characters that the bundled font lacks: 東 \(U\+6771\) and 京 \(U\+4EAC\)\. .* \(glyph-missing\)$/m,
 		);
 		expect(lint.stdout).toMatch(/\nChecked 1 Diagram: no errors, 2 warnings\.\n$/);
 	});

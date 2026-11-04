@@ -17,7 +17,7 @@ import {
 	architectureStatuses,
 } from "../notations/architecture.ts";
 import { outlines, type PathData } from "./outlines.ts";
-import type { Point, Scene, SceneEdge, SceneNode } from "./scene.ts";
+import type { Point, RoutePoint, Scene, SceneEdge, SceneNode, SceneText } from "./scene.ts";
 import { type FontData, type FontWeight, hasCharacter } from "./text.ts";
 import { type ColorName, palette } from "./theme.ts";
 
@@ -127,9 +127,7 @@ interface EmbeddedFont {
 /** The font data for each weight that the scene draws text in, in a fixed order. */
 function embeddedFonts(scene: Scene, fontData: FontData): EmbeddedFont[] {
 	// Every piece of text the scene draws.
-	const texts = scene.nodes.flatMap((node) =>
-		node.callout === undefined ? [node.title] : [node.title, node.callout.text],
-	);
+	const texts = scene.nodes.flatMap(textsOf);
 	return (["regular", "semibold"] as const).flatMap((weight) => {
 		const drawn = new Set(
 			texts.filter((text) => text.weight === weight).flatMap((text) => [...text.text]),
@@ -205,7 +203,7 @@ function colorUses(scene: Scene): ColorUse[] {
 			),
 		...(scene.nodes.length === 0
 			? []
-			: [{ selector: ".diagram-title", property: "fill", color: "ink" } as const]),
+			: [{ selector: ".diagram-text", property: "fill", color: "ink" } as const]),
 		...(scene.nodes.every((node) => node.callout === undefined)
 			? []
 			: ([
@@ -237,17 +235,40 @@ function themeRules(scope: string, uses: ColorUse[]): string[] {
 	];
 }
 
+/** Every piece of text a Node draws, in the order it draws them. */
+function textsOf(node: SceneNode): SceneText[] {
+	return [
+		node.title,
+		...rowTextsOf(node),
+		...(node.callout === undefined ? [] : [node.callout.text]),
+	];
+}
+
+/** Each Row's name, and its value if it has one, in order. */
+function rowTextsOf(node: SceneNode): SceneText[] {
+	return node.rows.flatMap((row) => (row.value === undefined ? [row.name] : [row.name, row.value]));
+}
+
 /**
  * A Node: its Kind's outline, each shape of it filled with the surface, then
- * tinted and stroked in the Kind's hue; its badge; and its title.
+ * tinted and stroked in the Kind's hue; its badge and title; a line across it
+ * above its Rows, and their names and values; its status mark; and its
+ * callout's tag.
  */
 function writeNode(node: SceneNode): string[] {
-	const { box, badge, title, callout } = node;
+	const { box, badge, title, rows, callout } = node;
 	const look = lookOf(node.kind);
 	const outline = outlines[look.outline];
 	// A callout highlights the outline: wider, and in the accent color.
 	const width = callout === undefined ? outline.stroke : outline.stroke + highlightGain;
-	const { shapes, solids, details } = outline.draw(box, width);
+	const { shapes, solids, details } = outline.draw(box, width, node.header);
+	// A line across the Node, from one side of its face to the other, sets its
+	// Rows apart from its header.
+	const divider = rows[0]?.box.y;
+	const face = {
+		left: box.x + width / 2 + outline.inset.left,
+		right: box.x + box.width - width / 2 - outline.inset.right,
+	};
 	// An External Node's outline is dashed, in a rhythm that grows with its stroke.
 	const stroke = (width: number): Attribute[] => [
 		["stroke", "currentColor"],
@@ -293,17 +314,19 @@ function writeNode(node: SceneNode): string[] {
 			["stroke-linecap", "round"],
 			["stroke-linejoin", "round"],
 		]),
-		element(
-			"text",
-			[
-				["class", "diagram-title"],
-				["x", title.point.x],
-				["y", title.point.y],
-				["font-size", title.size],
-				["font-weight", fontWeights[title.weight]],
-			],
-			title.text,
-		),
+		writeText(title, "diagram-text"),
+		...(divider === undefined
+			? []
+			: [
+					empty("line", [
+						["x1", face.left],
+						["y1", divider],
+						["x2", face.right],
+						["y2", divider],
+						...stroke(outline.detail),
+					]),
+				]),
+		...rowTextsOf(node).map((text) => writeText(text, "diagram-text")),
 		...(node.status === undefined ? [] : [writeStatus(node.status)]),
 		...(callout === undefined
 			? []
@@ -316,17 +339,7 @@ function writeNode(node: SceneNode): string[] {
 						["height", callout.tag.height],
 						["rx", callout.tag.height / 2],
 					]),
-					element(
-						"text",
-						[
-							["class", "diagram-tag-text"],
-							["x", callout.text.point.x],
-							["y", callout.text.point.y],
-							["font-size", callout.text.size],
-							["font-weight", fontWeights[callout.text.weight]],
-						],
-						callout.text.text,
-					),
+					writeText(callout.text, "diagram-tag-text"),
 				]),
 	];
 	return [
@@ -337,6 +350,20 @@ function writeNode(node: SceneNode): string[] {
 		...parts.map((text) => indent(1, text)),
 		"</g>",
 	];
+}
+
+function writeText(text: SceneText, className: string): string {
+	return element(
+		"text",
+		[
+			["class", className],
+			["x", text.point.x],
+			["y", text.point.y],
+			["font-size", text.size],
+			["font-weight", fontWeights[text.weight]],
+		],
+		text.text,
+	);
 }
 
 function writeStatus({ value, mark }: { value: string; mark: { x: number; y: number } }): string {
@@ -386,17 +413,54 @@ function writeEdge(edge: SceneEdge): string[] {
 			["data-edge", edge.id],
 			["data-kind", edge.kind],
 			["data-from", edge.from],
+			...(edge.fromRow === undefined ? [] : [["data-from-row", edge.fromRow] as const]),
 			["data-to", edge.to],
+			...(edge.toRow === undefined ? [] : [["data-to-row", edge.toRow] as const]),
 		]),
 		indent(1, empty("path", [["d", pathData(edge.route)]])),
 		"</g>",
 	];
 }
 
-function pathData(points: Point[]): string {
-	return points
-		.map((point, index) => `${index === 0 ? "M" : "L"} ${number(point.x)} ${number(point.y)}`)
-		.join(" ");
+/**
+ * A route's path data: its runs as lines, and each rounded corner as an arc
+ * from where the arc meets the run before it to where it meets the run after.
+ */
+function pathData(route: RoutePoint[]): string {
+	const commands: string[] = [];
+	let pen: Point | undefined;
+	const lineTo = (point: Point) => {
+		if (pen === undefined || pen.x !== point.x || pen.y !== point.y) {
+			commands.push(`${pen === undefined ? "M" : "L"} ${number(point.x)} ${number(point.y)}`);
+		}
+		pen = point;
+	};
+	route.forEach((point, index) => {
+		const before = route[index - 1];
+		const after = route[index + 1];
+		if (before === undefined || after === undefined || point.radius === 0) {
+			lineTo(point);
+			return;
+		}
+		const { radius } = point;
+		const into = heading(before, point);
+		const out = heading(point, after);
+		lineTo({ x: point.x - into.x * radius, y: point.y - into.y * radius });
+		const end = { x: point.x + out.x * radius, y: point.y + out.y * radius };
+		// With y pointing down, a turn whose cross product is positive is clockwise
+		// on screen, which is the direction of SVG's sweep flag 1.
+		const sweep = into.x * out.y - into.y * out.x > 0 ? 1 : 0;
+		commands.push(
+			`A ${number(radius)} ${number(radius)} 0 0 ${sweep} ${number(end.x)} ${number(end.y)}`,
+		);
+		pen = end;
+	});
+	return commands.join(" ");
+}
+
+/** The unit vector along a horizontal or vertical run. */
+function heading(from: Point, to: Point): Point {
+	return { x: Math.sign(to.x - from.x), y: Math.sign(to.y - from.y) };
 }
 
 function start(name: string, attributes: Attribute[]): string {

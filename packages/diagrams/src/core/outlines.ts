@@ -43,8 +43,14 @@ export interface OutlineLook {
 	detail: number;
 	/** How strongly the hue tints the surface, as the shapes' fill opacity. */
 	tint: number;
-	/** Draws the outline in a box, with strokes of the given width, keeping every stroke inside it. */
-	draw(box: Box, stroke: number): OutlineDrawing;
+	/**
+	 * Draws the outline in a Node's box, with strokes of the given width,
+	 * keeping every stroke inside it. The header is the band at its top that
+	 * holds the badge and the title, above any Rows. Wherever the Node has a
+	 * Port, at the middle of its header and of each Row's band, the outline
+	 * meets the box's side.
+	 */
+	draw(box: Box, stroke: number, header: Box): OutlineDrawing;
 }
 
 /** Moves each side of a box inward. */
@@ -105,6 +111,11 @@ const headRoom = 32;
 const shoulders = { x: 44, y: 20 };
 /** How far a worker's back card is offset from its front card. */
 const stackOffset = 5;
+/**
+ * The radius of a corner below a header, such as a pill's: half a Row's band,
+ * so that the Ports at the middle of the last Row still meet a straight side.
+ */
+const rowCorner = 16;
 /** How deep a cylinder's lid is, and how wide a pipe's ends are. */
 const lidDepth = 7;
 const pipeEnd = 9;
@@ -161,19 +172,33 @@ export const outlines: Record<Outline, OutlineLook> = {
 			return { ...none, shapes: [rounded(outer, 6)], solids: [corners(bar, [6, 6, 0, 0])] };
 		},
 	},
-	// Pointed at both ends, like a gate traffic passes through.
+	// Pointed at both ends, like a gate traffic passes through. The points are
+	// level with the header. Below a header with Rows, the sides run straight
+	// down to cut corners.
 	hexagon: {
 		...plain,
-		draw(box, stroke) {
+		draw(box, stroke, header) {
 			const { x, y, width, height } = shrink(box, stroke / 2);
+			const [right, bottom] = [x + width, y + height];
 			const point = 14;
-			const middle = y + height / 2;
+			const middle = header.y + header.height / 2;
+			const lower: [number, number][] =
+				header.y + header.height < box.y + box.height
+					? [
+							[right, bottom - rowCorner / 2],
+							[right - rowCorner / 2, bottom],
+							[x + rowCorner / 2, bottom],
+							[x, bottom - rowCorner / 2],
+						]
+					: [
+							[right - point, bottom],
+							[x + point, bottom],
+						];
 			const shape = polygon([
 				[x + point, y],
-				[x + width - point, y],
-				[x + width, middle],
-				[x + width - point, y + height],
-				[x + point, y + height],
+				[right - point, y],
+				[right, middle],
+				...lower,
 				[x, middle],
 			]);
 			return { ...none, shapes: [shape] };
@@ -186,6 +211,7 @@ export const outlines: Record<Outline, OutlineLook> = {
 	// Two cards, one behind the other, for the many jobs a worker takes on.
 	stack: {
 		...plain,
+		inset: { left: 0, right: stackOffset },
 		draw(box, stroke) {
 			const { x, y, width, height } = shrink(box, stroke / 2);
 			const card = { width: width - stackOffset, height: height - stackOffset };
@@ -259,25 +285,33 @@ export const outlines: Record<Outline, OutlineLook> = {
 			return { ...none, shapes: [rounded(body, 4)], details: pins };
 		},
 	},
-	// Lying on its side, open toward the right.
+	// Lying on its side, open toward the right. Each end is half an ellipse as
+	// tall as the header, stretched straight in the middle when Rows make the
+	// Node taller.
 	pipe: {
 		...plain,
 		inset: { left: 0, right: 2 * pipeEnd },
-		draw(box, stroke) {
+		draw(box, stroke, header) {
 			const { x, y, width, height } = shrink(box, stroke / 2);
 			const [right, bottom] = [x + width, y + height];
-			const half = height / 2;
+			const curve = (header.height - stroke) / 2;
 			const body: PathData = [
 				...["M", x + pipeEnd, y],
 				...["H", right - pipeEnd],
-				...["A", pipeEnd, half, 0, 0, 1, right - pipeEnd, bottom],
+				...["A", pipeEnd, curve, 0, 0, 1, right, y + curve],
+				...["V", bottom - curve],
+				...["A", pipeEnd, curve, 0, 0, 1, right - pipeEnd, bottom],
 				...["H", x + pipeEnd],
-				...["A", pipeEnd, half, 0, 0, 1, x + pipeEnd, y],
+				...["A", pipeEnd, curve, 0, 0, 1, x, bottom - curve],
+				...["V", y + curve],
+				...["A", pipeEnd, curve, 0, 0, 1, x + pipeEnd, y],
 				"Z",
 			];
 			const opening: PathData = [
 				...["M", right - pipeEnd, y],
-				...["A", pipeEnd, half, 0, 0, 0, right - pipeEnd, bottom],
+				...["A", pipeEnd, curve, 0, 0, 0, right - 2 * pipeEnd, y + curve],
+				...["V", bottom - curve],
+				...["A", pipeEnd, curve, 0, 0, 0, right - pipeEnd, bottom],
 			];
 			return { ...none, shapes: [body], details: [opening] };
 		},
@@ -310,12 +344,14 @@ export const outlines: Record<Outline, OutlineLook> = {
 			};
 		},
 	},
-	// Rounded right through at both ends, like a search field.
+	// Rounded right through at both ends, like a search field. Below a header
+	// with Rows, its corners round less.
 	pill: {
 		...plain,
-		draw(box, stroke) {
+		draw(box, stroke, header) {
 			const outer = shrink(box, stroke / 2);
-			return { ...none, shapes: [rounded(outer, outer.height / 2)] };
+			const rows = header.y + header.height < box.y + box.height;
+			return { ...none, shapes: [rounded(outer, rows ? rowCorner : outer.height / 2)] };
 		},
 	},
 };

@@ -1,9 +1,12 @@
 import { expectTypeOf, test } from "vitest";
 import {
 	type ArchitectureEdgeKind,
+	type ArchitectureNode,
 	type ArchitectureNodeKind,
 	architecture,
+	atlas,
 	type NodeHandle,
+	type RowEnd,
 } from "../src/index.ts";
 
 test("the architecture Notation has 12 Node Kinds and two Edge Kinds", () => {
@@ -44,10 +47,85 @@ test("declaring a Node returns a handle that an Edge accepts", () => {
 	architecture({ title: "Shop" }, (d) => {
 		const api = d.node({ id: "shop-api", kind: "service", title: "Shop API" });
 		expectTypeOf(api).toEqualTypeOf<NodeHandle>();
-		expectTypeOf(d.edge).parameter(0).toExtend<NodeHandle | string>();
+		expectTypeOf(d.edge).parameter(0).toExtend<NodeHandle | RowEnd | string>();
 		// @ts-expect-error: an Edge end is a handle or an id, not a number.
 		d.edge(api, 7, { kind: "call" });
 	});
+});
+
+test("a Node handle carries its Rows' names, so naming a Row the Node doesn't have is a type error", () => {
+	architecture({ title: "Shop" }, (d) => {
+		const api = d.node({ id: "shop-api", kind: "service", title: "Shop API" });
+		const db = d.node({
+			id: "shop-db",
+			kind: "database",
+			title: "Shop database",
+			rows: [{ name: "orders", value: "table" }, { name: "stock" }],
+		});
+		expectTypeOf(db).toEqualTypeOf<NodeHandle<"orders" | "stock">>();
+		d.edge(api, db.row("orders"), { kind: "call" });
+		d.edge(db.row("stock"), api, { kind: "message" });
+		// @ts-expect-error: `shop-db` has no Row `order`.
+		d.edge(api, db.row("order"), { kind: "call" });
+		// @ts-expect-error: `shop-api` has no Rows at all.
+		d.edge(api.row("orders"), db, { kind: "call" });
+	});
+});
+
+test("a Node defined once, as a constant, carries its Rows' names to every Diagram", () => {
+	const ordersDb = {
+		id: "orders-db",
+		kind: "database",
+		title: "Orders database",
+		rows: [{ name: "orders", value: "table" }],
+	} as const satisfies ArchitectureNode;
+
+	architecture({ title: "Orders" }, (d) => {
+		const db = d.node(ordersDb);
+		expectTypeOf(db).toEqualTypeOf<NodeHandle<"orders">>();
+		// @ts-expect-error: `orders-db` has no Row `stock`.
+		db.row("stock");
+	});
+});
+
+test("a Link points at exactly one thing: an id, or a document", () => {
+	architecture({ title: "Shop" }, (d) => {
+		d.node({
+			id: "shop-api",
+			kind: "service",
+			title: "Shop API",
+			links: [
+				{ id: "payments-api", label: "Payments" },
+				{ doc: "docs/shop.md", section: "Checkout", label: "Checkout" },
+			],
+		});
+		// @ts-expect-error: a Link has an id or a document, not both.
+		d.node({ id: "web-app", kind: "client", title: "Web app", links: [{ id: "a", doc: "b.md" }] });
+		// @ts-expect-error: only a document has sections.
+		d.node({ id: "shop-db", kind: "database", title: "DB", links: [{ id: "a", section: "b" }] });
+	});
+});
+
+test("a Node defined once, as a plain object, can be declared on any Diagram", () => {
+	const payments = {
+		id: "payments-api",
+		kind: "service",
+		title: "Payments API",
+		links: [{ doc: "docs/payments.md" }],
+	} satisfies ArchitectureNode;
+
+	architecture({ title: "Shop" }, (d) => {
+		expectTypeOf(d.node(payments)).toEqualTypeOf<NodeHandle>();
+	});
+	architecture({ title: "Billing" }, (d) => {
+		expectTypeOf(d.node(payments)).toEqualTypeOf<NodeHandle>();
+	});
+});
+
+test("the Atlas config is an object with no settings until slice 2 adds its contexts", () => {
+	atlas({});
+	// @ts-expect-error: the config has no such setting.
+	atlas({ contxts: {} });
 });
 
 test("a status that the Notation doesn't have is a type error", () => {

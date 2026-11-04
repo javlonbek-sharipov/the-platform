@@ -236,6 +236,183 @@ describe("validation", () => {
 		]);
 	});
 
+	test("accepts Links to ids and to documents, with sections and labels", () => {
+		const diagram = shopJson();
+		diagram.nodes[1] = {
+			...diagram.nodes[1],
+			links: [
+				{ id: "payments-api" },
+				{ doc: "docs/shop.md", section: "Checkout", label: "How checkout works" },
+			],
+		} as (typeof diagram.nodes)[number];
+
+		expect(render(diagram).diagnostics).toEqual([]);
+	});
+
+	test("reports Links that aren't shaped like Links", () => {
+		const diagram = shopJson();
+		diagram.nodes[0] = { ...diagram.nodes[0], links: { id: "shop-api" } } as never;
+		diagram.nodes[1] = {
+			...diagram.nodes[1],
+			links: [
+				"shop-db",
+				{ label: "Nowhere" },
+				{ id: "shop-db", doc: "docs/shop.md" },
+				{ id: 7 },
+				{ doc: "docs/shop.md", label: 7 },
+				{ id: "shop-db", section: "Storage" },
+				{ doc: "docs/shop.md", section: ["Checkout"] },
+				{ term: "Database" },
+				{ id: "shop-db", term: "Database" },
+			],
+		} as never;
+
+		expect(render(diagram).diagnostics).toEqual(
+			[
+				["/nodes/0/links", "`/nodes/0/links` must be a list."],
+				["/nodes/1/links/0", "`/nodes/1/links/0` must be an object."],
+				["/nodes/1/links/1", "`/nodes/1/links/1` must have exactly one of `id` and `doc`."],
+				["/nodes/1/links/2", "`/nodes/1/links/2` must have exactly one of `id` and `doc`."],
+				["/nodes/1/links/3/id", "`/nodes/1/links/3/id` must be a string."],
+				["/nodes/1/links/4/label", "`/nodes/1/links/4/label` must be a string."],
+				[
+					"/nodes/1/links/5/section",
+					"`/nodes/1/links/5/section` must be left out: only a Link to a document has sections.",
+				],
+				["/nodes/1/links/6/section", "`/nodes/1/links/6/section` must be a string."],
+				["/nodes/1/links/7", "`/nodes/1/links/7` must have exactly one of `id` and `doc`."],
+				["/nodes/1/links/8", "`/nodes/1/links/8` must have exactly one of `id` and `doc`."],
+			].map(([pointer, message]) => ({ severity: "error", rule: "model-shape", message, pointer })),
+		);
+	});
+
+	test("reports a Link to an id that isn't lowercase kebab-case", () => {
+		const diagram = shopJson();
+		diagram.nodes[1] = { ...diagram.nodes[1], links: [{ id: "Payments API" }] } as never;
+
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "id-format",
+				message:
+					"Node `shop-api` has a Link to `Payments API`, which isn't a lowercase kebab-case id. Write ids like `payments-api`.",
+				pointer: "/nodes/1/links/0/id",
+			},
+		]);
+	});
+
+	test("accepts Rows, and Edges that start or end at them", () => {
+		const diagram = shopJson();
+		diagram.nodes[1] = { ...diagram.nodes[1], rows: [{ name: "replicas", value: "3" }] } as never;
+		diagram.nodes[2] = {
+			...diagram.nodes[2],
+			rows: [{ name: "orders", value: "table" }, { name: "read-only" }],
+		} as never;
+		diagram.edges[1] = {
+			id: "shop-api->shop-db",
+			kind: "call",
+			from: { node: "shop-api", row: "replicas" },
+			to: { node: "shop-db", row: "orders" },
+		} as never;
+
+		expect(render(diagram).diagnostics).toEqual([]);
+	});
+
+	test("reports an Edge end at a Row that its Node doesn't have", () => {
+		const diagram = shopJson();
+		diagram.nodes[1] = { ...diagram.nodes[1], rows: [{ name: "read replicas" }] } as never;
+		diagram.nodes[2] = {
+			...diagram.nodes[2],
+			rows: [{ name: "orders" }, { name: "stock" }],
+		} as never;
+		diagram.edges = [
+			{
+				id: "web-app->shop-api",
+				kind: "call",
+				from: { node: "web-app", row: "session" },
+				to: { node: "shop-api", row: "replicas" },
+			},
+			{
+				id: "shop-api->shop-db",
+				kind: "call",
+				from: "shop-api",
+				to: { node: "shop-db", row: "order" },
+			},
+		] as never;
+
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "edge-end",
+				message:
+					"Edge `web-app->shop-api` starts at the Row `session` of `web-app`, which has no Rows.",
+				pointer: "/edges/0/from/row",
+			},
+			{
+				severity: "error",
+				rule: "edge-end",
+				message:
+					"Edge `web-app->shop-api` ends at the Row `replicas` of `shop-api`, which has no such Row. Its only Row is `read replicas`.",
+				pointer: "/edges/0/to/row",
+			},
+			{
+				severity: "error",
+				rule: "edge-end",
+				message:
+					"Edge `shop-api->shop-db` ends at the Row `order` of `shop-db`, which has no such Row. Its Rows are `orders` and `stock`.",
+				pointer: "/edges/1/to/row",
+			},
+		]);
+	});
+
+	test("reports two Rows of one Node with the same name, since an Edge end names a Row by its name", () => {
+		const diagram = shopJson();
+		diagram.nodes[1] = {
+			...diagram.nodes[1],
+			rows: [{ name: "region" }, { name: "replicas" }, { name: "region", value: "eu-west-1" }],
+		} as never;
+		diagram.nodes[2] = { ...diagram.nodes[2], rows: [{ name: "region" }] } as never;
+
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "duplicate-row",
+				message:
+					"Node `shop-api` has two Rows named `region`. A Node's Rows need names of their own, since an Edge end names a Row by its name.",
+				pointer: "/nodes/1/rows/2/name",
+			},
+		]);
+	});
+
+	test("reports Rows and Row ends that aren't shaped like them", () => {
+		const diagram = shopJson();
+		diagram.nodes[0] = { ...diagram.nodes[0], rows: { name: "session" } } as never;
+		diagram.nodes[1] = {
+			...diagram.nodes[1],
+			rows: ["replicas", { value: "3" }, { name: "port", value: 8080 }],
+		} as never;
+		diagram.edges = [
+			{ id: "web-app->shop-api", kind: "call", from: 7, to: { node: "shop-api" } },
+			{ id: "shop-api->shop-db", kind: "call", from: { row: "port" }, to: ["shop-db"] },
+		] as never;
+
+		expect(render(diagram).diagnostics).toEqual(
+			[
+				["/nodes/0/rows", "`/nodes/0/rows` must be a list."],
+				["/nodes/1/rows/0", "`/nodes/1/rows/0` must be an object."],
+				["/nodes/1/rows/1/name", "`/nodes/1/rows/1/name` must be a string."],
+				["/nodes/1/rows/2/value", "`/nodes/1/rows/2/value` must be a string."],
+				[
+					"/edges/0/from",
+					"`/edges/0/from` must be a Node's id, or an object with `node` and `row`.",
+				],
+				["/edges/0/to/row", "`/edges/0/to/row` must be a string."],
+				["/edges/1/from/node", "`/edges/1/from/node` must be a string."],
+				["/edges/1/to", "`/edges/1/to` must be a Node's id, or an object with `node` and `row`."],
+			].map(([pointer, message]) => ({ severity: "error", rule: "model-shape", message, pointer })),
+		);
+	});
+
 	test("reports an External flag that isn't true or false", () => {
 		const diagram = shopJson();
 		diagram.nodes[1] = { ...diagram.nodes[1], external: "yes" } as (typeof diagram.nodes)[number];

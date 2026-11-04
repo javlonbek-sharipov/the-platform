@@ -43,3 +43,4 @@
 ## Comments
 
 - Orchestrator: added the control-character checkbox under **Tests**. Ticket 04 found that such a title renders an SVG that isn't valid XML, while lint only warns about the missing glyph.
+- Orchestrator: ticket 08's Comments end with a note for this ticket ("For ticket 14"). Read it before you start.

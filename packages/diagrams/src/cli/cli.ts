@@ -5,13 +5,9 @@
 
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
-import {
-	type AtlasMessage,
-	discover,
-	findRoot,
-	lintAtlas,
-	renderDiagrams,
-} from "../atlas/atlas.ts";
+import { lintAtlas, renderDiagrams } from "../atlas/atlas.ts";
+import { AtlasError, discover, findRoot } from "../atlas/discover.ts";
+import { type AtlasMessage, placeText } from "../atlas/messages.ts";
 
 export interface Output {
 	write(text: string): unknown;
@@ -27,17 +23,29 @@ const usage = `Usage: diagrams <command>
 
 Commands:
   render [paths...]  Write each Diagram's SVG next to its source
-  lint               Check every Diagram, and that its SVG matches its source
+  lint [--json]      Check the whole Atlas: every Diagram, Link and SVG
 `;
 
 /** Runs one command, and returns its exit code. */
 export async function cli(args: string[], context: CliContext): Promise<number> {
+	try {
+		return await run(args, context);
+	} catch (error) {
+		if (error instanceof AtlasError) {
+			context.stderr.write(`${error.message}\n`);
+			return 2;
+		}
+		throw error;
+	}
+}
+
+async function run(args: string[], context: CliContext): Promise<number> {
 	const [command, ...rest] = args;
 	switch (command) {
 		case "render":
 			return renderCommand(rest, context);
 		case "lint":
-			return lintCommand(context);
+			return lintCommand(rest, context);
 		case undefined:
 		case "help":
 		case "--help":
@@ -51,17 +59,18 @@ export async function cli(args: string[], context: CliContext): Promise<number> 
 
 async function renderCommand(paths: string[], context: CliContext): Promise<number> {
 	const root = findRoot(context.cwd);
+	const atlas = (await discover(root)).modules;
 	const modules =
 		paths.length === 0
-			? discover(root)
+			? atlas
 			: paths.flatMap((path) => {
 					const target = resolve(context.cwd, path);
 					return existsSync(target) && statSync(target).isDirectory()
-						? discover(root, target)
+						? atlas.filter((module) => module.startsWith(`${target}${sep}`))
 						: [target];
 				});
 	let failed = false;
-	for (const diagram of await renderDiagrams(modules)) {
+	for (const diagram of await renderDiagrams(root, modules)) {
 		print(diagram.messages, context);
 		if (diagram.svg === undefined) {
 			failed = true;
@@ -75,23 +84,47 @@ async function renderCommand(paths: string[], context: CliContext): Promise<numb
 	return failed ? 1 : 0;
 }
 
-async function lintCommand(context: CliContext): Promise<number> {
+async function lintCommand(options: string[], context: CliContext): Promise<number> {
+	const unknown = options.find((option) => option !== "--json");
+	if (unknown !== undefined) {
+		context.stderr.write(`Unknown option \`${unknown}\`.\n\n${usage}`);
+		return 2;
+	}
 	const { diagrams, messages } = await lintAtlas(findRoot(context.cwd));
-	print(messages, context);
 	const errors = messages.filter((message) => message.severity === "error").length;
 	const warnings = messages.length - errors;
-	const counts = [
-		errors === 0 ? "no errors" : plural(errors, "error"),
-		...(warnings === 0 ? [] : [plural(warnings, "warning")]),
-	];
-	context.stdout.write(`Checked ${plural(diagrams, "Diagram")}: ${counts.join(", ")}.\n`);
+	if (options.includes("--json")) {
+		const json = messages.map(({ file, line, column, severity, rule, message, pointer }) => ({
+			file: shown(file, context),
+			line,
+			column,
+			severity,
+			rule,
+			message,
+			pointer,
+		}));
+		context.stdout.write(
+			`${JSON.stringify({ diagrams, errors, warnings, messages: json }, null, 2)}\n`,
+		);
+	} else {
+		print(messages, context);
+		const counts = [
+			errors === 0 ? "no errors" : plural(errors, "error"),
+			...(warnings === 0 ? [] : [plural(warnings, "warning")]),
+		];
+		context.stdout.write(`Checked ${plural(diagrams, "Diagram")}: ${counts.join(", ")}.\n`);
+	}
 	return errors === 0 ? 0 : 1;
 }
 
-/** One line per message: `file: severity: message (rule)`. */
+/**
+ * One line per message: `file:line:column: severity: message (rule)`. A
+ * message about a whole file, such as an SVG, has no line or column.
+ */
 function print(messages: AtlasMessage[], context: CliContext): void {
-	for (const { file, severity, message, rule } of messages) {
-		context.stdout.write(`${shown(file, context)}: ${severity}: ${message} (${rule})\n`);
+	for (const { file, line, column, severity, message, rule } of messages) {
+		const where = placeText({ file: shown(file, context), line, column });
+		context.stdout.write(`${where}: ${severity}: ${message} (${rule})\n`);
 	}
 }
 

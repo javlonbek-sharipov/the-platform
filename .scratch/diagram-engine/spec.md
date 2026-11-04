@@ -1321,6 +1321,30 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
     - A Biome GritQL plugin, `packages/diagrams/biome/exact-arithmetic.grit`, allows only Math's `abs`, `ceil`, `floor`, `max`, `min`, `round`, `sign`, `sqrt` and `trunc` in the core. It rejects `**`, `**=` and destructuring Math.
     - It covers the whole core, routing included.
 
+**Ticket 03**
+
+1. **Stubs.** A stub is half a clearance long, 16 px, so it ends on the grid line beside its side. Of the two lines through a stub's end, the one across the stub is that line, and the one along the stub is new.
+2. **The grid.**
+   - The outer lines run one clearance outside the Nodes' bounds.
+   - A segment is open only if it misses every Node, border included, so no route runs along a Node's side. A crossing inside a Node, or on its border, has no open segment, so no route can reach it.
+3. **The search.**
+   - A bend costs 40. A corner's radius is at most 8.
+   - A search may visit 1,000,000 states. `render(diagram, { searchBudget })` changes that, which is how tests force the fallback.
+   - A search keeps its working memory in typed arrays sized to the grid, allocated once per Diagram.
+   - On a synthetic Diagram of 300 Nodes and 750 random Edges, rendering took about 3 s. The longest search visited about 200,000 states, in 45 ms. Most of the time goes to Edges that run against the direction and go around long columns of Nodes.
+   - The search runs backward, from the target's stub to the source's. When two states have the same estimate, it takes the one whose path has come further, and then the one queued first, with steps queued east, south, west, north.
+   - Together, those choices find, among routes that cost the same, the one that bends nearest its source. So Edges from one Port fork just past its stub, and Edges into one Port merge into a trunk before it. For bundling (ticket 09), a later Edge can start its search anywhere on the trunk, instead of ending it there.
+   - Edges are routed in order of id. Ticket 09 sorts by bundle key first.
+4. **The fallback.**
+   - The target lies ahead when its stub ends at or beyond the source's stub, along the direction.
+   - Otherwise, the lane runs half a clearance beyond both Nodes, on whichever side needs less travel across the direction. On a tie, it runs below them for `right`, and to their right for `down`.
+   - The rule is `fallback-route`. It's a warning, and points at the Edge.
+5. **The scene.**
+   - A Port has a `stub`: the far end of its stub.
+   - An Edge has `fromPort`, `toPort` and `fellBack`. Its route is a list of points, each with the `radius` of its corner, which is zero at both ends.
+6. **The SVG** draws each corner as an `A` command, from where its arc meets the run before it to where it meets the run after. The sign of the turn's cross product gives the sweep flag, so no trigonometry is needed.
+7. **The jog** in step 7 waits for ticket 09. Until runs are offset into lanes, a stub always meets its first run at its own height.
+
 **Ticket 04**
 
 1. **The bundled font.** `packages/diagrams/fonts/` holds `Inter-Regular.ttf` and `Inter-SemiBold.ttf` from `extras/ttf/` in Inter 4.1's release zip, with Inter's `LICENSE.txt` beside them as `OFL.txt`. A test pins their SHA-256s.
@@ -1354,6 +1378,83 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
 9. **Size.** The example Diagram's subset is 4.1 KB, or 5.4 KB in base64. That's under the 10–30 KB estimate, because it has no hinting, glyph names or layout tables. A test keeps it under 30 KB.
 10. **Tests read fonts with their own code.** `test/support/truetype.ts` is a TrueType reader written separately from the engine's, so that tests don't trust the code under test. It reads both of the bundled font's Unicode subtables, where the engine reads only the format 12 one.
 11. **Exact arithmetic.** Ticket 02's Biome plugin rejects `**` throughout the core, even between BigInts, which are exact. So the hash's modulus, 2⁶⁴, is written `1n << 64n`.
+
+**Ticket 05**
+
+1. **The config and the root.** This replaces ticket 01's decision 7.
+   - `diagrams.config.ts` default-exports `atlas({})`. Its type takes no settings yet, so slice 2 can add `contexts` without breaking any config.
+   - The repo root is the nearest folder at or above the working directory that holds the config. Without one, `render` and `lint` exit with 2 and show how to write it.
+   - Only `lint` loads the config, since `render` doesn't need its contents. A config that fails to load, or doesn't default-export an object, is a `module-load` error.
+2. **Discovery.**
+   - With a `.git` at or above the root, the Atlas's files are what `git ls-files --cached --others --exclude-standard` lists under the root, minus files that were deleted but are still tracked.
+   - Git runs without `GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE`, so that it reads the repo that holds the root, even inside a hook. If git fails, the command exits with 2. It never falls back to the walk, which would bring in ignored folders.
+   - Outside git, the walk skips folders named `.git` and `node_modules`. `repos/` has no rule of its own any more, since git ignores it.
+   - Files come in path order, folder by folder, however they were found.
+3. **Declaration positions.**
+   - The builder finds each declaration's caller with `Error.captureStackTrace`. It's a V8 API, not a Node module, so the core may use it. Engines without it record nothing.
+   - The positions sit beside the model, never in it: a non-enumerable property under `Symbol.for("@the-platform/diagrams/declarations")`, keyed by JSON Pointer (`""` for the Diagram, `/nodes/2`, `/edges/0`). JSON and `toEqual` both ignore it.
+   - A diagnostic goes to the nearest declaration at or above its pointer. A shared Node is placed at the `d.node(…)` call on each Diagram. A declaration made inside a helper function is placed in the helper.
+   - The column is where V8 puts it: at `node` in `d.node(`.
+4. **Load failures.**
+   - A module that throws is placed at the first frame of the stack that lies in that module.
+   - A syntax error gets its line from the first line of the stack, and no column. Node shows the column only in a snippet, and expands tabs in it.
+   - When the error came from a module that it imports, the message stays on the diagram module and names the other place as a repo path, as in `The module failed to load: docs/shared/nodes.ts:3:7: No API today.`
+5. **Output.** This replaces the output of ticket 01's decision 5.
+   - A message about a whole file, such as an SVG, prints as `file: severity: message (rule)`, with no line and no column.
+   - Messages come file by file in path order, then by line and column. Paths inside a message are repo paths. Each message's own file is shown relative to the working directory, as before.
+   - `--json` prints one object, `{ diagrams, errors, warnings, messages }`, indented by two spaces. Each message has `file`, `line`, `column`, `severity`, `rule`, `message` and `pointer`, leaving out what isn't known. `file` is relative to the working directory, as in the text, and no summary line is printed.
+   - An unknown option exits with 2, like an unknown command.
+6. **Diagram ids.** The Atlas sets each Diagram's `id` to its module's path from the repo root, minus `.diagram.ts`, replacing any id the module gave. Messages name other Diagrams by these ids.
+7. **Links.**
+   - A Link is `{ id, label? }` or `{ doc, section?, label? }`. The types forbid a Link with both, and validation checks it again as `model-shape`. A Link's id must be a kebab-case id (`id-format`). Until slice 2, a Link with a `term` fails validation too, as one without exactly one of `id` and `doc`.
+   - A `doc` is a path from the repo root, and must name a file inside the repo. One that leaves the repo with `..` is broken, even if the file exists. Lint checks files on disk, not in git.
+   - A `section` names a heading by its text or by its anchor. Both go through GitHub's anchor rules: links keep only their text, letters are lowercased, punctuation is dropped, each space becomes a hyphen, and a repeated anchor gets `-1`, `-2` and so on. Only ATX headings count, outside code fences.
+   - A Link to an id resolves against the ids drawn on every Diagram that loaded, even one with errors, so that those errors don't also show as broken Links.
+   - The builder takes `readonly Link[]`, so that an `as const` definition works, and copies each Link into the model.
+8. **Ids across the Atlas.**
+   - Every place that draws a conflicting id gets an error. It names the values that the other Diagrams give the id, and those Diagrams' ids.
+   - Only Diagrams that pass validation take part.
+   - Only `kind` and `title` must agree. Links, and later Technologies and Rows, may differ from Diagram to Diagram.
+9. **Shared Nodes** are plain objects written with `satisfies ArchitectureNode`, which keeps the Kind's literal type.
+10. **Orphans.** An SVG is orphaned when discovery finds no module beside it. An SVG that git ignores isn't in the Atlas, so it's never reported.
+11. **Rules added:** `broken-link`, `kind-conflict`, `title-conflict` and `svg-orphaned`.
+
+**Ticket 08**
+
+1. **Rows in the model.**
+   - `rows` lists `{ name, value? }`, and both are strings, so a number is written `value: "3"`.
+   - Each Row's name is unique within its Node, since an Edge end names a Row by its name. Two Rows of one name are an error, `duplicate-row`.
+   - An empty value draws as no value.
+2. **Row ends.** This settles ticket 01's decision 3.
+   - In the model, an Edge end is a Node id or `{ node, row }`.
+   - In the authoring API, `handle.row(name)` gives that object. Written out with ids, it's checked only by validation.
+   - A default Edge id still names only the two Nodes, so two Edges from different Rows of one Node to the same Node need ids of their own.
+   - A missing Row is an `edge-end` error at `/edges/<n>/from/row` or `/to/row`, listing the Node's Rows, each quoted, since names may hold spaces.
+3. **Types.**
+   - `NodeHandle<R>` carries the Rows' names as `R`, which is `never` for a Node without Rows. `d.node` infers `R` from the names written.
+   - A shared Node keeps its Rows' names only when it's written `as const satisfies ArchitectureNode`. With `satisfies` alone, they widen to `string`, and any name type-checks.
+4. **Sizes.** These keep ticket 02's rule that Node sizes are multiples of 16 px.
+   - The header is 48 px, the height a whole Node had before.
+   - Each Row adds a band of 32 px, so every Row's Ports land on the 8 px grid too.
+   - For `right`, a Node's header Ports stay level with its header, so the Node reaches 24 px above its Ports' line and the rest below it.
+5. **Row text.**
+   - It's Inter Regular at 12 px, level in the middle of its band, with 12 px clear on each side of the Node and at least 8 px between name and value.
+   - It's still drawn centered on its point, so names line up on the left and values on the right because each point sits half the text's width in.
+   - White space collapses as in titles. The SVG draws a line across the Node at the top of the first Row's band.
+6. **Shortening.**
+   - When name and value don't fit side by side, the name is shortened first, as far as its first character and the ellipsis. Only then is the value shortened, to the room left beside that.
+   - A Row without a value has the whole width for its name.
+   - Each shortened text gets its own `text-shortened` warning, and each text with characters the font lacks its own `glyph-missing`, pointing at `/nodes/<n>/rows/<m>/name` or `/value`.
+7. **Row Ports.**
+   - A Row's `input` Port is on its Node's left side and its `output` Port on the right, in both directions.
+   - An Edge that starts at a Row leaves from its output Port, and one that ends at a Row enters at its input Port: the sides that header Ports have for `right`. So on a `down` Diagram, an Edge attached to a Row leaves or enters sideways.
+   - Row Ports have stubs like header Ports. The grid has lines through every Row Port's stub, whether an Edge uses it or not.
+8. **The fallback** works in the frame of the Ports' stubs rather than the Diagram's direction. When one stub runs along x and the other along y, as a Row Port and a header Port do on a `down` Diagram, the route joins the ends of the two stubs with one corner.
+9. **The scene and the SVG.**
+   - A scene Node has `rows`, each with its band as `box`, its `name` and `value` texts, and its `input` and `output` Ports.
+   - A scene Edge has `fromRow` and `toRow` when an end names a Row.
+   - The Edge's `<g>` then carries `data-from-row` after `data-from`, and `data-to-row` after `data-to`.
+10. **Rules added:** `duplicate-row`.
 
 ### References
 

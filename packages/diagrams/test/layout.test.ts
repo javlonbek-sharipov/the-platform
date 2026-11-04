@@ -243,6 +243,42 @@ function crossingBesideUnconnected(direction: Direction): Diagram {
 	});
 }
 
+/**
+ * Nodes with different numbers of Rows: the web app has none, the Orders API
+ * one, the order events two, and the Orders database three.
+ */
+function withRows(direction: Direction): Diagram {
+	return diagram("Rows", direction, (d) => {
+		const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+		const api = d.node({
+			id: "orders-api",
+			kind: "service",
+			title: "Orders API",
+			rows: [{ name: "replicas", value: "3" }],
+		});
+		const db = d.node({
+			id: "orders-db",
+			kind: "database",
+			title: "Orders database",
+			rows: [
+				{ name: "replicas", value: "2" },
+				{ name: "region", value: "eu-west-1" },
+				{ name: "engine", value: "Postgres" },
+			],
+		});
+		const events = d.node({
+			id: "order-events",
+			kind: "queue",
+			title: "Order events",
+			rows: [{ name: "order-placed" }, { name: "order-paid" }],
+		});
+		d.edge(web, api, { kind: "call" });
+		d.edge(api, db, { kind: "call" });
+		d.edge(api, events, { kind: "message" });
+		d.edge(web, events, { kind: "message" });
+	});
+}
+
 /** Each fixture, with the Edges that close a cycle in it. */
 const fixtures: [string, (direction: Direction) => Diagram, string[]][] = [
 	["a chain", chain, []],
@@ -252,6 +288,7 @@ const fixtures: [string, (direction: Direction) => Diagram, string[]][] = [
 	["a cycle", cycle, ["ledger->orders-api", "ledger->ledger"]],
 	["two disconnected parts", twoParts, []],
 	["crossing Edges beside an unconnected Node", crossingBesideUnconnected, []],
+	["Nodes with Rows", withRows, []],
 ];
 
 describe.each(directions)("a Diagram laid out %s", (direction) => {
@@ -424,16 +461,17 @@ describe.each(directions)("a Diagram laid out %s", (direction) => {
 			}
 		});
 
-		test("snaps every Node's corners and Ports to the grid", () => {
+		test("snaps every Node's corners and Ports to the grid, its Rows' Ports included", () => {
 			const scene = sceneOf(fixture(direction));
 			const { grid } = scene;
 			expect(grid).toBeGreaterThan(0);
-			for (const { id, box, input, output } of scene.nodes) {
+			for (const { id, box, input, output, rows } of scene.nodes) {
 				const points = [
 					{ x: box.x, y: box.y },
 					{ x: box.x + box.width, y: box.y + box.height },
 					input.point,
 					output.point,
+					...rows.flatMap((row) => [row.input.point, row.output.point]),
 				];
 				for (const { x, y } of points) {
 					expect([x % grid, y % grid], id).toEqual([0, 0]);
@@ -458,8 +496,11 @@ describe.each(directions)("a Diagram laid out %s", (direction) => {
 describe("Ports", () => {
 	test("sit on the left and right sides for right, level with the header", () => {
 		for (const { box, input, output } of sceneOf(chain("right")).nodes) {
-			expect(input).toEqual({ side: "left", point: { x: box.x, y: input.point.y } });
-			expect(output).toEqual({ side: "right", point: { x: box.x + box.width, y: input.point.y } });
+			expect(input).toMatchObject({ side: "left", point: { x: box.x, y: input.point.y } });
+			expect(output).toMatchObject({
+				side: "right",
+				point: { x: box.x + box.width, y: input.point.y },
+			});
 			expect(input.point.y).toBeGreaterThan(box.y);
 			expect(input.point.y).toBeLessThan(box.y + box.height);
 		}
@@ -468,8 +509,8 @@ describe("Ports", () => {
 	test("sit on top for input and at the bottom for output, for down", () => {
 		for (const { box, input, output } of sceneOf(chain("down")).nodes) {
 			const center = box.x + box.width / 2;
-			expect(input).toEqual({ side: "top", point: { x: center, y: box.y } });
-			expect(output).toEqual({ side: "bottom", point: { x: center, y: box.y + box.height } });
+			expect(input).toMatchObject({ side: "top", point: { x: center, y: box.y } });
+			expect(output).toMatchObject({ side: "bottom", point: { x: center, y: box.y + box.height } });
 		}
 	});
 });
