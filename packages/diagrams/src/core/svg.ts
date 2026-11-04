@@ -1,5 +1,7 @@
 /**
- * The SVG writer turns a scene into one self-contained SVG.
+ * The SVG writer turns a scene into one self-contained SVG. It works out which
+ * of the bundled font's glyphs the SVG draws, and embeds the font data that
+ * its caller's function gives for them.
  *
  * Its output is deterministic: elements are written in model order and
  * attributes in a fixed order, numbers have at most two decimals and never
@@ -7,23 +9,29 @@
  */
 
 import type { Point, Scene, SceneEdge, SceneNode } from "./scene.ts";
+import { type FontData, type FontWeight, hasCharacter } from "./text.ts";
 
 type Attribute = readonly [name: string, value: string | number];
 
 const ink = "#1f2328";
 const line = "#57606a";
 const surface = "#ffffff";
-const fontFamily = "Inter, Helvetica, Arial, sans-serif";
+/**
+ * Where the embedded font can't be used, text falls back to fonts no wider
+ * than Inter, so that text shortened to fit still fits. There's no generic
+ * family at the end, since that could be a wider font.
+ */
+const fallbackFonts = "Helvetica, Arial";
+const fontWeights: Record<FontWeight, number> = { regular: 400, semibold: 600 };
 
-export function writeSvg(scene: Scene): string {
+export function writeSvg(scene: Scene, fontData?: FontData): string {
 	const { bounds } = scene;
-	const lines = [
-		start("svg", [
-			["xmlns", "http://www.w3.org/2000/svg"],
-			["viewBox", [bounds.x, bounds.y, bounds.width, bounds.height].map(number).join(" ")],
-			["width", bounds.width],
-			["height", bounds.height],
-		]),
+	const size: Attribute[] = [
+		["viewBox", [bounds.x, bounds.y, bounds.width, bounds.height].map(number).join(" ")],
+		["width", bounds.width],
+		["height", bounds.height],
+	];
+	const body = [
 		indent(
 			1,
 			start("g", [
@@ -37,17 +45,68 @@ export function writeSvg(scene: Scene): string {
 		indent(
 			1,
 			start("g", [
-				["font-family", fontFamily],
-				["font-size", 14],
 				["text-anchor", "middle"],
 				["dominant-baseline", "central"],
 			]),
 		),
 		...scene.nodes.flatMap((node) => writeNode(node).map((text) => indent(2, text))),
 		indent(1, "</g>"),
+	];
+	const fonts = fontData === undefined ? [] : embeddedFonts(scene, fontData);
+	// Inlined into a page, an SVG's style applies to the whole page, so the font's
+	// family and every selector carry a name made from everything else in the SVG.
+	const contents = [attributesText(size), ...fonts.map((font) => font.data), ...body];
+	const scope = `diagram-${hash(contents.join("\n"))}`;
+	const lines = [
+		start("svg", [["xmlns", "http://www.w3.org/2000/svg"], ["class", scope], ...size]),
+		...style(scope, fonts).map((text) => indent(1, text)),
+		...body,
 		"</svg>",
 	];
 	return `${lines.join("\n")}\n`;
+}
+
+interface EmbeddedFont {
+	weight: FontWeight;
+	/** The font data, in base64. */
+	data: string;
+}
+
+/** The font data for each weight that the scene draws text in, in a fixed order. */
+function embeddedFonts(scene: Scene, fontData: FontData): EmbeddedFont[] {
+	// Every piece of text the scene draws.
+	const texts = scene.nodes.map((node) => node.title);
+	return (["regular", "semibold"] as const).flatMap((weight) => {
+		const drawn = new Set(
+			texts.filter((text) => text.weight === weight).flatMap((text) => [...text.text]),
+		);
+		const characters = [...drawn]
+			.filter((character) => hasCharacter(character, weight))
+			.sort((a, b) => (a.codePointAt(0) ?? 0) - (b.codePointAt(0) ?? 0))
+			.join("");
+		return characters === "" ? [] : [{ weight, data: base64(fontData({ weight, characters })) }];
+	});
+}
+
+/**
+ * The embedded font's faces, and one rule for the SVG's root, which every text
+ * inherits from. It turns kerning and ligatures off, since measuring ignores them.
+ */
+function style(scope: string, fonts: EmbeddedFont[]): string[] {
+	return [
+		"<style>",
+		...fonts.map((font) =>
+			indent(
+				1,
+				`@font-face { font-family: "${scope}"; font-weight: ${fontWeights[font.weight]}; src: url("data:font/ttf;base64,${font.data}") format("truetype"); }`,
+			),
+		),
+		indent(
+			1,
+			`.${scope} { font-family: "${scope}", ${fallbackFonts}; font-kerning: none; font-variant-ligatures: none; }`,
+		),
+		"</style>",
+	];
 }
 
 function writeNode(node: SceneNode): string[] {
@@ -76,6 +135,8 @@ function writeNode(node: SceneNode): string[] {
 				[
 					["x", title.point.x],
 					["y", title.point.y],
+					["font-size", title.size],
+					["font-weight", fontWeights[title.weight]],
 					["fill", ink],
 				],
 				title.text,
@@ -133,6 +194,33 @@ function indent(depth: number, text: string): string {
 function number(value: number): string {
 	const rounded = Math.round(value * 100) / 100;
 	return String(rounded === 0 ? 0 : rounded);
+}
+
+const hashSize = 1n << 64n;
+
+/** A 64-bit FNV-1a hash of the text's UTF-16 code units, in hex. */
+function hash(text: string): string {
+	let value = 0xcbf29ce484222325n;
+	for (let index = 0; index < text.length; index++) {
+		value ^= BigInt(text.charCodeAt(index));
+		value = (value * 0x100000001b3n) % hashSize;
+	}
+	return value.toString(16).padStart(16, "0");
+}
+
+const base64Digits = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+function base64(bytes: Uint8Array): string {
+	let text = "";
+	for (let index = 0; index < bytes.length; index += 3) {
+		const group =
+			((bytes[index] ?? 0) << 16) | ((bytes[index + 1] ?? 0) << 8) | (bytes[index + 2] ?? 0);
+		text += base64Digits[(group >> 18) & 63];
+		text += base64Digits[(group >> 12) & 63];
+		text += index + 1 < bytes.length ? base64Digits[(group >> 6) & 63] : "=";
+		text += index + 2 < bytes.length ? base64Digits[group & 63] : "=";
+	}
+	return text;
 }
 
 function escapeText(text: string): string {

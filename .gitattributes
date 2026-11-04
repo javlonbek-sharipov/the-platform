@@ -2,3 +2,5 @@
 # checkout on any OS matches a fresh render byte for byte.
 *.diagram.svg text eol=lf
 packages/diagrams/test/golden/*.svg text eol=lf
+# The bundled fonts are binary, so git never touches their bytes.
+*.ttf binary

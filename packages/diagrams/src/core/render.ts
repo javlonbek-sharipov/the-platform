@@ -9,6 +9,7 @@ import { clearance, grid, layOut, margin } from "./layout.ts";
 import { route } from "./route.ts";
 import type { Box, Scene, SceneEdge, SceneNode } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
+import { type FontData, titleDiagnostics } from "./text.ts";
 import { validate } from "./validate.ts";
 
 export interface RenderResult {
@@ -17,7 +18,15 @@ export interface RenderResult {
 	svg?: string;
 }
 
-export function render(diagram: unknown): RenderResult {
+export interface RenderOptions {
+	/**
+	 * Gives the SVG the bundled font's glyphs that it draws. Without it, the
+	 * SVG embeds no font, which suits callers that only look at the scene.
+	 */
+	fontData?: FontData;
+}
+
+export function render(diagram: unknown, options: RenderOptions = {}): RenderResult {
 	const validation = validate(diagram);
 	if (validation.diagram === undefined) {
 		return { diagnostics: validation.diagnostics };
@@ -31,12 +40,12 @@ export function render(diagram: unknown): RenderResult {
 		grid,
 		nodes,
 		edges,
-		diagnostics: [],
+		diagnostics: titleDiagnostics(model, nodes),
 	};
 	return {
 		diagnostics: [...validation.diagnostics, ...scene.diagnostics],
 		scene,
-		svg: writeSvg(scene),
+		svg: writeSvg(scene, options.fontData),
 	};
 }
 

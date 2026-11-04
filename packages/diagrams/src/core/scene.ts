@@ -4,6 +4,7 @@
  */
 
 import type { Diagnostic } from "./diagnostics.ts";
+import type { FontWeight } from "./text.ts";
 
 export interface Point {
 	x: number;
@@ -25,10 +26,17 @@ export interface ScenePort {
 	point: Point;
 }
 
-/** A piece of text, drawn centered on its point. */
+/** A piece of text, drawn centered on its point, in the bundled font. */
 export interface SceneText {
 	text: string;
 	point: Point;
+	/** Its measured width, which is the width it's drawn at. */
+	width: number;
+	/** Whether it was shortened to fit, with an ellipsis. The model keeps the full text. */
+	shortened: boolean;
+	weight: FontWeight;
+	/** Its font size. */
+	size: number;
 }
 
 export interface SceneNode {

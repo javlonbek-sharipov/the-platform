@@ -11,7 +11,8 @@
 		"test": "vitest run",
 		"golden:update": "DIAGRAMS_UPDATE_GOLDEN=1 vitest run",
 		"check": "biome check",
-		"typecheck": "tsc -p ."
+		"typecheck": "tsc -p .",
+		"generate:font-metrics": "node packages/diagrams/scripts/generate-font-metrics.ts"
 	},
 	"dependencies": {
 		"@the-platform/diagrams": "workspace:*"

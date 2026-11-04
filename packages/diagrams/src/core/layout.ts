@@ -11,6 +11,7 @@
 import type { Diagram } from "../authoring/model.ts";
 import { arrange, type Member } from "./layers.ts";
 import type { Point, SceneNode } from "./scene.ts";
+import { nodeTitle } from "./text.ts";
 
 const nodeWidth = 160;
 const nodeHeight = 48;
@@ -49,10 +50,7 @@ export function layOut(diagram: Diagram): SceneNode[] {
 			box,
 			input: { side: down ? "top" : "left", point: turn(line - depth / 2, ports) },
 			output: { side: down ? "bottom" : "right", point: turn(line + depth / 2, ports) },
-			title: {
-				text: node.title,
-				point: { x: box.x + box.width / 2, y: box.y + box.height / 2 },
-			},
+			title: nodeTitle(node.title, box),
 		};
 	});
 }

@@ -83,9 +83,9 @@ describe("the SVG", () => {
 	test("escapes text", () => {
 		const svg = svgOf(
 			architecture({ title: "Escapes" }, (d) => {
-				d.node({ id: "billing", kind: "system", title: 'Billing & "Invoices" <beta>' });
+				d.node({ id: "billing", kind: "system", title: 'R&D "Ops" <beta>' });
 			}),
 		);
-		expect(svg).toContain('>Billing &amp; "Invoices" &lt;beta&gt;</text>');
+		expect(svg).toContain('>R&amp;D "Ops" &lt;beta&gt;</text>');
 	});
 });
