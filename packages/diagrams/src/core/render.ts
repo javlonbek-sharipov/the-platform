@@ -42,6 +42,13 @@ export interface RenderOptions {
 	searchBudget?: number;
 }
 
+/**
+ * How many times layout and routing run at most: once, and once more each
+ * time trunks crowd out labels, with those labels' Edges in lanes of their
+ * own. Each time can only add to them, so this bounds the work.
+ */
+const rounds = 5;
+
 export function render(diagram: unknown, options: RenderOptions = {}): RenderResult {
 	const validation = validate(diagram);
 	if (validation.diagram === undefined) {
@@ -50,11 +57,12 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 	const model = validation.diagram;
 	// A labeled Edge that its bundle's trunk leaves no run of its own that holds
 	// its label keeps a lane of its own instead (spec: Edge routing, step 8).
-	// Layout leaves room for that lane too, so both run again.
+	// Layout leaves room for that lane too, so both run again, until no trunk
+	// crowds out another label.
 	const ownLanes = new Set<string>();
 	let { nodes, groups } = layOut(model, options.bundle, ownLanes);
 	let routing = route(model, nodes, groups, { ...options, ownLanes });
-	if (routing.crowdedOut.length > 0) {
+	for (let round = 1; round < rounds && routing.crowdedOut.length > 0; round += 1) {
 		for (const id of routing.crowdedOut) {
 			ownLanes.add(id);
 		}

@@ -4,6 +4,7 @@ import {
 	type Box,
 	type Diagram,
 	type Direction,
+	type Edge,
 	type Point,
 	render,
 	type Scene,
@@ -343,7 +344,39 @@ const labeledFixtures: [string, (direction: Direction) => Diagram][] = [
 		"the crowded fixture, with every sixth Edge labeled",
 		(direction) => labeled(crowded(direction), 6),
 	],
+	["the crowded fixture, with every Edge labeled", (direction) => labeled(crowded(direction))],
 ];
+
+/** A Port, named by its Node and its Row, if any. */
+function portKey(node: string, row: string | undefined): string {
+	return row === undefined ? node : `${node}/${row}`;
+}
+
+/**
+ * Whether two Edges share a bundle, read from the spec rather than the code:
+ * the same Kind into the same Port, unless they're parallel, joining the same
+ * pair of Ports.
+ */
+function sameBundle(a: SceneEdge, b: SceneEdge): boolean {
+	const parallel =
+		portKey(a.from, a.fromRow) === portKey(b.from, b.fromRow) &&
+		portKey(a.to, a.toRow) === portKey(b.to, b.toRow);
+	return a.kind === b.kind && portKey(a.to, a.toRow) === portKey(b.to, b.toRow) && !parallel;
+}
+
+/**
+ * The width of an Edge's label box with its texts in full, read from the font
+ * and the spec: its widest line, the text at 12 px, or the Technology and the
+ * rate at 11 px, 12 px apart, but no wider than 192 px, and 4 px on each side.
+ */
+function fullBoxWidth({ label, technology, rate }: Edge): number {
+	const text = label === undefined ? 0 : widthInInterRegular(label.replace(/\s+/g, " ").trim(), 12);
+	const details = [technology, rate].flatMap((part) =>
+		part === undefined ? [] : [widthInInterRegular(part, 11)],
+	);
+	const detail = details.reduce((sum, width) => sum + width, 0) + (details.length === 2 ? 12 : 0);
+	return Math.min(192, Math.max(text, detail)) + 8;
+}
 
 function overlaps(a: Box, b: Box): boolean {
 	return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
@@ -367,9 +400,14 @@ function grown(box: Box, by: number): Box {
 /**
  * What a label's box would cover that labels stay clear of: Nodes, callouts'
  * tags, the stubs of the Ports that Edges use, Group labels, and the boxes of
- * the other labels.
+ * the other labels, but for those of the Edges in `exempt`.
  */
-function coveredBy(scene: Scene, box: Box, edge: SceneEdge): string[] {
+function coveredBy(
+	scene: Scene,
+	box: Box,
+	edge: SceneEdge,
+	exempt: ReadonlySet<string> = new Set(),
+): string[] {
 	const stubs = new Map(
 		scene.edges.flatMap(({ fromPort, toPort }) =>
 			[fromPort, toPort].map((port) => [`${port.point.x} ${port.point.y}`, port] as const),
@@ -385,7 +423,9 @@ function coveredBy(scene: Scene, box: Box, edge: SceneEdge): string[] {
 		),
 		...scene.groups.flatMap(({ id, label }) => (overlaps(box, label) ? [`${id}'s label`] : [])),
 		...scene.edges.flatMap(({ id, label }) =>
-			id !== edge.id && label !== undefined && overlaps(box, label.box) ? [`${id}'s label`] : [],
+			id !== edge.id && !exempt.has(id) && label !== undefined && overlaps(box, label.box)
+				? [`${id}'s label`]
+				: [],
 		),
 	];
 }
@@ -448,7 +488,7 @@ describe.each(directions)("the labels in each fixture, laid out %s", (direction)
 		const fellBack = new Set(
 			diagnostics
 				.filter(({ rule }) => rule === "label-placement")
-				.map(({ pointer }) => diagram.edges[Number(pointer?.split("/")[2])]?.id),
+				.flatMap(({ pointer }) => diagram.edges[Number(pointer?.split("/")[2])]?.id ?? []),
 		);
 		const placed = scene.edges.filter(({ id, label }) => label !== undefined && !fellBack.has(id));
 
@@ -515,8 +555,12 @@ describe.each(directions)("the labels in each fixture, laid out %s", (direction)
 		});
 
 		test("stay clear of every Node, tag, Port stub, Group label and other label", () => {
+			// A label at its route's midpoint may overlap anything, other labels
+			// included, so only the labels placed beside their runs keep clear.
 			for (const edge of placed) {
-				expect(coveredBy(scene, edge.label?.box ?? scene.bounds, edge), edge.id).toEqual([]);
+				expect(coveredBy(scene, edge.label?.box ?? scene.bounds, edge, fellBack), edge.id).toEqual(
+					[],
+				);
 			}
 		});
 
@@ -575,6 +619,29 @@ describe.each(directions)("the labels in each fixture, laid out %s", (direction)
 						).toBe(true);
 					}
 				}
+			}
+		});
+
+		test("ride their bundle's trunk only where a run of their own holds them in full, and keep a lane of their own otherwise", () => {
+			for (const edge of scene.edges) {
+				const model = diagram.edges.find(({ id }) => id === edge.id);
+				if (edge.label === undefined || model === undefined) {
+					continue;
+				}
+				const rides = scene.edges.some(
+					(other) =>
+						other !== edge &&
+						sameBundle(edge, other) &&
+						sharedBeyondJunctions(scene, edge, other).length > 0,
+				);
+				const [width, height] = [fullBoxWidth(model), edge.label.box.height];
+				const holds = ownStretches(scene, edge).some(
+					(stretch) => stretch.high - stretch.low >= (stretch.horizontal ? width : height) - 1e-6,
+				);
+				expect(
+					!rides || holds,
+					`${edge.id} rides its trunk with no run of its own for its label`,
+				).toBe(true);
 			}
 		});
 	});
