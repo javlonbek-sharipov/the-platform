@@ -16,7 +16,7 @@ Draw one when readers need to see several systems, services or stores at once: w
 Follow the example at the end. `packages/diagrams/src/authoring/architecture.ts` documents every option.
 
 - Import `architecture` from `@the-platform/diagrams`, which resolves anywhere in the repo.
-- Declare a Group's Nodes with the builder its callback gets, as in `region.node(…)`. `d.node(…)` always adds to the Diagram itself.
+- Declare a Group's Nodes and Groups with the builder its callback gets, as in `region.node(…)`. `d.node(…)` always adds to the Diagram itself.
 - An Edge joins two Nodes, each given by its handle or its id.
 
 **Kinds.** Pick the one that says what the thing is.
