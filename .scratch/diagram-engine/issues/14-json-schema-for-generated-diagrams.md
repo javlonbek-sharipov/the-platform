@@ -37,4 +37,9 @@
 
 - [ ] Every core test fixture's model passes the schema. Check this with a permissively licensed validator, added as a dev dependency.
 - [ ] A set of broken models fails both the schema and the core's validation.
+- [ ] Text that would make the SVG invalid XML, such as a title holding a control character (U+0007), fails the core's validation with a clear message, and the schema rejects it too.
 - [ ] A sample Atlas in the Seam 2 tests has a module that default-exports an imported JSON file. `render` and `lint` treat it like any other Diagram.
+
+## Comments
+
+- Orchestrator: added the control-character checkbox under **Tests**. Ticket 04 found that such a title renders an SVG that isn't valid XML, while lint only warns about the missing glyph.
