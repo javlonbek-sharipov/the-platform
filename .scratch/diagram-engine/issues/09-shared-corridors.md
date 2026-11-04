@@ -68,7 +68,7 @@
 - Orchestrator: added the lane offset and jog checkbox under **Nudging**. Ticket 03 left the jog unticked, because nothing is offset into lanes before this ticket (see ticket 03's Comments).
 - Orchestrator: ticket 08's Comments end with a note for this ticket ("For ticket 09"). Read it before you start.
 
-**Implementation, 5 November 2026** (branch `t3/89f26616`). Choices the spec left open are recorded in its "Decisions made during implementation", under Ticket 09.
+**Implementation, 5 November 2026** (branch `t3/shared-corridors`). Choices the spec left open are recorded in its "Decisions made during implementation", under Ticket 09.
 
 - **Manual check, by eye.** I rendered the fixtures with the bundled font through resvg and looked at them at 2× to 5×:
   - On every-kind, the Shop API's fan-out leaves one stub and splits into nested lanes that don't cross.
