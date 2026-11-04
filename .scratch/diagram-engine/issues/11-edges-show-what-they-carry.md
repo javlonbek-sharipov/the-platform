@@ -5,7 +5,7 @@
 - `call` Edges are solid and `message` Edges are dashed. Both get arrowheads, direction chevrons and a darker casing.
 - A small junction mark sits where one Port splits into several Edges.
 - An Edge that crosses between different `region` or `zone` Groups gets a warning color and a badge at its midpoint.
-- Each SVG also describes itself to screen readers.
+- Each SVG also describes itself: to screen readers, and by carrying its own JSON model.
 
 **Blocked by:**
 
@@ -18,7 +18,7 @@
 
 - [Notations](../spec.md#notations): sentence forms
 - [Notations › Architecture](../spec.md#architecture): Edges
-- [Static SVG](../spec.md#static-svg): Look, Accessibility
+- [Static SVG](../spec.md#static-svg): Look, Accessibility, Model and hooks
 
 **Clean-room:** work only from the spec and the other sources its "Read this first" section allows. Never open `repos/quorum` (ADR-0001).
 
@@ -38,7 +38,16 @@
   - a `<title>` that holds the Diagram's title;
   - a `<desc>` that lists its Nodes, and its Edges in their sentence forms.
 
+**Model**
+
+- [ ] The SVG carries its JSON model in a `<metadata>` element, so the SVG alone is enough for the web component in slice 3.
+- [ ] A Seam 1 test parses the metadata back and gets the model.
+
 **Checks**
 
 - [ ] Golden files cover both Edge Kinds, a junction, and a cross-region Edge.
 - [ ] The example Diagram shows each of those.
+
+## Comments
+
+- Orchestrator: added **Model** here. Ticket 01 found that no slice 1 ticket covered the spec's `<metadata>` model (Static SVG › Model and hooks, and Testing Decisions › SVG).
