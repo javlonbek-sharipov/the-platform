@@ -1291,6 +1291,39 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
     - Every dependency is MIT, ISC, BSD or Apache-2.0, except lightningcss (MPL-2.0), which Vite pulls in for Vitest.
     - It's dev-only, unmodified and never shipped, so it gets the same allowance as an MPL-2.0 dependency of the CLI.
 
+**Ticket 04**
+
+1. **The bundled font.** `packages/diagrams/fonts/` holds `Inter-Regular.ttf` and `Inter-SemiBold.ttf` from `extras/ttf/` in Inter 4.1's release zip, with Inter's `LICENSE.txt` beside them as `OFL.txt`. A test pins their SHA-256s.
+2. **Metrics.**
+   - `pnpm generate:font-metrics` runs `packages/diagrams/scripts/generate-font-metrics.ts`, which writes `src/core/font-metrics.ts`. A test runs it twice, and compares both outputs with the committed file.
+   - For each weight, the file holds the units per em, the average width, and the advance width of every character in the font's character map, in rows of 16 code points.
+   - A character the font lacks is measured at the font's own average width, `xAvgCharWidth` in its `OS/2` table.
+3. **Titles.**
+   - A title is Inter SemiBold at 14px, centered in its header, with at least 12px clear on each side. Until ticket 07, the header is the whole Node.
+   - Before measuring, each run of spaces, tabs and line breaks becomes one space, and spaces at either end go. Renderers don't all collapse white space alike, so the SVG gets it already collapsed.
+   - A title too wide keeps the longest start that fits with `…` (U+2026) after it. It's cut between code points, and spaces before the ellipsis are left out.
+   - Each piece of text in the scene records its drawn text, measured width, weight, size, and whether it was shortened.
+4. **Warnings.** The rules are `text-shortened` and `glyph-missing`. Both name the Node and point at its title. `glyph-missing` lists each character with its code point.
+5. **Font data.**
+   - `render(diagram, { fontData })` calls `fontData({ weight, characters })` once for each weight the SVG draws text in. `characters` holds every character drawn in that weight that the font has, once each, in code point order. The function returns a TrueType font.
+   - Without `fontData`, the SVG embeds no font. The Atlas always passes the bundled font's subsetter. Tests that check only the scene or diagnostics leave it out.
+6. **The subsetter** is our own, `src/fonts/subset.ts`, written from the OpenType specification.
+   - It keeps `.notdef`, the characters' glyphs and their components, numbered in the font's own order.
+   - It writes only `OS/2`, `cmap`, `glyf`, `head`, `hhea`, `hmtx`, `loca`, `maxp`, `name` and `post`, in tag order.
+   - It leaves out the hinting (`fpgm`, `prep`, `cvt `, `gasp` and each glyph's instructions) and the layout tables (`GDEF`, `GPOS` and `GSUB`). So the subset can't kern or form ligatures, whatever a renderer does.
+   - `post` is version 3, without glyph names. `name` drops the names of the stylistic sets that `GSUB` held, which are IDs 256 and up. `loca` is long, and `head` keeps the font's own timestamps.
+   - `cmap` has a format 4 subtable under (0,3) and (3,1), and also a format 12 subtable under (0,4) and (3,10) when a character lies beyond the Basic Multilingual Plane.
+7. **Family name and scope.**
+   - Both are `diagram-` and a 64-bit FNV-1a hash, in hex, of the SVG's size, its font data and the rest of its body.
+   - The root `<svg>` carries that name as a class, and the style's one rule selects that class. Text inherits the font stack, and kerning and ligatures turned off, from the root.
+   - One family has one face per weight, with `font-weight` 400 or 600. The data URL's type is `font/ttf`.
+8. **The fallback stack** is `"<family>", Helvetica, Arial`, with no generic family at the end, since that could be a wider font.
+   - Measured in Chrome over Basic Latin and Latin-1, Helvetica and Arial set text at 0.96 of Inter's width in regular, and 0.97 in bold.
+   - Some characters are wider than Inter's, though: `1` by about a third, `_` and `^` by a fifth, and capitals such as `E` and `R` by up to 12%. So all-caps text comes out up to 1% wider than Inter.
+   - A title's 12px of clearance on each side absorbs that.
+9. **Size.** The example Diagram's subset is 4.1 KB, or 5.4 KB in base64. That's under the 10–30 KB estimate, because it has no hinting, glyph names or layout tables. A test keeps it under 30 KB.
+10. **Tests read fonts with their own code.** `test/support/truetype.ts` is a TrueType reader written separately from the engine's, so that tests don't trust the code under test. It reads both of the bundled font's Unicode subtables, where the engine reads only the format 12 one.
+
 ### References
 
 **Routing and layout papers**
