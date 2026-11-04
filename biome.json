@@ -26,7 +26,15 @@
 				"noEnum": "error",
 				"noNamespace": "error",
 				"noParameterProperties": "error",
-				"noCommonJs": "error"
+				"noCommonJs": "error",
+				"noRestrictedImports": {
+					"level": "error",
+					"options": {
+						"paths": {
+							"@resvg/resvg-js": "Only the CLI may use resvg: it's MPL-2.0, which the spec allows only for an unmodified dependency of the CLI."
+						}
+					}
+				}
 			}
 		}
 	},
@@ -50,6 +58,16 @@
 		}
 	},
 	"overrides": [
+		{
+			"includes": ["packages/diagrams/src/cli/**"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": "off"
+					}
+				}
+			}
+		},
 		{
 			"includes": [
 				"packages/diagrams/src/index.ts",
