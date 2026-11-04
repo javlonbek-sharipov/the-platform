@@ -234,6 +234,13 @@ describe("an Edge", () => {
 		expect(between.map(([a]) => a.y)).toEqual([(above.y + above.height + below.y) / 2]);
 	});
 
+	test("gets the same route whatever order the Diagram declares its Edges in", () => {
+		const routes = (diagram: Diagram) =>
+			Object.fromEntries(sceneOf(diagram).edges.map(({ id, route }) => [id, route]));
+		const reversed: Diagram = { ...orders, edges: [...orders.edges].reverse() };
+		expect(routes(reversed)).toEqual(routes(orders));
+	});
+
 	test("records its two Ports: its source's output Port and its target's input Port", () => {
 		for (const scene of [sceneOf(shop), sceneOf(down(shop))]) {
 			for (const edge of scene.edges) {

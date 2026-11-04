@@ -47,14 +47,17 @@ export function route(diagram: Diagram, nodes: SceneNode[], options: RouteOption
 	const byId = new Map(nodes.map((node) => [node.id, node]));
 	const grid = buildGrid(nodes, clearance);
 	const budget = options.searchBudget ?? defaultSearchBudget;
-	const edges = diagram.edges.map((edge): SceneEdge => {
+	// Edges are routed in a stable order, by id, so that no route depends on
+	// the order the Diagram declares its Edges in.
+	const routed = new Map<string, SceneEdge>();
+	for (const edge of [...diagram.edges].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
 		const from = byId.get(edge.from);
 		const to = byId.get(edge.to);
 		if (from === undefined || to === undefined) {
 			throw new Error(`Edge ${edge.id} ends at a Node that validation should have rejected`);
 		}
 		const found = searchRoute(grid, from.output, to.input, budget);
-		return {
+		routed.set(edge.id, {
 			id: edge.id,
 			kind: edge.kind,
 			from: edge.from,
@@ -63,8 +66,9 @@ export function route(diagram: Diagram, nodes: SceneNode[], options: RouteOption
 			toPort: to.input,
 			route: roundCorners(polyline(found ?? fallbackRoute(from, to, diagram.direction))),
 			fellBack: found === undefined,
-		};
-	});
+		});
+	}
+	const edges = diagram.edges.flatMap((edge) => routed.get(edge.id) ?? []);
 	const diagnostics = edges.flatMap(({ id, fellBack }, index): Diagnostic[] =>
 		fellBack
 			? [
