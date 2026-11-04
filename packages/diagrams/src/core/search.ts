@@ -82,9 +82,17 @@ export type Search = (
  */
 export function searchOn(grid: Grid): Search {
 	const columns = grid.xs.length;
-	const states = 4 * columns * grid.ys.length;
-	const xOf = (vertex: number) => grid.xs[vertex % columns] ?? 0;
-	const yOf = (vertex: number) => grid.ys[(vertex - (vertex % columns)) / columns] ?? 0;
+	const vertices = columns * grid.ys.length;
+	const states = 4 * vertices;
+	/** Each vertex's coordinates, worked out once, since the search reads them at every step. */
+	const vertexX = new Float64Array(vertices);
+	const vertexY = new Float64Array(vertices);
+	for (let vertex = 0; vertex < vertices; vertex += 1) {
+		vertexX[vertex] = grid.xs[vertex % columns] ?? 0;
+		vertexY[vertex] = grid.ys[(vertex - (vertex % columns)) / columns] ?? 0;
+	}
+	const xOf = (vertex: number) => vertexX[vertex] ?? 0;
+	const yOf = (vertex: number) => vertexY[vertex] ?? 0;
 	/** The cost of the cheapest known path to each state, valid where `reached` holds this search. */
 	const best = new Float64Array(states);
 	/** The state before each state on that path, or -1 at the start. */
@@ -227,21 +235,27 @@ function neighborOf(grid: Grid, vertex: number, heading: number): number | undef
  * for as long as it can, and finds the one whose bends come nearest its goal.
  * Last ties go to the state queued first, so the search is deterministic.
  *
- * Each entry lives at one index of four parallel lists.
+ * Each entry lives at one index of four parallel typed arrays, which grow as
+ * the queue does.
  */
 class Queue {
-	#states: number[] = [];
-	#costs: number[] = [];
-	#estimates: number[] = [];
-	#orders: number[] = [];
+	#states = new Int32Array(1024);
+	#costs = new Float64Array(1024);
+	#estimates = new Float64Array(1024);
+	#orders = new Float64Array(1024);
+	#size = 0;
 	#queued = 0;
 
 	push(state: number, cost: number, estimate: number): void {
-		let index = this.#states.length;
-		this.#states.push(state);
-		this.#costs.push(cost);
-		this.#estimates.push(estimate);
-		this.#orders.push(this.#queued++);
+		if (this.#size === this.#states.length) {
+			this.#grow();
+		}
+		let index = this.#size;
+		this.#size += 1;
+		this.#states[index] = state;
+		this.#costs[index] = cost;
+		this.#estimates[index] = estimate;
+		this.#orders[index] = this.#queued++;
 		while (index > 0) {
 			const parent = Math.floor((index - 1) / 2);
 			if (!this.#before(index, parent)) {
@@ -253,16 +267,13 @@ class Queue {
 	}
 
 	pop(): { state: number; cost: number } | undefined {
-		const size = this.#states.length;
+		const size = this.#size;
 		if (size === 0) {
 			return undefined;
 		}
 		const top = { state: this.#states[0] ?? 0, cost: this.#costs[0] ?? 0 };
 		this.#swap(0, size - 1);
-		this.#states.pop();
-		this.#costs.pop();
-		this.#estimates.pop();
-		this.#orders.pop();
+		this.#size -= 1;
 		for (let index = 0; ; ) {
 			const left = 2 * index + 1;
 			const right = left + 1;
@@ -301,9 +312,26 @@ class Queue {
 		swap(this.#estimates, a, b);
 		swap(this.#orders, a, b);
 	}
+
+	/** Doubles the room for queued states, keeping those queued. */
+	#grow(): void {
+		const room = 2 * this.#states.length;
+		const states = new Int32Array(room);
+		const costs = new Float64Array(room);
+		const estimates = new Float64Array(room);
+		const orders = new Float64Array(room);
+		states.set(this.#states);
+		costs.set(this.#costs);
+		estimates.set(this.#estimates);
+		orders.set(this.#orders);
+		this.#states = states;
+		this.#costs = costs;
+		this.#estimates = estimates;
+		this.#orders = orders;
+	}
 }
 
-function swap(list: number[], a: number, b: number): void {
+function swap(list: Int32Array | Float64Array, a: number, b: number): void {
 	const value = list[a] ?? 0;
 	list[a] = list[b] ?? 0;
 	list[b] = value;
