@@ -27,7 +27,7 @@ export type PathData = (string | number)[];
 export interface OutlineDrawing {
 	/** The closed shapes of the silhouette, each filled with the surface, tinted with the hue and stroked. */
 	shapes: PathData[];
-	/** Parts filled in the hue, such as a window's title bar. */
+	/** Parts filled in the hue, such as a window's title bar, drawn under the shapes' strokes. */
 	solids: PathData[];
 	/** Lines stroked in the hue, such as a cylinder's lid. */
 	details: PathData[];
@@ -306,6 +306,7 @@ export const outlines: Record<Outline, OutlineLook> = {
 						[right, y + fold],
 					]),
 				],
+				details: [["M", right - fold, y, "V", y + fold, "H", right]],
 			};
 		},
 	},

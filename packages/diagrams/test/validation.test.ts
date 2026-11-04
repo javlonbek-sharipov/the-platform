@@ -236,6 +236,20 @@ describe("validation", () => {
 		]);
 	});
 
+	test("reports an External flag that isn't true or false", () => {
+		const diagram = shopJson();
+		diagram.nodes[1] = { ...diagram.nodes[1], external: "yes" } as (typeof diagram.nodes)[number];
+
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "model-shape",
+				message: "`/nodes/1/external` must be `true` or `false`.",
+				pointer: "/nodes/1/external",
+			},
+		]);
+	});
+
 	test("accepts ids with digits, and context namespaces", () => {
 		const diagram = shopJson();
 		diagram.nodes[2] = { id: "billing/s3-archive", kind: "storage", title: "Archive" };

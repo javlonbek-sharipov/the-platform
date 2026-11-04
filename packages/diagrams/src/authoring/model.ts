@@ -31,6 +31,8 @@ export interface Node {
 	id: string;
 	kind: ArchitectureNodeKind;
 	title: string;
+	/** Whether the Node stands for something we don't own or run, such as a third-party API. */
+	external?: boolean;
 }
 
 export interface Edge {

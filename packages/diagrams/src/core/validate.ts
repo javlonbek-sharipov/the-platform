@@ -186,6 +186,14 @@ function checkShape(input: unknown): Diagnostic[] {
 	});
 	checkList(input.nodes, "/nodes", (node, at) => {
 		checkStrings(node, at, ["id", "kind", "title"]);
+		if (isObject(node)) {
+			const { external } = node;
+			check(
+				external === undefined || typeof external === "boolean",
+				`${at}/external`,
+				"`true` or `false`",
+			);
+		}
 	});
 	checkList(input.groups, "/groups", () => {});
 	checkList(input.edges, "/edges", (edge, at) => {

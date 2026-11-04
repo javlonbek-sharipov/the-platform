@@ -58,6 +58,7 @@ export function layOut(diagram: Diagram): SceneNode[] {
 			output: { side: down ? "bottom" : "right", point: turn(line + depth / 2, ports) },
 			badge,
 			title,
+			external: node.external === true,
 		};
 	});
 }

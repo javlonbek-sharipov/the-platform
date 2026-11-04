@@ -209,38 +209,40 @@ function writeNode(node: SceneNode): string[] {
 	const look = lookOf(node.kind);
 	const outline = outlines[look.outline];
 	const { shapes, solids, details } = outline.draw(box, outline.stroke);
+	// An External Node's outline is dashed, in a rhythm that grows with its stroke.
+	const stroke = (width: number): Attribute[] => [
+		["stroke", "currentColor"],
+		["stroke-width", width],
+		...(node.external
+			? [["stroke-dasharray", `${number(4 * width)} ${number(2.5 * width)}`] as const]
+			: []),
+	];
 	const parts = [
-		...shapes.flatMap((shape) => [
+		...shapes.flatMap((shape, index) => [
 			empty("path", [
 				["class", "diagram-base"],
 				["d", pathText(shape)],
 			]),
+			// Solid parts lie under the last shape's stroke, so that it runs unbroken.
+			...(index < shapes.length - 1
+				? []
+				: solids.map((solid) =>
+						empty("path", [
+							["d", pathText(solid)],
+							["fill", "currentColor"],
+							["fill-opacity", solidOpacity],
+						]),
+					)),
 			empty("path", [
 				["d", pathText(shape)],
 				["fill", "currentColor"],
 				["fill-opacity", outline.tint],
-				["stroke", "currentColor"],
-				["stroke-width", outline.stroke],
+				...stroke(outline.stroke),
 				["stroke-linejoin", "round"],
 			]),
 		]),
-		...solids.map((solid) =>
-			empty("path", [
-				["d", pathText(solid)],
-				["fill", "currentColor"],
-				["fill-opacity", solidOpacity],
-				["stroke", "currentColor"],
-				["stroke-width", outline.detail],
-				["stroke-linejoin", "round"],
-			]),
-		),
 		...details.map((detail) =>
-			empty("path", [
-				["d", pathText(detail)],
-				["fill", "none"],
-				["stroke", "currentColor"],
-				["stroke-width", outline.detail],
-			]),
+			empty("path", [["d", pathText(detail)], ["fill", "none"], ...stroke(outline.detail)]),
 		),
 		empty("path", [
 			["transform", `translate(${number(badge.x)} ${number(badge.y)})`],

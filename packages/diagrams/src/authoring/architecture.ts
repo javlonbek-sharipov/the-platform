@@ -15,6 +15,8 @@ export interface ArchitectureNode {
 	id: string;
 	kind: ArchitectureNodeKind;
 	title: string;
+	/** Whether the Node stands for something we don't own or run, drawn with a dashed outline. */
+	external?: boolean;
 }
 
 /** What a Node declaration returns. Later calls accept it in place of the id. */
@@ -49,8 +51,8 @@ export function architecture(
 	const members: string[] = [];
 
 	build({
-		node({ id, kind, title }) {
-			nodes.push({ id, kind, title });
+		node({ id, kind, title, external }) {
+			nodes.push({ id, kind, title, ...(external === undefined ? {} : { external }) });
 			members.push(id);
 			return Object.freeze({ id });
 		},

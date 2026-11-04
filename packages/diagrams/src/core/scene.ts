@@ -50,6 +50,8 @@ export interface SceneNode {
 	/** Where the Kind's badge is drawn, at the start of the header. */
 	badge: Box;
 	title: SceneText;
+	/** Whether the Node stands for something we don't own or run, drawn with a dashed outline. */
+	external: boolean;
 }
 
 export interface SceneEdge {
