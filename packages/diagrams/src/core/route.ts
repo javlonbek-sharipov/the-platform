@@ -9,10 +9,20 @@ import { type Diagram, endNode, type RowEnd } from "../authoring/model.ts";
 import { type Bundling, compareText, laneGroups } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { buildGrid, type Grid, pointOf, vertexAt } from "./grid.ts";
+import { strokesOf } from "./hops.ts";
+import { placeLabels } from "./labels.ts";
 import { clearance } from "./layout.ts";
-import type { RoutedEdge } from "./marks.ts";
 import { type Corridors, type Nudged, type NudgeRoute, nudge, type Squeeze } from "./nudge.ts";
-import type { Box, Point, RoutePoint, SceneGroup, SceneNode, ScenePort, Side } from "./scene.ts";
+import type {
+	Box,
+	Point,
+	RoutePoint,
+	SceneEdge,
+	SceneGroup,
+	SceneNode,
+	ScenePort,
+	Side,
+} from "./scene.ts";
 import {
 	type Congestion,
 	type Heading,
@@ -36,7 +46,7 @@ export interface RouteOptions {
 
 export interface Routing {
 	/** One per Edge, in model order. */
-	edges: RoutedEdge[];
+	edges: SceneEdge[];
 	diagnostics: Diagnostic[];
 }
 
@@ -311,7 +321,7 @@ export function route(
 			break;
 		}
 	}
-	const routed = new Map<string, RoutedEdge>();
+	const routed = new Map<string, SceneEdge>();
 	for (const edge of order) {
 		const { from, to, fromPort, toPort } = ends.get(edge.id) ?? {};
 		if (from === undefined || to === undefined || fromPort === undefined || toPort === undefined) {
@@ -333,7 +343,11 @@ export function route(
 			fromPort,
 			toPort,
 			route: roundCorners(polyline(path ?? fallbackRoute(fromPort, toPort, [from.box, to.box]))),
+			// The router breaks it at hops once every route is final.
+			stroke: [],
 			fellBack: path === undefined,
+			// Marks come once the labels are placed too.
+			chevrons: [],
 		});
 	}
 	// Routes that share a grid line spread apart into lanes, as the winning
@@ -345,7 +359,18 @@ export function route(
 		}
 	});
 	const edges = diagram.edges.flatMap((edge) => routed.get(edge.id) ?? []);
-	const diagnostics = edges.flatMap(({ id, fellBack }, index): Diagnostic[] =>
+	const strokes = strokesOf(edges, diagram.direction);
+	edges.forEach((edge, index) => {
+		edge.stroke = strokes[index] ?? [edge.route];
+	});
+	const labeling = placeLabels(diagram, nodes, groups, edges);
+	for (const edge of edges) {
+		const label = labeling.labels.get(edge.id);
+		if (label !== undefined) {
+			edge.label = label;
+		}
+	}
+	const fallbacks = edges.flatMap(({ id, fellBack }, index): Diagnostic[] =>
 		fellBack
 			? [
 					{
@@ -357,7 +382,7 @@ export function route(
 				]
 			: [],
 	);
-	return { edges, diagnostics };
+	return { edges, diagnostics: [...fallbacks, ...labeling.diagnostics] };
 }
 
 /**

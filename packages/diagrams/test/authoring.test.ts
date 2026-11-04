@@ -214,6 +214,26 @@ describe("the architecture builder", () => {
 		]);
 	});
 
+	test("keeps an Edge's label, Technology and rate, after its ends", () => {
+		const diagram = architecture({ title: "Shop" }, (d) => {
+			const api = d.node({ id: "shop-api", kind: "service", title: "Shop API" });
+			const db = d.node({ id: "shop-db", kind: "database", title: "Shop database" });
+			const events = d.node({ id: "shop-events", kind: "queue", title: "Shop events" });
+			d.edge(api, db, {
+				kind: "call",
+				label: "Reads orders",
+				technology: "postgres",
+				rate: "2k/s",
+			});
+			d.edge(api, events, { kind: "message", rate: "30/min" });
+		});
+
+		expect(diagram.edges.map((edge) => JSON.stringify(edge))).toEqual([
+			'{"id":"shop-api->shop-db","kind":"call","from":"shop-api","to":"shop-db","label":"Reads orders","technology":"postgres","rate":"2k/s"}',
+			'{"id":"shop-api->shop-events","kind":"message","from":"shop-api","to":"shop-events","rate":"30/min"}',
+		]);
+	});
+
 	test("accepts a Node's id in place of its handle", () => {
 		const diagram = architecture({ title: "Shop" }, (d) => {
 			const api = d.node({ id: "shop-api", kind: "service", title: "Shop API" });

@@ -254,4 +254,35 @@ export default architecture({ title: "Offices" }, (d) => {
 		);
 		expect(lint.stdout).toMatch(/\nChecked 1 Diagram: no errors, 2 warnings\.\n$/);
 	});
+
+	test("lint warns at an Edge's line about a label too long for its run, and about one with no run of its own, and still passes", async () => {
+		// The admin app's Edge is routed first, and the web app's joins its trunk
+		// at the end of its own stub, so it has no run of its own.
+		const atlas = await sampleAtlas({
+			"docs/sign-in.diagram.ts": `import { architecture } from "@the-platform/diagrams";
+
+export default architecture({ title: "Sign-in" }, (d) => {
+	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+	const admin = d.node({ id: "admin-app", kind: "client", title: "Admin app" });
+	const gateway = d.node({ id: "gateway", kind: "gateway", title: "Gateway" });
+	d.edge(web, gateway, { kind: "call", label: "Signs in" });
+	d.edge(admin, gateway, {
+		kind: "call",
+		label: "Signs in with the single sign-on of the company's identity provider",
+	});
+});
+`,
+		});
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+
+		const lint = await runCli(["lint"], atlas);
+		expect(lint.code).toBe(0);
+		expect(lint.stdout).toMatch(
+			/^docs\/sign-in\.diagram\.ts:7:4: warning: Edge `web-app->gateway`'s label has no room beside any run of the Edge's own, .* \(label-placement\)$/m,
+		);
+		expect(lint.stdout).toMatch(
+			/^docs\/sign-in\.diagram\.ts:8:4: warning: Edge `admin-app->gateway`'s label is too long for its run, so it's shortened to `Signs in with .*…`\. .* \(text-shortened\)$/m,
+		);
+		expect(lint.stdout).toMatch(/\nChecked 1 Diagram: no errors, 2 warnings\.\n$/);
+	});
 });

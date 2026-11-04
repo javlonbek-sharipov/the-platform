@@ -11,9 +11,6 @@
 import type { Diagram } from "../authoring/model.ts";
 import type { Point, RoutePoint, SceneChevron, SceneEdge, SceneJunction } from "./scene.ts";
 
-/** An Edge as the router leaves it, before its marks are added. */
-export type RoutedEdge = Omit<SceneEdge, "chevrons" | "crosses">;
-
 /**
  * Chevrons sit at this spacing back from the target, the first of them this
  * far from it, which is the middle of an Edge between neighboring ranks.
@@ -34,8 +31,8 @@ const chevronRoom = 2 + 4;
 const sharedClearance = 8;
 
 /** Which Edges share a Port, by the point where it sits on its Node. */
-function byPort(edges: RoutedEdge[], end: "fromPort" | "toPort"): Map<string, RoutedEdge[]> {
-	const found = new Map<string, RoutedEdge[]>();
+function byPort(edges: SceneEdge[], end: "fromPort" | "toPort"): Map<string, SceneEdge[]> {
+	const found = new Map<string, SceneEdge[]>();
 	for (const edge of edges) {
 		const key = pointKey(edge[end].point);
 		found.set(key, [...(found.get(key) ?? []), edge]);
@@ -43,13 +40,17 @@ function byPort(edges: RoutedEdge[], end: "fromPort" | "toPort"): Map<string, Ro
 	return found;
 }
 
-export function markEdges(diagram: Diagram, edges: RoutedEdge[]): SceneEdge[] {
+/**
+ * Each Edge with its marks: the router leaves its chevrons empty, and its
+ * crossing unset.
+ */
+export function markEdges(diagram: Diagram, edges: SceneEdge[]): SceneEdge[] {
 	const fromPort = byPort(edges, "fromPort");
 	const toPort = byPort(edges, "toPort");
 	const clear = clearOfCorners(edges);
 	const crossing = crossingOf(diagram);
 	return edges.map((edge) => {
-		const others = (sharing: Map<string, RoutedEdge[]>, end: "fromPort" | "toPort") =>
+		const others = (sharing: Map<string, SceneEdge[]>, end: "fromPort" | "toPort") =>
 			(sharing.get(pointKey(edge[end].point)) ?? []).filter((other) => other !== edge);
 		// The stretch out of the source's Port that the Edge shares with the other
 		// Edges from it, at least its stub, and the stretch into the target's Port
@@ -142,7 +143,7 @@ function ownMiddle(route: RoutePoint[], sharedOut: number, sharedIn: number): Po
  * The Ports come in the order of their first Edges, and each one's junctions
  * from the nearest to it.
  */
-export function junctionsOf(edges: RoutedEdge[]): SceneJunction[] {
+export function junctionsOf(edges: SceneEdge[]): SceneJunction[] {
 	return [...byPort(edges, "fromPort").values()].flatMap((feeding) => {
 		const [first] = feeding;
 		const parts = new Map<string, { point: Point; length: number }>();
@@ -172,7 +173,7 @@ type Clear = (point: Point, heading: Point) => boolean;
  * turns there. Edges that share a lane then agree on where a chevron fits,
  * even beside a corner that only one of them turns at.
  */
-function clearOfCorners(edges: RoutedEdge[]): Clear {
+function clearOfCorners(edges: SceneEdge[]): Clear {
 	const corners = new Map<string, { at: number; radius: number }[]>();
 	const add = (line: string, at: number, radius: number) => {
 		corners.set(line, [...(corners.get(line) ?? []), { at, radius }]);

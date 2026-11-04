@@ -29,6 +29,10 @@ const id = `${kebabCase}(?:/${kebabCase})*`;
 const idPattern = new RegExp(`^${id}$`);
 /** An id, or an Edge's default name: its two ends' ids joined by `->`. */
 const edgeIdPattern = new RegExp(`^${id}(?:->${id})?$`);
+/** A Technology's slug: lowercase words joined by hyphens, as in `postgres` or `aws-lambda`. */
+const slugPattern = new RegExp(`^${kebabCase}$`);
+/** A number, an optional `k` or `M`, a slash, and `s`, `min` or `h`, as in `2k/s` or `30/min`. */
+const ratePattern = /^[0-9]+(?:\.[0-9]+)?[kM]?\/(?:s|min|h)$/;
 
 const directions: unknown[] = [undefined, "right", "down"];
 
@@ -198,6 +202,25 @@ export function validate(input: unknown): Validation {
 					"unknown-kind",
 					`Edge \`${edge.id}\` has the Kind \`${edge.kind}\`, which the architecture Notation doesn't have. Its Edge Kinds are ${list(edgeKinds)}.`,
 					`/edges/${index}/kind`,
+				),
+			);
+		}
+		// A slug without a logo is drawn as its name, which isn't an error.
+		if (edge.technology !== undefined && !slugPattern.test(edge.technology)) {
+			diagnostics.push(
+				error(
+					"technology-format",
+					`Edge \`${edge.id}\` has the Technology \`${edge.technology}\`, which isn't a slug. Write a Technology as lowercase words joined by hyphens, such as \`postgres\` or \`grpc\`.`,
+					`/edges/${index}/technology`,
+				),
+			);
+		}
+		if (edge.rate !== undefined && !ratePattern.test(edge.rate)) {
+			diagnostics.push(
+				error(
+					"rate-format",
+					`Edge \`${edge.id}\` has the rate \`${edge.rate}\`, which isn't written as a rate. Write a number, an optional \`k\` or \`M\`, a slash, and \`s\`, \`min\` or \`h\`, as in \`2k/s\` or \`30/min\`.`,
+					`/edges/${index}/rate`,
 				),
 			);
 		}
@@ -529,8 +552,20 @@ function checkShape(input: unknown): Diagnostic[] {
 	checkList(input.edges, "/edges", (edge, at) => {
 		checkStrings(edge, at, ["id", "kind"]);
 		if (isObject(edge)) {
+			const { label, technology, rate } = edge;
 			checkEnd(edge.from, `${at}/from`);
 			checkEnd(edge.to, `${at}/to`);
+			check(
+				label === undefined || (typeof label === "string" && /[^ \t\n\r]/.test(label)),
+				`${at}/label`,
+				"a string with some text in it",
+			);
+			check(
+				technology === undefined || typeof technology === "string",
+				`${at}/technology`,
+				"a string",
+			);
+			check(rate === undefined || typeof rate === "string", `${at}/rate`, "a string");
 		}
 	});
 	checkList(input.walkthroughs, "/walkthroughs", () => {});

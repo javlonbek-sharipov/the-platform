@@ -6,6 +6,8 @@ The Payments API charges each order through a payment provider, which we don't r
 
 Everything from the gateway to the Payments API runs in the EU West region, drawn as a box around them. The Orders API, its database and its queue run in one zone of that region, drawn as a dashed box inside it.
 
+A few Edges carry a label that says what passes over them. Below a label, an Edge can show its Technology, such as the gateway's gRPC call to the Orders API, and its rate, such as the 30 orders a second that the web app places.
+
 Calls are drawn solid and messages dashed, and chevrons along each Edge show which way it runs. Where the Orders API's call and its message part, a dot marks the split. The Payments API also checks each payment with a fraud check service in US East. That call crosses between regions, which costs latency and egress, so it's drawn in the warning color, with a badge in its middle.
 
 ![Example system](./example-system.diagram.svg)

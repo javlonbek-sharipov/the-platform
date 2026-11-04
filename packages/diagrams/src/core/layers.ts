@@ -29,6 +29,11 @@ export interface Connection {
 	to: number;
 	/** The lane group of the Edge it stands for: connections of one group share a lane. */
 	lane?: string;
+	/**
+	 * How much room its Edge's label needs along the rank axis, in each gap
+	 * between ranks that the connection spans: none, without a label.
+	 */
+	label?: number;
 }
 
 export interface Spacing {
@@ -285,8 +290,9 @@ function crossings(ranks: number[][], lower: number[][]): number {
 
 /**
  * The gap after each rank (layout step 6): room for the stubs on both sides
- * of it, and a lane for each lane group of Edges that crosses it, in either
- * direction, but never less than the usual gap.
+ * of it, a lane for each lane group of Edges that crosses it, in either
+ * direction, and the widest label of those Edges, but never less than the
+ * usual gap.
  */
 function gapsOf(
 	rank: number[],
@@ -295,14 +301,19 @@ function gapsOf(
 	spacing: Spacing,
 ): number[] {
 	const crossing = Array.from({ length: count }, () => new Set<string>());
-	connections.forEach(({ from, to, lane }, index) => {
+	const labels: number[] = new Array(count).fill(0);
+	connections.forEach(({ from, to, lane, label = 0 }, index) => {
 		const [low, high] = [rank[from] ?? 0, rank[to] ?? 0].sort((a, b) => a - b);
 		for (let gap = low ?? 0; gap < (high ?? 0); gap += 1) {
 			crossing[gap]?.add(lane ?? `${index}`);
+			labels[gap] = Math.max(labels[gap] ?? 0, label);
 		}
 	});
-	return crossing.map((lanes) =>
-		Math.max(spacing.rankGap, spacing.stubs + lanes.size * spacing.laneSpacing),
+	return crossing.map((lanes, gap) =>
+		Math.max(
+			spacing.rankGap,
+			spacing.stubs + lanes.size * spacing.laneSpacing + (labels[gap] ?? 0),
+		),
 	);
 }
 

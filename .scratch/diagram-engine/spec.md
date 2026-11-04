@@ -670,6 +670,7 @@ The method comes from Wybrow, Marriott and Stuckey (2009), Marriott, Stuckey and
    - Where a Port's stub meets a lane at a different height, add a short jog.
 8. **Labels.** Place each label, with its Technology and rate below it.
    - Use the longest straight run that belongs to that Edge alone, not to a shared trunk, and center the label beside the line.
+   - So a label needs a run of its own that holds it. When a bundle's trunk would leave a labeled Edge no such run, the Edge stays out of the trunk and keeps its own lane, as a parallel Edge does.
    - If it would cover a Node, a Port stub, a Group label or another label, try the next-longest run.
    - If nothing fits, put it at the route's midpoint and report a warning.
 9. **Crossings.**
@@ -1651,6 +1652,49 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
     - The suite's limit is 3 s.
     - The search reads each vertex's coordinates from typed arrays, and keeps its queue in typed arrays that grow.
 15. **Rules added:** `default-edge-id`.
+
+**Ticket 10**
+
+1. **Edge fields.** `label`, `technology` and `rate` are optional strings, written after `to`, in that order.
+   - A label must hold some text other than white space, as a callout must, or it's a `model-shape` error.
+   - A Technology is a slug: lowercase letters and digits, in words joined by single hyphens, as an id's words are. Any slug is valid, with a logo or without. Anything else is the error `technology-format`.
+   - A rate is a number with at least one digit before any decimal point, an optional `k` or `M`, a slash, and `s`, `min` or `h`, with no sign, exponent or spaces: `2k/s`, `1.5M/h` and `0.25/s`, but not `.5/s` or `1e3/s`. Anything else is the error `rate-format`.
+   - Until ticket 12, a Technology is drawn as its slug.
+2. **A label's box.**
+   - Its text is Inter Regular at 12 px, on a line 16 px high. The Technology and the rate share the line below, at 11 px on a line 14 px high, 12 px apart, with a dot between them. The box leaves 4 px across and 2 px above and below its texts, so it's 20 px high with one line and 34 with both.
+   - A label's texts are drawn at most 192 px wide, so a gap between ranks never grows past that for one label. A longer label is too long for any run, and is shortened with the usual `text-shortened` warning.
+   - Shortened to fit, the label's text keeps the longest start that fits, as a title does. The Technology is shortened before the rate, as a Row's name is before its value, by the same code.
+   - Warnings about a label's texts point at `/edges/<n>/label`, `/technology` or `/rate`, and come after those about Nodes and Groups.
+3. **Where a label goes.**
+   - The runs a label may sit beside are its Edge's own stretches: each run's straight part, between the arcs of its corners, less its Ports' stubs, less every part that another route runs along, within half a pixel. A run that crosses a Group's border makes a stretch on each side of it, so that no label sits across a border.
+   - The box sits 4 px from the line, centered along the stretch, and no longer than the stretch along it. A horizontal stretch shorter than the label shortens it, but to no less than 48 px of text. A vertical stretch must be as long as the box is high.
+   - Each stretch is tried on both sides. A run across the direction tries the side ahead first, toward the ranks that follow, since it turned off its stub on the side behind. A run along the direction tries above it for `right`, and right of it for `down`.
+   - A label stays 4 px clear of Nodes, callouts' tags, Group labels, the stubs of the Ports that Edges use, and the labels placed before it. The scene states this as `labelSpacing: { gap, margin }`.
+   - Labels are placed in three passes, each in the order of their Edges' ids. The first places a label only in full, and only where it covers no route and no Group's border, so that it hides nothing. The second places it in full wherever it's clear of the rest. The third shortens it if it must. So a label covers another route only where no run of its own has room clear of every route, and is shortened only where no run of its own has room for it in full.
+   - A label that fits nowhere is drawn beside the run at its route's midpoint, in full, and gets the warning `label-placement`, at `/edges/<n>`. It may then overlap anything, so the Seam 1 property that labels overlap nothing holds for every label without that warning. An Edge whose route, past its stub, is all trunk has no run of its own, and always gets the warning.
+   - Labels count in the drawing's bounds.
+4. **The label's look.** The SVG draws labels over every Edge and beneath every Node, in a `<g class="diagram-labels">`. Each label's `<g data-edge-label="…">`, named by its Edge's id, holds:
+   - a rect of class `diagram-label`, rounded by 4 px, in `--diagram-background`, which hides whatever passes behind the label;
+   - its text, of class `diagram-label-text`, in `--diagram-ink`;
+   - its Technology and rate, of class `diagram-label-detail`, in `--diagram-muted`, with a dot of radius 1.25 px between them.
+5. **Gaps between ranks.** On top of ticket 09's decision 11, a gap leaves room for the widest label among the Edges that span it, with 8 px at each end: room for the box's width for `right`, where the label sits above or below a run across the gap, and for its height for `down`. So for `down`, the usual 96 px already holds a two-line label beside one lane.
+6. **Hops.**
+   - Two Edges cross where a horizontal run of one meets a vertical run of the other on both runs' straight parts, ends included, unless it's the end of both, where both start to curve. Edges into the same Port, Row Ports included, never hop over each other.
+   - The rule is decided once for each point, over every route through it. The routes that run across the direction hop: the vertical ones for `right`, the horizontal ones for `down`, so that the long runs along the direction stay whole. But if one of them has less than half a hop's room before an arc, on either side, and every route along the direction has that room, those hop instead. If neither has, the side with more room hops, with its gap cut short at the arc.
+   - A hop is a gap of 8 px centered on the crossing. The scene states it as `hop`. Gaps on one run join when they'd leave less than 4 px of stroke between them, unless that stroke holds a crossing where the Edge stays whole. So a run that passes a bundle of lanes breaks once, under all of them.
+   - A scene Edge's `stroke` is its route in pieces, from gap to gap. Each piece starts and ends sharp, and keeps the route's corners and their radii. `route` stays whole, for anything that follows the Edge along its length.
+   - The SVG draws an Edge's pieces as the subpaths of its one path.
+7. **Rules added:** `technology-format`, `rate-format` and `label-placement`.
+
+**Orchestrator**
+
+Scope moved or added while the tickets ran. Each ticket's Comments say why.
+
+1. Ticket 11 gained the `<metadata>` model, and gained per-text baselines.
+2. Ticket 09 gained the rank gaps' room for lanes, and the lane offsets with their jog.
+3. Ticket 14 gained the rejection of control characters in text.
+4. Ticket 06's Group-containment check now names the property that can be tested.
+5. A labeled Edge stays out of a trunk that would leave it no run of its own for its label (Edge routing, step 8). Ticket 16 builds it.
 
 ### References
 

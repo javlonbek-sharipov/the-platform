@@ -1,9 +1,17 @@
 import { describe, expect, test } from "vitest";
 import { architecture, type Diagram, render } from "../src/index.ts";
-import { deepNesting } from "./fixtures/groups.ts";
+import { deepNesting, twoRegions } from "./fixtures/groups.ts";
 import { draw, linesOf } from "./support/drawn.ts";
 import { everyFixture } from "./support/fixtures.ts";
-import { ancestors, descendants, type Element, matches, parseSvg, rulesOf } from "./support/svg.ts";
+import {
+	ancestors,
+	descendants,
+	type Element,
+	matches,
+	parseSvg,
+	pathRuns,
+	rulesOf,
+} from "./support/svg.ts";
 
 const fixtures = await everyFixture();
 
@@ -157,6 +165,37 @@ describe("the SVG", () => {
 				]);
 				// A line may be drawn from either end.
 				expect([arcs, [...arcs].reverse()], edge.id).toContainEqual(radii);
+			}
+		}
+	});
+
+	test("draws an Edge's stroke as one subpath for each of its pieces, in its casing and its body, so that its hops show as gaps", () => {
+		const rounded = (point: { x: number; y: number } | undefined) => ({
+			x: Math.round((point?.x ?? 0) * 100) / 100,
+			y: Math.round((point?.y ?? 0) * 100) / 100,
+		});
+		for (const direction of ["right", "down"] as const) {
+			const drawn = draw(twoRegions(direction));
+			const hopping = drawn.scene.edges.filter(({ stroke }) => stroke.length > 1);
+			expect(hopping.length, direction).toBeGreaterThan(0);
+			for (const edge of drawn.scene.edges) {
+				const lines = linesOf(drawn, edge);
+				expect(lines, edge.id).toHaveLength(2);
+				for (const line of lines) {
+					// The line is written from the target back, so its subpaths come in the
+					// reverse order of the pieces, each one reversed.
+					const subpaths = pathRuns(line.attributes.get("d") ?? "").reverse();
+					expect(subpaths, edge.id).toHaveLength(edge.stroke.length);
+					subpaths.forEach((run, index) => {
+						const piece = edge.stroke[index] ?? [];
+						const last = index === edge.stroke.length - 1;
+						expect(rounded(run.at(-1)), `${edge.id}, piece ${index}`).toEqual(rounded(piece[0]));
+						// The piece at the target stops short of it, inside the arrowhead.
+						const [end, target] = [rounded(run[0]), rounded(piece.at(-1))];
+						const short = Math.abs(end.x - target.x) + Math.abs(end.y - target.y);
+						expect(short, `${edge.id}, piece ${index}`).toBeLessThanOrEqual(last ? 8 : 0);
+					});
+				}
 			}
 		}
 	});
