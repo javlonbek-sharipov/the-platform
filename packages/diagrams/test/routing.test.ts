@@ -996,6 +996,44 @@ function same(a: Point, b: Point): boolean {
 	return a.x === b.x && a.y === b.y;
 }
 
+describe("a trunk", () => {
+	test("counts once against capacity, so a bundle of more Edges than a corridor holds runs through it as one lane", () => {
+		// Six jobs call the Orders API back, past a column of workers packed one
+		// clearance apart, whose corridors hold four lanes each.
+		const scene = sceneOf(
+			architecture({ title: "Callbacks" }, (d) => {
+				const api = d.node({ id: "orders-api", kind: "service", title: "Orders API" });
+				for (let index = 1; index <= 6; index += 1) {
+					const worker = d.node({
+						id: `worker-${index}`,
+						kind: "worker",
+						title: `Worker ${index}`,
+					});
+					const job = d.node({ id: `job-${index}`, kind: "function", title: `Job ${index}` });
+					d.edge(api, worker, { kind: "message" });
+					d.edge(worker, job, { kind: "message" });
+					d.edge(job, api, { kind: "call" });
+				}
+			}),
+		);
+		const workers = scene.nodes.filter(({ id }) => id.startsWith("worker-")).map(({ box }) => box);
+		const top = Math.min(...workers.map((box) => box.y));
+		const bottom = Math.max(...workers.map((box) => box.y + box.height));
+		const [left = 0, right = 0] = [workers[0]?.x, (workers[0]?.x ?? 0) + (workers[0]?.width ?? 0)];
+		const callbacks = scene.edges.filter(({ to }) => to === "orders-api");
+		const crossings = callbacks.map(({ route }) =>
+			segmentsOf(route).find(
+				([a, b]) => a.y === b.y && Math.min(a.x, b.x) <= left && Math.max(a.x, b.x) >= right,
+			),
+		);
+		// Every callback crosses the column between two workers, all in one lane.
+		expect(new Set(crossings.map((segment) => segment?.[0].y)).size).toBe(1);
+		const y = crossings[0]?.[0].y ?? 0;
+		expect(y).toBeGreaterThan(top);
+		expect(y).toBeLessThan(bottom);
+	});
+});
+
 describe("an overfull corridor", () => {
 	test("has its Edges routed again, with a lasting cost on each segment left over capacity, until they fit", () => {
 		expect(overfullCorridors(sceneOf(crossTalk))).toEqual([]);
