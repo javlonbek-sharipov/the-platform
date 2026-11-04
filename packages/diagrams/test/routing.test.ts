@@ -13,6 +13,7 @@ import {
 	type ScenePort,
 	type Side,
 } from "../src/index.ts";
+import { crowded } from "./fixtures/crowded.ts";
 import { groupFixtures, labelInTheWay } from "./fixtures/groups.ts";
 
 const shop = architecture({ title: "Shop" }, (d) => {
@@ -88,6 +89,45 @@ const rows = architecture({ title: "Rows" }, (d) => {
 	d.edge(db.row("orders"), db.row("archive"), { kind: "message", id: "archive-orders" });
 });
 
+/**
+ * Eleven APIs that call one another every which way, so that several
+ * Edges close cycles. Routed once, the corridor below the top row of APIs
+ * holds one lane more than fits, so the Edges negotiate for room.
+ */
+const crossTalk = architecture({ title: "Cross-talk" }, (d) => {
+	const names = ["accounts", "billing", "catalog", "delivery", "email", "fulfilment"];
+	const more = ["goods", "history", "inventory", "kiosk", "ledger"];
+	for (const name of [...names, ...more]) {
+		d.node({ id: `${name}-api`, kind: "service", title: `${name} API` });
+	}
+	const joins: [string, string, "call" | "message"][] = [
+		["delivery", "email", "call"],
+		["delivery", "ledger", "call"],
+		["ledger", "goods", "call"],
+		["accounts", "inventory", "call"],
+		["email", "fulfilment", "call"],
+		["history", "accounts", "call"],
+		["billing", "catalog", "message"],
+		["delivery", "accounts", "message"],
+		["billing", "fulfilment", "call"],
+		["fulfilment", "goods", "call"],
+		["email", "ledger", "call"],
+		["goods", "delivery", "call"],
+		["history", "catalog", "call"],
+		["catalog", "kiosk", "call"],
+		["catalog", "history", "call"],
+		["goods", "email", "call"],
+		["inventory", "fulfilment", "message"],
+		["ledger", "history", "call"],
+		["history", "inventory", "message"],
+		["ledger", "catalog", "call"],
+		["fulfilment", "billing", "call"],
+	];
+	for (const [from, to, kind] of joins) {
+		d.edge(`${from}-api`, `${to}-api`, { kind });
+	}
+});
+
 /** The same Diagram, drawn top to bottom. */
 function down(diagram: Diagram): Diagram {
 	return { ...diagram, direction: "down" };
@@ -104,6 +144,10 @@ const fixtures: [string, Diagram][] = [
 		[name, fixture("right")],
 		[`${name}, drawn down`, fixture("down")],
 	]),
+	["Edges that cross-talk", crossTalk],
+	["Edges that cross-talk, drawn down", down(crossTalk)],
+	["the crowded fixture", crowded("right")],
+	["the crowded fixture, drawn down", crowded("down")],
 ];
 
 function sceneOf(diagram: unknown): Scene {
@@ -310,49 +354,25 @@ function sharedStretches(a: Point[], b: Point[]): [Point, Point, number, number]
 }
 
 /**
- * The junction of the Port that Edges `a` and `b` both leave, or both enter:
- * the stretch of its stub's line that their first runs share, or their last
- * runs, where Edges at one Port leave it together or converge on it. Its
- * length is the stub's, and room for a lane, a grid step, for each Edge at
- * the Port.
+ * Whether a stretch that Edges `a` and `b` share, on their segments `i` and
+ * `j`, lies in the junction of a Port they both leave, or both enter: on the
+ * stub's line, where both still run on their first run out of the Port, or
+ * already on their last run into it. That's where Edges at one Port leave it
+ * together, or converge on it, and turn off one by one.
  */
-function inJunction(
-	scene: Scene,
-	a: SceneEdge,
-	b: SceneEdge,
-	[i, j]: [number, number],
-	[from, to]: [Point, Point],
-): boolean {
-	const length = (port: ScenePort) =>
-		Math.abs(port.stub.x - port.point.x) + Math.abs(port.stub.y - port.point.y);
-	const reaches = (port: ScenePort, count: number) =>
-		[from, to].every(
-			(point) =>
-				Math.abs(point.x - port.point.x) + Math.abs(point.y - port.point.y) <=
-				length(port) + count * scene.grid,
-		);
-	const leaving = scene.edges.filter(
-		(edge) => portKey(edge.from, edge.fromRow) === portKey(a.from, a.fromRow),
-	);
-	const entering = scene.edges.filter(
-		(edge) => portKey(edge.to, edge.toRow) === portKey(a.to, a.toRow),
-	);
+function inJunction(a: SceneEdge, b: SceneEdge, [i, j]: [number, number]): boolean {
 	return (
-		(portKey(a.from, a.fromRow) === portKey(b.from, b.fromRow) &&
-			i === 0 &&
-			j === 0 &&
-			reaches(a.fromPort, leaving.length)) ||
+		(portKey(a.from, a.fromRow) === portKey(b.from, b.fromRow) && i === 0 && j === 0) ||
 		(portKey(a.to, a.toRow) === portKey(b.to, b.toRow) &&
 			i === a.route.length - 2 &&
-			j === b.route.length - 2 &&
-			reaches(a.toPort, entering.length))
+			j === b.route.length - 2)
 	);
 }
 
 /** The stretches two Edges share, other than in the junction of a Port they share. */
 function sharedBeyondJunctions(scene: Scene, a: SceneEdge, b: SceneEdge): [Point, Point][] {
 	return sharedStretches(a.route, b.route)
-		.filter(([from, to, i, j]) => !inJunction(scene, a, b, [i, j], [from, to]))
+		.filter(([, , i, j]) => !inJunction(a, b, [i, j]))
 		.map(([from, to]): [Point, Point] => [from, to]);
 }
 
@@ -366,24 +386,27 @@ function lanesShared(scene: Scene, a: SceneEdge, b: SceneEdge): string[] {
 /**
  * Where route `b` leaves route `a` after it has met it, if it ever does:
  * walking `b` from its source a pixel at a time, the first point off `a`
- * after one on it.
+ * after two in a row on it, which is where they began to share a stretch.
+ * Crossing at a point isn't meeting.
  */
 function partsAfterMeeting(a: Point[], b: Point[]): Point | undefined {
 	const onA = (point: Point) => segmentsOf(a).some(([from, to]) => onSegment(point, from, to));
 	let met = false;
+	let before = false;
 	for (const [from, to] of segmentsOf(b)) {
 		const length = Math.abs(to.x - from.x) + Math.abs(to.y - from.y);
 		for (let step = 0; step <= length; step += 1) {
-			const t = Math.min(step, length);
 			const point = {
-				x: from.x + Math.sign(to.x - from.x) * t,
-				y: from.y + Math.sign(to.y - from.y) * t,
+				x: from.x + Math.sign(to.x - from.x) * step,
+				y: from.y + Math.sign(to.y - from.y) * step,
 			};
-			if (onA(point)) {
+			const on = onA(point);
+			if (on && before) {
 				met = true;
-			} else if (met) {
+			} else if (!on && met) {
 				return point;
 			}
+			before = on;
 		}
 	}
 	return undefined;
@@ -490,6 +513,86 @@ describe("an Edge", () => {
 	});
 });
 
+/**
+ * The corridors that hold more lanes than their width allows at the lane
+ * spacing. At each point along each axis where some route's run starts or
+ * ends, the boxes and Group borders across that point split the line through
+ * it into free corridors, and the runs that cross the point are counted in the
+ * corridor they cross it in. Runs in a Port's junction don't count.
+ */
+function overfullCorridors(scene: Scene): string[] {
+	const junction = (point: Point) =>
+		scene.edges.some(({ fromPort, toPort }) =>
+			[fromPort, toPort].some((port) => {
+				const count = scene.edges.filter(
+					(edge) => same(edge.fromPort.point, port.point) || same(edge.toPort.point, port.point),
+				).length;
+				const reach =
+					Math.abs(port.stub.x - port.point.x) +
+					Math.abs(port.stub.y - port.point.y) +
+					count * scene.grid;
+				return Math.abs(point.x - port.point.x) + Math.abs(point.y - port.point.y) <= reach;
+			}),
+		);
+	const boxes = [
+		...scene.nodes.flatMap(({ box, callout }) =>
+			callout === undefined ? [box] : [box, callout.tag],
+		),
+		...scene.groups.map(({ label }) => label),
+	];
+	const found: string[] = [];
+	for (const horizontal of [true, false]) {
+		const along = (p: Point) => (horizontal ? p.x : p.y);
+		const across = (p: Point) => (horizontal ? p.y : p.x);
+		const runs = scene.edges.flatMap(({ route }) =>
+			segmentsOf(route).filter(
+				([a, b]) => (horizontal ? a.y === b.y : a.x === b.x) && !(junction(a) && junction(b)),
+			),
+		);
+		const stops = [...new Set(runs.flatMap(([a, b]) => [along(a), along(b)]))].sort(
+			(p, q) => p - q,
+		);
+		const samples = stops.slice(1).map((stop, index) => ((stops[index] ?? stop) + stop) / 2);
+		for (const at of samples) {
+			const crossing = runs.filter(
+				([a, b]) => Math.min(along(a), along(b)) < at && at < Math.max(along(a), along(b)),
+			);
+			const sides = [
+				...boxes
+					.filter((box) =>
+						horizontal
+							? box.x < at && at < box.x + box.width
+							: box.y < at && at < box.y + box.height,
+					)
+					.flatMap((box) =>
+						horizontal ? [box.y, box.y + box.height] : [box.x, box.x + box.width],
+					),
+				...scene.groups
+					.filter(({ box }) =>
+						horizontal
+							? box.x < at && at < box.x + box.width
+							: box.y < at && at < box.y + box.height,
+					)
+					.flatMap(({ box }) =>
+						horizontal ? [box.y, box.y + box.height] : [box.x, box.x + box.width],
+					),
+			].sort((p, q) => p - q);
+			for (let index = 0; index + 1 < sides.length; index += 1) {
+				const [low = 0, high = 0] = [sides[index], sides[index + 1]];
+				const lanes = new Set(
+					crossing.map(([a]) => across(a)).filter((value) => low < value && value < high),
+				);
+				if (lanes.size > (high - low) / scene.lanes.spacing) {
+					found.push(
+						`${lanes.size} lanes ${horizontal ? "across x" : "across y"} = ${at}, between ${low} and ${high}`,
+					);
+				}
+			}
+		}
+	}
+	return found;
+}
+
 describe.each(fixtures)("every route in %s", (_, diagram) => {
 	test("exists, one for each Edge, and none of them fell back", () => {
 		const scene = sceneOf(diagram);
@@ -568,6 +671,10 @@ describe.each(fixtures)("every route in %s", (_, diagram) => {
 				}),
 		);
 		expect(parted).toEqual([]);
+	});
+
+	test("shares every corridor with no more lanes than its width holds at the lane spacing", () => {
+		expect(overfullCorridors(sceneOf(diagram))).toEqual([]);
 	});
 
 	test("never passes through a Group label, nor touches one", () => {
@@ -676,25 +783,37 @@ function edgeOf(scene: Scene, id: string): SceneEdge {
 	return edge;
 }
 
+/** The length of the longest stretch two routes share. */
+function longestShared(a: SceneEdge, b: SceneEdge): number {
+	return Math.max(
+		0,
+		...sharedStretches(a.route, b.route).map(
+			([from, to]) => Math.abs(to.x - from.x) + Math.abs(to.y - from.y),
+		),
+	);
+}
+
 describe("bundling", () => {
 	const calls = ["web-app->gateway", "mobile-app->gateway", "partner-calls"];
 	const fanOut = ["gateway->orders-api", "gateway->stock-api", "gateway->users-api"];
 	const pairs = (ids: string[]) =>
 		ids.flatMap((a, index) => ids.slice(index + 1).map((b) => [a, b]));
+	/** The shortest of the longest stretches that each pair of these Edges shares: the trunk they have in common. */
+	const trunkOf = (scene: Scene, ids: string[]) =>
+		Math.min(
+			...pairs(ids).map(([a = "", b = ""]) => longestShared(edgeOf(scene, a), edgeOf(scene, b))),
+		);
 
 	test("merges Edges of one Kind into one Port into a trunk, and keeps an Edge of another Kind in its own lane", () => {
 		for (const diagram of [gateway, down(gateway)]) {
 			const scene = sceneOf(diagram);
-			for (const [a = "", b = ""] of pairs(calls)) {
-				expect(
-					sharedBeyondJunctions(scene, edgeOf(scene, a), edgeOf(scene, b)),
-					`${a} and ${b}`,
-				).not.toEqual([]);
-			}
+			const trunk = trunkOf(scene, calls);
+			const events = edgeOf(scene, "partner-events");
+			// The message meets the calls only where they all converge on the Port,
+			// which is shorter than their trunk.
 			for (const call of calls) {
-				expect(
-					sharedBeyondJunctions(scene, edgeOf(scene, "partner-events"), edgeOf(scene, call)),
-				).toEqual([]);
+				expect(sharedBeyondJunctions(scene, events, edgeOf(scene, call)), call).toEqual([]);
+				expect(longestShared(events, edgeOf(scene, call)), call).toBeLessThan(trunk);
 			}
 		}
 	});
@@ -705,17 +824,13 @@ describe("bundling", () => {
 			if (scene === undefined) {
 				throw new Error("expected a scene");
 			}
-			for (const [a = "", b = ""] of pairs(fanOut)) {
-				expect(
-					sharedBeyondJunctions(scene, edgeOf(scene, a), edgeOf(scene, b)),
-					`${a} and ${b}`,
-				).not.toEqual([]);
-			}
+			const trunk = trunkOf(scene, fanOut);
 			for (const [a = "", b = ""] of pairs(calls)) {
-				expect(
-					sharedBeyondJunctions(scene, edgeOf(scene, a), edgeOf(scene, b)),
-					`${a} and ${b}`,
-				).toEqual([]);
+				const [first, second] = [edgeOf(scene, a), edgeOf(scene, b)];
+				// The calls meet only where they converge on the gateway's Port, which is
+				// shorter than the fan-out's trunk.
+				expect(sharedBeyondJunctions(scene, first, second), `${a} and ${b}`).toEqual([]);
+				expect(longestShared(first, second), `${a} and ${b}`).toBeLessThan(trunk);
 			}
 		}
 	});
@@ -733,6 +848,81 @@ describe("bundling", () => {
 			expect(edges).toHaveLength(diagram.edges.length);
 			expect(shared).toEqual([]);
 		}
+	});
+});
+
+/**
+ * The Orders API, in a system, calls twelve workers below it. The shortest
+ * routes all turn in the system's padding, below the API, which holds only a
+ * few lanes.
+ */
+const fanOutOfAGroup = architecture({ title: "Fan-out", direction: "down" }, (d) => {
+	d.group({ id: "core", kind: "system", title: "Core" }, (core) => {
+		core.node({ id: "orders-api", kind: "service", title: "Orders API" });
+	});
+	for (let index = 1; index <= 12; index += 1) {
+		d.node({ id: `worker-${index}`, kind: "worker", title: `Worker ${index}` });
+		d.edge("orders-api", `worker-${index}`, { kind: "call" });
+	}
+});
+
+/**
+ * The most lanes that run side by side through a horizontal corridor, from
+ * `top` to `bottom`, at any point along it, other than in the junction of a
+ * Port: within its stub and room for a lane, a grid step, for each Edge at it.
+ */
+function lanesThrough(scene: Scene, top: number, bottom: number): number {
+	const inJunctionOf = (point: Point) =>
+		scene.edges.some(({ fromPort }) => {
+			const count = scene.edges.filter((edge) => same(edge.fromPort.point, fromPort.point)).length;
+			const reach =
+				Math.abs(fromPort.stub.x - fromPort.point.x) +
+				Math.abs(fromPort.stub.y - fromPort.point.y) +
+				count * scene.grid;
+			return Math.abs(point.x - fromPort.point.x) + Math.abs(point.y - fromPort.point.y) <= reach;
+		});
+	const runs = scene.edges.flatMap(({ route }) =>
+		segmentsOf(route).filter(
+			([a, b]) => a.y === b.y && top < a.y && a.y < bottom && !(inJunctionOf(a) && inJunctionOf(b)),
+		),
+	);
+	const stops = runs.flatMap(([a, b]) => [a.x, b.x]);
+	const middles = stops.flatMap((x, index) =>
+		stops.slice(index + 1).map((other) => (x + other) / 2),
+	);
+	return Math.max(
+		0,
+		...middles.map(
+			(x) =>
+				new Set(
+					runs
+						.filter(([a, b]) => Math.min(a.x, b.x) < x && x < Math.max(a.x, b.x))
+						.map(([a]) => a.y),
+				).size,
+		),
+	);
+}
+
+function same(a: Point, b: Point): boolean {
+	return a.x === b.x && a.y === b.y;
+}
+
+describe("an overfull corridor", () => {
+	test("has its Edges routed again, with a lasting cost on each segment left over capacity, until they fit", () => {
+		expect(overfullCorridors(sceneOf(crossTalk))).toEqual([]);
+	});
+});
+
+describe("a wide fan-out out of a Group", () => {
+	test("spreads where there's room for its lanes, not along the Group's padding", () => {
+		const scene = sceneOf(fanOutOfAGroup);
+		const api = nodeOf(scene, "orders-api").box;
+		const core = scene.groups[0]?.box ?? scene.bounds;
+		const width = core.y + core.height - (api.y + api.height);
+		expect(lanesThrough(scene, api.y + api.height, core.y + core.height)).toBeLessThanOrEqual(
+			width / scene.lanes.spacing,
+		);
+		expect(overfullCorridors(scene)).toEqual([]);
 	});
 });
 

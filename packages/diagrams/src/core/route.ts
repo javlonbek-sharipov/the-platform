@@ -21,12 +21,14 @@ import type {
 	Side,
 } from "./scene.ts";
 import {
+	type Congestion,
 	type Heading,
 	opposite,
 	type Search,
 	type SearchEnd,
 	type SearchStart,
 	searchOn,
+	segmentBetween,
 } from "./search.ts";
 
 /**
@@ -76,7 +78,18 @@ const defaultSearchBudget = 1_000_000;
  * minimum in a narrow corridor, and keep the padding from the corridor's
  * sides. The narrowest corridor, a clearance wide, holds four lanes.
  */
-const laneSpacing = { preferred: 8, minimum: 4, padding: 8 };
+export const lanes = { spacing: 8, minimum: 4, padding: 8 };
+
+/**
+ * Negotiation (spec: Edge routing, step 5): how many times every Edge is
+ * routed at most, what stepping onto a segment that's already full costs, and
+ * how much lasting cost a segment gains each time a pass leaves it over
+ * capacity. Both costs are a little more than a bend's, so that a route takes
+ * a detour of a bend or two around a crowded corridor.
+ */
+const passes = 5;
+const fullCost = 48;
+const historyCost = 48;
 
 /**
  * Each Edge's lane group: the Edges that may share a lane, which is a bundle
@@ -99,6 +112,17 @@ function laneGroups(diagram: Diagram, bundle: Bundling): Map<string, string> {
 		groups.set(edge.id, JSON.stringify([key, index]));
 	}
 	return groups;
+}
+
+/** How many Group borders the segment between two neighboring vertices crosses. */
+function bordersBetween(grid: Grid, a: number, b: number): number {
+	const low = Math.min(a, b);
+	return (Math.abs(a - b) === 1 ? grid.crossEast[low] : grid.crossSouth[low]) ?? 0;
+}
+
+/** Orders text by UTF-16 code units, as ids are compared everywhere in the core. */
+function compareText(a: string, b: string): number {
+	return a < b ? -1 : a > b ? 1 : 0;
 }
 
 /** The heading of a stub, out of its side. */
@@ -130,43 +154,154 @@ export function route(
 		}
 		return node?.rows[rowNames.get(end.node)?.indexOf(end.row) ?? -1]?.[side];
 	};
-	const grid = buildGrid(nodes, groups, clearance);
+	const grid = buildGrid(nodes, groups, clearance, lanes.spacing);
 	const search = searchOn(grid);
 	const budget = options.searchBudget ?? defaultSearchBudget;
 	const bundle = options.bundle ?? "target";
 	const groupOf = laneGroups(diagram, bundle);
-	const trunks = new Map<string, Trunk>();
-	// Edges are routed in a stable order, by id, so that no route depends on
-	// the order the Diagram declares its Edges in.
+	// The Group that holds each Node or Group, and each Group's box.
+	const parentOf = new Map<string, string>();
+	for (const group of diagram.groups) {
+		for (const member of group.members) {
+			parentOf.set(member, group.id);
+		}
+	}
+	const boxOf = new Map(groups.map((group) => [group.id, group.box]));
+	/** The box of the innermost Group that holds both Nodes, if any does. */
+	const sharedGroup = (a: string, b: string): Box | undefined => {
+		const around = new Set<string>();
+		for (let at = parentOf.get(a); at !== undefined; at = parentOf.get(at)) {
+			around.add(at);
+		}
+		for (let at = parentOf.get(b); at !== undefined; at = parentOf.get(at)) {
+			if (around.has(at)) {
+				return boxOf.get(at);
+			}
+		}
+		return undefined;
+	};
+	const ends = new Map(
+		diagram.edges.map((edge) => {
+			const from = byId.get(endNode(edge.from));
+			const to = byId.get(endNode(edge.to));
+			const fromPort = portOf(edge.from, "output");
+			const toPort = portOf(edge.to, "input");
+			if (
+				from === undefined ||
+				to === undefined ||
+				fromPort === undefined ||
+				toPort === undefined
+			) {
+				throw new Error(`Edge ${edge.id} ends at a Port that validation should have rejected`);
+			}
+			return [edge.id, { from, to, fromPort, toPort, within: sharedGroup(from.id, to.id) }];
+		}),
+	);
+	// Edges are routed in a stable order, by bundle and then by id, so that no
+	// route depends on the order the Diagram declares its Edges in.
+	const order = [...diagram.edges].sort((a, b) => {
+		const [groupA = "", groupB = ""] = [groupOf.get(a.id), groupOf.get(b.id)];
+		return compareText(groupA, groupB) || compareText(a.id, b.id);
+	});
+	const segments = 2 * grid.xs.length * grid.ys.length;
+	const congestion: Congestion = {
+		history: new Float64Array(segments),
+		usage: new Uint16Array(segments),
+		capacity: grid.capacity,
+		own: new Uint32Array(segments),
+		stamp: 0,
+		full: fullCost,
+	};
+	// Every Edge is routed, then each segment left over capacity gains a
+	// lasting cost, and every Edge is routed again, until none is over or the
+	// passes run out. The pass that left the least over capacity wins.
+	let best = new Map<string, number[] | undefined>();
+	let leastOver = Number.POSITIVE_INFINITY;
+	for (let pass = 0; pass < passes; pass += 1) {
+		congestion.usage.fill(0);
+		const paths = new Map<string, number[] | undefined>();
+		const trunks = new Map<string, Trunk>();
+		const used = new Map<string, Set<number>>();
+		for (const edge of order) {
+			const { fromPort, toPort, within } = ends.get(edge.id) ?? {};
+			if (fromPort === undefined || toPort === undefined) {
+				continue;
+			}
+			const group = groupOf.get(edge.id) ?? edge.id;
+			const trunk = trunks.get(group) ?? new Map();
+			trunks.set(group, trunk);
+			const own = used.get(group) ?? new Set<number>();
+			used.set(group, own);
+			congestion.stamp += 1;
+			for (const segment of own) {
+				congestion.own[segment] = congestion.stamp;
+			}
+			const vertices = searchRoute(grid, search, fromPort, toPort, budget, {
+				trunk,
+				atSource: bundle === "source",
+				congestion,
+				within,
+			});
+			paths.set(edge.id, vertices);
+			// How many Group borders each vertex's part of the trunk crosses: from it
+			// on to the target, or from the source to it, for a trunk at the source.
+			const crossings = vertices?.map((_, at) =>
+				(bundle === "source" ? vertices.slice(0, at + 1) : vertices.slice(at)).reduce(
+					(count, vertex, index, part) => {
+						const next = part[index + 1];
+						return next === undefined ? count : count + bordersBetween(grid, vertex, next);
+					},
+					0,
+				),
+			);
+			vertices?.forEach((vertex, at) => {
+				if (!trunk.has(vertex)) {
+					trunk.set(vertex, { path: vertices, at, crossings: crossings?.[at] ?? 0 });
+				}
+				const next = vertices[at + 1];
+				const segment = next === undefined ? undefined : segmentBetween(vertex, next);
+				if (segment !== undefined && !own.has(segment)) {
+					own.add(segment);
+					congestion.usage[segment] = (congestion.usage[segment] ?? 0) + 1;
+				}
+			});
+		}
+		let over = 0;
+		congestion.usage.forEach((usage, segment) => {
+			const excess = usage - (congestion.capacity[segment] ?? 0);
+			if (excess > 0) {
+				over += excess;
+				congestion.history[segment] = (congestion.history[segment] ?? 0) + historyCost;
+			}
+		});
+		if (over < leastOver) {
+			best = paths;
+			leastOver = over;
+		}
+		if (over === 0) {
+			break;
+		}
+	}
 	const routed = new Map<string, SceneEdge>();
 	const found = new Map<string, NudgeRoute>();
-	for (const edge of [...diagram.edges].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
-		const from = byId.get(endNode(edge.from));
-		const to = byId.get(endNode(edge.to));
-		const fromPort = portOf(edge.from, "output");
-		const toPort = portOf(edge.to, "input");
+	for (const edge of order) {
+		const { from, to, fromPort, toPort } = ends.get(edge.id) ?? {};
 		if (from === undefined || to === undefined || fromPort === undefined || toPort === undefined) {
-			throw new Error(`Edge ${edge.id} ends at a Port that validation should have rejected`);
+			continue;
 		}
-		const group = groupOf.get(edge.id) ?? edge.id;
-		const trunk = trunks.get(group) ?? new Map();
-		trunks.set(group, trunk);
-		const vertices = searchRoute(grid, search, fromPort, toPort, budget, {
-			trunk,
-			atSource: bundle === "source",
-		});
+		const vertices = best.get(edge.id);
 		const path = vertices && [
 			fromPort.point,
 			...vertices.map((vertex) => pointOf(grid, vertex)),
 			toPort.point,
 		];
-		if (vertices !== undefined && path !== undefined) {
-			vertices.forEach((vertex, at) => {
-				if (!trunk.has(vertex)) {
-					trunk.set(vertex, { path: vertices, at });
-				}
+		if (path !== undefined) {
+			found.set(edge.id, {
+				points: polyline(path),
+				fromPort,
+				toPort,
+				group: groupOf.get(edge.id) ?? edge.id,
 			});
-			found.set(edge.id, { points: polyline(path), fromPort, toPort, group });
 		}
 		routed.set(edge.id, {
 			id: edge.id,
@@ -195,7 +330,7 @@ export function route(
 			],
 			borders: groups.map(({ box }) => box),
 		},
-		laneSpacing,
+		lanes,
 	);
 	searched.forEach(([id], index) => {
 		const edge = routed.get(id);
@@ -226,7 +361,7 @@ export function route(
  * the vertex lies on it. The routes of a bundle make a tree, its trunk, that
  * grows toward the sources from the Port they share.
  */
-type Trunk = Map<number, { path: number[]; at: number }>;
+type Trunk = Map<number, { path: number[]; at: number; crossings: number }>;
 
 /**
  * The route the search finds between two Ports' stubs, if it finds one, as
@@ -248,14 +383,19 @@ function searchRoute(
 	fromPort: ScenePort,
 	toPort: ScenePort,
 	budget: number,
-	{ trunk, atSource }: { trunk: Trunk; atSource: boolean },
+	{
+		trunk,
+		atSource,
+		congestion,
+		within,
+	}: { trunk: Trunk; atSource: boolean; congestion: Congestion; within: Box | undefined },
 ): number[] | undefined {
 	const target = vertexAt(grid, toPort.stub);
 	const source = vertexAt(grid, fromPort.stub);
 	if (target === undefined || source === undefined) {
 		return undefined;
 	}
-	const costs = { bend: bendCost, crossing: crossingCost, budget };
+	const costs = { bend: bendCost, crossing: crossingCost, budget, congestion };
 	const intoTarget: SearchEnd = { vertex: target, heading: opposite[outOf[toPort.side]] };
 	const intoSource: SearchEnd = { vertex: source, heading: opposite[outOf[fromPort.side]] };
 	if (trunk.size === 0) {
@@ -268,7 +408,20 @@ function searchRoute(
 	// The way the trunk runs at each vertex, from its source end toward its
 	// target end. A trunk into a target runs on along the target's stub at its
 	// end, and a trunk out of a source ends at other Edges' targets.
-	const starts = [...trunk].flatMap(([vertex, { path, at }]): SearchStart[] => {
+	// Starting on the trunk costs the Group borders that the trunk crosses on
+	// the way, since the route crosses them too. A route between two Nodes of
+	// one Group joins the trunk inside that Group, so that it stays inside.
+	const inside = (vertex: number) => {
+		const { x, y } = pointOf(grid, vertex);
+		return (
+			within === undefined ||
+			(within.x < x && x < within.x + within.width && within.y < y && y < within.y + within.height)
+		);
+	};
+	const starts = [...trunk].flatMap(([vertex, { path, at, crossings }]): SearchStart[] => {
+		if (!inside(vertex)) {
+			return [];
+		}
 		const next = path[at + 1];
 		const previous = path[at - 1];
 		const runs =

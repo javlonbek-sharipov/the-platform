@@ -1,8 +1,10 @@
 /**
  * The route search (spec: Edge routing, step 3): A* over states of (vertex,
  * heading) on the routing grid. A step costs its length, plus a fixed cost
- * when it bends, and a small cost for each Group border it crosses. U-turns
- * aren't allowed, and the heuristic is the Manhattan distance to the goal.
+ * when it bends, and a small cost for each Group border it crosses. Where
+ * routes negotiate for room (step 5), it also costs each segment's lasting
+ * history, and a penalty for a segment that's already full. U-turns aren't
+ * allowed, and the heuristic is the Manhattan distance to the goal.
  */
 
 import type { Grid } from "./grid.ts";
@@ -41,6 +43,25 @@ export interface SearchCosts {
 	crossing: number;
 	/** The most states the search may visit before it gives up. */
 	budget: number;
+	congestion?: Congestion;
+}
+
+/**
+ * How crowded each segment of the grid is, by segment: the one east of vertex
+ * `v` at `2 * v`, and the one south of it at `2 * v + 1`.
+ */
+export interface Congestion {
+	/** A lasting cost on each segment, raised each time it ends a pass over capacity. */
+	history: Float64Array;
+	/** How many lanes use each segment so far. */
+	usage: Uint16Array;
+	/** How many lanes fit through each segment. */
+	capacity: Uint16Array;
+	/** The segments that the route's own lane group uses already, marked with `stamp`: it adds no lane there. */
+	own: Uint32Array;
+	stamp: number;
+	/** What stepping onto a segment that's already full costs. */
+	full: number;
 }
 
 /**
@@ -127,7 +148,8 @@ export function searchOn(grid: Grid): Search {
 					Math.abs(xOf(neighbor) - xOf(vertex)) +
 					Math.abs(yOf(neighbor) - yOf(vertex)) +
 					(next === heading ? 0 : costs.bend) +
-					costs.crossing * crossingsOf(grid, vertex, next);
+					costs.crossing * crossingsOf(grid, vertex, next) +
+					(costs.congestion === undefined ? 0 : crowding(costs.congestion, vertex, neighbor));
 				if (neighbor === goal.vertex) {
 					if (next === (goalHeading + 2) % 4) {
 						continue;
@@ -139,6 +161,23 @@ export function searchOn(grid: Grid): Search {
 		}
 		return undefined;
 	};
+}
+
+/** The index of the segment between two neighboring vertices. */
+export function segmentBetween(a: number, b: number): number {
+	const low = Math.min(a, b);
+	return 2 * low + (Math.abs(a - b) === 1 ? 0 : 1);
+}
+
+/** What a step from one vertex to its neighbor costs for crowding. */
+function crowding(congestion: Congestion, from: number, to: number): number {
+	const segment = segmentBetween(from, to);
+	const others =
+		(congestion.usage[segment] ?? 0) - (congestion.own[segment] === congestion.stamp ? 1 : 0);
+	return (
+		(congestion.history[segment] ?? 0) +
+		(others >= (congestion.capacity[segment] ?? 0) ? congestion.full : 0)
+	);
 }
 
 function pathTo(end: number, parents: Int32Array): number[] {

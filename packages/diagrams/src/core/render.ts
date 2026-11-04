@@ -6,7 +6,7 @@
 
 import type { Diagnostic } from "./diagnostics.ts";
 import { clearance, grid, layOut, margin } from "./layout.ts";
-import { type Bundling, route } from "./route.ts";
+import { type Bundling, lanes, route } from "./route.ts";
 import type { Box, Scene, SceneEdge } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
 import { type FontData, textDiagnostics } from "./text.ts";
@@ -59,6 +59,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		),
 		clearance,
 		grid,
+		lanes,
 		nodes,
 		groups,
 		edges,
