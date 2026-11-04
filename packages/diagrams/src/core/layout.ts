@@ -1,11 +1,15 @@
 /**
- * A minimal layout: each Node goes in the rank of the longest path that
- * reaches it, ranks run along the Diagram's direction, and each rank stacks
- * its Nodes across it in declaration order. Ticket 02 replaces it with the
- * full layout.
+ * Layout: a pure function of the Diagram, with no coordinates in the source,
+ * no randomness and no memory of earlier layouts. Authors steer it only with
+ * the Diagram's direction and the order they declare things in, which breaks
+ * every tie.
+ *
+ * The rank axis runs along the direction: x for `right`, y for `down`. The
+ * order axis runs across it.
  */
 
 import type { Diagram } from "../authoring/model.ts";
+import { arrange, type Member } from "./layers.ts";
 import type { Box, SceneNode } from "./scene.ts";
 
 const nodeWidth = 160;
@@ -16,22 +20,30 @@ export const margin = 24;
 
 export function layOut(diagram: Diagram): SceneNode[] {
 	const down = diagram.direction === "down";
-	const ranks = ranksOf(diagram);
-	const nextInRank: number[] = [];
-	return diagram.nodes.map((node) => {
-		const rank = ranks.get(node.id) ?? 0;
-		const order = nextInRank[rank] ?? 0;
-		nextInRank[rank] = order + 1;
+	const index = new Map(diagram.nodes.map((node, at) => [node.id, at]));
+	const members: Member[] = diagram.nodes.map(() =>
+		down
+			? { depth: nodeHeight, before: nodeWidth / 2, after: nodeWidth / 2 }
+			: { depth: nodeWidth, before: nodeHeight / 2, after: nodeHeight / 2 },
+	);
+	const connections = diagram.edges.map((edge) => ({
+		from: index.get(edge.from) ?? 0,
+		to: index.get(edge.to) ?? 0,
+	}));
+	const placements = arrange(members, connections, { clearance, rankGap });
+
+	return diagram.nodes.map((node, at) => {
+		const { x: line, y: ports } = placements[at] ?? { x: 0, y: 0 };
 		const box: Box = down
 			? {
-					x: margin + order * (nodeWidth + clearance),
-					y: margin + rank * (nodeHeight + rankGap),
+					x: margin + ports - nodeWidth / 2,
+					y: margin + line - nodeHeight / 2,
 					width: nodeWidth,
 					height: nodeHeight,
 				}
 			: {
-					x: margin + rank * (nodeWidth + rankGap),
-					y: margin + order * (nodeHeight + clearance),
+					x: margin + line - nodeWidth / 2,
+					y: margin + ports - nodeHeight / 2,
 					width: nodeWidth,
 					height: nodeHeight,
 				};
@@ -51,56 +63,4 @@ export function layOut(diagram: Diagram): SceneNode[] {
 			title: { text: node.title, point: { x: center, y: middle } },
 		};
 	});
-}
-
-/**
- * The length of the longest path that reaches each Node. A depth-first search
- * from the Nodes in declaration order leaves out every Edge that leads back
- * into its current path, so that the rest have no cycles. Self-loops never
- * count.
- */
-function ranksOf(diagram: Diagram): Map<string, number> {
-	const targets = new Map<string, string[]>(diagram.nodes.map((node) => [node.id, []]));
-	for (const edge of diagram.edges) {
-		if (edge.from !== edge.to) {
-			targets.get(edge.from)?.push(edge.to);
-		}
-	}
-
-	const onPath = new Set<string>();
-	const visited = new Set<string>();
-	const finished: string[] = [];
-	const kept = new Map<string, string[]>();
-	const visit = (id: string) => {
-		visited.add(id);
-		onPath.add(id);
-		const next: string[] = [];
-		for (const target of targets.get(id) ?? []) {
-			if (onPath.has(target)) {
-				continue;
-			}
-			next.push(target);
-			if (!visited.has(target)) {
-				visit(target);
-			}
-		}
-		kept.set(id, next);
-		onPath.delete(id);
-		finished.push(id);
-	};
-	for (const node of diagram.nodes) {
-		if (!visited.has(node.id)) {
-			visit(node.id);
-		}
-	}
-
-	// Reverse finishing order is a topological order of the Edges kept.
-	const ranks = new Map<string, number>(diagram.nodes.map((node) => [node.id, 0]));
-	for (const id of finished.reverse()) {
-		const rank = ranks.get(id) ?? 0;
-		for (const target of kept.get(id) ?? []) {
-			ranks.set(target, Math.max(ranks.get(target) ?? 0, rank + 1));
-		}
-	}
-	return ranks;
 }

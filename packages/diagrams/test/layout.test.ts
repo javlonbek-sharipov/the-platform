@@ -5,6 +5,7 @@ import {
 	type Box,
 	type Diagram,
 	type Direction,
+	type Point,
 	render,
 	type Scene,
 } from "../src/index.ts";
@@ -128,6 +129,52 @@ function twoParts(direction: Direction): Diagram {
 	});
 }
 
+/**
+ * Three clients, each calling its own backend. The backends are declared in
+ * the opposite order, so stacking each rank in declaration order would make
+ * all three Edges cross each other: three crossings.
+ */
+function crossedBackends(direction: Direction): Diagram {
+	return diagram("Backends", direction, (d) => {
+		const clients = ["web-app", "mobile-app", "admin-app"].map((id) =>
+			d.node({ id, kind: "client", title: id }),
+		);
+		const backends = ["admin-api", "mobile-bff", "web-bff"].map((id) =>
+			d.node({ id, kind: "service", title: id }),
+		);
+		clients.forEach((client, index) => {
+			d.edge(client, backends[2 - index] ?? client, { kind: "call" });
+		});
+	});
+}
+
+/**
+ * How many pairs of Edges cross, drawing each Edge as a straight line from
+ * its source's output Port to its target's input Port.
+ */
+function crossings(scene: Scene): number {
+	const portsOf = (edge: Scene["edges"][number]) => {
+		const from = scene.nodes.find((node) => node.id === edge.from);
+		const to = scene.nodes.find((node) => node.id === edge.to);
+		if (from === undefined || to === undefined) {
+			throw new Error(`no Nodes for ${edge.id}`);
+		}
+		return [from.output.point, to.input.point] as const;
+	};
+	const turn = (a: Point, b: Point, c: Point) =>
+		Math.sign((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
+	const lines = scene.edges.filter((edge) => edge.from !== edge.to).map(portsOf);
+	let count = 0;
+	for (const [index, [a, b]] of lines.entries()) {
+		for (const [c, d] of lines.slice(index + 1)) {
+			if (turn(a, b, c) * turn(a, b, d) < 0 && turn(c, d, a) * turn(c, d, b) < 0) {
+				count += 1;
+			}
+		}
+	}
+	return count;
+}
+
 /** Each fixture, with the Edges that close a cycle in it. */
 const fixtures: [string, (direction: Direction) => Diagram, string[]][] = [
 	["a chain", chain, []],
@@ -149,6 +196,76 @@ describe.each(directions)("a Diagram laid out %s", (direction) => {
 
 		expect(start(api, rank)).toBeGreaterThan(end(web, rank));
 		expect(start(db, rank)).toBeGreaterThan(end(api, rank));
+	});
+
+	test("puts each Node in the rank of the longest path that reaches it", () => {
+		// The shortest path to `report-store` has one Edge; the longest has two.
+		const scene = sceneOf(
+			diagram("Reports", direction, (d) => {
+				const api = d.node({ id: "reports-api", kind: "service", title: "Reports API" });
+				const jobs = d.node({ id: "report-jobs", kind: "worker", title: "Report jobs" });
+				const store = d.node({ id: "report-store", kind: "storage", title: "Report store" });
+				d.edge(api, store, { kind: "call" });
+				d.edge(api, jobs, { kind: "message" });
+				d.edge(jobs, store, { kind: "call" });
+			}),
+		);
+
+		const api = boxOf(scene, "reports-api");
+		const jobs = boxOf(scene, "report-jobs");
+		const store = boxOf(scene, "report-store");
+		expect(start(jobs, rank)).toBeGreaterThan(end(api, rank));
+		expect(start(store, rank)).toBeGreaterThan(end(jobs, rank));
+	});
+
+	test("searches for cycles from the first-declared Node, so the Edge back to it closes the cycle", () => {
+		const ranksAlong = (first: "orders-api" | "ledger") => {
+			const scene = sceneOf(
+				diagram("Cycle", direction, (d) => {
+					const ids = ["orders-api", "payments-api", "ledger"];
+					for (const id of [first, ...ids.filter((id) => id !== first)]) {
+						d.node({ id, kind: "service", title: id });
+					}
+					d.edge("orders-api", "payments-api", { kind: "call" });
+					d.edge("payments-api", "ledger", { kind: "message" });
+					d.edge("ledger", "orders-api", { kind: "message" });
+				}),
+			);
+			expect(scene.edges).toHaveLength(3);
+			return scene.nodes
+				.map((node) => [node.id, start(node.box, rank)] as const)
+				.sort(([, a], [, b]) => a - b)
+				.map(([id]) => id);
+		};
+
+		expect(ranksAlong("orders-api")).toEqual(["orders-api", "payments-api", "ledger"]);
+		expect(ranksAlong("ledger")).toEqual(["ledger", "orders-api", "payments-api"]);
+	});
+
+	test("ignores self-loops, and counts parallel Edges once", () => {
+		const scene = sceneOf(
+			diagram("Loops", direction, (d) => {
+				const api = d.node({ id: "orders-api", kind: "service", title: "Orders API" });
+				const db = d.node({ id: "orders-db", kind: "database", title: "Orders database" });
+				d.edge(api, api, { kind: "message" });
+				d.edge(api, db, { kind: "call", id: "read" });
+				d.edge(api, db, { kind: "call", id: "write" });
+				d.edge(db, db, { kind: "message" });
+			}),
+		);
+
+		const api = boxOf(scene, "orders-api");
+		const db = boxOf(scene, "orders-db");
+		expect(start(db, rank)).toBeGreaterThan(end(api, rank));
+		const width = end(db, rank) - start(api, rank);
+		expect(width).toBe(
+			end(boxOf(sceneOf(fanOut(direction, ["orders-db"])), "orders-db"), rank) -
+				start(boxOf(sceneOf(fanOut(direction, ["orders-db"])), "orders-api"), rank),
+		);
+	});
+
+	test("reorders a rank to remove the crossings that declaration order would make", () => {
+		expect(crossings(sceneOf(crossedBackends(direction)))).toBe(0);
 	});
 
 	test("centers the members of each rank on the rank's line", () => {
