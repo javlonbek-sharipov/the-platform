@@ -1,6 +1,8 @@
 /**
  * Version 1 of the JSON model: the one stable, versioned format (ADR-0003).
- * The authoring API produces it, and generators may write it directly.
+ * The authoring API produces it, and generators may write it directly, then
+ * check it against the JSON Schema that the package ships for it,
+ * `@the-platform/diagrams/diagram.schema.json`.
  */
 
 import type {
