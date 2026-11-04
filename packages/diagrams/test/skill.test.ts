@@ -1,5 +1,6 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { readFile, realpath } from "node:fs/promises";
+import { basename, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import {
 	architectureEdgeKinds,
@@ -12,6 +13,7 @@ import { type CliRun, runCli, sampleAtlas } from "./support/atlas.ts";
 import { pngSize } from "./support/png.ts";
 
 const skillFile = new URL("../skills/diagrams/SKILL.md", import.meta.url);
+const repo = new URL("../../../", import.meta.url);
 
 /** The complete example Diagram that the skill shows: the code block under its `## Example` heading. */
 function exampleIn(skill: string): string {
@@ -82,5 +84,21 @@ describe("the agent skill", () => {
 		];
 
 		expect(words.filter((word) => !skill.includes(`\`${word}\``))).toEqual([]);
+	});
+
+	test("agents reach it where Claude Code and Codex look for skills, under its own name, and from AGENTS.md", async () => {
+		const skill = await realpath(fileURLToPath(skillFile));
+		const name = /^---\nname: ([^\n]*)\ndescription: [^\n]+\n---\n/.exec(
+			await readFile(skill, "utf8"),
+		)?.[1];
+
+		for (const folder of [".claude/skills/diagrams", ".agents/skills/diagrams"]) {
+			const exposed = fileURLToPath(new URL(`${folder}/SKILL.md`, repo));
+			expect(await realpath(exposed), folder).toBe(skill);
+			expect(name, folder).toBe(basename(folder));
+		}
+		expect(await readFile(new URL("AGENTS.md", repo), "utf8")).toContain(
+			"packages/diagrams/skills/diagrams/SKILL.md",
+		);
 	});
 });
