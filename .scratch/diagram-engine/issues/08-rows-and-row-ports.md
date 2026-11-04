@@ -11,7 +11,7 @@
 - 03 Edges routed around Nodes
 - 04 Text that fits everywhere
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Spec:**
 
@@ -57,3 +57,4 @@
 - **For ticket 09.** A Row's two Ports are Ports of their own, so a bundle that goes to one Port must tell a Row's input Port from its Node's. Routes still overlap where they share a grid line, as before.
 - **For ticket 14.** An Edge end is a Node id or `{ node, row }`, both strings. A Row is `{ name, value? }`, both strings, and Row names are unique within a Node (`duplicate-row`).
 
+Merged into diagram-engine in 5b272b6.
