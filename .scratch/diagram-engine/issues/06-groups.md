@@ -13,7 +13,7 @@
 - 02 Automatic layout
 - 03 Edges routed around Nodes
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Spec:**
 
@@ -92,3 +92,5 @@
   - Ticket 11: the Groups that hold an Edge's ends come from the model's `members`. A scene Group's `depth` gives its nesting.
   - Ticket 14: the schema needs Groups' `members`, `description` and `links`. Nesting can't be checked by a schema, so it belongs in the schema's description.
   - The web component: each Group's `<g>` carries `data-group` and `data-kind`, for details and drill-down.
+
+Merged into diagram-engine in e2df131.
