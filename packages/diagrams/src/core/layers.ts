@@ -290,17 +290,14 @@ function ranksAlong(vertices: Vertex[], ranks: number[][], spacing: Spacing): nu
  */
 function alignAcross(vertices: Vertex[], ranks: number[][], spacing: Spacing): number[] {
 	let best: number[] = [];
-	let bestCost = [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY];
+	let fewest: [number, number] = [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY];
 	for (const fromBelow of [false, true]) {
 		for (const fromEnd of [false, true]) {
 			const across = alignOneWay(vertices, ranks, spacing, fromBelow, fromEnd);
-			const cost = bends(vertices, across);
-			if (
-				cost[0] < (bestCost[0] ?? 0) ||
-				(cost[0] === bestCost[0] && cost[1] < (bestCost[1] ?? 0))
-			) {
+			const [bent, length] = bends(vertices, across);
+			if (bent < fewest[0] || (bent === fewest[0] && length < fewest[1])) {
 				best = across;
-				bestCost = cost;
+				fewest = [bent, length];
 			}
 		}
 	}
@@ -366,32 +363,34 @@ function alignOneWay(
 		}
 		return block;
 	};
+	// Each block goes as near the start as the blocks before its vertices
+	// allow. A block waits for those blocks one at a time, so `chain` holds
+	// each block that the one above it waits for.
 	const placed = new Map<number, number>();
-	for (const start of root) {
-		const pending = [start];
-		for (let block = pending.at(-1); block !== undefined; block = pending.at(-1)) {
-			if (placed.has(block)) {
-				pending.pop();
-				continue;
-			}
+	for (const start of new Set(root)) {
+		const chain = placed.has(start) ? [] : [start];
+		for (let block = chain.at(-1); block !== undefined; block = chain.at(-1)) {
 			let at = 0;
-			let ready = true;
+			let waiting: number | undefined;
 			for (const vertex of blockOf(block)) {
 				const before = layers[layerOf[vertex] ?? 0]?.[(position[vertex] ?? 0) - 1];
 				if (before !== undefined) {
 					const other = root[before] ?? before;
 					const where = placed.get(other);
 					if (where === undefined) {
-						pending.push(other);
-						ready = false;
+						waiting ??= other;
 					} else {
 						at = Math.max(at, where + separation(before, vertex));
 					}
 				}
 			}
-			if (ready) {
+			if (waiting === undefined) {
 				placed.set(block, at);
-				pending.pop();
+				chain.pop();
+			} else if (chain.includes(waiting)) {
+				throw new Error("Layout aligned two blocks so that each comes before the other.");
+			} else {
+				chain.push(waiting);
 			}
 		}
 	}

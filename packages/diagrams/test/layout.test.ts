@@ -227,6 +227,22 @@ function straight(scene: Scene, from: string, to: string): boolean {
 	return source.output.side === "right" ? a.y === b.y : a.x === b.x;
 }
 
+/**
+ * Two calls that cross in declaration order, with an unconnected Node
+ * declared between their sources.
+ */
+function crossingBesideUnconnected(direction: Direction): Diagram {
+	return diagram("Crossing", direction, (d) => {
+		const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+		d.node({ id: "docs-site", kind: "client", title: "Docs site" });
+		const mobileApi = d.node({ id: "mobile-api", kind: "service", title: "Mobile API" });
+		const mobile = d.node({ id: "mobile-app", kind: "client", title: "Mobile app" });
+		const webApi = d.node({ id: "web-api", kind: "service", title: "Web API" });
+		d.edge(mobile, mobileApi, { kind: "call" });
+		d.edge(web, webApi, { kind: "call" });
+	});
+}
+
 /** Each fixture, with the Edges that close a cycle in it. */
 const fixtures: [string, (direction: Direction) => Diagram, string[]][] = [
 	["a chain", chain, []],
@@ -235,6 +251,7 @@ const fixtures: [string, (direction: Direction) => Diagram, string[]][] = [
 	["a diamond", diamond, []],
 	["a cycle", cycle, ["ledger->orders-api", "ledger->ledger"]],
 	["two disconnected parts", twoParts, []],
+	["crossing Edges beside an unconnected Node", crossingBesideUnconnected, []],
 ];
 
 describe.each(directions)("a Diagram laid out %s", (direction) => {
