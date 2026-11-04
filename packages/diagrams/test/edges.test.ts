@@ -441,7 +441,9 @@ describe("a Port that feeds two or more Edges", () => {
 				const edges = drawn.scene.edges.filter(
 					(edge) => edge.from === junction.node && edge.fromRow === junction.row,
 				);
-				const [casing] = linesOf(drawn, edges[0] ?? drawn.scene.edges[0]!);
+				const [first] = edges;
+				const [casing] = first === undefined ? [] : linesOf(drawn, first);
+				expect(casing).toBeDefined();
 				expect(painted.right - painted.left).toBeGreaterThan(
 					strokeOf(drawn, casing ?? mark, "light").width,
 				);
