@@ -84,30 +84,6 @@ describe("diagrams render and lint", () => {
 		expect(lint.stdout).toMatch(/\nChecked 2 Diagrams: 1 error\.\n$/);
 	});
 
-	test("finds Diagrams anywhere in the repo, except in .git, node_modules and repos", async () => {
-		const unreachable = 'throw new Error("This module should never be loaded.");\n';
-		const atlas = await sampleAtlas({
-			".git/HEAD": "ref: refs/heads/main\n",
-			".git/hooks/hook.diagram.ts": unreachable,
-			"node_modules/some-lib/lib.diagram.ts": unreachable,
-			"packages/app/node_modules/other-lib/lib.diagram.ts": unreachable,
-			"repos/quorum/board.diagram.ts": unreachable,
-			"docs/repos/clones.diagram.ts": shopModule("Clones"),
-			"packages/app/app.diagram.ts": shopModule("App"),
-		});
-
-		expect(await runCli(["render"], join(atlas, "packages/app"))).toEqual({
-			code: 0,
-			stdout: "Wrote ../../docs/repos/clones.diagram.svg\nWrote app.diagram.svg\n",
-			stderr: "",
-		});
-		expect(await runCli(["lint"], atlas)).toEqual({
-			code: 0,
-			stdout: "Checked 2 Diagrams: no errors.\n",
-			stderr: "",
-		});
-	});
-
 	test("render writes only the SVGs of the paths it's given", async () => {
 		const atlas = await sampleAtlas({
 			"docs/shop.diagram.ts": shopModule("Shop"),

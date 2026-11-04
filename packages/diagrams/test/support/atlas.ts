@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -68,4 +69,17 @@ export default architecture({ title: ${JSON.stringify(title)} }, (d) => {
 	d.edge(web, api, { kind: "call" });
 });
 `;
+}
+
+/** Runs git in a sample Atlas, unaffected by any repo that the environment points at. */
+export function git(root: string, ...args: string[]): void {
+	const env = { ...process.env };
+	for (const name of ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"]) {
+		delete env[name];
+	}
+	execFileSync("git", ["-c", "init.defaultBranch=main", ...args], {
+		cwd: root,
+		env,
+		stdio: "ignore",
+	});
 }

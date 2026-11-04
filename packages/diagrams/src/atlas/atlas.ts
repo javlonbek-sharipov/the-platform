@@ -3,8 +3,10 @@
  * loads and renders them, and compares the SVGs on disk with fresh renders.
  */
 
+import { execFile } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
+import { promisify } from "node:util";
 import type { Diagnostic } from "../core/diagnostics.ts";
 import { render } from "../core/render.ts";
 import { type Loaded, load } from "./load.ts";
@@ -13,6 +15,8 @@ import { type Loaded, load } from "./load.ts";
 export const cacheFolder = ".diagrams-cache";
 
 const moduleSuffix = ".diagram.ts";
+
+const run = promisify(execFile);
 
 /** A diagnostic, with the file it's about. */
 export interface AtlasMessage extends Diagnostic {
@@ -52,34 +56,82 @@ export function findRoot(cwd: string): string {
 }
 
 /**
- * Every diagram module in `folder`, in path order. It skips `.git` and
- * `node_modules` everywhere, and the reference clones in the root's `repos`.
- * Ticket 05 replaces this walk with git's view of the repo.
+ * Every diagram module in the Atlas, in path order. In a git repo, those are
+ * the modules that git tracks or doesn't ignore. Outside one, discovery walks
+ * every folder except `node_modules`.
  */
-export function discover(root: string, folder = root): string[] {
-	const top = resolve(root);
+export async function discover(root: string): Promise<string[]> {
+	const files = inGitRepo(root) ? await gitFiles(root) : walk(root);
+	return files.sort(byPath);
+}
+
+/** Whether `folder`, or a folder above it, holds `.git`. */
+function inGitRepo(folder: string): boolean {
+	for (let current = folder; ; current = dirname(current)) {
+		if (existsSync(join(current, ".git"))) {
+			return true;
+		}
+		if (dirname(current) === current) {
+			return false;
+		}
+	}
+}
+
+/**
+ * The diagram modules under `root` that git tracks or doesn't ignore, and
+ * that still exist: git still lists a tracked file that was deleted.
+ */
+async function gitFiles(root: string): Promise<string[]> {
+	// Ask about the repo that holds `root`, not one that the environment
+	// points at, as it does inside a git hook.
+	const env = { ...process.env };
+	for (const name of ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"]) {
+		delete env[name];
+	}
+	let listing: string;
+	try {
+		const args = ["ls-files", "-z", "--cached", "--others", "--exclude-standard"];
+		listing = (await run("git", [...args, "--", `*${moduleSuffix}`], { cwd: root, env })).stdout;
+	} catch (error) {
+		const reason = error instanceof Error ? error.message : String(error);
+		throw new AtlasError(`git couldn't list the files of the repo at ${root}: ${reason}`);
+	}
+	// During a merge, git lists a file once for each side of a conflict.
+	const paths = new Set(listing.split("\0").filter((path) => path !== ""));
+	return [...paths].map((path) => join(root, path)).filter((file) => existsSync(file));
+}
+
+/** The diagram modules under `root`, in every folder except `.git` and `node_modules`. */
+function walk(root: string): string[] {
 	const modules: string[] = [];
-	const walk = (current: string) => {
-		const entries = readdirSync(current, { withFileTypes: true }).sort((a, b) =>
-			a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
-		);
-		for (const entry of entries) {
-			const path = join(current, entry.name);
+	const visit = (folder: string) => {
+		for (const entry of readdirSync(folder, { withFileTypes: true })) {
+			const path = join(folder, entry.name);
 			if (entry.isDirectory()) {
-				const skipped =
-					entry.name === ".git" ||
-					entry.name === "node_modules" ||
-					(entry.name === "repos" && current === top);
-				if (!skipped) {
-					walk(path);
+				if (entry.name !== ".git" && entry.name !== "node_modules") {
+					visit(path);
 				}
 			} else if (entry.isFile() && entry.name.endsWith(moduleSuffix)) {
 				modules.push(path);
 			}
 		}
 	};
-	walk(resolve(folder));
+	visit(root);
 	return modules;
+}
+
+/** Folder by folder, so that `a/b.diagram.ts` comes before `a-b.diagram.ts`. */
+function byPath(a: string, b: string): number {
+	const left = a.split(sep);
+	const right = b.split(sep);
+	for (let index = 0; index < Math.min(left.length, right.length); index++) {
+		const one = left[index] ?? "";
+		const other = right[index] ?? "";
+		if (one !== other) {
+			return one < other ? -1 : 1;
+		}
+	}
+	return left.length - right.length;
 }
 
 /** `x.diagram.ts` is drawn in `x.diagram.svg`, beside it. */
@@ -99,7 +151,7 @@ export async function renderDiagrams(modules: string[]): Promise<RenderedDiagram
 export async function lintAtlas(
 	root: string,
 ): Promise<{ diagrams: number; messages: AtlasMessage[] }> {
-	const [config, ...modules] = await load([join(root, configFile), ...discover(root)]);
+	const [config, ...modules] = await load([join(root, configFile), ...(await discover(root))]);
 	const rendered = modules.map(renderLoaded);
 	const messages = [
 		...(config === undefined ? [] : checkConfig(config)),
