@@ -159,11 +159,11 @@ function crossedClients(direction: Direction): Diagram {
 		const mobile = d.node({ id: "mobile-app", kind: "client", title: "Mobile app" });
 		const admin = d.node({ id: "admin-app", kind: "client", title: "Admin app" });
 		const accounts = d.node({ id: "accounts-api", kind: "service", title: "Accounts API" });
-		const catalog = d.node({ id: "catalog-api", kind: "service", title: "Catalog API" });
-		d.edge(web, catalog, { kind: "call" });
+		const products = d.node({ id: "products-api", kind: "service", title: "Products API" });
+		d.edge(web, products, { kind: "call" });
 		d.edge(mobile, accounts, { kind: "call" });
 		d.edge(admin, accounts, { kind: "call" });
-		d.edge(admin, catalog, { kind: "call" });
+		d.edge(admin, products, { kind: "call" });
 	});
 }
 
