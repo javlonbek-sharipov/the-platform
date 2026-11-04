@@ -182,6 +182,11 @@ function checkLinkIds(owner: string, links: Link[] | undefined, pointer: string)
 
 const oneParent = "Every Node and Group has exactly one parent: the Diagram, or one Group.";
 
+/** A parent as messages name it: the Diagram, or one Group. */
+function parentName(parent: string | undefined): string {
+	return parent === undefined ? "the Diagram" : `Group \`${parent}\``;
+}
+
 /**
  * Every Node and Group is a member of exactly one parent: the Diagram itself,
  * or one Group. So Groups nest as a tree, rooted at the Diagram.
@@ -195,12 +200,12 @@ function checkNesting(diagram: Diagram): Diagnostic[] {
 	// An id that names two things is listed once for each, and `duplicate-id` covers it.
 	const named = [...diagram.nodes, ...diagram.groups].map(({ id }) => id);
 	const duplicated = new Set(named.filter((id, index) => named.indexOf(id) !== index));
-	/** Each member's first parent, named as messages name it. */
-	const parents = new Map<string, string>();
-	const lists: [parent: string, pointer: string, members: string[]][] = [
-		["the Diagram", "/members", diagram.members],
+	/** Each member's first parent: a Group's id, or undefined for the Diagram itself. */
+	const parents = new Map<string, string | undefined>();
+	const lists: [parent: string | undefined, pointer: string, members: string[]][] = [
+		[undefined, "/members", diagram.members],
 		...diagram.groups.map((group, index): [string, string, string[]] => [
-			`Group \`${group.id}\``,
+			group.id,
 			`/groups/${index}/members`,
 			group.members,
 		]),
@@ -208,31 +213,29 @@ function checkNesting(diagram: Diagram): Diagnostic[] {
 	for (const [parent, pointer, members] of lists) {
 		members.forEach((member, index) => {
 			const thing = things.get(member);
-			const first = parents.get(member);
 			if (thing === undefined) {
-				const owner = parent === "the Diagram" ? "The Diagram" : parent;
+				const owner = parentName(parent);
 				diagnostics.push(
 					error(
 						"nesting",
-						`${owner} has the member \`${member}\`, which isn't a Node or a Group on this Diagram.`,
+						`${owner.charAt(0).toUpperCase()}${owner.slice(1)} has the member \`${member}\`, which isn't a Node or a Group on this Diagram.`,
 						`${pointer}/${index}`,
 					),
 				);
-				return;
+			} else if (!parents.has(member)) {
+				parents.set(member, parent);
+			} else if (!duplicated.has(member)) {
+				const first = parents.get(member);
+				diagnostics.push(
+					error(
+						"nesting",
+						first === parent
+							? `${thing} \`${member}\` is listed twice among the members of ${parentName(parent)}. ${oneParent}`
+							: `${thing} \`${member}\` is a member of both ${parentName(first)} and ${parentName(parent)}. ${oneParent}`,
+						`${pointer}/${index}`,
+					),
+				);
 			}
-			if (first === undefined || duplicated.has(member)) {
-				parents.set(member, first ?? parent);
-				return;
-			}
-			diagnostics.push(
-				error(
-					"nesting",
-					first === parent
-						? `${thing} \`${member}\` is listed twice among the members of ${parent}. ${oneParent}`
-						: `${thing} \`${member}\` is a member of both ${first} and ${parent}. ${oneParent}`,
-					`${pointer}/${index}`,
-				),
-			);
 		});
 	}
 	const orphans = [
@@ -248,36 +251,28 @@ function checkNesting(diagram: Diagram): Diagnostic[] {
 			),
 		);
 	}
-	return [...diagnostics, ...checkCycles(diagram)];
+	return [...diagnostics, ...checkCycles(diagram, parents)];
 }
 
 /**
  * Groups that contain each other, so that none of them sits on the Diagram.
- * Each cycle is reported once, at the first of its Groups in model order,
- * where that Group lists the next one.
+ * Climbing from each Group to its parent, and on, reaches the Diagram unless
+ * it comes back round. Each cycle is reported once, at the first of its
+ * Groups in model order, where that Group lists the next one.
  */
-function checkCycles(diagram: Diagram): Diagnostic[] {
-	const groupIds = new Set(diagram.groups.map((group) => group.id));
-	/** The Group that lists each Group first, as long as it is a Group. */
-	const parentGroup = new Map<string, string>();
-	for (const group of diagram.groups) {
-		for (const member of group.members) {
-			if (groupIds.has(member) && !parentGroup.has(member) && !diagram.members.includes(member)) {
-				parentGroup.set(member, group.id);
-			}
-		}
-	}
+function checkCycles(diagram: Diagram, parents: Map<string, string | undefined>): Diagnostic[] {
 	const index = new Map(diagram.groups.map((group, at) => [group.id, at]));
-	const reported = new Set<string>();
+	const seen = new Set<string>();
 	const diagnostics: Diagnostic[] = [];
 	for (const group of diagram.groups) {
 		const path: string[] = [];
 		let at: string | undefined = group.id;
-		while (at !== undefined && !path.includes(at) && !reported.has(at)) {
+		while (at !== undefined && !seen.has(at)) {
+			seen.add(at);
 			path.push(at);
-			at = parentGroup.get(at);
+			at = parents.get(at);
 		}
-		if (at === undefined || reported.has(at)) {
+		if (at === undefined || !path.includes(at)) {
 			continue;
 		}
 		// The path climbs from member to parent; the cycle reads from parent to member.
@@ -285,21 +280,19 @@ function checkCycles(diagram: Diagram): Diagnostic[] {
 		const first = Math.min(...cycle.map((id) => index.get(id) ?? 0));
 		const start = cycle.findIndex((id) => index.get(id) === first);
 		const ordered = [...cycle.slice(start), ...cycle.slice(0, start)];
-		for (const id of path) {
-			reported.add(id);
-		}
-		const [head = "", next = head] = ordered;
-		const members = diagram.groups[first]?.members ?? [];
+		// The first Group lists the next one, or itself when it contains itself.
+		const next = ordered[1 % ordered.length];
 		const names = list(ordered.map((id) => `\`${id}\``));
+		const members = diagram.groups[first]?.members ?? [];
 		diagnostics.push(
 			error(
 				"nesting",
 				`${
-					ordered.length === 1
+					cycle.length === 1
 						? `Group ${names} contains itself`
-						: `Groups ${names} contain each other${ordered.length > 2 ? " in a cycle" : ""}`
+						: `Groups ${names} contain each other${cycle.length > 2 ? " in a cycle" : ""}`
 				}. Groups nest as a tree, rooted at the Diagram.`,
-				`/groups/${first}/members/${members.indexOf(next)}`,
+				`/groups/${first}/members/${members.indexOf(next ?? "")}`,
 			),
 		);
 	}
