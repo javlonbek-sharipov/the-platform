@@ -6,6 +6,17 @@
 import type { Outline } from "../core/outlines.ts";
 import { technologies } from "./technologies.ts";
 
+/** The slug of a Technology that has a logo, which editors offer for `technology`. */
+export type KnownTechnology = keyof typeof technologies;
+
+/**
+ * A Technology's slug, such as `postgres` or `grpc`. Editors offer the slugs
+ * that have a logo, but any slug works: one without a logo is drawn as its
+ * name. Intersecting `string` with `{}` keeps the union from widening into
+ * plain `string`, which would leave editors nothing to offer.
+ */
+export type Technology = KnownTechnology | (string & {});
+
 /** Every logo in the logo table is drawn in a square this many units wide. */
 export const logoUnits = 24;
 

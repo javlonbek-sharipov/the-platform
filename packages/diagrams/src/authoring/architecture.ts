@@ -5,6 +5,7 @@ import type {
 	ArchitectureGroupKind,
 	ArchitectureNodeKind,
 	ArchitectureStatus,
+	Technology,
 } from "../notations/architecture.ts";
 import { callerOf, type Declarations, declarationsKey } from "./declarations.ts";
 import {
@@ -40,9 +41,10 @@ export interface ArchitectureNode<R extends string = string> {
 	title: string;
 	/**
 	 * What it's built with: a product, language or protocol's slug, such as
-	 * `postgres` or `go`, drawn in its header as its logo and its name.
+	 * `postgres` or `go`, drawn in its header as its logo and its name. Editors
+	 * offer the slugs that have a logo, but any slug works.
 	 */
-	technology?: string;
+	technology?: Technology;
 	/** Whether the Node stands for something we don't own or run, drawn with a dashed outline. */
 	external?: boolean;
 	/** How the Node is doing, shown as a mark at the end of its header. */
@@ -107,8 +109,12 @@ export interface EdgeOptions {
 	id?: string;
 	/** What passes over the Edge, drawn beside it, such as `Places orders`. */
 	label?: string;
-	/** How it travels: a product or protocol's slug, such as `grpc` or `kafka`, drawn below the label. */
-	technology?: string;
+	/**
+	 * How it travels: a product or protocol's slug, such as `grpc` or `kafka`,
+	 * drawn below the label, after its logo if it has one. Editors offer the
+	 * slugs that have a logo, but any slug works.
+	 */
+	technology?: Technology;
 	/** How much passes over it, as in `2k/s` or `30/min`: drawn below the label. */
 	rate?: string;
 }

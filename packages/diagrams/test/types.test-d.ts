@@ -7,9 +7,12 @@ import {
 	type ArchitectureNodeKind,
 	architecture,
 	atlas,
+	type EdgeOptions,
 	type GroupHandle,
+	type KnownTechnology,
 	type NodeHandle,
 	type RowEnd,
+	type Technology,
 } from "../src/index.ts";
 
 test("the architecture Notation has 12 Node Kinds and two Edge Kinds", () => {
@@ -181,5 +184,35 @@ test("a status that the Notation doesn't have is a type error", () => {
 		d.node({ id: "shop-api", kind: "service", title: "Shop API", status: "degraded" });
 		// @ts-expect-error: `broken` isn't a status.
 		d.node({ id: "shop-db", kind: "database", title: "Shop database", status: "broken" });
+	});
+});
+
+test("`technology` autocompletes the slugs that have a logo, and accepts any other", () => {
+	/**
+	 * The slugs an editor offers for a type: its string literals. A union that
+	 * widens to `string` has none.
+	 */
+	type Offered<T> = T extends string ? (string extends T ? never : T) : never;
+
+	for (const known of ["postgres", "go", "nodejs", "google-cloud"] as const) {
+		expectTypeOf(known).toExtend<KnownTechnology>();
+	}
+	expectTypeOf<"our-own-bus">().not.toExtend<KnownTechnology>();
+	expectTypeOf<Offered<Technology>>().toEqualTypeOf<KnownTechnology>();
+	expectTypeOf<
+		Offered<Exclude<ArchitectureNode["technology"], undefined>>
+	>().toEqualTypeOf<KnownTechnology>();
+	expectTypeOf<
+		Offered<Exclude<EdgeOptions["technology"], undefined>>
+	>().toEqualTypeOf<KnownTechnology>();
+	expectTypeOf<string>().toExtend<NonNullable<ArchitectureNode["technology"]>>();
+	expectTypeOf<string>().toExtend<NonNullable<EdgeOptions["technology"]>>();
+
+	architecture({ title: "Shop" }, (d) => {
+		const api = d.node({ id: "shop-api", kind: "service", title: "Shop API", technology: "go" });
+		const bus = d.node({ id: "bus", kind: "queue", title: "Bus", technology: "our-own-bus" });
+		d.edge(api, bus, { kind: "message", technology: "our-own-protocol" });
+		// @ts-expect-error: a Technology is a slug, written as a string.
+		d.node({ id: "shop-db", kind: "database", title: "Shop database", technology: 7 });
 	});
 });

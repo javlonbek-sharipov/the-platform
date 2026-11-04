@@ -55,6 +55,8 @@ export type {
 	ArchitectureNodeKind,
 	ArchitectureNodeLook,
 	ArchitectureStatus,
+	KnownTechnology,
+	Technology,
 } from "./notations/architecture.ts";
 export {
 	architectureEdgeKinds,
