@@ -3,6 +3,7 @@ import example from "../docs/example-system.diagram.ts";
 import { architecture } from "../src/index.ts";
 import everyKind from "./fixtures/every-kind.ts";
 import externalStatusCallout from "./fixtures/external-status-callout.ts";
+import technologies from "./fixtures/technologies.ts";
 import { renderWithFont } from "./support/fonts.ts";
 import {
 	colorUnder,
@@ -36,6 +37,7 @@ const downward = architecture({ title: "Downward", direction: "down" }, (d) => {
 const fixtures: Record<string, unknown> = {
 	"every Kind": everyKind,
 	"External, status and callout": externalStatusCallout,
+	technologies,
 	example,
 	titles,
 	downward,

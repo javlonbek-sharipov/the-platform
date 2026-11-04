@@ -15,6 +15,7 @@ import {
 	type SceneText,
 	technologies,
 } from "../src/index.ts";
+import ordersFlow from "./fixtures/technologies.ts";
 import { draw, groupOf, nodeOf, paintsWithin, sceneOf, shapesOf } from "./support/drawn.ts";
 import { computedStyle, descendants, type Point, paintedBounds, runsOf } from "./support/svg.ts";
 
@@ -406,5 +407,64 @@ describe("an Edge's label with a Technology", () => {
 				pointer: "/edges/0/technology",
 			},
 		]);
+	});
+});
+
+describe("a logo", () => {
+	test("is drawn in one color of the theme, its Technology's name's, in both themes, and never in its brand's", () => {
+		const drawn = draw(ordersFlow);
+		const { nodes, edges } = drawn.scene;
+		const placed = [
+			...nodes.flatMap(({ logo, technology }) =>
+				logo === undefined ? [] : [{ logo, technology }],
+			),
+			...edges.flatMap(({ label }) =>
+				label?.logo === undefined ? [] : [{ logo: label.logo, technology: label.technology }],
+			),
+		];
+		// Logos in the header of Nodes, and in labels.
+		expect(placed.map(({ logo }) => logo.technology)).toEqual([
+			"typescript",
+			"go",
+			"postgres",
+			"rabbitmq",
+			"graphql",
+			"postgres",
+		]);
+		const icons = Object.values(simpleIcons).filter((icon): icon is SimpleIcon => "slug" in icon);
+		const iconOf = (slug: string) =>
+			icons.find((icon) => icon.path === technologies[slug as keyof typeof technologies].path);
+		const paths = descendants(drawn.root).filter(
+			(element) =>
+				element.name === "path" &&
+				placed.some(({ logo }) => iconOf(logo.technology)?.path === element.attributes.get("d")),
+		);
+		expect(paths).toHaveLength(placed.length);
+		const names = new Set(placed.map(({ technology }) => technology?.text));
+		const nameTexts = descendants(drawn.root).filter(
+			(element) => element.name === "text" && names.has(element.text),
+		);
+		expect(nameTexts.length).toBeGreaterThanOrEqual(placed.length);
+
+		const fills = (["light", "dark"] as const).map((theme) => {
+			const logoFills = new Set(
+				paths.map((path) => computedStyle(path, drawn.rules, theme).get("fill")),
+			);
+			expect(logoFills.size, theme).toBe(1);
+			expect(
+				new Set(nameTexts.map((text) => computedStyle(text, drawn.rules, theme).get("fill"))),
+				theme,
+			).toEqual(logoFills);
+			return [...logoFills][0];
+		});
+		expect(fills[0]).not.toBe(fills[1]);
+
+		// No brand's own color is written anywhere in the SVG.
+		const svg = render(ordersFlow).svg?.toLowerCase() ?? "";
+		for (const { logo } of placed) {
+			const hex = iconOf(logo.technology)?.hex.toLowerCase();
+			expect(hex, logo.technology).toMatch(/^[0-9a-f]{6}$/);
+			expect(svg, logo.technology).not.toContain(`#${hex}`);
+		}
 	});
 });
