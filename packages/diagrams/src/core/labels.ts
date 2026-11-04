@@ -30,7 +30,13 @@ import type {
 	SceneLabel,
 	SceneNode,
 } from "./scene.ts";
-import { type LabelContent, labelBoxSize, labelTexts, labelWidth } from "./text.ts";
+import {
+	type LabelContent,
+	type LabelTechnology,
+	labelBoxSize,
+	labelTexts,
+	labelWidth,
+} from "./text.ts";
 
 /**
  * How labels keep clear: the gap between a label's box and the line it sits
@@ -60,14 +66,17 @@ export function labelContent(edge: Edge): LabelContent | undefined {
 	if (label === undefined && technology === undefined && rate === undefined) {
 		return undefined;
 	}
-	const known = technology === undefined ? undefined : technologyOf(technology);
 	return {
 		...(label === undefined ? {} : { text: label }),
-		...(technology === undefined || known === undefined
-			? {}
-			: { technology: { slug: technology, name: known.name, logo: known.logo !== undefined } }),
+		...(technology === undefined ? {} : { technology: labelTechnology(technology) }),
 		...(rate === undefined ? {} : { rate }),
 	};
+}
+
+/** A Technology as a label shows it: by its name, after its logo if it has one. */
+function labelTechnology(slug: string): LabelTechnology {
+	const { name, logo } = technologyOf(slug);
+	return { slug, name, logo: logo !== undefined };
 }
 
 /** The size of an Edge's label box, if the Edge has a label, a Technology or a rate. */
