@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
@@ -149,6 +150,33 @@ describe("diagrams export --format json", () => {
 			stderr: "",
 		});
 		expect(JSON.parse(await readFile(json, "utf8"))).toEqual({ ...example, id: "docs/example" });
+	});
+});
+
+describe("diagrams export, where it writes", () => {
+	test("--out names the file, from the working directory, and the command prints its absolute path", async () => {
+		const atlas = await sampleAtlas({ "docs/shop.diagram.ts": shopModule() });
+		const docs = join(atlas, "docs");
+
+		const png = join(atlas, "pictures/shop.png");
+		expect(
+			await runCli(
+				["export", "shop.diagram.ts", "--format", "png", "--out", "../pictures/shop.png"],
+				docs,
+			),
+		).toEqual({ code: 0, stdout: `${png}\n`, stderr: "" });
+		expect(pngSize(await readFile(png)).width).toBeGreaterThan(0);
+
+		const json = join(docs, "shop.json");
+		expect(
+			await runCli(["export", "shop.diagram.ts", "--format", "json", "--out=shop.json"], docs),
+		).toEqual({ code: 0, stdout: `${json}\n`, stderr: "" });
+		expect(JSON.parse(await readFile(json, "utf8"))).toMatchObject({
+			id: "docs/shop",
+			title: "Shop",
+		});
+
+		expect(existsSync(join(atlas, ".diagrams-cache"))).toBe(false);
 	});
 });
 

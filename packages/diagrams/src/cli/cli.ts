@@ -125,7 +125,7 @@ const formats = ["png", "json"] as const;
 type Format = (typeof formats)[number];
 
 async function exportCommand(args: string[], context: CliContext): Promise<number> {
-	const parsed = parseOptions(args, ["--format", "--theme", "--scale"]);
+	const parsed = parseOptions(args, ["--format", "--theme", "--scale", "--out"]);
 	if ("error" in parsed) {
 		context.stderr.write(`${parsed.error}\n\n${usage}`);
 		return 2;
@@ -152,11 +152,13 @@ async function exportCommand(args: string[], context: CliContext): Promise<numbe
 	if (svg === undefined || model?.id === undefined) {
 		return 1;
 	}
+	const out = parsed.values.get("--out");
 	const name =
 		format === "json"
 			? `${model.id}.json`
 			: `${model.id}.${theme}${scale === 1 ? "" : `@${scale}x`}.png`;
-	const file = join(root, cacheFolder, "export", name);
+	const file =
+		out === undefined ? join(root, cacheFolder, "export", name) : resolve(context.cwd, out);
 	mkdirSync(dirname(file), { recursive: true });
 	writeFileSync(
 		file,
