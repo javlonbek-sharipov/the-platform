@@ -58,7 +58,7 @@ async function run(args: string[], context: CliContext): Promise<number> {
 
 async function renderCommand(paths: string[], context: CliContext): Promise<number> {
 	const root = findRoot(context.cwd);
-	const atlas = await discover(root);
+	const atlas = (await discover(root)).modules;
 	const modules =
 		paths.length === 0
 			? atlas

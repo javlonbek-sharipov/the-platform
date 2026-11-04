@@ -5,7 +5,7 @@
 
 import { execFile } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import type { Declarations } from "../authoring/declarations.ts";
 import type { Diagram } from "../authoring/model.ts";
@@ -18,6 +18,7 @@ import { type AtlasMessage, located, placeText } from "./messages.ts";
 export const cacheFolder = ".diagrams-cache";
 
 const moduleSuffix = ".diagram.ts";
+const svgSuffix = ".diagram.svg";
 
 const run = promisify(execFile);
 
@@ -55,14 +56,25 @@ export function findRoot(cwd: string): string {
 	}
 }
 
+/** The files of the Atlas, each list in path order. */
+export interface AtlasFiles {
+	/** Every diagram module, `*.diagram.ts`. */
+	modules: string[];
+	/** Every Diagram SVG, `*.diagram.svg`, whether or not its source is still there. */
+	svgs: string[];
+}
+
 /**
- * Every diagram module in the Atlas, in path order. In a git repo, those are
- * the modules that git tracks or doesn't ignore. Outside one, discovery walks
- * every folder except `node_modules`.
+ * The files of the Atlas. In a git repo, those are the files that git tracks
+ * or doesn't ignore. Outside one, discovery walks every folder except
+ * `node_modules`.
  */
-export async function discover(root: string): Promise<string[]> {
-	const files = inGitRepo(root) ? await gitFiles(root) : walk(root);
-	return files.sort(byPath);
+export async function discover(root: string): Promise<AtlasFiles> {
+	const files = (inGitRepo(root) ? await gitFiles(root) : walk(root)).sort(byPath);
+	return {
+		modules: files.filter((file) => file.endsWith(moduleSuffix)),
+		svgs: files.filter((file) => file.endsWith(svgSuffix)),
+	};
 }
 
 /** Whether `folder`, or a folder above it, holds `.git`. */
@@ -78,8 +90,8 @@ function inGitRepo(folder: string): boolean {
 }
 
 /**
- * The diagram modules under `root` that git tracks or doesn't ignore, and
- * that still exist: git still lists a tracked file that was deleted.
+ * The Atlas's files under `root` that git tracks or doesn't ignore, and that
+ * still exist: git still lists a tracked file that was deleted.
  */
 async function gitFiles(root: string): Promise<string[]> {
 	// Ask about the repo that holds `root`, not one that the environment
@@ -90,8 +102,9 @@ async function gitFiles(root: string): Promise<string[]> {
 	}
 	let listing: string;
 	try {
-		const args = ["ls-files", "-z", "--cached", "--others", "--exclude-standard"];
-		listing = (await run("git", [...args, "--", `*${moduleSuffix}`], { cwd: root, env })).stdout;
+		const args = ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--"];
+		const patterns = [`*${moduleSuffix}`, `*${svgSuffix}`];
+		listing = (await run("git", [...args, ...patterns], { cwd: root, env })).stdout;
 	} catch (error) {
 		const reason = error instanceof Error ? error.message : String(error);
 		throw new AtlasError(`git couldn't list the files of the repo at ${root}: ${reason}`);
@@ -101,9 +114,9 @@ async function gitFiles(root: string): Promise<string[]> {
 	return [...paths].map((path) => join(root, path)).filter((file) => existsSync(file));
 }
 
-/** The diagram modules under `root`, in every folder except `.git` and `node_modules`. */
+/** The Atlas's files under `root`, in every folder except `.git` and `node_modules`. */
 function walk(root: string): string[] {
-	const modules: string[] = [];
+	const files: string[] = [];
 	const visit = (folder: string) => {
 		for (const entry of readdirSync(folder, { withFileTypes: true })) {
 			const path = join(folder, entry.name);
@@ -111,13 +124,16 @@ function walk(root: string): string[] {
 				if (entry.name !== ".git" && entry.name !== "node_modules") {
 					visit(path);
 				}
-			} else if (entry.isFile() && entry.name.endsWith(moduleSuffix)) {
-				modules.push(path);
+			} else if (
+				entry.isFile() &&
+				(entry.name.endsWith(moduleSuffix) || entry.name.endsWith(svgSuffix))
+			) {
+				files.push(path);
 			}
 		}
 	};
 	visit(root);
-	return modules;
+	return files;
 }
 
 /** Folder by folder, so that `a/b.diagram.ts` comes before `a-b.diagram.ts`. */
@@ -141,7 +157,7 @@ function diagramIdOf(root: string, module: string): string {
 
 /** `x.diagram.ts` is drawn in `x.diagram.svg`, beside it. */
 export function svgFileOf(module: string): string {
-	return `${module.slice(0, -".ts".length)}.svg`;
+	return `${module.slice(0, -moduleSuffix.length)}${svgSuffix}`;
 }
 
 /** Loads each module, and renders its Diagram. */
@@ -156,7 +172,8 @@ export async function renderDiagrams(root: string, modules: string[]): Promise<R
 export async function lintAtlas(
 	root: string,
 ): Promise<{ diagrams: number; messages: AtlasMessage[] }> {
-	const [config, ...modules] = await load([join(root, configFile), ...(await discover(root))]);
+	const files = await discover(root);
+	const [config, ...modules] = await load([join(root, configFile), ...files.modules]);
 	const rendered = modules.map((loaded) => renderLoaded(root, loaded));
 	const valid = rendered.flatMap(({ module, model, declarations }) =>
 		model === undefined ? [] : [{ module, id: diagramIdOf(root, module), model, declarations }],
@@ -167,10 +184,18 @@ export async function lintAtlas(
 			const stale = diagram.svg === undefined ? undefined : checkSvg(diagram.svgFile, diagram.svg);
 			return stale === undefined ? diagram.messages : [...diagram.messages, stale];
 		}),
+		...checkOrphans(files),
 		...checkIds(valid),
 		...checkLinks(root, valid),
 	];
-	return { diagrams: rendered.length, messages };
+	return { diagrams: rendered.length, messages: messages.sort(byPlace) };
+}
+
+/** File by file, and top to bottom in each file. A message about a whole file comes first. */
+function byPlace(a: AtlasMessage, b: AtlasMessage): number {
+	return (
+		byPath(a.file, b.file) || (a.line ?? 0) - (b.line ?? 0) || (a.column ?? 0) - (b.column ?? 0)
+	);
 }
 
 function renderLoaded(root: string, loaded: Loaded): RenderedDiagram {
@@ -240,6 +265,19 @@ function moduleLoad(place: Place | { file: string }, message: string): AtlasMess
 /** A path as the Atlas names it: from the repo root, with `/`. */
 function repoPath(root: string, file: string): string {
 	return relative(root, file).split(sep).join("/");
+}
+
+/** Every SVG needs its source beside it. */
+function checkOrphans({ modules, svgs }: AtlasFiles): AtlasMessage[] {
+	const drawn = new Set(modules.map(svgFileOf));
+	return svgs
+		.filter((svg) => !drawn.has(svg))
+		.map((svg) => ({
+			file: svg,
+			severity: "error",
+			rule: "svg-orphaned",
+			message: `The SVG's source, \`${basename(svg).slice(0, -svgSuffix.length)}${moduleSuffix}\`, isn't in the Atlas. Delete the SVG, or restore its source.`,
+		}));
 }
 
 function checkSvg(svgFile: string, svg: string): AtlasMessage | undefined {

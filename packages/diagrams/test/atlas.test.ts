@@ -1,4 +1,4 @@
-import { rm } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { git, runCli, sampleAtlas, sampleConfig, shopModule } from "./support/atlas.ts";
@@ -64,6 +64,7 @@ describe("discovery", () => {
 		const atlas = await sampleAtlas({
 			".gitignore": "node_modules/\nrepos/\n*.local.diagram.ts\n",
 			"repos/quorum/board.diagram.ts": unreachable,
+			"repos/quorum/orphan.diagram.svg": "<svg/>\n",
 			"docs/draft.local.diagram.ts": unreachable,
 			"docs/shop.diagram.ts": shopModule("Shop"),
 			"docs/gone.diagram.ts": unreachable,
@@ -88,6 +89,7 @@ describe("discovery", () => {
 	test("outside a git repo, walks every folder except node_modules", async () => {
 		const atlas = await sampleAtlas({
 			"node_modules/some-lib/lib.diagram.ts": unreachable,
+			"node_modules/some-lib/orphan.diagram.svg": "<svg/>\n",
 			"packages/app/node_modules/other-lib/lib.diagram.ts": unreachable,
 			"repos/clone/clone.diagram.ts": shopModule("Clone"),
 			"packages/app/app.diagram.ts": shopModule("App"),
@@ -233,5 +235,39 @@ describe("ids across the Atlas", () => {
 				"Checked 2 Diagrams: 2 errors.\n",
 			stderr: "",
 		});
+	});
+});
+
+describe("lint's output", () => {
+	test("lists messages file by file, each file top to bottom", async () => {
+		const atlas = await sampleAtlas({
+			"docs/a-stock.diagram.svg": "<svg/>\n",
+			"docs/billing.diagram.ts": diagramModule("Billing", [
+				{ ...paymentsApi, links: [{ id: "refunds-api" }] },
+				{ id: "invoices", kind: "databse", title: "Invoices" },
+			]),
+		});
+
+		expect((await runCli(["lint"], atlas)).stdout).toBe(
+			"docs/a-stock.diagram.svg: error: The SVG's source, `a-stock.diagram.ts`, isn't in the Atlas. Delete the SVG, or restore its source. (svg-orphaned)\n" +
+				"docs/billing.diagram.ts:5:4: error: Node `invoices` has the Kind `databse`, which the architecture Notation doesn't have. Its Node Kinds are person, system, client, gateway, service, worker, function, database, cache, queue, storage and search. (unknown-kind)\n" +
+				"Checked 1 Diagram: 2 errors.\n",
+		);
+		await writeFile(
+			join(atlas, "docs/billing.diagram.ts"),
+			diagramModule("Billing", [
+				{ ...paymentsApi, links: [{ id: "refunds-api" }] },
+				{ id: "invoices", kind: "database", title: "Invoices" },
+			]),
+		);
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+		await writeFile(join(atlas, "docs/billing.diagram.svg"), "<svg/>\n");
+
+		expect((await runCli(["lint"], atlas)).stdout).toBe(
+			"docs/a-stock.diagram.svg: error: The SVG's source, `a-stock.diagram.ts`, isn't in the Atlas. Delete the SVG, or restore its source. (svg-orphaned)\n" +
+				"docs/billing.diagram.svg: error: The SVG no longer matches its source. Run `diagrams render`. (svg-out-of-date)\n" +
+				"docs/billing.diagram.ts:4:4: error: Node `payments-api` has a Link to `refunds-api`, which no Diagram in the Atlas draws. (broken-link)\n" +
+				"Checked 1 Diagram: 3 errors.\n",
+		);
 	});
 });

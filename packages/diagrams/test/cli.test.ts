@@ -63,6 +63,24 @@ describe("diagrams render and lint", () => {
 		});
 	});
 
+	test("lint fails and names an SVG whose source is gone", async () => {
+		const atlas = await sampleAtlas({
+			"docs/shop.diagram.ts": shopModule("Shop"),
+			"docs/stock.diagram.ts": shopModule("Stock"),
+		});
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+
+		await rm(join(atlas, "docs/stock.diagram.ts"));
+
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 1,
+			stdout:
+				"docs/stock.diagram.svg: error: The SVG's source, `stock.diagram.ts`, isn't in the Atlas. Delete the SVG, or restore its source. (svg-orphaned)\n" +
+				"Checked 1 Diagram: 1 error.\n",
+			stderr: "",
+		});
+	});
+
 	test("an invalid Diagram gets no SVG, the exit code is 1, and the error names the line", async () => {
 		const atlas = await sampleAtlas({
 			"docs/broken.diagram.ts": shopModule().replace('kind: "service"', 'kind: "servce"'),
