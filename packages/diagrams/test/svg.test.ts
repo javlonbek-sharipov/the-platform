@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { architecture, type Diagram, render } from "../src/index.ts";
+import { deepNesting } from "./fixtures/groups.ts";
 
 const shop = architecture({ title: "Shop" }, (d) => {
 	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
@@ -28,6 +29,13 @@ describe("the SVG", () => {
 	test("is byte-identical after the model makes a round trip through JSON", () => {
 		const roundTripped: unknown = JSON.parse(JSON.stringify(shop));
 		expect(svgOf(roundTripped)).toBe(svgOf(shop));
+	});
+
+	test("is byte-identical after a model with nested Groups makes a round trip through JSON", () => {
+		for (const direction of ["right", "down"] as const) {
+			const diagram = deepNesting(direction);
+			expect(svgOf(JSON.parse(JSON.stringify(diagram)))).toBe(svgOf(diagram));
+		}
 	});
 
 	test("is byte-identical for an equal model built another way", () => {
