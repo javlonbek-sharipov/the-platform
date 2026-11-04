@@ -9,6 +9,7 @@ import { type Diagram, endNode, type RowEnd } from "../authoring/model.ts";
 import { type Bundling, compareText, laneGroups } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { buildGrid, type Grid, pointOf, vertexAt } from "./grid.ts";
+import { placeLabels } from "./labels.ts";
 import { clearance } from "./layout.ts";
 import { type Corridors, type Nudged, type NudgeRoute, nudge, type Squeeze } from "./nudge.ts";
 import type {
@@ -353,6 +354,13 @@ export function route(
 		}
 	});
 	const edges = diagram.edges.flatMap((edge) => routed.get(edge.id) ?? []);
+	const labels = placeLabels(diagram, edges);
+	for (const edge of edges) {
+		const label = labels.get(edge.id);
+		if (label !== undefined) {
+			edge.label = label;
+		}
+	}
 	const diagnostics = edges.flatMap(({ id, fellBack }, index): Diagnostic[] =>
 		fellBack
 			? [

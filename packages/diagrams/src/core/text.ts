@@ -142,8 +142,114 @@ export function rowTexts(row: Row, band: Box): { name: SceneText; value?: SceneT
 
 /** A text's width in a Row: its characters' advance widths, summed. */
 function rowWidthOf(text: string): number {
-	const units = [...text].reduce((sum, character) => sum + unitsOf(character, "regular"), 0);
-	return (units * rowSize) / metrics.regular.unitsPerEm;
+	return widthOf(text, "regular", rowSize);
+}
+
+/** A text's width: its characters' advance widths, summed. */
+function widthOf(text: string, weight: FontWeight, size: number): number {
+	const units = [...text].reduce((sum, character) => sum + unitsOf(character, weight), 0);
+	return (units * size) / metrics[weight].unitsPerEm;
+}
+
+/** What an Edge's label shows: its own text, and its Technology and rate below it. */
+export interface LabelContent {
+	text?: string;
+	technology?: string;
+	rate?: string;
+}
+
+/** The size of a label's own text, and of the Technology and rate below it. */
+const labelTextSize = 12;
+const labelDetailSize = 11;
+/** The height of the line that each takes. */
+const labelTextLine = 16;
+const labelDetailLine = 14;
+/** The room a label's box leaves around its texts. */
+const labelPaddingX = 4;
+const labelPaddingY = 2;
+/** The room between the Technology and the rate. */
+export const labelSeparation = 12;
+
+/** The size of a label's box when its texts are no wider than `width`. */
+export function labelBoxSize(
+	content: LabelContent,
+	width: number,
+): { width: number; height: number } {
+	const detail = content.technology !== undefined || content.rate !== undefined;
+	return {
+		width: width + 2 * labelPaddingX,
+		height:
+			2 * labelPaddingY +
+			(content.text === undefined ? 0 : labelTextLine) +
+			(detail ? labelDetailLine : 0),
+	};
+}
+
+/** How wide a label's texts are, at most, in full: its own text, or its Technology and rate side by side. */
+export function labelWidth(content: LabelContent): number {
+	const text =
+		content.text === undefined
+			? 0
+			: widthOf(collapseSpaces(content.text), "regular", labelTextSize);
+	const technology =
+		content.technology === undefined ? 0 : widthOf(content.technology, "regular", labelDetailSize);
+	const rate = content.rate === undefined ? 0 : widthOf(content.rate, "regular", labelDetailSize);
+	const separation = technology > 0 && rate > 0 ? labelSeparation : 0;
+	return Math.max(text, technology + separation + rate);
+}
+
+/**
+ * A label's texts, laid out in its box: its own text centered on the first
+ * line, and its Technology and rate centered together on the line below,
+ * each shortened to the box's width if it's too wide.
+ */
+export function labelTexts(
+	content: LabelContent,
+	box: Box,
+): { text?: SceneText; technology?: SceneText; rate?: SceneText } {
+	const room = box.width - 2 * labelPaddingX;
+	const middle = box.x + box.width / 2;
+	const top = box.y + labelPaddingY;
+	const placed = (fitted: Fitted, x: number, y: number, size: number): SceneText => ({
+		...fitted,
+		point: { x, y },
+		weight: "regular",
+		size,
+	});
+	const text =
+		content.text === undefined
+			? undefined
+			: placed(
+					fit(collapseSpaces(content.text), "regular", labelTextSize, room),
+					middle,
+					top + labelTextLine / 2,
+					labelTextSize,
+				);
+	const detailY = top + (text === undefined ? 0 : labelTextLine) + labelDetailLine / 2;
+	const technology =
+		content.technology === undefined
+			? undefined
+			: fit(content.technology, "regular", labelDetailSize, room);
+	const rate =
+		content.rate === undefined ? undefined : fit(content.rate, "regular", labelDetailSize, room);
+	const separation = technology !== undefined && rate !== undefined ? labelSeparation : 0;
+	const left = middle - ((technology?.width ?? 0) + separation + (rate?.width ?? 0)) / 2;
+	return {
+		...(text === undefined ? {} : { text }),
+		...(technology === undefined
+			? {}
+			: { technology: placed(technology, left + technology.width / 2, detailY, labelDetailSize) }),
+		...(rate === undefined
+			? {}
+			: {
+					rate: placed(
+						rate,
+						left + (technology?.width ?? 0) + separation + rate.width / 2,
+						detailY,
+						labelDetailSize,
+					),
+				}),
+	};
 }
 
 /**
