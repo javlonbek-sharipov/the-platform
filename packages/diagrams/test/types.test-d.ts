@@ -1,10 +1,13 @@
 import { expectTypeOf, test } from "vitest";
 import {
+	type ArchitectureBuilder,
 	type ArchitectureEdgeKind,
+	type ArchitectureGroupKind,
 	type ArchitectureNode,
 	type ArchitectureNodeKind,
 	architecture,
 	atlas,
+	type GroupHandle,
 	type NodeHandle,
 } from "../src/index.ts";
 
@@ -83,6 +86,48 @@ test("a Node defined once, as a plain object, can be declared on any Diagram", (
 	});
 	architecture({ title: "Billing" }, (d) => {
 		expectTypeOf(d.node(payments)).toEqualTypeOf<NodeHandle>();
+	});
+});
+
+test("the architecture Notation has three Group Kinds: system, region and zone", () => {
+	expectTypeOf<ArchitectureGroupKind>().toEqualTypeOf<"system" | "region" | "zone">();
+	architecture({ title: "Shop" }, (d) => {
+		// @ts-expect-error: `service` is a Node Kind, not a Group Kind.
+		d.group({ id: "shop", kind: "service", title: "Shop" }, () => {});
+		// @ts-expect-error: `continent` isn't an architecture Group Kind.
+		d.group({ id: "europe", kind: "continent", title: "Europe" }, () => {});
+	});
+});
+
+test("a Group's callback gets a builder for its members, and declaring a Group returns its handle", () => {
+	architecture({ title: "Shop" }, (d) => {
+		const region = d.group({ id: "eu-west", kind: "region", title: "EU West" }, (eu) => {
+			expectTypeOf(eu).toEqualTypeOf<ArchitectureBuilder>();
+		});
+		expectTypeOf(region).toEqualTypeOf<GroupHandle>();
+		// @ts-expect-error: a Group's members are declared in a callback.
+		d.group({ id: "us-east", kind: "region", title: "US East" });
+	});
+});
+
+test("one `system` definition can be a Node on one Diagram and a Group on another", () => {
+	const shop = {
+		id: "shop",
+		kind: "system",
+		title: "Shop",
+		links: [{ doc: "docs/shop.md" }],
+	} satisfies ArchitectureNode;
+
+	architecture({ title: "Overview" }, (d) => {
+		d.node(shop);
+	});
+	architecture({ title: "Shop" }, (d) => {
+		d.group(shop, (group) => {
+			group.node({ id: "shop-api", kind: "service", title: "Shop API" });
+		});
+		d.group({ id: "eu-west", kind: "region", title: "EU West", description: "Europe" }, () => {});
+		// @ts-expect-error: a description is text.
+		d.group({ id: "us-east", kind: "region", title: "US East", description: 7 }, () => {});
 	});
 });
 
