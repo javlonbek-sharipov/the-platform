@@ -38,6 +38,11 @@
   - a `<title>` that holds the Diagram's title;
   - a `<desc>` that lists its Nodes, and its Edges in their sentence forms.
 
+**Text baselines**
+
+- [ ] Every `<text>` sets its own `dominant-baseline`, or its own position, instead of inheriting one from a group. SVG 1.1 doesn't inherit it, so strict renderers such as resvg drew every text 5 px high. Once the SVG does this, remove PNG export's rule that patches it.
+- [ ] A Seam 1 test checks every `<text>` in every fixture, so text added by other tickets can't regress.
+
 **Model**
 
 - [ ] The SVG carries its JSON model in a `<metadata>` element, so the SVG alone is enough for the web component in slice 3.
@@ -51,3 +56,4 @@
 ## Comments
 
 - Orchestrator: added **Model** here. Ticket 01 found that no slice 1 ticket covered the spec's `<metadata>` model (Static SVG › Model and hooks, and Testing Decisions › SVG).
+- Orchestrator: added **Text baselines**. Ticket 13 found the problem; see its Comments ("For later tickets") and its decision on `dominant-baseline` in the spec.
