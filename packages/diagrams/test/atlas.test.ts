@@ -190,3 +190,48 @@ describe("Links", () => {
 		});
 	});
 });
+
+describe("ids across the Atlas", () => {
+	test("lint reports an id with two Kinds at each place, naming the other Diagrams", async () => {
+		const atlas = await sampleAtlas({
+			"docs/billing.diagram.ts": diagramModule("Billing", [{ ...paymentsApi, kind: "worker" }]),
+			"docs/refunds.diagram.ts": diagramModule("Refunds", [
+				{ id: "refunds-api", kind: "service", title: "Refunds API" },
+				paymentsApi,
+			]),
+			"docs/shop.diagram.ts": diagramModule("Shop", [paymentsApi]),
+		});
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+
+		const rule =
+			"An id names one thing across the Atlas, so give it one Kind, or give one of them another id. (kind-conflict)";
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 1,
+			stdout:
+				`docs/billing.diagram.ts:4:4: error: Node \`payments-api\` has the Kind \`worker\` here, but \`service\` on the Diagrams \`docs/refunds\` and \`docs/shop\`. ${rule}\n` +
+				`docs/refunds.diagram.ts:5:4: error: Node \`payments-api\` has the Kind \`service\` here, but \`worker\` on the Diagram \`docs/billing\`. ${rule}\n` +
+				`docs/shop.diagram.ts:4:4: error: Node \`payments-api\` has the Kind \`service\` here, but \`worker\` on the Diagram \`docs/billing\`. ${rule}\n` +
+				"Checked 3 Diagrams: 3 errors.\n",
+			stderr: "",
+		});
+	});
+
+	test("lint reports an id with two titles at each place, naming the other Diagram", async () => {
+		const atlas = await sampleAtlas({
+			"docs/billing.diagram.ts": diagramModule("Billing", [{ ...paymentsApi, title: "Payments" }]),
+			"docs/shop.diagram.ts": diagramModule("Shop", [paymentsApi]),
+		});
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+
+		const rule =
+			"An id names one thing across the Atlas, so give it one title: define the Node once, in a shared module. (title-conflict)";
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 1,
+			stdout:
+				`docs/billing.diagram.ts:4:4: error: Node \`payments-api\` has the title \`Payments\` here, but \`Payments API\` on the Diagram \`docs/shop\`. ${rule}\n` +
+				`docs/shop.diagram.ts:4:4: error: Node \`payments-api\` has the title \`Payments API\` here, but \`Payments\` on the Diagram \`docs/billing\`. ${rule}\n` +
+				"Checked 2 Diagrams: 2 errors.\n",
+			stderr: "",
+		});
+	});
+});

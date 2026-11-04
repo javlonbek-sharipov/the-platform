@@ -59,13 +59,18 @@ export async function runCli(args: string[], cwd: string): Promise<CliRun> {
 	return { code, stdout, stderr };
 }
 
-/** A small architecture Diagram module, titled as given. */
+/**
+ * A small architecture Diagram module, titled as given: a web app that calls
+ * an API named after the title, such as `shop-api`. So two of them in one
+ * Atlas share only the web app.
+ */
 export function shopModule(title = "Shop"): string {
+	const api = `${title.toLowerCase().replaceAll(" ", "-")}-api`;
 	return `import { architecture } from "@the-platform/diagrams";
 
 export default architecture({ title: ${JSON.stringify(title)} }, (d) => {
 	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
-	const api = d.node({ id: "shop-api", kind: "service", title: ${JSON.stringify(`${title} API`)} });
+	const api = d.node({ id: ${JSON.stringify(api)}, kind: "service", title: ${JSON.stringify(`${title} API`)} });
 	d.edge(web, api, { kind: "call" });
 });
 `;

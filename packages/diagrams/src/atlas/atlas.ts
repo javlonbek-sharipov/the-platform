@@ -10,7 +10,7 @@ import { promisify } from "node:util";
 import type { Declarations } from "../authoring/declarations.ts";
 import type { Diagram } from "../authoring/model.ts";
 import { render } from "../core/render.ts";
-import { checkLinks } from "./checks.ts";
+import { checkIds, checkLinks } from "./checks.ts";
 import { type Loaded, load, type Place } from "./load.ts";
 import { type AtlasMessage, located, placeText } from "./messages.ts";
 
@@ -134,6 +134,11 @@ function byPath(a: string, b: string): number {
 	return left.length - right.length;
 }
 
+/** A Diagram's id: its module's path from the repo root, minus `.diagram.ts`. */
+function diagramIdOf(root: string, module: string): string {
+	return repoPath(root, module).slice(0, -moduleSuffix.length);
+}
+
 /** `x.diagram.ts` is drawn in `x.diagram.svg`, beside it. */
 export function svgFileOf(module: string): string {
 	return `${module.slice(0, -".ts".length)}.svg`;
@@ -154,7 +159,7 @@ export async function lintAtlas(
 	const [config, ...modules] = await load([join(root, configFile), ...(await discover(root))]);
 	const rendered = modules.map((loaded) => renderLoaded(root, loaded));
 	const valid = rendered.flatMap(({ module, model, declarations }) =>
-		model === undefined ? [] : [{ module, model, declarations }],
+		model === undefined ? [] : [{ module, id: diagramIdOf(root, module), model, declarations }],
 	);
 	const messages = [
 		...(config === undefined ? [] : checkConfig(root, config)),
@@ -162,6 +167,7 @@ export async function lintAtlas(
 			const stale = diagram.svg === undefined ? undefined : checkSvg(diagram.svgFile, diagram.svg);
 			return stale === undefined ? diagram.messages : [...diagram.messages, stale];
 		}),
+		...checkIds(valid),
 		...checkLinks(root, valid),
 	];
 	return { diagrams: rendered.length, messages };
@@ -181,6 +187,10 @@ function renderLoaded(root: string, loaded: Loaded): RenderedDiagram {
 			declarations,
 			messages: [moduleLoad({ file: module }, "The module doesn't default-export a Diagram.")],
 		};
+	}
+	if (typeof exported === "object" && exported !== null && !Array.isArray(exported)) {
+		// A Diagram's id is its module's path, which only the Atlas knows.
+		Object.assign(exported, { id: diagramIdOf(root, module) });
 	}
 	const { diagnostics, svg } = render(exported);
 	const messages = diagnostics.map((diagnostic) => located(module, declarations, diagnostic));
