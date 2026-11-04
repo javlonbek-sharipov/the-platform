@@ -15,9 +15,7 @@ const across = { region: "across regions", zone: "across zones" } as const;
 /**
  * The SVG's description: each Node, by its title, with its Kind, and whether
  * it's External and its status, which the drawing shows only as shapes and
- * colors; then each Edge as a sentence, which says when the Edge crosses
- * between regions or zones, as the drawing shows only by its color and its
- * badge. Both lists are in model order.
+ * colors; then each Edge as a sentence. Both lists are in model order.
  */
 export function descriptionOf(diagram: Diagram, scene: Scene): string {
 	const crosses = new Map(scene.edges.map((edge) => [edge.id, edge.crosses?.kind]));
@@ -29,25 +27,36 @@ export function descriptionOf(diagram: Diagram, scene: Scene): string {
 		];
 		return `${collapseSpaces(node.title)} (${facts.join(", ")})`;
 	});
-	const edges = diagram.edges.map((edge) => {
-		const kind = crosses.get(edge.id);
-		return `${sentenceOf(diagram, edge)}${kind === undefined ? "" : ` ${across[kind]}`}.`;
-	});
+	const edges = diagram.edges.map((edge) => `${sentenceOf(diagram, edge, crosses.get(edge.id))}.`);
 	return [
 		`Nodes: ${nodes.length === 0 ? "none" : nodes.join("; ")}.`,
 		`Edges: ${edges.length === 0 ? "none." : edges.join(" ")}`,
 	].join(" ");
 }
 
-/** An Edge in its Kind's sentence form, as in "Checkout API calls Payments API". */
-export function sentenceOf(diagram: Diagram, edge: Edge): string {
+/**
+ * An Edge as a sentence: its Kind's sentence form, as in "Checkout API calls
+ * Payments API", then how it travels, how much passes over it, whether it
+ * crosses between regions or zones, which the drawing shows only by its color
+ * and its badge, and its label, as in "Checkout API calls Payments API over
+ * grpc at 2k/s across regions: authorize".
+ */
+export function sentenceOf(diagram: Diagram, edge: Edge, crosses?: "region" | "zone"): string {
 	const titles = new Map(diagram.nodes.map((node) => [node.id, collapseSpaces(node.title)]));
 	/** An end as a sentence names it: its Node's title, then the Row it attaches to, if any. */
 	const name = (end: string | RowEnd) => {
 		const title = titles.get(endNode(end)) ?? endNode(end);
 		return typeof end === "string" ? title : `${title} (${collapseSpaces(end.row)})`;
 	};
-	return architectureEdgeLooks[edge.kind].sentence.replace(/\{(from|to)\}/g, (_, end: string) =>
-		name(end === "from" ? edge.from : edge.to),
+	const sentence = architectureEdgeLooks[edge.kind].sentence.replace(
+		/\{(from|to)\}/g,
+		(_, end: string) => name(end === "from" ? edge.from : edge.to),
 	);
+	return [
+		sentence,
+		...(edge.technology === undefined ? [] : [` over ${edge.technology}`]),
+		...(edge.rate === undefined ? [] : [` at ${edge.rate}`]),
+		...(crosses === undefined ? [] : [` ${across[crosses]}`]),
+		...(edge.label === undefined ? [] : [`: ${collapseSpaces(edge.label)}`]),
+	].join("");
 }

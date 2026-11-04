@@ -103,6 +103,21 @@ describe("an SVG, for screen readers,", () => {
 		);
 	});
 
+	test("says what each Edge carries: its Technology, its rate and its label", () => {
+		const carried = architecture({ title: "Carried" }, (d) => {
+			const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+			const api = d.node({ id: "checkout-api", kind: "service", title: "Checkout API" });
+			const payments = d.node({ id: "payments-api", kind: "service", title: "Payments API" });
+			d.edge(web, api, { kind: "call", label: "Places   orders", rate: "30/s" });
+			d.edge(api, payments, { kind: "call", label: "authorize", technology: "grpc", rate: "2k/s" });
+			d.edge(payments, api, { kind: "message", technology: "kafka" });
+		});
+		const desc = rootOf(carried).children.find((child) => child.name === "desc");
+		expect(desc?.text).toBe(
+			"Nodes: Web app (client); Checkout API (service); Payments API (service). Edges: Web app calls Checkout API at 30/s: Places orders. Checkout API calls Payments API over grpc at 2k/s: authorize. Payments API sends messages to Checkout API over kafka.",
+		);
+	});
+
 	test("escapes what it says", () => {
 		const escapes = architecture({ title: 'R&D <"Ops">' }, (d) => {
 			d.node({ id: "billing", kind: "system", title: "Billing & <tax>" });
