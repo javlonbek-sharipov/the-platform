@@ -20,6 +20,7 @@ export type {
 	IdLink,
 	Link,
 	Node,
+	Row,
 } from "./authoring/model.ts";
 export type { Diagnostic, Severity } from "./core/diagnostics.ts";
 export type { RenderOptions, RenderResult } from "./core/render.ts";
@@ -32,6 +33,7 @@ export type {
 	SceneEdge,
 	SceneNode,
 	ScenePort,
+	SceneRow,
 	SceneText,
 	Side,
 } from "./core/scene.ts";

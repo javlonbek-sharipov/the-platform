@@ -60,6 +60,18 @@ export interface SceneNode {
 	input: ScenePort;
 	output: ScenePort;
 	title: SceneText;
+	/** One for each of the Node's Rows, in order, in bands below its header. */
+	rows: SceneRow[];
+}
+
+/** A Row of a Node: a band across the Node, below its header. */
+export interface SceneRow {
+	/** The Row's band. */
+	box: Box;
+	/** Its name, on the left. */
+	name: SceneText;
+	/** Its value, on the right, if it has one. */
+	value?: SceneText;
 }
 
 export interface SceneEdge {

@@ -31,7 +31,18 @@ export interface Node {
 	id: string;
 	kind: ArchitectureNodeKind;
 	title: string;
+	/** Drawn below the Node's header, one band each, in order. */
+	rows?: Row[];
 	links?: Link[];
+}
+
+/**
+ * A name and a value shown on a Node, such as `replicas: 3`. Every Row has a
+ * pair of Ports, one on each side of its Node.
+ */
+export interface Row {
+	name: string;
+	value?: string;
 }
 
 /**

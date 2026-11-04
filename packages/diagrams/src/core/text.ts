@@ -5,7 +5,7 @@
  * matches measured text.
  */
 
-import type { Diagram } from "../authoring/model.ts";
+import type { Diagram, Row } from "../authoring/model.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { fontMetrics } from "./font-metrics.ts";
 import type { Box, SceneNode, SceneText } from "./scene.ts";
@@ -45,6 +45,11 @@ const metrics: Record<FontWeight, Metrics> = {
 const titleSize = 14;
 /** The room a title leaves on each side, between it and the edge of its Node. */
 const titlePadding = 12;
+const rowSize = 12;
+/** The room a Row leaves on each side, between its text and the edge of its Node. */
+const rowPadding = 12;
+/** The least room between a Row's name and its value. */
+const rowGap = 8;
 const ellipsis = "…";
 
 /** A Node's title, centered in its header, and shortened if it's too wide for the header. */
@@ -54,6 +59,32 @@ export function nodeTitle(title: string, header: Box): SceneText {
 		point: { x: header.x + header.width / 2, y: header.y + header.height / 2 },
 		weight: "semibold",
 		size: titleSize,
+	};
+}
+
+/**
+ * A Row's text, level in the middle of its band: its name on the left, and
+ * its value, if it has one, on the right.
+ */
+export function rowTexts(row: Row, band: Box): { name: SceneText; value?: SceneText } {
+	const y = band.y + band.height / 2;
+	const left = band.x + rowPadding;
+	const right = band.x + band.width - rowPadding;
+	const value = row.value === undefined ? "" : collapseSpaces(row.value);
+	const fittedValue = value === "" ? undefined : fit(value, "regular", rowSize, right - left);
+	const room = right - left - (fittedValue === undefined ? 0 : fittedValue.width + rowGap);
+	const name = fit(collapseSpaces(row.name), "regular", rowSize, room);
+	const text = (fitted: Fitted, x: number): SceneText => ({
+		...fitted,
+		point: { x, y },
+		weight: "regular",
+		size: rowSize,
+	});
+	return {
+		name: text(name, left + name.width / 2),
+		...(fittedValue === undefined
+			? {}
+			: { value: text(fittedValue, right - fittedValue.width / 2) }),
 	};
 }
 
@@ -115,17 +146,19 @@ function collapseSpaces(text: string): string {
 	return text.replace(/[ \t\n\r]+/g, " ").replace(/^ | $/g, "");
 }
 
+/** A text as it fits in a given width, and the width it's drawn at. */
+interface Fitted {
+	text: string;
+	width: number;
+	shortened: boolean;
+}
+
 /**
  * The text as it fits in `maxWidth`. A text that's too wide keeps the longest
  * start that fits with an ellipsis after it, leaving out spaces before the
  * ellipsis.
  */
-function fit(
-	text: string,
-	weight: FontWeight,
-	size: number,
-	maxWidth: number,
-): { text: string; width: number; shortened: boolean } {
+function fit(text: string, weight: FontWeight, size: number, maxWidth: number): Fitted {
 	const { unitsPerEm } = metrics[weight];
 	// Comparing in font units, multiplied out, keeps every comparison exact.
 	const fits = (units: number) => units * size <= maxWidth * unitsPerEm;

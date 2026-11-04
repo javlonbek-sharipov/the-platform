@@ -11,10 +11,16 @@
 import type { Diagram } from "../authoring/model.ts";
 import { arrange, type Member } from "./layers.ts";
 import type { Point, SceneNode, ScenePort, Side } from "./scene.ts";
-import { nodeTitle } from "./text.ts";
+import { nodeTitle, rowTexts } from "./text.ts";
 
 const nodeWidth = 160;
-const nodeHeight = 48;
+/** The band at the top of every Node, which holds its title. */
+const headerHeight = 48;
+/**
+ * The band of each Row, below the header. It's two steps of 16 px, so that
+ * every Node's size stays a multiple of 16 px.
+ */
+const rowHeight = 32;
 const rankGap = 96;
 export const clearance = 32;
 /** Node sizes are multiples of twice the grid, so that their corners land on it too. */
@@ -33,11 +39,15 @@ export function layOut(diagram: Diagram): SceneNode[] {
 	const turn = (along: number, across: number): Point =>
 		down ? { x: margin + across, y: margin + along } : { x: margin + along, y: margin + across };
 
-	// Header Ports sit on a Node's sides along the rank axis, halfway across it.
-	const members: Member[] = diagram.nodes.map(() => {
-		const [depth, breadth] = down ? [nodeHeight, nodeWidth] : [nodeWidth, nodeHeight];
-		return { depth, before: breadth / 2, after: breadth / 2 };
-	});
+	// A Node is as tall as its header and its Rows' bands together. Its header
+	// Ports sit on its sides along the rank axis: level with its header for
+	// `right`, and halfway across it for `down`.
+	const heights = diagram.nodes.map((node) => headerHeight + (node.rows?.length ?? 0) * rowHeight);
+	const members: Member[] = heights.map((height) =>
+		down
+			? { depth: height, before: nodeWidth / 2, after: nodeWidth / 2 }
+			: { depth: nodeWidth, before: headerHeight / 2, after: height - headerHeight / 2 },
+	);
 	const index = new Map(diagram.nodes.map((node, at) => [node.id, at]));
 	const connections = diagram.edges.map((edge) => ({
 		from: index.get(edge.from) ?? 0,
@@ -49,14 +59,23 @@ export function layOut(diagram: Diagram): SceneNode[] {
 		const { x: line, y: ports } = placements[at] ?? { x: 0, y: 0 };
 		const { depth, before } = members[at] ?? { depth: 0, before: 0 };
 		const corner = turn(line - depth / 2, ports - before);
-		const box = { ...corner, width: nodeWidth, height: nodeHeight };
+		const box = { ...corner, width: nodeWidth, height: heights[at] ?? headerHeight };
 		return {
 			id: node.id,
 			kind: node.kind,
 			box,
 			input: port(down ? "top" : "left", turn(line - depth / 2, ports)),
 			output: port(down ? "bottom" : "right", turn(line + depth / 2, ports)),
-			title: nodeTitle(node.title, box),
+			title: nodeTitle(node.title, { ...corner, width: nodeWidth, height: headerHeight }),
+			rows: (node.rows ?? []).map((row, index) => {
+				const band = {
+					x: box.x,
+					y: box.y + headerHeight + index * rowHeight,
+					width: nodeWidth,
+					height: rowHeight,
+				};
+				return { box: band, ...rowTexts(row, band) };
+			}),
 		};
 	});
 }

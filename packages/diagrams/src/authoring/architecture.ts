@@ -2,7 +2,7 @@
 
 import type { ArchitectureEdgeKind, ArchitectureNodeKind } from "../notations/architecture.ts";
 import { callerOf, type Declarations, declarationsKey } from "./declarations.ts";
-import type { Diagram, Direction, Edge, Link, Node } from "./model.ts";
+import type { Diagram, Direction, Edge, Link, Node, Row } from "./model.ts";
 
 export interface ArchitectureOptions {
 	/** Only for Diagrams built outside the Atlas, which assigns ids from paths. */
@@ -21,6 +21,8 @@ export interface ArchitectureNode {
 	id: string;
 	kind: ArchitectureNodeKind;
 	title: string;
+	/** Shown below the header, each with its name on the left and its value on the right. */
+	rows?: readonly Row[];
 	links?: readonly Link[];
 }
 
@@ -69,12 +71,19 @@ export function architecture(
 	declare("", architecture);
 
 	const builder: ArchitectureBuilder = {
-		node({ id, kind, title, links }) {
+		node({ id, kind, title, rows, links }) {
 			declare(`/nodes/${nodes.length}`, builder.node);
 			nodes.push({
 				id,
 				kind,
 				title,
+				...(rows === undefined
+					? {}
+					: {
+							rows: rows.map(({ name, value }) =>
+								value === undefined ? { name } : { name, value },
+							),
+						}),
 				...(links === undefined ? {} : { links: links.map((link) => ({ ...link })) }),
 			});
 			members.push(id);

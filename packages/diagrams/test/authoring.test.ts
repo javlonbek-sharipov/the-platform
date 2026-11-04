@@ -74,6 +74,26 @@ describe("the architecture builder", () => {
 		]);
 	});
 
+	test("keeps a Node's Rows in order, each a name and an optional value", () => {
+		const diagram = architecture({ title: "Shop" }, (d) => {
+			d.node({
+				id: "shop-db",
+				kind: "database",
+				title: "Shop database",
+				rows: [{ name: "replicas", value: "3" }, { name: "read-only" }],
+			});
+		});
+
+		expect(diagram.nodes).toEqual([
+			{
+				id: "shop-db",
+				kind: "database",
+				title: "Shop database",
+				rows: [{ name: "replicas", value: "3" }, { name: "read-only" }],
+			},
+		]);
+	});
+
 	test("accepts a Node's id in place of its handle", () => {
 		const diagram = architecture({ title: "Shop" }, (d) => {
 			const api = d.node({ id: "shop-api", kind: "service", title: "Shop API" });
