@@ -17,6 +17,7 @@ export { render } from "./core/render.ts";
 export type {
 	Box,
 	Point,
+	RoutePoint,
 	Scene,
 	SceneEdge,
 	SceneNode,

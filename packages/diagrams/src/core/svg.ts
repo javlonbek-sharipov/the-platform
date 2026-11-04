@@ -6,7 +6,7 @@
  * show a negative zero, and lines end with LF, as does the file.
  */
 
-import type { Point, Scene, SceneEdge, SceneNode } from "./scene.ts";
+import type { Point, RoutePoint, Scene, SceneEdge, SceneNode } from "./scene.ts";
 
 type Attribute = readonly [name: string, value: string | number];
 
@@ -98,10 +98,45 @@ function writeEdge(edge: SceneEdge): string[] {
 	];
 }
 
-function pathData(points: Point[]): string {
-	return points
-		.map((point, index) => `${index === 0 ? "M" : "L"} ${number(point.x)} ${number(point.y)}`)
-		.join(" ");
+/**
+ * A route's path data: its runs as lines, and each rounded corner as an arc
+ * from where the arc meets the run before it to where it meets the run after.
+ */
+function pathData(route: RoutePoint[]): string {
+	const commands: string[] = [];
+	let pen: Point | undefined;
+	const lineTo = (point: Point) => {
+		if (pen === undefined || pen.x !== point.x || pen.y !== point.y) {
+			commands.push(`${pen === undefined ? "M" : "L"} ${number(point.x)} ${number(point.y)}`);
+		}
+		pen = point;
+	};
+	route.forEach((point, index) => {
+		const before = route[index - 1];
+		const after = route[index + 1];
+		if (before === undefined || after === undefined || point.radius === 0) {
+			lineTo(point);
+			return;
+		}
+		const { radius } = point;
+		const into = heading(before, point);
+		const out = heading(point, after);
+		lineTo({ x: point.x - into.x * radius, y: point.y - into.y * radius });
+		const end = { x: point.x + out.x * radius, y: point.y + out.y * radius };
+		// With y pointing down, a turn whose cross product is positive is clockwise
+		// on screen, which is the direction of SVG's sweep flag 1.
+		const sweep = into.x * out.y - into.y * out.x > 0 ? 1 : 0;
+		commands.push(
+			`A ${number(radius)} ${number(radius)} 0 0 ${sweep} ${number(end.x)} ${number(end.y)}`,
+		);
+		pen = end;
+	});
+	return commands.join(" ");
+}
+
+/** The unit vector along a horizontal or vertical run. */
+function heading(from: Point, to: Point): Point {
+	return { x: Math.sign(to.x - from.x), y: Math.sign(to.y - from.y) };
 }
 
 function start(name: string, attributes: Attribute[]): string {

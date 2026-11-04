@@ -10,6 +10,15 @@ export interface Point {
 	y: number;
 }
 
+/** A point of an Edge's route. */
+export interface RoutePoint extends Point {
+	/**
+	 * The radius of the arc that rounds the route's corner here, at most half
+	 * of either run that meets at the corner. It's zero at the route's ends.
+	 */
+	radius: number;
+}
+
 export interface Box {
 	x: number;
 	y: number;
@@ -52,8 +61,16 @@ export interface SceneEdge {
 	from: string;
 	/** The id of the Node whose input Port the route enters. */
 	to: string;
-	/** An orthogonal polyline, from the source's Port to the target's. */
-	route: Point[];
+	/** The Port the route leaves: the `from` Node's output Port. */
+	fromPort: ScenePort;
+	/** The Port the route enters: the `to` Node's input Port. */
+	toPort: ScenePort;
+	/**
+	 * The route, from the source's Port to the target's: an orthogonal
+	 * polyline whose runs take turns between horizontal and vertical, with
+	 * every corner rounded.
+	 */
+	route: RoutePoint[];
 }
 
 export interface Scene {

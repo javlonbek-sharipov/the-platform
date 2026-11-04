@@ -16,19 +16,19 @@
       <path d="M 1208 48 L 1304 48"/>
     </g>
     <g data-edge="shop-api-&gt;session-cache" data-kind="call" data-from="shop-api" data-to="session-cache">
-      <path d="M 1208 48 L 1304 48 L 1304 128"/>
+      <path d="M 1208 48 L 1216 48 A 8 8 0 0 1 1224 56 L 1224 120 A 8 8 0 0 0 1232 128 L 1304 128"/>
     </g>
     <g data-edge="shop-api-&gt;product-search" data-kind="call" data-from="shop-api" data-to="product-search">
-      <path d="M 1208 48 L 1304 48 L 1304 288"/>
+      <path d="M 1208 48 L 1216 48 A 8 8 0 0 1 1224 56 L 1224 280 A 8 8 0 0 0 1232 288 L 1304 288"/>
     </g>
     <g data-edge="shop-api-&gt;shop-events" data-kind="message" data-from="shop-api" data-to="shop-events">
-      <path d="M 1208 48 L 1304 48 L 1304 208"/>
+      <path d="M 1208 48 L 1216 48 A 8 8 0 0 1 1224 56 L 1224 200 A 8 8 0 0 0 1232 208 L 1304 208"/>
     </g>
     <g data-edge="shop-events-&gt;mailer" data-kind="message" data-from="shop-events" data-to="mailer">
-      <path d="M 1464 208 L 1560 208 L 1560 128"/>
+      <path d="M 1464 208 L 1472 208 A 8 8 0 0 0 1480 200 L 1480 136 A 8 8 0 0 1 1488 128 L 1560 128"/>
     </g>
     <g data-edge="shop-events-&gt;resize-image" data-kind="message" data-from="shop-events" data-to="resize-image">
-      <path d="M 1464 208 L 1560 208 L 1560 48"/>
+      <path d="M 1464 208 L 1472 208 A 8 8 0 0 0 1480 200 L 1480 56 A 8 8 0 0 1 1488 48 L 1560 48"/>
     </g>
     <g data-edge="resize-image-&gt;image-store" data-kind="call" data-from="resize-image" data-to="image-store">
       <path d="M 1720 48 L 1816 48"/>

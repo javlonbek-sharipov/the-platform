@@ -80,6 +80,23 @@ describe("the SVG", () => {
 		]);
 	});
 
+	test("draws each rounded corner of a route with an arc command of the corner's radius", () => {
+		const { scene, svg } = render(shop);
+		const paths = new Map(
+			[...(svg ?? "").matchAll(/<g data-edge="([^"]*)"[^>]*>\s*<path d="([^"]*)"\/>/g)].map(
+				([, id, d]) => [id?.replaceAll("&gt;", ">"), d ?? ""],
+			),
+		);
+		const corners = scene?.edges.flatMap((edge) => edge.route.slice(1, -1)) ?? [];
+		expect(corners.length).toBeGreaterThan(0);
+		for (const edge of scene?.edges ?? []) {
+			const arcs = [...(paths.get(edge.id) ?? "").matchAll(/A ([\d.]+) ([\d.]+) 0 0 [01] /g)];
+			expect(arcs.map(([, rx, ry]) => [Number(rx), Number(ry)])).toEqual(
+				edge.route.slice(1, -1).map(({ radius }) => [radius, radius]),
+			);
+		}
+	});
+
 	test("escapes text", () => {
 		const svg = svgOf(
 			architecture({ title: "Escapes" }, (d) => {

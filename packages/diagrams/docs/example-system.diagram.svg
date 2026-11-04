@@ -10,10 +10,10 @@
       <path d="M 696 48 L 792 48"/>
     </g>
     <g data-edge="orders-api-&gt;order-events" data-kind="message" data-from="orders-api" data-to="order-events">
-      <path d="M 696 48 L 792 48 L 792 128"/>
+      <path d="M 696 48 L 704 48 A 8 8 0 0 1 712 56 L 712 120 A 8 8 0 0 0 720 128 L 792 128"/>
     </g>
     <g data-edge="order-events-&gt;payments-api" data-kind="message" data-from="order-events" data-to="payments-api">
-      <path d="M 952 128 L 1048 128 L 1048 48"/>
+      <path d="M 952 128 L 960 128 A 8 8 0 0 0 968 120 L 968 56 A 8 8 0 0 1 976 48 L 1048 48"/>
     </g>
   </g>
   <g font-family="Inter, Helvetica, Arial, sans-serif" font-size="14" text-anchor="middle" dominant-baseline="central">
