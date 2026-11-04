@@ -12,7 +12,7 @@
 
 **Blocked by:** 01 A Diagram from source to committed SVG.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Spec:**
 
@@ -76,3 +76,4 @@
 - **Seen during review.** A Link to an id on a Diagram that has errors of its own was first reported as pointing nowhere. Ids now resolve against every Diagram that loaded, so only the real errors show. And a Link with both an `id` and a `term` passed validation, its term ignored; a term now counts as a target, and fails until slice 2.
 - **For later tickets.** A diagnostic whose pointer lies under a declared Node or Edge, such as `/nodes/2/title`, gets that declaration's line, so ticket 04's warnings about shortened titles will too. Ticket 06 should record each Group's declaration the same way, under `/groups/…`, and pass Groups' Links to the Link check.
 
+Merged into diagram-engine in 9838fb1.
