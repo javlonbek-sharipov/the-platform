@@ -1791,6 +1791,24 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
    This replaces the last sentence of the sixth point of ticket 10's decision 3, about an Edge that is all trunk past its stub.
 4. **Speed.** With no labels crowded out, a render costs what it did: `pnpm bench` reports 79 ms median drawn `right` and 107 ms drawn `down`. It now times the crowded fixture with every Edge labeled too: 331 ms and 140 ms, from 70 ms and 66 ms on the commit this ticket merged. The second of three rounds drawn `right` costs the most, 162 ms, since its negotiation runs all 5 passes without clearing every corridor. The third, whose layout leaves room for 2 more lanes, needs 2 passes.
 
+**Ticket 15**
+
+1. **Where the skill lives.**
+   - It's `packages/diagrams/skills/diagrams/SKILL.md`, in the package, as Modules say. Its folder has the skill's name, `diagrams`, which the Agent Skills format requires of a skill's `name`.
+   - `.claude/skills/diagrams`, where Claude Code looks, and `.agents/skills/diagrams`, where Codex looks, are relative symlinks to that folder, committed. Both tools' docs say they follow a symlinked skill folder. Both look from where they start up to the repo's root, and Claude Code stops at a worktree's root, so the links sit at the root. A Windows checkout would need git's `core.symlinks`, which nobody has tried.
+   - It has a `description`, so agents reach it on their own. AGENTS.md names its path too, for agents that read no skills, and says when to read it in the same three cases as the description.
+2. **Its example is the package's.**
+   - The skill shows `docs/example-system.diagram.ts` in full, under its `## Example` heading, since "the example system" is what the manual check asks an agent to extend. A test checks the copy byte for byte. So the repo renders, lints and type-checks the Diagram that the skill teaches, and a module that draws its ids again gives them the same Kinds and titles.
+   - The example's comment now uses only the glossary's words, and no longer says that each ticket extends the example. The test that checks the copy says so instead, where a ticket that extends the example will find it.
+3. **The tests read the skill as an agent does.**
+   - One writes the skill's example into a sample Atlas, and runs each `pnpm exec diagrams …` command the skill gives, in its order, with `<module>` standing for the module's path. Render must write the SVG, `lint --json` must list no messages, and export must print the path of a PNG.
+   - Another checks that the skill names, in backticks, every Kind, Group Kind, Edge Kind and status of the architecture Notation, and every Technology in the logo table. A later ticket that adds one must teach it.
+   - A third checks that both links reach the skill, that its `name` is their folder's, and that AGENTS.md gives its path.
+4. **The finishing steps add a type check.** The builder copies only the options it knows. So a misspelled option, such as `lable`, vanishes: render and lint pass, and the label just isn't drawn. Only `pnpm typecheck` catches it, so the skill runs it before lint. That breaks the rule that validation checks at run time everything the types prevent, since validation never sees the misspelled option. Validation has rejected unknown fields in generated JSON since ticket 14.
+5. **Numbers it gives.** Measured over 21 titles on five Kinds, a title fits in about 16 characters, or 14 beside a logo: "Inventory service" fits, "Customer accounts" doesn't, and beside a logo "Product search" fits and "Orders database" doesn't. Export keeps its defaults: at scale 1 the example's PNG is 2664 px wide, and its text stays legible when an image viewer shrinks it to 2000.
+6. **It teaches only what's built.** Term Links, namespaces, Walkthroughs and the domain Notation wait for slices 2 and 4, which add them to the skill, and their Kinds to the naming test.
+7. **Biome reads frontmatter.** Biome 2.6 formats Markdown, and without `markdown.parser.frontmatter` it reads a skill's frontmatter as a rule and a heading, and puts a blank line after the first `---`. `biome.json` turns the option on, and the frontmatter stays as written.
+
 **Orchestrator**
 
 Scope moved or added while the tickets ran. Each ticket's Comments say why.
