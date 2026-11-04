@@ -107,6 +107,18 @@ export interface Edge {
 	from: string | RowEnd;
 	/** Where the Edge enters. */
 	to: string | RowEnd;
+	/** What passes over the Edge, drawn beside it, such as `Places orders`. */
+	label?: string;
+	/**
+	 * How it travels: the slug of a product or protocol, such as `grpc` or
+	 * `kafka`, drawn below the label.
+	 */
+	technology?: string;
+	/**
+	 * How much passes over it: a number, an optional `k` or `M`, a slash, and
+	 * `s`, `min` or `h`, as in `2k/s` or `30/min`. It's drawn below the label.
+	 */
+	rate?: string;
 }
 
 /** An Edge end at one of a Node's Rows. */

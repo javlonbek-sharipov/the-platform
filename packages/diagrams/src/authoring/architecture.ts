@@ -100,6 +100,12 @@ export interface EdgeOptions {
 	kind: ArchitectureEdgeKind;
 	/** Defaults to the two ends' ids, as in `checkout-api->payments-api`. */
 	id?: string;
+	/** What passes over the Edge, drawn beside it, such as `Places orders`. */
+	label?: string;
+	/** How it travels: a product or protocol's slug, such as `grpc` or `kafka`, drawn below the label. */
+	technology?: string;
+	/** How much passes over it, as in `2k/s` or `30/min`: drawn below the label. */
+	rate?: string;
 }
 
 /**
@@ -175,7 +181,7 @@ export function architecture(
 				buildGroup(builderFor(group.members));
 				return Object.freeze({ id });
 			},
-			edge(from, to, { kind, id }) {
+			edge(from, to, { kind, id, label, technology, rate }) {
 				declare(`/edges/${edges.length}`, builder.edge);
 				const fromEnd = modelEnd(from);
 				const toEnd = modelEnd(to);
@@ -185,6 +191,9 @@ export function architecture(
 					kind,
 					from: fromEnd,
 					to: toEnd,
+					...(label === undefined ? {} : { label }),
+					...(technology === undefined ? {} : { technology }),
+					...(rate === undefined ? {} : { rate }),
 				};
 				edges.push(edge);
 				return Object.freeze({ id: edge.id });

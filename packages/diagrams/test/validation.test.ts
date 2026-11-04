@@ -766,6 +766,103 @@ describe("validation", () => {
 		}
 	});
 
+	test("accepts an Edge's label, Technology and rate", () => {
+		const diagram = shopJson();
+		diagram.edges[1] = {
+			...diagram.edges[1],
+			label: "Reads orders",
+			technology: "postgres",
+			rate: "2k/s",
+		} as (typeof diagram.edges)[number];
+
+		expect(render(diagram).diagnostics).toEqual([]);
+	});
+
+	test("accepts a rate that is a number, an optional k or M, a slash, and s, min or h", () => {
+		for (const rate of ["2k/s", "30/min", "1.5M/h", "0/s", "12/h", "7k/min", "0.25/s"]) {
+			const diagram = shopJson();
+			diagram.edges[1] = { ...diagram.edges[1], rate } as (typeof diagram.edges)[number];
+
+			expect(render(diagram).diagnostics, rate).toEqual([]);
+		}
+	});
+
+	test("reports a rate written any other way", () => {
+		const rates = ["fast", "2k", "2 k/s", "2K/s", "2k/sec", "/s", "-2/s", "2/d", "1e3/s", " 2/s"];
+		for (const rate of [...rates, ".5/s", "2./s", "2k/s/s", ""]) {
+			const diagram = shopJson();
+			diagram.edges[1] = { ...diagram.edges[1], rate } as (typeof diagram.edges)[number];
+
+			expect(render(diagram).diagnostics, rate).toEqual([
+				{
+					severity: "error",
+					rule: "rate-format",
+					message: `Edge \`shop-api->shop-db\` has the rate \`${rate}\`, which isn't written as a rate. Write a number, an optional \`k\` or \`M\`, a slash, and \`s\`, \`min\` or \`h\`, as in \`2k/s\` or \`30/min\`.`,
+					pointer: "/edges/1/rate",
+				},
+			]);
+		}
+	});
+
+	test("accepts any Technology written as a slug, whether or not it has a logo", () => {
+		for (const technology of ["grpc", "postgres", "aws-lambda", "s3", "http2", "our-own-bus"]) {
+			const diagram = shopJson();
+			diagram.edges[1] = { ...diagram.edges[1], technology } as (typeof diagram.edges)[number];
+
+			expect(render(diagram).diagnostics, technology).toEqual([]);
+		}
+	});
+
+	test("reports a Technology that isn't written as a slug", () => {
+		for (const technology of [
+			"PostgreSQL",
+			"node.js",
+			"c++",
+			"google cloud",
+			"-grpc",
+			"a--b",
+			"",
+		]) {
+			const diagram = shopJson();
+			diagram.edges[1] = { ...diagram.edges[1], technology } as (typeof diagram.edges)[number];
+
+			expect(render(diagram).diagnostics, technology).toEqual([
+				{
+					severity: "error",
+					rule: "technology-format",
+					message: `Edge \`shop-api->shop-db\` has the Technology \`${technology}\`, which isn't a slug. Write a Technology as lowercase words joined by hyphens, such as \`postgres\` or \`grpc\`.`,
+					pointer: "/edges/1/technology",
+				},
+			]);
+		}
+	});
+
+	test("reports an Edge's label, Technology or rate that isn't shaped like one", () => {
+		const cases: [field: string, value: unknown, what: string][] = [
+			["label", "", "a string with some text in it"],
+			["label", " \n\t", "a string with some text in it"],
+			["label", 7, "a string with some text in it"],
+			["technology", ["grpc"], "a string"],
+			["rate", 2000, "a string"],
+		];
+		for (const [field, value, what] of cases) {
+			const diagram = shopJson();
+			diagram.edges[1] = {
+				...diagram.edges[1],
+				[field]: value,
+			} as unknown as (typeof diagram.edges)[number];
+
+			expect(render(diagram).diagnostics, `${field}: ${JSON.stringify(value)}`).toEqual([
+				{
+					severity: "error",
+					rule: "model-shape",
+					message: `\`/edges/1/${field}\` must be ${what}.`,
+					pointer: `/edges/1/${field}`,
+				},
+			]);
+		}
+	});
+
 	test("accepts ids with digits, and context namespaces", () => {
 		const diagram = shopJson();
 		diagram.nodes[2] = { id: "billing/s3-archive", kind: "storage", title: "Archive" };
