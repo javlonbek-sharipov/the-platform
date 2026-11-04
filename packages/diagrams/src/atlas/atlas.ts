@@ -162,7 +162,7 @@ export async function lintAtlas(
 			const stale = diagram.svg === undefined ? undefined : checkSvg(diagram.svgFile, diagram.svg);
 			return stale === undefined ? diagram.messages : [...diagram.messages, stale];
 		}),
-		...checkLinks(valid),
+		...checkLinks(root, valid),
 	];
 	return { diagrams: rendered.length, messages };
 }

@@ -1,7 +1,7 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import { git, runCli, sampleAtlas, shopModule } from "./support/atlas.ts";
+import { git, runCli, sampleAtlas, sampleConfig, shopModule } from "./support/atlas.ts";
 
 /** A module that fails if anything loads it. */
 const unreachable = 'throw new Error("This module should never be loaded.");\n';
@@ -126,6 +126,66 @@ describe("Links", () => {
 			stdout:
 				"docs/shop.diagram.ts:4:4: error: Node `shop-api` has a Link to `paymnts-api`, which no Diagram in the Atlas draws. (broken-link)\n" +
 				"Checked 2 Diagrams: 1 error.\n",
+			stderr: "",
+		});
+	});
+
+	test("lint reports a Link to a document that isn't in the repo, or to a heading it doesn't have", async () => {
+		const pricing = "docs/adr/0001-price-in-cents.md";
+		const atlas = await sampleAtlas({
+			[pricing]:
+				"# Price in cents\n\nPrices are whole numbers of cents.\n\n" +
+				"## Considered Options ##\n\n```md\n## Inside a fence\n```\n",
+			"docs/shop.md": "# The shop\n\n### Check out, step by step\n\n### Check out, step by step\n",
+			"docs/shop.diagram.ts": diagramModule("Shop", [
+				{
+					id: "shop-api",
+					kind: "service",
+					title: "Shop API",
+					links: [
+						{ doc: pricing },
+						{ doc: pricing, section: "Considered Options" },
+						{ doc: pricing, section: "considered-options" },
+						{ doc: "docs/shop.md", section: "check-out-step-by-step-1" },
+						{ doc: "docs/adr/0002-price-in-dollars.md" },
+						{ doc: "docs/adr" },
+						{ doc: pricing, section: "Inside a fence" },
+						{ doc: "docs/shop.md", section: "Paying" },
+					],
+				},
+			]),
+		});
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+
+		const at = "docs/shop.diagram.ts:4:4: error: Node `shop-api` has a Link to";
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 1,
+			stdout:
+				`${at} \`docs/adr/0002-price-in-dollars.md\`, which isn't a file in the repo. (broken-link)\n` +
+				`${at} \`docs/adr\`, which isn't a file in the repo. (broken-link)\n` +
+				`${at} \`${pricing}\`, which has no heading \`Inside a fence\`. (broken-link)\n` +
+				`${at} \`docs/shop.md\`, which has no heading \`Paying\`. (broken-link)\n` +
+				"Checked 1 Diagram: 4 errors.\n",
+			stderr: "",
+		});
+	});
+
+	test("lint reports a Link to a document outside the repo, even one that exists", async () => {
+		const atlas = await sampleAtlas({
+			"notes.md": "# Notes\n",
+			"shop/diagrams.config.ts": sampleConfig,
+			"shop/shop.diagram.ts": diagramModule("Shop", [
+				{ id: "shop-api", kind: "service", title: "Shop API", links: [{ doc: "../notes.md" }] },
+			]),
+		});
+		const shop = join(atlas, "shop");
+		expect((await runCli(["render"], shop)).code).toBe(0);
+
+		expect(await runCli(["lint"], shop)).toEqual({
+			code: 1,
+			stdout:
+				"shop.diagram.ts:4:4: error: Node `shop-api` has a Link to `../notes.md`, which isn't a file in the repo. (broken-link)\n" +
+				"Checked 1 Diagram: 1 error.\n",
 			stderr: "",
 		});
 	});
