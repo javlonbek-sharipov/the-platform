@@ -1,0 +1,26 @@
+{
+	"name": "the-platform",
+	"private": true,
+	"type": "module",
+	"packageManager": "pnpm@12.16.1",
+	"engines": {
+		"node": ">=24"
+	},
+	"scripts": {
+		"prepare": "lefthook install",
+		"test": "vitest run",
+		"golden:update": "DIAGRAMS_UPDATE_GOLDEN=1 vitest run",
+		"check": "biome check",
+		"typecheck": "tsc -p ."
+	},
+	"dependencies": {
+		"@the-platform/diagrams": "workspace:*"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.6.4",
+		"@types/node": "^24.19.2",
+		"lefthook": "^2.2.2",
+		"typescript": "^7.0.2",
+		"vitest": "^5.1.0"
+	}
+}
