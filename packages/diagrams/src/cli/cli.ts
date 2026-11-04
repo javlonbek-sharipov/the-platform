@@ -11,6 +11,7 @@ import {
 	discover,
 	findRoot,
 	lintAtlas,
+	placeText,
 	renderDiagrams,
 } from "../atlas/atlas.ts";
 
@@ -63,7 +64,8 @@ async function run(args: string[], context: CliContext): Promise<number> {
 }
 
 async function renderCommand(paths: string[], context: CliContext): Promise<number> {
-	const atlas = await discover(findRoot(context.cwd));
+	const root = findRoot(context.cwd);
+	const atlas = await discover(root);
 	const modules =
 		paths.length === 0
 			? atlas
@@ -74,7 +76,7 @@ async function renderCommand(paths: string[], context: CliContext): Promise<numb
 						: [target];
 				});
 	let failed = false;
-	for (const diagram of await renderDiagrams(modules)) {
+	for (const diagram of await renderDiagrams(root, modules)) {
 		print(diagram.messages, context);
 		if (diagram.svg === undefined) {
 			failed = true;
@@ -101,10 +103,14 @@ async function lintCommand(context: CliContext): Promise<number> {
 	return errors === 0 ? 0 : 1;
 }
 
-/** One line per message: `file: severity: message (rule)`. */
+/**
+ * One line per message: `file:line:column: severity: message (rule)`. A
+ * message about a whole file, such as an SVG, has no line or column.
+ */
 function print(messages: AtlasMessage[], context: CliContext): void {
-	for (const { file, severity, message, rule } of messages) {
-		context.stdout.write(`${shown(file, context)}: ${severity}: ${message} (${rule})\n`);
+	for (const { file, line, column, severity, message, rule } of messages) {
+		const where = placeText({ file: shown(file, context), line, column });
+		context.stdout.write(`${where}: ${severity}: ${message} (${rule})\n`);
 	}
 }
 

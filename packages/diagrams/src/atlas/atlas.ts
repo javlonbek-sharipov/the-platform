@@ -5,11 +5,12 @@
 
 import { execFile } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join, resolve, sep } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
+import type { Declarations, SourcePosition } from "../authoring/declarations.ts";
 import type { Diagnostic } from "../core/diagnostics.ts";
 import { render } from "../core/render.ts";
-import { type Loaded, load } from "./load.ts";
+import { type Loaded, load, type Place } from "./load.ts";
 
 /** The engine's cache folder, at the repo root. Git ignores it. */
 export const cacheFolder = ".diagrams-cache";
@@ -18,9 +19,14 @@ const moduleSuffix = ".diagram.ts";
 
 const run = promisify(execFile);
 
-/** A diagnostic, with the file it's about. */
+/**
+ * A diagnostic, with the file it's about, and the line and column that
+ * declared the thing where that's known.
+ */
 export interface AtlasMessage extends Diagnostic {
 	file: string;
+	line?: number;
+	column?: number;
 }
 
 export interface RenderedDiagram {
@@ -140,8 +146,8 @@ export function svgFileOf(module: string): string {
 }
 
 /** Loads each module, and renders its Diagram. */
-export async function renderDiagrams(modules: string[]): Promise<RenderedDiagram[]> {
-	return (await load(modules)).map(renderLoaded);
+export async function renderDiagrams(root: string, modules: string[]): Promise<RenderedDiagram[]> {
+	return (await load(modules)).map((loaded) => renderLoaded(root, loaded));
 }
 
 /**
@@ -152,9 +158,9 @@ export async function lintAtlas(
 	root: string,
 ): Promise<{ diagrams: number; messages: AtlasMessage[] }> {
 	const [config, ...modules] = await load([join(root, configFile), ...(await discover(root))]);
-	const rendered = modules.map(renderLoaded);
+	const rendered = modules.map((loaded) => renderLoaded(root, loaded));
 	const messages = [
-		...(config === undefined ? [] : checkConfig(config)),
+		...(config === undefined ? [] : checkConfig(root, config)),
 		...rendered.flatMap((diagram) => {
 			const stale = diagram.svg === undefined ? undefined : checkSvg(diagram.svgFile, diagram.svg);
 			return stale === undefined ? diagram.messages : [...diagram.messages, stale];
@@ -163,34 +169,37 @@ export async function lintAtlas(
 	return { diagrams: rendered.length, messages };
 }
 
-function renderLoaded(loaded: Loaded): RenderedDiagram {
+function renderLoaded(root: string, loaded: Loaded): RenderedDiagram {
 	const { module } = loaded;
 	const svgFile = svgFileOf(module);
-	if ("error" in loaded) {
-		return { module, svgFile, messages: [loadError(module, loaded.error)] };
+	if ("failed" in loaded) {
+		return { module, svgFile, messages: [loadFailure(root, loaded)] };
 	}
 	if (loaded.exported === undefined) {
 		return {
 			module,
 			svgFile,
-			messages: [loadError(module, "The module doesn't default-export a Diagram.")],
+			messages: [moduleLoad({ file: module }, "The module doesn't default-export a Diagram.")],
 		};
 	}
 	const { diagnostics, svg } = render(loaded.exported);
-	const messages = diagnostics.map((diagnostic) => ({ file: module, ...diagnostic }));
+	const messages = diagnostics.map((diagnostic) => ({
+		...(declaredAt(loaded.declarations, diagnostic.pointer) ?? { file: module }),
+		...diagnostic,
+	}));
 	return svg === undefined ? { module, svgFile, messages } : { module, svgFile, svg, messages };
 }
 
 /** The config must load, and default-export what `atlas()` returns. */
-function checkConfig(config: Loaded): AtlasMessage[] {
-	if ("error" in config) {
-		return [loadError(config.module, config.error)];
+function checkConfig(root: string, config: Loaded): AtlasMessage[] {
+	if ("failed" in config) {
+		return [loadFailure(root, config)];
 	}
 	const { exported } = config;
 	if (typeof exported !== "object" || exported === null || Array.isArray(exported)) {
 		return [
-			loadError(
-				config.module,
+			moduleLoad(
+				{ file: config.module },
 				"The config doesn't default-export an Atlas config. Write `export default atlas({});`.",
 			),
 		];
@@ -198,8 +207,59 @@ function checkConfig(config: Loaded): AtlasMessage[] {
 	return [];
 }
 
-function loadError(file: string, message: string): AtlasMessage {
-	return { file, severity: "error", rule: "module-load", message };
+/**
+ * Why a module failed to load. When the error came from the module itself,
+ * the message points at its line; when it came from a module it imports, the
+ * message names that place.
+ */
+function loadFailure(root: string, failure: Extract<Loaded, { failed: unknown }>): AtlasMessage {
+	const { module, reason, at } = failure;
+	if (failure.failed === "json") {
+		return moduleLoad({ file: module }, `The module's default export isn't JSON: ${reason}`);
+	}
+	if (at?.file === module) {
+		return moduleLoad(at, `The module failed to load: ${reason}`);
+	}
+	const where = at === undefined ? "" : `${placeText({ ...at, file: repoPath(root, at.file) })}: `;
+	return moduleLoad({ file: module }, `The module failed to load: ${where}${reason}`);
+}
+
+function moduleLoad(place: Place | { file: string }, message: string): AtlasMessage {
+	return { ...place, severity: "error", rule: "module-load", message };
+}
+
+/** `file:line:column`, leaving out what isn't known. */
+export function placeText({
+	file,
+	line,
+	column,
+}: {
+	file: string;
+	line?: number;
+	column?: number;
+}): string {
+	return [file, line, column].filter((part) => part !== undefined).join(":");
+}
+
+/** A path as the Atlas names it: from the repo root, with `/`. */
+function repoPath(root: string, file: string): string {
+	return relative(root, file).split(sep).join("/");
+}
+
+/** Where the part of the model at `pointer` was declared: by its own declaration, or its nearest parent's. */
+function declaredAt(
+	declarations: Declarations,
+	pointer: string | undefined,
+): SourcePosition | undefined {
+	if (pointer === undefined) {
+		return undefined;
+	}
+	for (let at = pointer; ; at = at.slice(0, at.lastIndexOf("/"))) {
+		const position = declarations[at];
+		if (position !== undefined || at === "") {
+			return position;
+		}
+	}
 }
 
 function checkSvg(svgFile: string, svg: string): AtlasMessage | undefined {
