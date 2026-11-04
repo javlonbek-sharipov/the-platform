@@ -786,6 +786,34 @@ describe("a labeled Edge in a bundle", () => {
 			expect(ownStretches(scene, edge).some((stretch) => besideStretch(box, stretch))).toBe(true);
 		},
 	);
+
+	test.each(directions)(
+		"rides its bundle's trunk as before, where the trunk leaves it a run of its own that holds its label, laid out %s",
+		(direction) => {
+			// As in `joining`, but the admin app's Edge carries the label, and its
+			// Technology and rate. It runs across the rank to the web app's Edge,
+			// and joins it there: that run is its own, and holds its label.
+			const scene = sceneOf(
+				architecture({ title: "Riding", direction }, (d) => {
+					const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+					const admin = d.node({ id: "admin-app", kind: "client", title: "Admin app" });
+					const gateway = d.node({ id: "gateway", kind: "gateway", title: "Gateway" });
+					d.edge(web, gateway, { kind: "call" });
+					d.edge(admin, gateway, {
+						kind: "call",
+						label: "Signs in",
+						technology: "oauth",
+						rate: "2/s",
+					});
+				}),
+			);
+			const edge = edgeOf(scene, "admin-app->gateway");
+			const trunk = sharedBeyondJunctions(scene, edge, edgeOf(scene, "web-app->gateway"));
+			expect(trunk.length).toBeGreaterThan(0);
+			const box = edge.label?.box ?? scene.bounds;
+			expect(ownStretches(scene, edge).some((stretch) => besideStretch(box, stretch))).toBe(true);
+		},
+	);
 });
 
 describe("the gap between two ranks", () => {
