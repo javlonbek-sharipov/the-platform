@@ -148,7 +148,9 @@ async function exportCommand(args: string[], context: CliContext): Promise<numbe
 	const scale = Number(parsed.values.get("--scale") ?? "1");
 	const root = findRoot(context.cwd);
 	const [rendered] = await renderDiagrams(root, [resolve(context.cwd, diagram)]);
-	const { svg, model } = rendered ?? {};
+	const { svg, model, messages = [] } = rendered ?? {};
+	// The path alone goes to stdout, so that a script can read it.
+	print(messages, context, context.stderr);
 	if (svg === undefined || model?.id === undefined) {
 		return 1;
 	}
@@ -211,10 +213,10 @@ function parseOptions(
  * One line per message: `file:line:column: severity: message (rule)`. A
  * message about a whole file, such as an SVG, has no line or column.
  */
-function print(messages: AtlasMessage[], context: CliContext): void {
+function print(messages: AtlasMessage[], context: CliContext, output = context.stdout): void {
 	for (const { file, line, column, severity, message, rule } of messages) {
 		const where = placeText({ file: shown(file, context), line, column });
-		context.stdout.write(`${where}: ${severity}: ${message} (${rule})\n`);
+		output.write(`${where}: ${severity}: ${message} (${rule})\n`);
 	}
 }
 

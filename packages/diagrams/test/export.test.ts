@@ -196,6 +196,46 @@ describe("diagrams export, where it writes", () => {
 	});
 });
 
+describe("diagrams export, with diagnostics", () => {
+	test("fails on an invalid Diagram, prints its errors, and writes nothing", async () => {
+		const atlas = await sampleAtlas({
+			"docs/broken.diagram.ts": shopModule().replace('kind: "service"', 'kind: "servce"'),
+		});
+
+		for (const format of ["png", "json"]) {
+			expect(await runCli(["export", "docs/broken.diagram.ts", "--format", format], atlas)).toEqual(
+				{
+					code: 1,
+					stdout: "",
+					stderr:
+						"docs/broken.diagram.ts:5:16: error: Node `shop-api` has the Kind `servce`, which the architecture Notation doesn't have. Its Node Kinds are person, system, client, gateway, service, worker, function, database, cache, queue, storage and search. (unknown-kind)\n",
+				},
+			);
+		}
+		expect(existsSync(join(atlas, ".diagrams-cache"))).toBe(false);
+	});
+
+	test("prints a Diagram's warnings, and still exports it", async () => {
+		const atlas = await sampleAtlas({
+			"docs/offices.diagram.ts": `import { architecture } from "@the-platform/diagrams";
+
+export default architecture({ title: "Offices" }, (d) => {
+	d.node({ id: "translations", kind: "service", title: "Internationalization service" });
+});
+`,
+		});
+
+		const run = await runCli(["export", "docs/offices.diagram.ts", "--format", "png"], atlas);
+		expect(run).toMatchObject({
+			code: 0,
+			stdout: `${join(atlas, ".diagrams-cache/export/docs/offices.light.png")}\n`,
+		});
+		expect(run.stderr).toMatch(
+			/^docs\/offices\.diagram\.ts:4:4: warning: Node `translations`'s title is too wide for its Node, .* \(text-shortened\)\n$/,
+		);
+	});
+});
+
 /**
  * Where a text's ink starts and ends along x, in the SVG's units, as Inter
  * draws it without kerning or alternates: centered on the text's point, from
