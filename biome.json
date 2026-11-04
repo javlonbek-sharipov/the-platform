@@ -59,6 +59,10 @@
 					}
 				}
 			}
+		},
+		{
+			"includes": ["packages/diagrams/src/core/**"],
+			"plugins": ["./packages/diagrams/biome/arithmetic.grit"]
 		}
 	]
 }

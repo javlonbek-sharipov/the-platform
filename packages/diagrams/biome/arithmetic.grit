@@ -1,0 +1,30 @@
+language js
+
+// The core's geometry uses only arithmetic that gives the same result in every
+// JavaScript engine, so that a scene computed in a browser matches one computed
+// in Node (spec: Edge routing › Arithmetic). That's addition, subtraction,
+// multiplication, division, square root, rounding, min and max, plus `abs` and
+// `sign`, which are exact. Trigonometry, logarithms and powers aren't.
+or {
+	`Math.$name` where {
+		$name <: not or {
+			`min`,
+			`max`,
+			`round`,
+			`floor`,
+			`ceil`,
+			`trunc`,
+			`sqrt`,
+			`abs`,
+			`sign`
+		},
+		register_diagnostic(span=$name, message="The core's geometry may use only addition, subtraction, multiplication, division, square root, rounding, min and max, which give the same result in every JavaScript engine (spec: Edge routing › Arithmetic).")
+	},
+	`$base ** $exponent` as $power where {
+		register_diagnostic(span=$power, message="The core's geometry may use only addition, subtraction, multiplication, division, square root, rounding, min and max, which give the same result in every JavaScript engine (spec: Edge routing › Arithmetic).")
+	},
+	JsAssignmentExpression() as $power where {
+		$power <: r".*\*\*=.*",
+		register_diagnostic(span=$power, message="The core's geometry may use only addition, subtraction, multiplication, division, square root, rounding, min and max, which give the same result in every JavaScript engine (spec: Edge routing › Arithmetic).")
+	}
+}
