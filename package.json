@@ -13,7 +13,8 @@
 		"bench": "node packages/diagrams/scripts/benchmark.ts",
 		"check": "biome check",
 		"typecheck": "tsc -p .",
-		"generate:font-metrics": "node packages/diagrams/scripts/generate-font-metrics.ts"
+		"generate:font-metrics": "node packages/diagrams/scripts/generate-font-metrics.ts",
+		"generate:technologies": "node packages/diagrams/scripts/generate-technologies.ts"
 	},
 	"dependencies": {
 		"@the-platform/diagrams": "workspace:*"
@@ -21,6 +22,7 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.6.4",
 		"@types/node": "^24.19.2",
+		"ajv": "^8.20.0",
 		"lefthook": "^2.2.2",
 		"typescript": "^7.0.2",
 		"vitest": "^5.1.0"

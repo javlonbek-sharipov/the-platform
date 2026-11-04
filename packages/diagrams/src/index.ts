@@ -37,8 +37,10 @@ export type {
 	RoutePoint,
 	Scene,
 	SceneCallout,
+	SceneChevron,
 	SceneEdge,
 	SceneGroup,
+	SceneJunction,
 	SceneLabel,
 	SceneNode,
 	ScenePort,
@@ -50,17 +52,22 @@ export type {
 export type { FontData, FontRequest, FontWeight } from "./core/text.ts";
 export type {
 	ArchitectureEdgeKind,
+	ArchitectureEdgeLook,
 	ArchitectureFamily,
 	ArchitectureGroupKind,
 	ArchitectureNodeKind,
 	ArchitectureNodeLook,
 	ArchitectureStatus,
+	KnownTechnology,
+	Technology,
 } from "./notations/architecture.ts";
 export {
 	architectureEdgeKinds,
+	architectureEdgeLooks,
 	architectureFamilies,
 	architectureGroupKinds,
 	architectureNodeKinds,
 	architectureNodeLooks,
 	architectureStatuses,
 } from "./notations/architecture.ts";
+export { technologies } from "./notations/technologies.ts";

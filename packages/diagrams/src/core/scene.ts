@@ -64,6 +64,13 @@ export interface SceneNode {
 	/** Where the Kind's badge is drawn, at the start of the header. */
 	badge: Box;
 	title: SceneText;
+	/**
+	 * The name of the Node's Technology, if it has one, below its title: its
+	 * display name, or its slug when the logo table doesn't have it.
+	 */
+	technology?: SceneText;
+	/** The Technology's logo, at the end of the header, when the logo table has it. */
+	logo?: SceneLogo;
 	/** One for each of the Node's Rows, in order, in bands below its header. */
 	rows: SceneRow[];
 	/** Whether the Node stands for something we don't own or run, drawn with a dashed outline. */
@@ -87,6 +94,14 @@ export interface SceneRow {
 	input: ScenePort;
 	/** The Port on the Node's right side, where an Edge that starts at the Row leaves. */
 	output: ScenePort;
+}
+
+/** A Technology's logo from the logo table, drawn in one theme color. */
+export interface SceneLogo {
+	/** The slug of the Technology it stands for. */
+	technology: string;
+	/** The square it's drawn in. */
+	box: Box;
 }
 
 /** A Node's status, and where its mark is drawn, at the end of the header. */
@@ -157,6 +172,20 @@ export interface SceneEdge {
 	fellBack: boolean;
 	/** What the Edge carries, drawn beside its route, when it has a label, a Technology or a rate. */
 	label?: SceneLabel;
+	/**
+	 * The marks that show which way the Edge runs, in order from its target
+	 * back to its source. They sit at a fixed spacing back from the target, on
+	 * straight stretches of the route, so that the Edges of a bundle share
+	 * them along their trunk.
+	 */
+	chevrons: SceneChevron[];
+	/**
+	 * Set when the Edge's ends sit in different `region` Groups, or in
+	 * different `zone` Groups, since such calls cost latency and egress: which
+	 * Kind of Group it crosses between, regions before zones, and where its
+	 * badge sits, in the middle of the stretch of its route that's its own.
+	 */
+	crosses?: { kind: "region" | "zone"; badge: Point };
 }
 
 /**
@@ -167,10 +196,31 @@ export interface SceneLabel {
 	box: Box;
 	/** The label's own text, if the Edge has one. */
 	text?: SceneText;
-	/** The Edge's Technology, shown as its name. */
+	/** The Edge's Technology, shown as its name: its display name, or its slug when it has no logo. */
 	technology?: SceneText;
+	/** The Technology's logo, just before its name, when the logo table has it. */
+	logo?: SceneLogo;
 	/** The Edge's rate, after its Technology. */
 	rate?: SceneText;
+}
+
+/**
+ * Where the Edges that leave one Port part, so that a mark there shows that
+ * they split rather than cross.
+ */
+export interface SceneJunction {
+	point: Point;
+	/** The Node whose Port feeds the Edges. */
+	node: string;
+	/** The Row whose Port it is, when it isn't the Node's header Port. */
+	row?: string;
+}
+
+/** A direction mark on an Edge's route. */
+export interface SceneChevron {
+	point: Point;
+	/** Which way it points: the unit vector along its run, toward the Edge's target. */
+	heading: Point;
 }
 
 export interface Scene {
@@ -202,6 +252,8 @@ export interface Scene {
 	/** The Groups, in model order. */
 	groups: SceneGroup[];
 	edges: SceneEdge[];
+	/** Where the Edges that leave one Port part, Port by Port. */
+	junctions: SceneJunction[];
 	/** The diagnostics that layout and routing raised. */
 	diagnostics: Diagnostic[];
 }

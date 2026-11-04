@@ -10,7 +10,7 @@
 
 import { type Diagram, type Direction, render } from "../src/index.ts";
 import { crowded } from "../test/fixtures/crowded.ts";
-import { labeled } from "../test/fixtures/labeled.ts";
+import { labeled } from "../test/support/labeled.ts";
 
 /** Runs to warm the engine up before timing, and runs to time. */
 const warmups = 5;

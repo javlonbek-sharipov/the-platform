@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { render } from "../src/index.ts";
 import { crowded } from "./fixtures/crowded.ts";
-import { labeled } from "./fixtures/labeled.ts";
+import { labeled } from "./support/labeled.ts";
 
 /**
  * A limit generous enough for any machine that runs the suite, which still

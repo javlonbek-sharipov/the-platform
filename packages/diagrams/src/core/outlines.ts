@@ -36,8 +36,11 @@ export interface OutlineDrawing {
 export interface OutlineLook {
 	/** The room above the header band, such as for a person's head. */
 	headRoom: number;
-	/** How far the outline's face starts in from each side, beyond the header's padding. */
-	inset: { left: number; right: number };
+	/**
+	 * How far the outline's face starts in from each side, beyond the header's
+	 * padding, and down from the header's top, past a lid or a title bar.
+	 */
+	inset: { left: number; right: number; top: number };
 	/** The width of the stroke around the shapes, and of the details' strokes. */
 	stroke: number;
 	detail: number;
@@ -99,7 +102,7 @@ const none: OutlineDrawing = { shapes: [], solids: [], details: [] };
 
 const plain = {
 	headRoom: 0,
-	inset: { left: 0, right: 0 },
+	inset: { left: 0, right: 0, top: 0 },
 	stroke: 1.5,
 	detail: 1.5,
 	tint: 0.08,
@@ -124,6 +127,8 @@ const pinLength = 5;
 const pinSpacing = 18;
 /** The size of a page's folded corner. */
 const fold = 14;
+/** The height of a window's title bar, from the top of its Node. */
+const titleBar = 9;
 
 export const outlines: Record<Outline, OutlineLook> = {
 	// A head above rounded shoulders.
@@ -166,9 +171,10 @@ export const outlines: Record<Outline, OutlineLook> = {
 	// An app's window, with a title bar.
 	window: {
 		...plain,
+		inset: { left: 0, right: 0, top: titleBar },
 		draw(box, stroke) {
 			const outer = shrink(box, stroke / 2);
-			const bar = { ...outer, height: 9 - stroke / 2 };
+			const bar = { ...outer, height: titleBar - stroke / 2 };
 			return { ...none, shapes: [rounded(outer, 6)], solids: [corners(bar, [6, 6, 0, 0])] };
 		},
 	},
@@ -211,7 +217,7 @@ export const outlines: Record<Outline, OutlineLook> = {
 	// Two cards, one behind the other, for the many jobs a worker takes on.
 	stack: {
 		...plain,
-		inset: { left: 0, right: stackOffset },
+		inset: { left: 0, right: stackOffset, top: 0 },
 		draw(box, stroke) {
 			const { x, y, width, height } = shrink(box, stroke / 2);
 			const card = { width: width - stackOffset, height: height - stackOffset };
@@ -247,6 +253,8 @@ export const outlines: Record<Outline, OutlineLook> = {
 	// Standing upright, with its lid showing.
 	cylinder: {
 		...plain,
+		// The lid's front edge dips to twice its depth, and its stroke a little further.
+		inset: { left: 0, right: 0, top: 2 * lidDepth + 2 },
 		draw(box, stroke) {
 			const { x, y, width, height } = shrink(box, stroke / 2);
 			const [right, bottom] = [x + width, y + height];
@@ -269,6 +277,7 @@ export const outlines: Record<Outline, OutlineLook> = {
 	// A memory chip, with pins along its top and bottom.
 	chip: {
 		...plain,
+		inset: { left: 0, right: 0, top: pinLength },
 		draw(box, stroke) {
 			const { x, width } = shrink(box, stroke / 2);
 			const body = { x, y: box.y + pinLength, width, height: box.height - 2 * pinLength };
@@ -290,7 +299,7 @@ export const outlines: Record<Outline, OutlineLook> = {
 	// down the Rows, and round off at the bottom over half a Row's band.
 	pipe: {
 		...plain,
-		inset: { left: 0, right: 2 * pipeEnd },
+		inset: { left: 0, right: 2 * pipeEnd, top: 0 },
 		draw(box, stroke, header) {
 			const { x, y, width, height } = shrink(box, stroke / 2);
 			const [right, bottom] = [x + width, y + height];

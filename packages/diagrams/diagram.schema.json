@@ -1,0 +1,325 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "Diagram",
+	"description": "A Diagram, in version 1 of the JSON model that @the-platform/diagrams reads. A tool that generates Diagrams can check its output against this schema, then default-export the JSON from a `<name>.diagram.ts` module, where the Diagram joins the Atlas like any other.\n\nA model that fails this schema fails the engine's validation too. But passing this schema doesn't make a Diagram valid. Some rules relate one part of the model to another, which JSON Schema can't express. The engine's validation checks them, and reports each under its rule's name:\n\n- `duplicate-id`: Node and Group ids are unique within a Diagram, in one namespace, and each Edge id is unique among its Edges.\n- `duplicate-row`: the Rows of one Node have names of their own, since an Edge end names a Row by its name.\n- `edge-end`: each Edge end names a Node on the Diagram, never a Group, and an end at a Row names one of that Node's Rows.\n- `nesting`: each member names a Node or a Group on the Diagram, every Node and Group is a member of exactly one parent, the Diagram or one Group, and so Groups nest as a tree.\n- `default-edge-id`: an Edge whose id is its default name, its two Nodes' ids joined by `->`, keeps it only while no other Edge joins the same two Nodes.\n\n`diagrams lint` checks the Atlas as a whole too:\n\n- `kind-conflict` and `title-conflict`: an id names one thing across the Atlas, with one Kind and one title on every Diagram that draws it, as a Node or as a Group.\n- `broken-link`: every Link resolves, to an id that some Diagram draws, or to a file inside the repo and, with a `section`, to one of its headings.",
+	"type": "object",
+	"properties": {
+		"version": {
+			"description": "The version of the JSON model. This engine reads version 1.",
+			"const": 1
+		},
+		"notation": {
+			"description": "The Notation the Diagram is written in.",
+			"const": "architecture"
+		},
+		"id": {
+			"description": "The path of the Diagram's module from the repo root, minus `.diagram.ts`, such as `docs/shop`. The Atlas sets it, so a generated Diagram can leave it out.",
+			"$ref": "#/$defs/text"
+		},
+		"title": {
+			"description": "The Diagram's title.",
+			"$ref": "#/$defs/text"
+		},
+		"direction": {
+			"description": "Which way the ranks run: `right`, the default, or `down`.",
+			"enum": ["right", "down"],
+			"default": "right"
+		},
+		"members": {
+			"description": "The ids of the Diagram's top-level Nodes and Groups, in declaration order, which breaks layout ties.",
+			"type": "array",
+			"items": {
+				"$ref": "#/$defs/id"
+			}
+		},
+		"nodes": {
+			"description": "Every Node on the Diagram, whatever its Group.",
+			"type": "array",
+			"items": {
+				"$ref": "#/$defs/node"
+			}
+		},
+		"groups": {
+			"description": "Every Group on the Diagram, whatever its parent.",
+			"type": "array",
+			"items": {
+				"$ref": "#/$defs/group"
+			}
+		},
+		"edges": {
+			"description": "Every Edge on the Diagram.",
+			"type": "array",
+			"items": {
+				"$ref": "#/$defs/edge"
+			}
+		},
+		"walkthroughs": {
+			"description": "The Diagram's Walkthroughs. This engine doesn't play them yet, so the list must be empty.",
+			"type": "array",
+			"maxItems": 0
+		}
+	},
+	"required": [
+		"version",
+		"notation",
+		"title",
+		"members",
+		"nodes",
+		"groups",
+		"edges",
+		"walkthroughs"
+	],
+	"additionalProperties": false,
+	"$defs": {
+		"id": {
+			"description": "Lowercase kebab-case words, such as `payments-api`, optionally namespaced by a context, as in `billing/order`.",
+			"type": "string",
+			"pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:/[a-z0-9]+(?:-[a-z0-9]+)*)*$"
+		},
+		"text": {
+			"description": "Text that an SVG can hold. XML forbids some characters even written as character references, so no SVG can hold them: the control characters from U+0000 to U+001F other than tab, line feed and carriage return; halves of surrogate pairs on their own, from U+D800 to U+DFFF; and U+FFFE and U+FFFF. The engine reports them as `invalid-character`.",
+			"type": "string",
+			"pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\uD800-\\uDFFF\\uFFFE\\uFFFF]*$"
+		},
+		"someText": {
+			"description": "Text with something in it other than spaces, tabs and line breaks.",
+			"$ref": "#/$defs/text",
+			"type": "string",
+			"pattern": "[^ \\t\\n\\r]"
+		},
+		"technology": {
+			"description": "The slug of the product, language or protocol it's built with: lowercase words joined by hyphens, such as `postgres` or `grpc`. Any slug is valid. One without a logo is drawn as its name.",
+			"type": "string",
+			"pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+		},
+		"node": {
+			"description": "One thing drawn on the Diagram, such as a service or a database.",
+			"type": "object",
+			"properties": {
+				"id": {
+					"description": "The Node's id, which names one thing across the Atlas: it has one Kind and one title on every Diagram.",
+					"$ref": "#/$defs/id"
+				},
+				"kind": {
+					"description": "The Node's Kind, which alone decides how it looks.",
+					"enum": [
+						"person",
+						"system",
+						"client",
+						"gateway",
+						"service",
+						"worker",
+						"function",
+						"database",
+						"cache",
+						"queue",
+						"storage",
+						"search"
+					]
+				},
+				"title": {
+					"description": "The Node's title, drawn in its header. A title too wide for its Kind is shortened.",
+					"$ref": "#/$defs/text"
+				},
+				"technology": {
+					"description": "What the Node is built with, drawn in its header.",
+					"$ref": "#/$defs/technology"
+				},
+				"external": {
+					"description": "Whether the Node stands for something we don't own or run, drawn with a dashed outline.",
+					"type": "boolean"
+				},
+				"status": {
+					"description": "How the Node is doing, shown as a mark at the end of its header.",
+					"enum": ["ok", "degraded", "down", "unknown"]
+				},
+				"rows": {
+					"description": "The Node's Rows, drawn below its header, one band each, in order.",
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/row"
+					}
+				},
+				"links": {
+					"description": "\"See also\" pointers, which aren't drawn.",
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/link"
+					}
+				},
+				"callout": {
+					"description": "A short tag above the Node that draws attention to it, such as `single point of failure`.",
+					"$ref": "#/$defs/someText"
+				}
+			},
+			"required": ["id", "kind", "title"],
+			"additionalProperties": false
+		},
+		"row": {
+			"description": "A name and a value shown on a Node, such as `replicas: 3`. Every Row has a Port on each side of its Node.",
+			"type": "object",
+			"properties": {
+				"name": {
+					"description": "The Row's name, drawn on the left. An Edge end names a Row by it.",
+					"$ref": "#/$defs/text"
+				},
+				"value": {
+					"description": "The Row's value, drawn on the right. A number is written as a string, such as `\"3\"`.",
+					"$ref": "#/$defs/text"
+				}
+			},
+			"required": ["name"],
+			"additionalProperties": false
+		},
+		"group": {
+			"description": "A labeled box drawn around Nodes and other Groups.",
+			"type": "object",
+			"properties": {
+				"id": {
+					"description": "The Group's id, which names one thing across the Atlas: it has one Kind and one title on every Diagram.",
+					"$ref": "#/$defs/id"
+				},
+				"kind": {
+					"description": "The Group's Kind, which alone decides how it looks.",
+					"enum": ["system", "region", "zone"]
+				},
+				"title": {
+					"description": "The Group's title, drawn in its label band.",
+					"$ref": "#/$defs/text"
+				},
+				"members": {
+					"description": "The ids of the Group's Nodes and child Groups, in declaration order.",
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/id"
+					}
+				},
+				"description": {
+					"description": "What the Group is, which isn't drawn.",
+					"$ref": "#/$defs/text"
+				},
+				"links": {
+					"description": "\"See also\" pointers, which aren't drawn.",
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/link"
+					}
+				}
+			},
+			"required": ["id", "kind", "title", "members"],
+			"additionalProperties": false
+		},
+		"edge": {
+			"description": "A connection from one Port to another.",
+			"type": "object",
+			"properties": {
+				"id": {
+					"description": "An id, or the Edge's default name: its two Nodes' ids joined by `->`, as in `checkout-api->payments-api`.",
+					"type": "string",
+					"pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:/[a-z0-9]+(?:-[a-z0-9]+)*)*(?:->[a-z0-9]+(?:-[a-z0-9]+)*(?:/[a-z0-9]+(?:-[a-z0-9]+)*)*)?$"
+				},
+				"kind": {
+					"description": "The Edge's Kind: `call` is drawn solid, and `message` dashed.",
+					"enum": ["call", "message"]
+				},
+				"from": {
+					"description": "Where the Edge leaves from.",
+					"$ref": "#/$defs/end"
+				},
+				"to": {
+					"description": "Where the Edge enters.",
+					"$ref": "#/$defs/end"
+				},
+				"label": {
+					"description": "What passes over the Edge, drawn beside it, such as `Places orders`.",
+					"$ref": "#/$defs/someText"
+				},
+				"technology": {
+					"description": "How it travels, drawn below the label.",
+					"$ref": "#/$defs/technology"
+				},
+				"rate": {
+					"description": "How much passes over it, drawn below the label: a number, an optional `k` or `M`, a slash, and `s`, `min` or `h`, as in `2k/s` or `30/min`.",
+					"type": "string",
+					"pattern": "^[0-9]+(?:\\.[0-9]+)?[kM]?/(?:s|min|h)$"
+				}
+			},
+			"required": ["id", "kind", "from", "to"],
+			"additionalProperties": false
+		},
+		"end": {
+			"description": "An Edge end: the id of a Node, whose header Port the Edge uses, or one of the Node's Rows, whose Port on the matching side it uses instead.",
+			"oneOf": [
+				{
+					"$ref": "#/$defs/id"
+				},
+				{
+					"$ref": "#/$defs/rowEnd"
+				}
+			]
+		},
+		"rowEnd": {
+			"description": "An Edge end at one of a Node's Rows.",
+			"type": "object",
+			"properties": {
+				"node": {
+					"description": "The Node's id.",
+					"$ref": "#/$defs/id"
+				},
+				"row": {
+					"description": "The Row's name.",
+					"$ref": "#/$defs/text"
+				}
+			},
+			"required": ["node", "row"],
+			"additionalProperties": false
+		},
+		"link": {
+			"description": "A \"see also\" pointer from a Node or a Group to exactly one thing: another id, or a Markdown document.",
+			"oneOf": [
+				{
+					"$ref": "#/$defs/idLink"
+				},
+				{
+					"$ref": "#/$defs/docLink"
+				}
+			]
+		},
+		"idLink": {
+			"description": "A Link to another id in the Atlas.",
+			"type": "object",
+			"properties": {
+				"id": {
+					"description": "The id it leads to, which some Diagram in the Atlas draws.",
+					"$ref": "#/$defs/id"
+				},
+				"label": {
+					"description": "Replaces the text shown for the Link.",
+					"$ref": "#/$defs/text"
+				}
+			},
+			"required": ["id"],
+			"additionalProperties": false
+		},
+		"docLink": {
+			"description": "A Link to a Markdown document, such as an ADR or a spec, and optionally to one of its sections.",
+			"type": "object",
+			"properties": {
+				"doc": {
+					"description": "The document's path from the repo root, such as `docs/adr/0001-clean-room.md`.",
+					"$ref": "#/$defs/text"
+				},
+				"section": {
+					"description": "A heading in the document, by its text or by its anchor.",
+					"$ref": "#/$defs/text"
+				},
+				"label": {
+					"description": "Replaces the text shown for the Link.",
+					"$ref": "#/$defs/text"
+				}
+			},
+			"required": ["doc"],
+			"additionalProperties": false
+		}
+	}
+}

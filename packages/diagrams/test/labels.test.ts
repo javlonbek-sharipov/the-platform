@@ -13,7 +13,7 @@ import {
 } from "../src/index.ts";
 import { crowded } from "./fixtures/crowded.ts";
 import { groupFixtures, twoRegions } from "./fixtures/groups.ts";
-import { labeled } from "./fixtures/labeled.ts";
+import { labeled } from "./support/labeled.ts";
 import { computedStyle, descendants, type Element, parseSvg, rulesOf } from "./support/svg.ts";
 import { advanceOf, bundledFont, characterMap, unitsPerEm } from "./support/truetype.ts";
 

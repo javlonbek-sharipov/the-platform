@@ -142,6 +142,26 @@ describe("the font data an SVG embeds", () => {
 		]);
 	});
 
+	test("holds the characters of Technologies' names, in the regular weight, but not their slugs", () => {
+		const { requests } = renderRecording(
+			architecture({ title: "Ledger" }, (d) => {
+				const api = d.node({ id: "api", kind: "service", title: "API", technology: "go" });
+				const ledger = d.node({
+					id: "ledger",
+					kind: "database",
+					title: "Ledger",
+					technology: "s3",
+				});
+				d.edge(api, ledger, { kind: "call", technology: "postgres" });
+			}),
+		);
+		expect(requests).toEqual([
+			// Every character of "Go", "s3" and "PostgreSQL", once, in order: the slug `postgres` shows by name.
+			{ weight: "regular", characters: "3GLPQSegorst" },
+			{ weight: "semibold", characters: "AILPdegr" },
+		]);
+	});
+
 	test("isn't asked for when nothing is drawn, or when the caller passes no function", () => {
 		const { svg, requests } = renderRecording(architecture({ title: "Empty" }, () => {}));
 		expect(requests).toEqual([]);

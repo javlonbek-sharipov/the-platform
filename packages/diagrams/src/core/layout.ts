@@ -230,7 +230,11 @@ export function layOut(
 		const { width, height } = frame;
 		const box = { x: origin.x + corner.x, y: origin.y + corner.y, width, height };
 		const ports = (down ? box.x : box.y) + toPorts(frame);
-		const { header, badge, title, status, callout } = partsOf(node, box, diagram.direction);
+		const { header, badge, title, technology, logo, status, callout } = partsOf(
+			node,
+			box,
+			diagram.direction,
+		);
 		// Row text keeps to the outline's face, as the title does.
 		const face = faceOf(node, box);
 		return {
@@ -244,6 +248,8 @@ export function layOut(
 				: port("right", { x: box.x + width, y: ports }),
 			badge,
 			title,
+			...(technology === undefined ? {} : { technology }),
+			...(logo === undefined ? {} : { logo }),
 			rows: (node.rows ?? []).map((row, index) => {
 				const band = {
 					x: box.x,

@@ -8,12 +8,16 @@
 		"node": ">=24"
 	},
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./diagram.schema.json": "./diagram.schema.json"
 	},
 	"bin": {
 		"diagrams": "./bin/diagrams.ts"
 	},
 	"dependencies": {
 		"@resvg/resvg-js": "2.6.2"
+	},
+	"devDependencies": {
+		"simple-icons": "16.36.0"
 	}
 }

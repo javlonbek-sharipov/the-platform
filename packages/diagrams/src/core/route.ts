@@ -356,6 +356,8 @@ export function route(
 			// The router breaks it at hops once every route is final.
 			stroke: [],
 			fellBack: path === undefined,
+			// Marks come once the labels are placed too.
+			chevrons: [],
 		});
 	}
 	// Routes that share a grid line spread apart into lanes, as the winning
