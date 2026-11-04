@@ -1,6 +1,6 @@
 # Example system
 
-A shop's web app calls the shop's gateway, which calls the Orders API. The Orders API stores each order in its database and announces it on the order events queue, which the Payments API listens to.
+A shopper uses the shop's web app, which calls the shop's gateway, which calls the Orders API. The Orders API stores each order in its database and announces it on the order events queue, which the Payments API listens to. The Payments API charges each order through a payment provider, which we don't run, so the Diagram draws it External, with a dashed outline. The Payments API's status is degraded, shown by the triangle in its header.
 
 ![Example system](./example-system.diagram.svg)
 
