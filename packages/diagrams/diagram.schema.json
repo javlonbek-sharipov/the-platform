@@ -6,7 +6,250 @@
 		"version": {
 			"description": "The version of the JSON model. This engine reads version 1.",
 			"const": 1
+		},
+		"notation": {
+			"description": "The Notation the Diagram is written in.",
+			"const": "architecture"
+		},
+		"id": {
+			"description": "The Diagram's module's path from the repo root, minus `.diagram.ts`, such as `docs/shop`. The Atlas sets it, so a generated Diagram may leave it out.",
+			"type": "string"
+		},
+		"title": {
+			"description": "The Diagram's title.",
+			"type": "string"
+		},
+		"direction": {
+			"description": "Which way the ranks run: `right`, the default, or `down`.",
+			"enum": ["right", "down"]
+		},
+		"members": {
+			"description": "The ids of the Diagram's top-level Nodes and Groups, in declaration order, which breaks layout ties.",
+			"type": "array",
+			"items": { "$ref": "#/$defs/id" }
+		},
+		"nodes": {
+			"description": "Every Node on the Diagram, whatever its Group.",
+			"type": "array",
+			"items": { "$ref": "#/$defs/node" }
+		},
+		"groups": {
+			"description": "Every Group on the Diagram, whatever its parent.",
+			"type": "array",
+			"items": { "$ref": "#/$defs/group" }
+		},
+		"edges": {
+			"description": "Every Edge on the Diagram.",
+			"type": "array",
+			"items": { "$ref": "#/$defs/edge" }
+		},
+		"walkthroughs": {
+			"description": "The Diagram's Walkthroughs.",
+			"type": "array"
 		}
 	},
-	"required": ["version"]
+	"required": [
+		"version",
+		"notation",
+		"title",
+		"members",
+		"nodes",
+		"groups",
+		"edges",
+		"walkthroughs"
+	],
+	"$defs": {
+		"id": {
+			"description": "Lowercase kebab-case words, such as `payments-api`, optionally namespaced by a context, as in `billing/order`.",
+			"type": "string",
+			"pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:/[a-z0-9]+(?:-[a-z0-9]+)*)*$"
+		},
+		"someText": {
+			"description": "A string with some text other than spaces, tabs and line breaks.",
+			"type": "string",
+			"pattern": "[^ \\t\\n\\r]"
+		},
+		"technology": {
+			"description": "The slug of the product, language or protocol it's built with: lowercase words joined by hyphens, such as `postgres` or `grpc`. Any slug is valid. One without a logo is drawn as its name.",
+			"type": "string",
+			"pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+		},
+		"node": {
+			"description": "One thing drawn on the Diagram, such as a service or a database.",
+			"type": "object",
+			"properties": {
+				"id": { "$ref": "#/$defs/id" },
+				"kind": {
+					"description": "The Node's Kind, which alone decides how it looks.",
+					"enum": [
+						"person",
+						"system",
+						"client",
+						"gateway",
+						"service",
+						"worker",
+						"function",
+						"database",
+						"cache",
+						"queue",
+						"storage",
+						"search"
+					]
+				},
+				"title": {
+					"description": "The Node's title, drawn in its header. A title too wide for its Kind is shortened.",
+					"type": "string"
+				},
+				"external": {
+					"description": "Whether the Node stands for something we don't own or run, drawn with a dashed outline.",
+					"type": "boolean"
+				},
+				"status": {
+					"description": "How the Node is doing, shown as a mark at the end of its header.",
+					"enum": ["ok", "degraded", "down", "unknown"]
+				},
+				"rows": {
+					"description": "The Node's Rows, drawn below its header, one band each, in order.",
+					"type": "array",
+					"items": { "$ref": "#/$defs/row" }
+				},
+				"links": {
+					"description": "\"See also\" pointers, which aren't drawn.",
+					"type": "array",
+					"items": { "$ref": "#/$defs/link" }
+				},
+				"callout": {
+					"description": "A short tag above the Node that draws attention to it, such as `single point of failure`.",
+					"$ref": "#/$defs/someText"
+				}
+			},
+			"required": ["id", "kind", "title"]
+		},
+		"row": {
+			"description": "A name and a value shown on a Node, such as `replicas: 3`. Every Row has a Port on each side of its Node.",
+			"type": "object",
+			"properties": {
+				"name": {
+					"description": "The Row's name, drawn on the left. An Edge end names a Row by it.",
+					"type": "string"
+				},
+				"value": {
+					"description": "The Row's value, drawn on the right. A number is written as a string, such as `\"3\"`.",
+					"type": "string"
+				}
+			},
+			"required": ["name"]
+		},
+		"group": {
+			"description": "A labeled box drawn around Nodes and other Groups.",
+			"type": "object",
+			"properties": {
+				"id": { "$ref": "#/$defs/id" },
+				"kind": {
+					"description": "The Group's Kind, which alone decides how it looks.",
+					"enum": ["system", "region", "zone"]
+				},
+				"title": {
+					"description": "The Group's title, drawn in its label band.",
+					"type": "string"
+				},
+				"members": {
+					"description": "The ids of the Group's Nodes and child Groups, in declaration order.",
+					"type": "array",
+					"items": { "$ref": "#/$defs/id" }
+				},
+				"description": {
+					"description": "What the Group is, which isn't drawn.",
+					"type": "string"
+				},
+				"links": {
+					"description": "\"See also\" pointers, which aren't drawn.",
+					"type": "array",
+					"items": { "$ref": "#/$defs/link" }
+				}
+			},
+			"required": ["id", "kind", "title", "members"]
+		},
+		"edge": {
+			"description": "A connection from one Port to another.",
+			"type": "object",
+			"properties": {
+				"id": {
+					"description": "An id, or the Edge's default name: its two Nodes' ids joined by `->`, as in `checkout-api->payments-api`.",
+					"type": "string",
+					"pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:/[a-z0-9]+(?:-[a-z0-9]+)*)*(?:->[a-z0-9]+(?:-[a-z0-9]+)*(?:/[a-z0-9]+(?:-[a-z0-9]+)*)*)?$"
+				},
+				"kind": {
+					"description": "The Edge's Kind: `call` is drawn solid, and `message` dashed.",
+					"enum": ["call", "message"]
+				},
+				"from": {
+					"description": "Where the Edge leaves from.",
+					"$ref": "#/$defs/end"
+				},
+				"to": {
+					"description": "Where the Edge enters.",
+					"$ref": "#/$defs/end"
+				},
+				"label": {
+					"description": "What passes over the Edge, drawn beside it, such as `Places orders`.",
+					"$ref": "#/$defs/someText"
+				},
+				"technology": {
+					"description": "How it travels, drawn below the label.",
+					"$ref": "#/$defs/technology"
+				},
+				"rate": {
+					"description": "How much passes over it, drawn below the label: a number, an optional `k` or `M`, a slash, and `s`, `min` or `h`, as in `2k/s` or `30/min`.",
+					"type": "string",
+					"pattern": "^[0-9]+(?:\\.[0-9]+)?[kM]?/(?:s|min|h)$"
+				}
+			},
+			"required": ["id", "kind", "from", "to"]
+		},
+		"end": {
+			"description": "An Edge end: the id of a Node, whose header Port the Edge uses, or one of the Node's Rows, whose Port on the matching side it uses instead.",
+			"oneOf": [{ "$ref": "#/$defs/id" }, { "$ref": "#/$defs/rowEnd" }]
+		},
+		"rowEnd": {
+			"description": "An Edge end at one of a Node's Rows.",
+			"type": "object",
+			"properties": {
+				"node": { "description": "The Node's id.", "$ref": "#/$defs/id" },
+				"row": { "description": "The Row's name.", "type": "string" }
+			},
+			"required": ["node", "row"]
+		},
+		"link": {
+			"description": "A \"see also\" pointer from a Node or a Group to exactly one thing: another id, or a Markdown document.",
+			"oneOf": [{ "$ref": "#/$defs/idLink" }, { "$ref": "#/$defs/docLink" }]
+		},
+		"idLink": {
+			"description": "A Link to another id in the Atlas.",
+			"type": "object",
+			"properties": {
+				"id": { "$ref": "#/$defs/id" },
+				"label": { "description": "Replaces the text shown for the Link.", "type": "string" }
+			},
+			"required": ["id"],
+			"additionalProperties": false
+		},
+		"docLink": {
+			"description": "A Link to a Markdown document, such as an ADR or a spec, and optionally to one of its sections.",
+			"type": "object",
+			"properties": {
+				"doc": {
+					"description": "The document's path from the repo root, such as `docs/adr/0001-clean-room.md`.",
+					"type": "string"
+				},
+				"section": {
+					"description": "A heading in the document, by its text or by its anchor.",
+					"type": "string"
+				},
+				"label": { "description": "Replaces the text shown for the Link.", "type": "string" }
+			},
+			"required": ["doc"],
+			"additionalProperties": false
+		}
+	}
 }
