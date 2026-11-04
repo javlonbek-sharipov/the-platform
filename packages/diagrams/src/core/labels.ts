@@ -13,6 +13,9 @@ import { type LabelContent, labelBoxSize, labelTexts, labelWidth } from "./text.
 /** How far a label's box keeps from the line it sits beside. */
 const labelGap = 4;
 
+/** The room a label keeps clear at each end of the stretch it sits beside, along the stretch. */
+export const labelEnds = 8;
+
 /** Two lines closer than this are one, as two routes in one lane are. */
 const sameLine = 0.5;
 
@@ -27,6 +30,12 @@ export function labelContent(edge: Edge): LabelContent | undefined {
 		...(technology === undefined ? {} : { technology }),
 		...(rate === undefined ? {} : { rate }),
 	};
+}
+
+/** The size of an Edge's label box, if the Edge has a label, a Technology or a rate. */
+export function labelSize(edge: Edge): { width: number; height: number } | undefined {
+	const content = labelContent(edge);
+	return content === undefined ? undefined : labelBoxSize(content, labelWidth(content));
 }
 
 /** A straight stretch of a route, along one line. */

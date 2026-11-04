@@ -274,6 +274,50 @@ describe("an Edge's label", () => {
 	});
 });
 
+/** web-app → shop-api → shop-db, with a label on the first Edge. */
+function chain(direction: Direction, label: string): Diagram {
+	return architecture({ title: "Chain", direction }, (d) => {
+		const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+		const api = d.node({ id: "shop-api", kind: "service", title: "Shop API" });
+		const db = d.node({ id: "shop-db", kind: "database", title: "Shop database" });
+		d.edge(web, api, { kind: "call", label });
+		d.edge(api, db, { kind: "call" });
+	});
+}
+
+/** A box's start and end along an axis. */
+function span(box: Box, axis: "x" | "y"): [number, number] {
+	return axis === "x" ? [box.x, box.x + box.width] : [box.y, box.y + box.height];
+}
+
+describe("the gap between two ranks", () => {
+	test.each(directions)(
+		"leaves room for the label of an Edge that spans it, shown in full between the stubs, laid out %s",
+		(direction) => {
+			const rank = direction === "right" ? "x" : "y";
+			for (const text of ["Orders", "Sends each order placed"]) {
+				const scene = sceneOf(chain(direction, text));
+				const edge = edgeOf(scene, "web-app->shop-api");
+				expect(edge.route).toHaveLength(2);
+				const label = edge.label;
+				expect(label?.text?.text).toBe(text);
+				expect(label?.text?.shortened).toBe(false);
+				const [start, end] = span(label?.box ?? scene.bounds, rank);
+				expect(start, text).toBeGreaterThanOrEqual(edge.fromPort.stub[rank]);
+				expect(end, text).toBeLessThanOrEqual(edge.toPort.stub[rank]);
+			}
+		},
+	);
+
+	test("without labels to hold, stays the usual size", () => {
+		const scene = sceneOf(chain("right", "Sends each order placed"));
+		const box = (id: string) => scene.nodes.find((node) => node.id === id)?.box ?? scene.bounds;
+		const gap = (from: string, to: string) => box(to).x - (box(from).x + box(from).width);
+		expect(gap("shop-api", "shop-db")).toBeLessThan(gap("web-app", "shop-api"));
+		expect(gap("shop-api", "shop-db")).toBe(96);
+	});
+});
+
 describe("the SVG", () => {
 	test("draws each label's box and texts where the scene puts them, over every Edge and beneath every Node", () => {
 		const { scene, svg } = render(orders("right"));
