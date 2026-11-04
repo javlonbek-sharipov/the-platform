@@ -21,17 +21,22 @@ export type {
 	SceneEdge,
 	SceneNode,
 	ScenePort,
+	SceneStatus,
 	SceneText,
 	Side,
 } from "./core/scene.ts";
 export type { FontData, FontRequest, FontWeight } from "./core/text.ts";
 export type {
 	ArchitectureEdgeKind,
+	ArchitectureFamily,
 	ArchitectureNodeKind,
 	ArchitectureNodeLook,
+	ArchitectureStatus,
 } from "./notations/architecture.ts";
 export {
 	architectureEdgeKinds,
+	architectureFamilies,
 	architectureNodeKinds,
 	architectureNodeLooks,
+	architectureStatuses,
 } from "./notations/architecture.ts";

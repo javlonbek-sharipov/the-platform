@@ -3,7 +3,11 @@
  * The authoring API produces it, and generators may write it directly.
  */
 
-import type { ArchitectureEdgeKind, ArchitectureNodeKind } from "../notations/architecture.ts";
+import type {
+	ArchitectureEdgeKind,
+	ArchitectureNodeKind,
+	ArchitectureStatus,
+} from "../notations/architecture.ts";
 
 export type Direction = "right" | "down";
 
@@ -33,6 +37,7 @@ export interface Node {
 	title: string;
 	/** Whether the Node stands for something we don't own or run, such as a third-party API. */
 	external?: boolean;
+	status?: ArchitectureStatus;
 }
 
 export interface Edge {

@@ -8,14 +8,15 @@
 import type { Node } from "../authoring/model.ts";
 import { architectureNodeLooks } from "../notations/architecture.ts";
 import { outlines } from "./outlines.ts";
-import type { Box, SceneText } from "./scene.ts";
+import type { Box, SceneStatus, SceneText } from "./scene.ts";
 import { nodeTitle } from "./text.ts";
 
 /** The room between the header's contents and the outline's face, on each side. */
 const padding = 12;
 const badgeSize = 16;
-/** The room between the badge and the title. */
+/** The room between the badge and the title, and between the title and a status mark. */
 const badgeGap = 8;
+const markSize = 12;
 
 /** A Node's size, and where its header band sits in it, from its top. */
 export interface NodeFrame {
@@ -35,6 +36,7 @@ export interface NodeParts {
 	header: Box;
 	badge: Box;
 	title: SceneText;
+	status?: SceneStatus;
 }
 
 /** Where a Node's parts go, once its box is placed. */
@@ -49,13 +51,26 @@ export function partsOf(node: Node, box: Box): NodeParts {
 		width: badgeSize,
 		height: badgeSize,
 	};
+	const right = box.x + box.width - padding - inset.right;
+	const status =
+		node.status === undefined
+			? undefined
+			: {
+					value: node.status,
+					mark: {
+						x: right - markSize,
+						y: middle - markSize / 2,
+						width: markSize,
+						height: markSize,
+					},
+				};
 	const start = badge.x + badge.width + badgeGap;
-	const end = box.x + box.width - padding - inset.right;
+	const end = status === undefined ? right : status.mark.x - badgeGap;
 	const title = nodeTitle(node.title, {
 		x: start,
 		y: header.y,
 		width: end - start,
 		height: header.height,
 	});
-	return { header, badge, title };
+	return { header, badge, title, ...(status === undefined ? {} : { status }) };
 }

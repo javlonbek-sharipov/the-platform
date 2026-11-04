@@ -52,6 +52,13 @@ export interface SceneNode {
 	title: SceneText;
 	/** Whether the Node stands for something we don't own or run, drawn with a dashed outline. */
 	external: boolean;
+	status?: SceneStatus;
+}
+
+/** A Node's status, and where its mark is drawn, at the end of the header. */
+export interface SceneStatus {
+	value: string;
+	mark: Box;
 }
 
 export interface SceneEdge {

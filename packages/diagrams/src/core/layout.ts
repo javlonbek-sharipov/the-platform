@@ -48,7 +48,7 @@ export function layOut(diagram: Diagram): SceneNode[] {
 		const corner = turn(line - depth / 2, ports - before);
 		const { width, height } = frames[at] ?? { width: 0, height: 0 };
 		const box = { ...corner, width, height };
-		const { header, badge, title } = partsOf(node, box);
+		const { header, badge, title, status } = partsOf(node, box);
 		return {
 			id: node.id,
 			kind: node.kind,
@@ -59,6 +59,7 @@ export function layOut(diagram: Diagram): SceneNode[] {
 			badge,
 			title,
 			external: node.external === true,
+			...(status === undefined ? {} : { status }),
 		};
 	});
 }

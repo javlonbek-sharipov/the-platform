@@ -1,6 +1,10 @@
 /** The builder for architecture Diagrams. */
 
-import type { ArchitectureEdgeKind, ArchitectureNodeKind } from "../notations/architecture.ts";
+import type {
+	ArchitectureEdgeKind,
+	ArchitectureNodeKind,
+	ArchitectureStatus,
+} from "../notations/architecture.ts";
 import type { Diagram, Direction, Edge, Node } from "./model.ts";
 
 export interface ArchitectureOptions {
@@ -17,6 +21,8 @@ export interface ArchitectureNode {
 	title: string;
 	/** Whether the Node stands for something we don't own or run, drawn with a dashed outline. */
 	external?: boolean;
+	/** How the Node is doing, shown as a mark at the end of its header. */
+	status?: ArchitectureStatus;
 }
 
 /** What a Node declaration returns. Later calls accept it in place of the id. */
@@ -51,8 +57,14 @@ export function architecture(
 	const members: string[] = [];
 
 	build({
-		node({ id, kind, title, external }) {
-			nodes.push({ id, kind, title, ...(external === undefined ? {} : { external }) });
+		node({ id, kind, title, external, status }) {
+			nodes.push({
+				id,
+				kind,
+				title,
+				...(external === undefined ? {} : { external }),
+				...(status === undefined ? {} : { status }),
+			});
 			members.push(id);
 			return Object.freeze({ id });
 		},

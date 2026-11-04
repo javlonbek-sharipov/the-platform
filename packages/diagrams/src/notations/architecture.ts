@@ -23,6 +23,11 @@ export const architectureEdgeKinds = ["call", "message"] as const;
 
 export type ArchitectureEdgeKind = (typeof architectureEdgeKinds)[number];
 
+/** How a Node is doing. Each status shows as a mark with a shape and a color of its own. */
+export const architectureStatuses = ["ok", "degraded", "down", "unknown"] as const;
+
+export type ArchitectureStatus = (typeof architectureStatuses)[number];
+
 /**
  * The families of Node Kinds. The Kinds of one family share a hue: the people
  * who use the system and the apps they use it with; systems; the things that

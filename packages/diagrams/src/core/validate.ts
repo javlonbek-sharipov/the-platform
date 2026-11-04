@@ -4,7 +4,11 @@
  */
 
 import type { Diagram } from "../authoring/model.ts";
-import { architectureEdgeKinds, architectureNodeKinds } from "../notations/architecture.ts";
+import {
+	architectureEdgeKinds,
+	architectureNodeKinds,
+	architectureStatuses,
+} from "../notations/architecture.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 
 export interface Validation {
@@ -15,6 +19,7 @@ export interface Validation {
 
 const nodeKinds: readonly string[] = architectureNodeKinds;
 const edgeKinds: readonly string[] = architectureEdgeKinds;
+const statuses: readonly string[] = architectureStatuses;
 
 const kebabCase = "[a-z0-9]+(?:-[a-z0-9]+)*";
 /** Lowercase kebab-case words, optionally namespaced by a context, as in `billing/order`. */
@@ -60,6 +65,15 @@ export function validate(input: unknown): Validation {
 					"unknown-kind",
 					`Node \`${node.id}\` has the Kind \`${node.kind}\`, which the architecture Notation doesn't have. Its Node Kinds are ${list(nodeKinds)}.`,
 					`/nodes/${index}/kind`,
+				),
+			);
+		}
+		if (node.status !== undefined && !statuses.includes(node.status)) {
+			diagnostics.push(
+				error(
+					"unknown-status",
+					`Node \`${node.id}\` has the status \`${node.status}\`, which the architecture Notation doesn't have. Its statuses are ${list(statuses)}.`,
+					`/nodes/${index}/status`,
 				),
 			);
 		}
@@ -187,12 +201,13 @@ function checkShape(input: unknown): Diagnostic[] {
 	checkList(input.nodes, "/nodes", (node, at) => {
 		checkStrings(node, at, ["id", "kind", "title"]);
 		if (isObject(node)) {
-			const { external } = node;
+			const { external, status } = node;
 			check(
 				external === undefined || typeof external === "boolean",
 				`${at}/external`,
 				"`true` or `false`",
 			);
+			check(status === undefined || typeof status === "string", `${at}/status`, "a string");
 		}
 	});
 	checkList(input.groups, "/groups", () => {});

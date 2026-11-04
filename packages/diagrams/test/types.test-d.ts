@@ -49,3 +49,11 @@ test("declaring a Node returns a handle that an Edge accepts", () => {
 		d.edge(api, 7, { kind: "call" });
 	});
 });
+
+test("a status that the Notation doesn't have is a type error", () => {
+	architecture({ title: "Shop" }, (d) => {
+		d.node({ id: "shop-api", kind: "service", title: "Shop API", status: "degraded" });
+		// @ts-expect-error: `broken` isn't a status.
+		d.node({ id: "shop-db", kind: "database", title: "Shop database", status: "broken" });
+	});
+});

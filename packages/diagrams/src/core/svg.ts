@@ -10,9 +10,11 @@
 
 import {
 	type ArchitectureNodeLook,
+	type ArchitectureStatus,
 	architectureFamilies,
 	architectureNodeKinds,
 	architectureNodeLooks,
+	architectureStatuses,
 } from "../notations/architecture.ts";
 import { outlines, type PathData } from "./outlines.ts";
 import type { Point, Scene, SceneEdge, SceneNode } from "./scene.ts";
@@ -40,6 +42,21 @@ const fontWeights: Record<FontWeight, number> = { regular: 400, semibold: 600 };
 /** How opaque the hue is in the solid parts of an outline, such as a window's title bar. */
 const solidOpacity = 0.5;
 const badgeStroke = 1.5;
+
+/**
+ * Each status's mark, drawn in a box 12 px square: a shape of its own, in a
+ * color of its own, so that color is never the only signal.
+ */
+const statusMarks: Record<ArchitectureStatus, { path: string; color: ColorName; line: boolean }> = {
+	// A dot.
+	ok: { path: "M 1 6 A 5 5 0 1 0 11 6 A 5 5 0 1 0 1 6 Z", color: "ok", line: false },
+	// A warning triangle.
+	degraded: { path: "M 6 1.5 L 11 10.5 H 1 Z", color: "warn", line: false },
+	// A cross.
+	down: { path: "M 2.5 2.5 L 9.5 9.5 M 9.5 2.5 L 2.5 9.5", color: "danger", line: true },
+	// A square.
+	unknown: { path: "M 1.75 1.75 H 10.25 V 10.25 H 1.75 Z", color: "muted", line: false },
+};
 
 export function writeSvg(scene: Scene, fontData?: FontData): string {
 	const { bounds } = scene;
@@ -173,6 +190,15 @@ function colorUses(scene: Scene): ColorUse[] {
 			? []
 			: [{ selector: ".diagram-base", property: "fill", color: "surface" } as const]),
 		...hues,
+		...architectureStatuses
+			.filter((status) => scene.nodes.some((node) => node.status?.value === status))
+			.map(
+				(status): ColorUse => ({
+					selector: `.diagram-status-${status}`,
+					property: "color",
+					color: statusMarks[status].color,
+				}),
+			),
 		...(scene.nodes.length === 0
 			? []
 			: [{ selector: ".diagram-title", property: "fill", color: "ink" } as const]),
@@ -264,6 +290,7 @@ function writeNode(node: SceneNode): string[] {
 			],
 			title.text,
 		),
+		...(node.status === undefined ? [] : [writeStatus(node.status)]),
 	];
 	return [
 		start("g", [
@@ -273,6 +300,34 @@ function writeNode(node: SceneNode): string[] {
 		...parts.map((text) => indent(1, text)),
 		"</g>",
 	];
+}
+
+function writeStatus({ value, mark }: { value: string; mark: { x: number; y: number } }): string {
+	const look = (statusMarks as Partial<Record<string, (typeof statusMarks)[ArchitectureStatus]>>)[
+		value
+	];
+	if (look === undefined) {
+		throw new Error(`Status ${value} has no mark, so validation should have rejected it`);
+	}
+	const paint: Attribute[] = look.line
+		? [
+				["fill", "none"],
+				["stroke", "currentColor"],
+				["stroke-width", 2.5],
+				["stroke-linecap", "round"],
+			]
+		: [
+				["fill", "currentColor"],
+				["stroke", "currentColor"],
+				["stroke-width", 1],
+				["stroke-linejoin", "round"],
+			];
+	return empty("path", [
+		["class", `diagram-status-${value}`],
+		["transform", `translate(${number(mark.x)} ${number(mark.y)})`],
+		["d", look.path],
+		...paint,
+	]);
 }
 
 function lookOf(kind: string): ArchitectureNodeLook {
