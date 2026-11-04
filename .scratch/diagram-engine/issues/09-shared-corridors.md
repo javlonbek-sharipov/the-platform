@@ -18,6 +18,7 @@
 **Spec:**
 
 - [Edge routing](../spec.md#edge-routing): steps 2, 4, 5 and 6
+- [Layout](../spec.md#layout): step 6, the gap between ranks
 - [The JSON model](../spec.md#the-json-model): Rules › Ids
 - [Seam 1](../spec.md#seam-1-the-core-in-memory): Speed
 
@@ -26,6 +27,7 @@
 **Capacity**
 
 - [ ] Each open segment's capacity is its free width divided by the lane spacing.
+- [ ] Each gap between two ranks leaves room for the lanes of the Edges that span it. Ticket 02 left the gap a fixed width; ticket 10 adds room for labels.
 
 **Bundling**
 
@@ -58,3 +60,7 @@
 - [ ] The crowded fixture has about 60 Nodes and 150 Edges, a wide fan-out squeezed through one corridor, and several nested Groups.
 - [ ] In the test suite, the crowded fixture lays out and routes in less than a generous time limit. A separate benchmark reports the real time.
 - [ ] A golden file covers the crowded fixture.
+
+## Comments
+
+- Orchestrator: added the rank-gap checkbox under **Capacity**. Ticket 02 found that no ticket covered the lanes half of Layout step 6 ("Each gap between two ranks leaves room for the labels and lanes of the Edges that span it"); ticket 10 covers the labels half.
