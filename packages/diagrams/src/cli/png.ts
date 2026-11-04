@@ -31,15 +31,15 @@ export interface PngOptions {
  * every text falls back to their family.
  */
 export function drawPng(svg: string, { theme, scale }: PngOptions): Uint8Array {
-	const { drawn, faces } = forResvg(svg, theme);
+	const drawn = forResvg(svg, theme);
 	const folder = mkdtempSync(join(tmpdir(), "diagrams-fonts-"));
 	try {
-		const fontFiles = faces.map((face, index) => {
+		const fontFiles = drawn.faces.map((face, index) => {
 			const file = join(folder, `${index}.ttf`);
 			writeFileSync(file, face);
 			return file;
 		});
-		return new Resvg(drawn, {
+		return new Resvg(drawn.svg, {
 			fitTo: { mode: "zoom", value: scale },
 			font: { loadSystemFonts: false, fontFiles },
 		})
@@ -65,18 +65,18 @@ interface Rule {
  * resvg would skip it anyway. And texts get their `dominant-baseline` in a
  * way resvg reads.
  */
-function forResvg(svg: string, theme: Theme): { drawn: string; faces: Uint8Array[] } {
+function forResvg(source: string, theme: Theme): { svg: string; faces: Uint8Array[] } {
 	const open = "<style>";
 	const close = "</style>";
-	const start = svg.indexOf(open);
-	const end = svg.indexOf(close, start);
+	const start = source.indexOf(open);
+	const end = source.indexOf(close, start);
 	if (start < 0 || end < 0) {
-		return { drawn: svg, faces: [] };
+		return { svg: source, faces: [] };
 	}
 	const rules: Rule[] = [];
 	const dark = new Map<string, Rule>();
 	const faces: Uint8Array[] = [];
-	for (const { prelude, body } of blocks(svg.slice(start + open.length, end))) {
+	for (const { prelude, body } of blocks(source.slice(start + open.length, end))) {
 		if (/^@media\s*\(\s*prefers-color-scheme\s*:\s*dark\s*\)$/.test(prelude)) {
 			for (const block of blocks(body)) {
 				dark.set(block.prelude, rule(block));
@@ -96,7 +96,7 @@ function forResvg(svg: string, theme: Theme): { drawn: string; faces: Uint8Array
 	// the SVG sets it once, on the group around every Node. So each text inside
 	// an element that sets it gets it directly. No text sets one of its own.
 	const baselines = new Set(
-		[...svg.slice(end).matchAll(/ dominant-baseline="([a-z-]+)"/g)].map(([, value]) => value),
+		[...source.slice(end).matchAll(/ dominant-baseline="([a-z-]+)"/g)].map(([, value]) => value),
 	);
 	const style = [
 		...chosen.map(resolvedText),
@@ -105,7 +105,7 @@ function forResvg(svg: string, theme: Theme): { drawn: string; faces: Uint8Array
 		),
 	].join("\n");
 	return {
-		drawn: `${svg.slice(0, start)}${open}\n${style}\n${close}${svg.slice(end + close.length)}`,
+		svg: `${source.slice(0, start)}${open}\n${style}\n${close}${source.slice(end + close.length)}`,
 		faces,
 	};
 }
