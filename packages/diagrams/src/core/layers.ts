@@ -49,7 +49,10 @@ export function arrange(
 	const { rank, kept } = rankMembers(members.length, connections);
 	const vertices = layered(members, rank, kept);
 	const ranks = orderRanks(vertices);
-	return place(vertices, ranks, spacing).slice(0, members.length);
+	const across = alignAcross(vertices, ranks, spacing.clearance);
+	const along = ranksAlong(vertices, ranks, spacing.rankGap);
+	const top = Math.min(...members.map((member, index) => (across[index] ?? 0) - member.before));
+	return members.map((_, index) => ({ x: along[index] ?? 0, y: (across[index] ?? 0) - top }));
 }
 
 /**
@@ -120,6 +123,7 @@ function rankMembers(count: number, connections: Connection[]) {
 /** A member, or a placeholder for a connection that passes through a rank. */
 interface Vertex {
 	rank: number;
+	placeholder: boolean;
 	/** Placeholders have no size. */
 	depth: number;
 	before: number;
@@ -137,6 +141,7 @@ function layered(members: Member[], rank: number[], kept: Connection[]): Vertex[
 	const vertices: Vertex[] = members.map((member, index) => ({
 		...member,
 		rank: rank[index] ?? 0,
+		placeholder: false,
 		upper: [],
 		lower: [],
 	}));
@@ -147,7 +152,15 @@ function layered(members: Member[], rank: number[], kept: Connection[]): Vertex[
 	for (const { from, to } of kept) {
 		let previous = from;
 		for (let passed = (rank[from] ?? 0) + 1; passed < (rank[to] ?? 0); passed += 1) {
-			vertices.push({ rank: passed, depth: 0, before: 0, after: 0, upper: [], lower: [] });
+			vertices.push({
+				rank: passed,
+				placeholder: true,
+				depth: 0,
+				before: 0,
+				after: 0,
+				upper: [],
+				lower: [],
+			});
 			join(previous, vertices.length - 1);
 			previous = vertices.length - 1;
 		}
@@ -241,24 +254,154 @@ function crossings(ranks: number[][], lower: number[][]): number {
 	return count;
 }
 
-/**
- * Coordinates: each rank becomes a line along the rank axis, and its vertices
- * are stacked across it in order, the clearance apart.
- */
-function place(vertices: Vertex[], ranks: number[][], spacing: Spacing): Placement[] {
-	const placements: Placement[] = vertices.map(() => ({ x: 0, y: 0 }));
+/** Each vertex's rank line, along the rank axis: the ranks follow each other, a gap apart. */
+function ranksAlong(vertices: Vertex[], ranks: number[][], rankGap: number): number[] {
+	const along: number[] = vertices.map(() => 0);
 	let line = 0;
 	let previousDepth = 0;
 	for (const [index, rank] of ranks.entries()) {
 		const depth = Math.max(...rank.map((vertex) => vertices[vertex]?.depth ?? 0));
-		line = index === 0 ? depth / 2 : line + previousDepth / 2 + spacing.rankGap + depth / 2;
+		line = index === 0 ? depth / 2 : line + previousDepth / 2 + rankGap + depth / 2;
 		previousDepth = depth;
-		let edge = 0;
 		for (const vertex of rank) {
-			const { before = 0, after = 0 } = vertices[vertex] ?? {};
-			placements[vertex] = { x: line, y: edge + before };
-			edge += before + after + spacing.clearance;
+			along[vertex] = line;
 		}
 	}
-	return placements;
+	return along;
+}
+
+/**
+ * Each vertex's Ports' line, across the ranks. It follows Brandes and Köpf
+ * (2001): vertices are aligned into blocks with their median neighbors, in
+ * four ways, and each way packs its blocks as tightly as the order and the
+ * clearance allow. Rather than balancing the four, the way that leaves the
+ * fewest segments bent wins, then the one whose bends are shortest in total,
+ * then the earlier one. So a Node lines up with one of its neighbors, where
+ * the paper's balancing would often put it between two.
+ */
+function alignAcross(vertices: Vertex[], ranks: number[][], clearance: number): number[] {
+	let best: number[] = [];
+	let bestCost = [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY];
+	for (const fromBelow of [false, true]) {
+		for (const fromEnd of [false, true]) {
+			const across = alignOneWay(vertices, ranks, clearance, fromBelow, fromEnd);
+			const cost = bends(vertices, across);
+			if (
+				cost[0] < (bestCost[0] ?? 0) ||
+				(cost[0] === bestCost[0] && cost[1] < (bestCost[1] ?? 0))
+			) {
+				best = across;
+				bestCost = cost;
+			}
+		}
+	}
+	return best;
+}
+
+/**
+ * One of the four ways: align each vertex with a median neighbor in the rank
+ * before it (or, `fromBelow`, after it), working from the start of each rank
+ * (or, `fromEnd`, from its end), then pack the blocks toward that start.
+ */
+function alignOneWay(
+	vertices: Vertex[],
+	ranks: number[][],
+	clearance: number,
+	fromBelow: boolean,
+	fromEnd: boolean,
+): number[] {
+	const layers = (fromBelow ? [...ranks].reverse() : ranks).map((rank) =>
+		fromEnd ? [...rank].reverse() : rank,
+	);
+	const position: number[] = vertices.map(() => 0);
+	const layerOf: number[] = vertices.map(() => 0);
+	layers.forEach((layer, index) => {
+		layer.forEach((vertex, at) => {
+			position[vertex] = at;
+			layerOf[vertex] = index;
+		});
+	});
+	const root = vertices.map((_, vertex) => vertex);
+	const align = vertices.map((_, vertex) => vertex);
+
+	for (const layer of layers.slice(1)) {
+		let taken = -1;
+		for (const vertex of layer) {
+			const around = [...((fromBelow ? vertices[vertex]?.lower : vertices[vertex]?.upper) ?? [])];
+			around.sort((a, b) => (position[a] ?? 0) - (position[b] ?? 0));
+			const medians = [...new Set([(around.length - 1) >> 1, around.length >> 1])];
+			for (const median of around.length === 0 ? [] : medians) {
+				const neighbor = around[median] ?? 0;
+				const at = position[neighbor] ?? 0;
+				if (align[vertex] === vertex && taken < at) {
+					align[neighbor] = vertex;
+					root[vertex] = root[neighbor] ?? neighbor;
+					align[vertex] = root[vertex] ?? vertex;
+					taken = at;
+				}
+			}
+		}
+	}
+
+	// How far past a vertex its neighbor toward the start of the rank must be.
+	const separation = (earlier: number, later: number) => {
+		const [first, second] = fromEnd ? [later, earlier] : [earlier, later];
+		return (vertices[first]?.after ?? 0) + clearance + (vertices[second]?.before ?? 0);
+	};
+	const blockOf = (start: number) => {
+		const block = [start];
+		for (let next = align[start] ?? start; next !== start; next = align[next] ?? start) {
+			block.push(next);
+		}
+		return block;
+	};
+	const placed = new Map<number, number>();
+	for (const start of root) {
+		const pending = [start];
+		for (let block = pending.at(-1); block !== undefined; block = pending.at(-1)) {
+			if (placed.has(block)) {
+				pending.pop();
+				continue;
+			}
+			let at = 0;
+			let ready = true;
+			for (const vertex of blockOf(block)) {
+				const before = layers[layerOf[vertex] ?? 0]?.[(position[vertex] ?? 0) - 1];
+				if (before !== undefined) {
+					const other = root[before] ?? before;
+					const where = placed.get(other);
+					if (where === undefined) {
+						pending.push(other);
+						ready = false;
+					} else {
+						at = Math.max(at, where + separation(before, vertex));
+					}
+				}
+			}
+			if (ready) {
+				placed.set(block, at);
+				pending.pop();
+			}
+		}
+	}
+	return vertices.map((_, vertex) => {
+		const at = placed.get(root[vertex] ?? vertex) ?? 0;
+		return fromEnd ? -at : at;
+	});
+}
+
+/** How many segments are bent, and how far they bend in total. */
+function bends(vertices: Vertex[], across: number[]): [number, number] {
+	let bent = 0;
+	let total = 0;
+	vertices.forEach((vertex, index) => {
+		for (const lower of vertex.lower) {
+			const jog = Math.abs((across[index] ?? 0) - (across[lower] ?? 0));
+			if (jog > 0) {
+				bent += 1;
+				total += jog;
+			}
+		}
+	});
+	return [bent, total];
 }

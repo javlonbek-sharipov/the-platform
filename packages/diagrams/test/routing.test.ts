@@ -59,11 +59,12 @@ describe("the minimal route", () => {
 			return [edge.id, edge.route.length === 2 ? "straight" : `${edge.route.length - 2} bend`];
 		});
 
+		// Layout lines the shop API up with its database, and the mailer with the events queue.
 		expect(shapes).toEqual([
 			["web-app->shop-api", "straight"],
 			["shop-api->shop-db", "straight"],
 			["shop-api->shop-events", "1 bend"],
-			["shop-events->mailer", "1 bend"],
+			["shop-events->mailer", "straight"],
 		]);
 	});
 });

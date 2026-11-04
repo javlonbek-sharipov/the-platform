@@ -216,6 +216,17 @@ function skippingEdge(direction: Direction, skips = true): Diagram {
 	});
 }
 
+/** Whether an Edge runs straight: its two Ports are level across the ranks. */
+function straight(scene: Scene, from: string, to: string): boolean {
+	const source = scene.nodes.find((node) => node.id === from);
+	const target = scene.nodes.find((node) => node.id === to);
+	if (source === undefined || target === undefined) {
+		throw new Error(`no Nodes ${from} and ${to}`);
+	}
+	const [a, b] = [source.output.point, target.input.point];
+	return source.output.side === "right" ? a.y === b.y : a.x === b.x;
+}
+
 /** Each fixture, with the Edges that close a cycle in it. */
 const fixtures: [string, (direction: Direction) => Diagram, string[]][] = [
 	["a chain", chain, []],
@@ -346,6 +357,32 @@ describe.each(directions)("a Diagram laid out %s", (direction) => {
 		expect(across(reversed, "orders-search")).toBe(across(targets, "orders-db"));
 		expect(across(reversed, "orders-cache")).toBe(across(targets, "orders-cache"));
 		expect(across(reversed, "orders-db")).toBe(across(targets, "orders-search"));
+	});
+
+	test("keeps a chain straight", () => {
+		const scene = sceneOf(chain(direction));
+		expect(straight(scene, "web-app", "shop-api")).toBe(true);
+		expect(straight(scene, "shop-api", "shop-db")).toBe(true);
+	});
+
+	test("lines a Node up with the middle one of three it fans out to, or that fan into it", () => {
+		const out = sceneOf(fanOut(direction));
+		expect(
+			["orders-db", "orders-cache", "orders-search"].map((id) => straight(out, "orders-api", id)),
+		).toEqual([false, true, false]);
+
+		const into = sceneOf(fanIn(direction));
+		expect(
+			["web-app", "mobile-app", "partner-api"].map((id) => straight(into, id, "api-gateway")),
+		).toEqual([false, true, false]);
+	});
+
+	test("keeps one straight path through a diamond", () => {
+		const scene = sceneOf(diamond(direction));
+		const through = ["orders-api", "stock-api"].filter(
+			(middle) => straight(scene, "api-gateway", middle) && straight(scene, middle, "shop-db"),
+		);
+		expect(through).toEqual(["orders-api"]);
 	});
 
 	test("centers the members of each rank on the rank's line", () => {
