@@ -64,3 +64,4 @@ export {
 	architectureNodeLooks,
 	architectureStatuses,
 } from "./notations/architecture.ts";
+export { technologies } from "./notations/technologies.ts";
