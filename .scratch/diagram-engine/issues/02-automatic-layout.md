@@ -9,7 +9,7 @@
 
 **Blocked by:** 01 A Diagram from source to committed SVG.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Spec:**
 
@@ -64,3 +64,5 @@
 - **Not covered by any ticket.** Layout step 6 says that each gap between two ranks leaves room for the labels and lanes of the Edges that span it. Ticket 10 covers the labels, but no ticket covers the lanes. Until one does, the gap is a fixed 96 px.
 - **Until ticket 03.** The minimal route bends once, turning horizontally first. So in a `down` Diagram, an Edge that bends first runs along its source's bottom side.
 - **Merging with ticket 03.** Both tickets place the header Ports by direction. Ticket 03's grid needs the clearance that layout keeps, which the scene now carries as `clearance`.
+
+Merged into diagram-engine in d8d3d69.
