@@ -5,7 +5,7 @@
  * matches measured text.
  */
 
-import type { Diagram } from "../authoring/model.ts";
+import type { Diagram, Row } from "../authoring/model.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { fontMetrics } from "./font-metrics.ts";
 import type { Box, SceneNode, SceneText } from "./scene.ts";
@@ -45,6 +45,11 @@ const metrics: Record<FontWeight, Metrics> = {
 const titleSize = 14;
 /** The room a title leaves on each side, between it and the edge of its Node. */
 const titlePadding = 12;
+const rowSize = 12;
+/** The room a Row leaves on each side, between its text and the edge of its Node. */
+const rowPadding = 12;
+/** The least room between a Row's name and its value. */
+const rowGap = 8;
 const ellipsis = "…";
 
 /** A Node's title, centered in its header, and shortened if it's too wide for the header. */
@@ -57,36 +62,127 @@ export function nodeTitle(title: string, header: Box): SceneText {
 	};
 }
 
-/** A warning for each title with characters that the font lacks, and for each one shortened. */
-export function titleDiagnostics(diagram: Diagram, nodes: SceneNode[]): Diagnostic[] {
-	const titles = new Map(nodes.map((node) => [node.id, node.title]));
-	return diagram.nodes.flatMap((node, index) => {
-		const diagnostics: Diagnostic[] = [];
-		const pointer = `/nodes/${index}/title`;
-		const missing = missingCharacters(collapseSpaces(node.title), "semibold");
-		if (missing.length > 0) {
-			const listed = list(missing.map((character) => `${character} (${codePointOf(character)})`));
-			diagnostics.push({
-				severity: "warning",
-				rule: "glyph-missing",
-				message:
-					missing.length === 1
-						? `Node \`${node.id}\`'s title has a character that the bundled font lacks: ${listed}. It's measured at an average width, and drawn in a fallback font.`
-						: `Node \`${node.id}\`'s title has characters that the bundled font lacks: ${listed}. They're measured at an average width, and drawn in a fallback font.`,
-				pointer,
-			});
-		}
-		const title = titles.get(node.id);
-		if (title?.shortened === true) {
-			diagnostics.push({
-				severity: "warning",
-				rule: "text-shortened",
-				message: `Node \`${node.id}\`'s title is too wide for its Node, so it's shortened to \`${title.text}\`. Choose a shorter title to show it in full.`,
-				pointer,
-			});
-		}
-		return diagnostics;
+/**
+ * A Row's text, level in the middle of its band: its name on the left, and
+ * its value, if it has one, on the right. When the two don't fit side by
+ * side, the name is shortened first, as far as its first character and an
+ * ellipsis, and only then the value.
+ */
+export function rowTexts(row: Row, band: Box): { name: SceneText; value?: SceneText } {
+	const y = band.y + band.height / 2;
+	const left = band.x + rowPadding;
+	const right = band.x + band.width - rowPadding;
+	const room = right - left;
+	const text = (fitted: Fitted, x: number): SceneText => ({
+		...fitted,
+		point: { x, y },
+		weight: "regular",
+		size: rowSize,
 	});
+	const name = collapseSpaces(row.name);
+	const value = row.value === undefined ? "" : collapseSpaces(row.value);
+	if (value === "") {
+		const alone = fit(name, "regular", rowSize, room);
+		return { name: text(alone, left + alone.width / 2) };
+	}
+	const shortest = fit(name, "regular", rowSize, rowWidthOf(`${[...name][0] ?? ""}${ellipsis}`));
+	const fittedValue = fit(value, "regular", rowSize, room - rowGap - shortest.width);
+	const fittedName = fittedValue.shortened
+		? shortest
+		: fit(name, "regular", rowSize, room - rowGap - fittedValue.width);
+	return {
+		name: text(fittedName, left + fittedName.width / 2),
+		value: text(fittedValue, right - fittedValue.width / 2),
+	};
+}
+
+/** A text's width in a Row: its characters' advance widths, summed. */
+function rowWidthOf(text: string): number {
+	const units = [...text].reduce((sum, character) => sum + unitsOf(character, "regular"), 0);
+	return (units * rowSize) / metrics.regular.unitsPerEm;
+}
+
+/**
+ * A warning for each piece of text with characters that the font lacks, and
+ * for each one shortened: every Node's title, and its Rows' names and values.
+ */
+export function textDiagnostics(diagram: Diagram, nodes: SceneNode[]): Diagnostic[] {
+	const drawn = new Map(nodes.map((node) => [node.id, node]));
+	return diagram.nodes.flatMap((node, index) => {
+		const scene = drawn.get(node.id);
+		const named = `Node \`${node.id}\``;
+		const title: CheckedText = {
+			source: node.title,
+			drawn: scene?.title,
+			weight: "semibold",
+			pointer: `/nodes/${index}/title`,
+			lacking: (some) => `${named}'s title has ${some} that the bundled font lacks`,
+			shortened: (text) =>
+				`${named}'s title is too wide for its Node, so it's shortened to \`${text}\`. Choose a shorter title to show it in full.`,
+		};
+		const rows = (node.rows ?? []).flatMap((row, at) => {
+			const rowNamed = `${named}'s Row \`${collapseSpaces(row.name)}\``;
+			return (["name", "value"] as const).flatMap((field): CheckedText[] => {
+				const source = row[field];
+				return source === undefined
+					? []
+					: [
+							{
+								source,
+								drawn: scene?.rows[at]?.[field],
+								weight: "regular",
+								pointer: `/nodes/${index}/rows/${at}/${field}`,
+								lacking: (some) =>
+									`${rowNamed} has ${some} in its ${field} that the bundled font lacks`,
+								shortened: (text) =>
+									`${rowNamed} is too wide for its Node, so its ${field} is shortened to \`${text}\`. Choose a shorter name or value to show it in full.`,
+							},
+						];
+			});
+		});
+		return [title, ...rows].flatMap(warningsAbout);
+	});
+}
+
+/** A piece of text that a Node draws, and how warnings about it read. */
+interface CheckedText {
+	/** The text as the model gives it. */
+	source: string;
+	/** The text as the scene draws it. */
+	drawn: SceneText | undefined;
+	weight: FontWeight;
+	pointer: string;
+	/** The start of a warning about characters the font lacks, given `a character` or `characters`. */
+	lacking: (some: string) => string;
+	/** A warning that the text was shortened, given the text drawn. */
+	shortened: (text: string) => string;
+}
+
+/** A warning if the text has characters that the font lacks, and one if it was shortened. */
+function warningsAbout(text: CheckedText): Diagnostic[] {
+	const diagnostics: Diagnostic[] = [];
+	const missing = missingCharacters(collapseSpaces(text.source), text.weight);
+	if (missing.length > 0) {
+		const listed = list(missing.map((character) => `${character} (${codePointOf(character)})`));
+		diagnostics.push({
+			severity: "warning",
+			rule: "glyph-missing",
+			message:
+				missing.length === 1
+					? `${text.lacking("a character")}: ${listed}. It's measured at an average width, and drawn in a fallback font.`
+					: `${text.lacking("characters")}: ${listed}. They're measured at an average width, and drawn in a fallback font.`,
+			pointer: text.pointer,
+		});
+	}
+	if (text.drawn?.shortened === true) {
+		diagnostics.push({
+			severity: "warning",
+			rule: "text-shortened",
+			message: text.shortened(text.drawn.text),
+			pointer: text.pointer,
+		});
+	}
+	return diagnostics;
 }
 
 /** Each character in the text that the font lacks, once, in order. */
@@ -115,17 +211,19 @@ function collapseSpaces(text: string): string {
 	return text.replace(/[ \t\n\r]+/g, " ").replace(/^ | $/g, "");
 }
 
+/** A text as it fits in a given width, and the width it's drawn at. */
+interface Fitted {
+	text: string;
+	width: number;
+	shortened: boolean;
+}
+
 /**
  * The text as it fits in `maxWidth`. A text that's too wide keeps the longest
  * start that fits with an ellipsis after it, leaving out spaces before the
  * ellipsis.
  */
-function fit(
-	text: string,
-	weight: FontWeight,
-	size: number,
-	maxWidth: number,
-): { text: string; width: number; shortened: boolean } {
+function fit(text: string, weight: FontWeight, size: number, maxWidth: number): Fitted {
 	const { unitsPerEm } = metrics[weight];
 	// Comparing in font units, multiplied out, keeps every comparison exact.
 	const fits = (units: number) => units * size <= maxWidth * unitsPerEm;

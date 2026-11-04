@@ -6,6 +6,7 @@ import {
 	architecture,
 	atlas,
 	type NodeHandle,
+	type RowEnd,
 } from "../src/index.ts";
 
 test("the architecture Notation has 12 Node Kinds and two Edge Kinds", () => {
@@ -46,9 +47,44 @@ test("declaring a Node returns a handle that an Edge accepts", () => {
 	architecture({ title: "Shop" }, (d) => {
 		const api = d.node({ id: "shop-api", kind: "service", title: "Shop API" });
 		expectTypeOf(api).toEqualTypeOf<NodeHandle>();
-		expectTypeOf(d.edge).parameter(0).toExtend<NodeHandle | string>();
+		expectTypeOf(d.edge).parameter(0).toExtend<NodeHandle | RowEnd | string>();
 		// @ts-expect-error: an Edge end is a handle or an id, not a number.
 		d.edge(api, 7, { kind: "call" });
+	});
+});
+
+test("a Node handle carries its Rows' names, so naming a Row the Node doesn't have is a type error", () => {
+	architecture({ title: "Shop" }, (d) => {
+		const api = d.node({ id: "shop-api", kind: "service", title: "Shop API" });
+		const db = d.node({
+			id: "shop-db",
+			kind: "database",
+			title: "Shop database",
+			rows: [{ name: "orders", value: "table" }, { name: "stock" }],
+		});
+		expectTypeOf(db).toEqualTypeOf<NodeHandle<"orders" | "stock">>();
+		d.edge(api, db.row("orders"), { kind: "call" });
+		d.edge(db.row("stock"), api, { kind: "message" });
+		// @ts-expect-error: `shop-db` has no Row `order`.
+		d.edge(api, db.row("order"), { kind: "call" });
+		// @ts-expect-error: `shop-api` has no Rows at all.
+		d.edge(api.row("orders"), db, { kind: "call" });
+	});
+});
+
+test("a Node defined once, as a constant, carries its Rows' names to every Diagram", () => {
+	const ordersDb = {
+		id: "orders-db",
+		kind: "database",
+		title: "Orders database",
+		rows: [{ name: "orders", value: "table" }],
+	} as const satisfies ArchitectureNode;
+
+	architecture({ title: "Orders" }, (d) => {
+		const db = d.node(ordersDb);
+		expectTypeOf(db).toEqualTypeOf<NodeHandle<"orders">>();
+		// @ts-expect-error: `orders-db` has no Row `stock`.
+		db.row("stock");
 	});
 });
 

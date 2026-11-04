@@ -31,7 +31,18 @@ export interface Node {
 	id: string;
 	kind: ArchitectureNodeKind;
 	title: string;
+	/** Drawn below the Node's header, one band each, in order. */
+	rows?: Row[];
 	links?: Link[];
+}
+
+/**
+ * A name and a value shown on a Node, such as `replicas: 3`. Every Row has a
+ * pair of Ports, one on each side of its Node.
+ */
+export interface Row {
+	name: string;
+	value?: string;
 }
 
 /**
@@ -61,11 +72,28 @@ export interface DocLink {
 	id?: never;
 }
 
+/**
+ * Each end of an Edge is the id of a Node, whose header Port the Edge uses,
+ * or one of the Node's Rows, whose Port on the matching side it uses instead.
+ */
 export interface Edge {
 	id: string;
 	kind: ArchitectureEdgeKind;
-	/** The id of the Node the Edge leaves from. */
-	from: string;
-	/** The id of the Node the Edge enters. */
-	to: string;
+	/** Where the Edge leaves from. */
+	from: string | RowEnd;
+	/** Where the Edge enters. */
+	to: string | RowEnd;
+}
+
+/** An Edge end at one of a Node's Rows. */
+export interface RowEnd {
+	/** The Node's id. */
+	node: string;
+	/** The Row's name. */
+	row: string;
+}
+
+/** The id of the Node at an Edge end. */
+export function endNode(end: string | RowEnd): string {
+	return typeof end === "string" ? end : end.node;
 }

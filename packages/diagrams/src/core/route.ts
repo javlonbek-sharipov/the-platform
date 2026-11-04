@@ -5,7 +5,7 @@
  * the Edge falls back to a simple route, and the router warns about it.
  */
 
-import type { Diagram, Direction } from "../authoring/model.ts";
+import { type Diagram, endNode, type RowEnd } from "../authoring/model.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { buildGrid, type Grid, pointOf, vertexAt } from "./grid.ts";
 import { clearance } from "./layout.ts";
@@ -48,6 +48,20 @@ const outOf: Record<Side, Heading> = {
 
 export function route(diagram: Diagram, nodes: SceneNode[], options: RouteOptions = {}): Routing {
 	const byId = new Map(nodes.map((node) => [node.id, node]));
+	const rowNames = new Map(
+		diagram.nodes.map((node) => [node.id, (node.rows ?? []).map((row) => row.name)]),
+	);
+	/**
+	 * The Port an Edge end uses on the given side: its Node's header Port, or
+	 * the Port of the Row it names.
+	 */
+	const portOf = (end: string | RowEnd, side: "input" | "output"): ScenePort | undefined => {
+		const node = byId.get(endNode(end));
+		if (typeof end === "string") {
+			return node?.[side];
+		}
+		return node?.rows[rowNames.get(end.node)?.indexOf(end.row) ?? -1]?.[side];
+	};
 	const grid = buildGrid(nodes, clearance);
 	const search = searchOn(grid);
 	const budget = options.searchBudget ?? defaultSearchBudget;
@@ -55,20 +69,24 @@ export function route(diagram: Diagram, nodes: SceneNode[], options: RouteOption
 	// the order the Diagram declares its Edges in.
 	const routed = new Map<string, SceneEdge>();
 	for (const edge of [...diagram.edges].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
-		const from = byId.get(edge.from);
-		const to = byId.get(edge.to);
-		if (from === undefined || to === undefined) {
-			throw new Error(`Edge ${edge.id} ends at a Node that validation should have rejected`);
+		const from = byId.get(endNode(edge.from));
+		const to = byId.get(endNode(edge.to));
+		const fromPort = portOf(edge.from, "output");
+		const toPort = portOf(edge.to, "input");
+		if (from === undefined || to === undefined || fromPort === undefined || toPort === undefined) {
+			throw new Error(`Edge ${edge.id} ends at a Port that validation should have rejected`);
 		}
-		const found = searchRoute(grid, search, from.output, to.input, budget);
+		const found = searchRoute(grid, search, fromPort, toPort, budget);
 		routed.set(edge.id, {
 			id: edge.id,
 			kind: edge.kind,
-			from: edge.from,
-			to: edge.to,
-			fromPort: from.output,
-			toPort: to.input,
-			route: roundCorners(polyline(found ?? fallbackRoute(from, to, diagram.direction))),
+			from: from.id,
+			...(typeof edge.from === "string" ? {} : { fromRow: edge.from.row }),
+			to: to.id,
+			...(typeof edge.to === "string" ? {} : { toRow: edge.to.row }),
+			fromPort,
+			toPort,
+			route: roundCorners(polyline(found ?? fallbackRoute(fromPort, toPort, [from.box, to.box]))),
 			fellBack: found === undefined,
 		});
 	}
@@ -124,25 +142,43 @@ function searchRoute(
  * and runs on. Otherwise it steps out of the source's Port, moves to a lane
  * beyond both Nodes, travels back past them, and enters the target from its
  * input side.
+ *
+ * "Along the direction" means the way the Ports' stubs run, which for header
+ * Ports is the Diagram's direction. A Row's Ports sit on its Node's left and
+ * right sides even on a Diagram drawn `down`. So when one stub runs along x
+ * and the other along y, the route joins the ends of the two stubs with a
+ * single corner, leaving each stub at a right angle.
  */
-function fallbackRoute(from: SceneNode, to: SceneNode, direction: Direction): Point[] {
-	// Worked out as if the direction were `right`: for `down`, x and y swap
-	// on the way in, and swap back on the way out.
-	const turn = direction === "down" ? transpose : (point: Point) => point;
-	const start = turn(from.output.point);
-	const out = turn(from.output.stub);
-	const end = turn(to.input.point);
-	const into = turn(to.input.stub);
+function fallbackRoute(fromPort: ScenePort, toPort: ScenePort, nodeBoxes: Box[]): Point[] {
+	const alongX = runsAlongX(fromPort.side);
+	if (alongX !== runsAlongX(toPort.side)) {
+		const corner = alongX
+			? { x: fromPort.stub.x, y: toPort.stub.y }
+			: { x: toPort.stub.x, y: fromPort.stub.y };
+		return [fromPort.point, fromPort.stub, corner, toPort.stub, toPort.point];
+	}
+	// Worked out as if both stubs ran along x, as for `right`: when they run
+	// along y, x and y swap on the way in, and swap back on the way out.
+	const turn = alongX ? (point: Point) => point : transpose;
+	const start = turn(fromPort.point);
+	const out = turn(fromPort.stub);
+	const end = turn(toPort.point);
+	const into = turn(toPort.stub);
 	if (into.x >= out.x) {
 		const middle = (start.x + end.x) / 2;
 		return [start, { x: middle, y: start.y }, { x: middle, y: end.y }, end].map(turn);
 	}
-	const boxes = [from.box, to.box].map((box) => (direction === "down" ? transposeBox(box) : box));
+	const boxes = nodeBoxes.map((box) => (alongX ? box : transposeBox(box)));
 	const above = Math.min(...boxes.map((box) => box.y)) - clearance / 2;
 	const below = Math.max(...boxes.map((box) => box.y + box.height)) + clearance / 2;
 	const lane =
 		start.y - above + (end.y - above) < below - start.y + (below - end.y) ? above : below;
 	return [start, out, { x: out.x, y: lane }, { x: into.x, y: lane }, into, end].map(turn);
+}
+
+/** Whether a stub out of this side runs along x. */
+function runsAlongX(side: Side): boolean {
+	return side === "left" || side === "right";
 }
 
 function transpose({ x, y }: Point): Point {

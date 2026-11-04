@@ -1,6 +1,6 @@
 # Example system
 
-A shop's web app calls the shop's gateway, which calls the Orders API. The Orders API stores each order in its database and announces it on the order events queue, which the Payments API listens to.
+A shop's web app calls the shop's gateway, which calls the Orders API. The Orders API stores each order in its database and announces it on the order events queue. The Payments API listens to the queue's `order-placed` topic, so its Edge leaves from that Row. The other Rows show how many replicas each service and the database run, and where the database is.
 
 ![Example system](./example-system.diagram.svg)
 

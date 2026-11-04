@@ -60,18 +60,47 @@ export interface SceneNode {
 	input: ScenePort;
 	output: ScenePort;
 	title: SceneText;
+	/** One for each of the Node's Rows, in order, in bands below its header. */
+	rows: SceneRow[];
+}
+
+/**
+ * A Row of a Node: a band across the Node, below its header, with a Port on
+ * each side of the Node, whatever the direction.
+ */
+export interface SceneRow {
+	/** The Row's band. */
+	box: Box;
+	/** Its name, on the left. */
+	name: SceneText;
+	/** Its value, on the right, if it has one. */
+	value?: SceneText;
+	/** The Port on the Node's left side, where an Edge that ends at the Row enters. */
+	input: ScenePort;
+	/** The Port on the Node's right side, where an Edge that starts at the Row leaves. */
+	output: ScenePort;
 }
 
 export interface SceneEdge {
 	id: string;
 	kind: string;
-	/** The id of the Node whose output Port the route leaves. */
+	/** The id of the Node that the route leaves. */
 	from: string;
-	/** The id of the Node whose input Port the route enters. */
+	/** The name of the Row it leaves from, when the Edge starts at one. */
+	fromRow?: string;
+	/** The id of the Node that the route enters. */
 	to: string;
-	/** The Port the route leaves: the `from` Node's output Port. */
+	/** The name of the Row it enters at, when the Edge ends at one. */
+	toRow?: string;
+	/**
+	 * The Port the route leaves: the `from` Node's output Port, or, when the
+	 * Edge starts at one of its Rows, that Row's output Port.
+	 */
 	fromPort: ScenePort;
-	/** The Port the route enters: the `to` Node's input Port. */
+	/**
+	 * The Port the route enters: the `to` Node's input Port, or, when the Edge
+	 * ends at one of its Rows, that Row's input Port.
+	 */
 	toPort: ScenePort;
 	/**
 	 * The route, from the source's Port to the target's: an orthogonal

@@ -3,7 +3,7 @@
  * generated JSON has no types, so everything they prevent is checked here.
  */
 
-import type { Diagram } from "../authoring/model.ts";
+import { type Diagram, endNode } from "../authoring/model.ts";
 import { architectureEdgeKinds, architectureNodeKinds } from "../notations/architecture.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 
@@ -63,6 +63,19 @@ export function validate(input: unknown): Validation {
 				),
 			);
 		}
+		const rowNames = new Set<string>();
+		node.rows?.forEach((row, rowIndex) => {
+			if (rowNames.has(row.name)) {
+				diagnostics.push(
+					error(
+						"duplicate-row",
+						`Node \`${node.id}\` has two Rows named \`${row.name}\`. A Node's Rows need names of their own, since an Edge end names a Row by its name.`,
+						`/nodes/${index}/rows/${rowIndex}/name`,
+					),
+				);
+			}
+			rowNames.add(row.name);
+		});
 		node.links?.forEach((link, linkIndex) => {
 			if (link.id !== undefined && !idPattern.test(link.id)) {
 				diagnostics.push(
@@ -76,6 +89,8 @@ export function validate(input: unknown): Validation {
 		});
 	});
 
+	// An Edge end names a Row by its name, among its Node's Rows.
+	const rowsOf = new Map(diagram.nodes.map((node) => [node.id, node.rows ?? []]));
 	const edgeIds = new Set<string>();
 	diagram.edges.forEach((edge, index) => {
 		if (!edgeIdPattern.test(edge.id)) {
@@ -97,23 +112,39 @@ export function validate(input: unknown): Validation {
 			);
 		}
 		edgeIds.add(edge.id);
-		if (!nodeIds.has(edge.from)) {
-			diagnostics.push(
-				error(
-					"edge-end",
-					`Edge \`${edge.id}\` starts at \`${edge.from}\`, which isn't a Node on this Diagram.`,
-					`/edges/${index}/from`,
-				),
-			);
-		}
-		if (!nodeIds.has(edge.to)) {
-			diagnostics.push(
-				error(
-					"edge-end",
-					`Edge \`${edge.id}\` ends at \`${edge.to}\`, which isn't a Node on this Diagram.`,
-					`/edges/${index}/to`,
-				),
-			);
+		for (const [field, verb] of [
+			["from", "starts"],
+			["to", "ends"],
+		] as const) {
+			const end = edge[field];
+			const node = endNode(end);
+			const at = `/edges/${index}/${field}`;
+			if (!nodeIds.has(node)) {
+				diagnostics.push(
+					error(
+						"edge-end",
+						`Edge \`${edge.id}\` ${verb} at \`${node}\`, which isn't a Node on this Diagram.`,
+						typeof end === "string" ? at : `${at}/node`,
+					),
+				);
+			} else if (typeof end !== "string") {
+				const names = (rowsOf.get(node) ?? []).map((row) => row.name);
+				if (!names.includes(end.row)) {
+					// Row names may hold spaces, so each one is quoted.
+					const quoted = names.map((name) => `\`${name}\``);
+					const which =
+						quoted.length === 0
+							? "which has no Rows."
+							: `which has no such Row. ${quoted.length === 1 ? `Its only Row is ${quoted[0]}` : `Its Rows are ${list(quoted)}`}.`;
+					diagnostics.push(
+						error(
+							"edge-end",
+							`Edge \`${edge.id}\` ${verb} at the Row \`${end.row}\` of \`${node}\`, ${which}`,
+							`${at}/row`,
+						),
+					);
+				}
+			}
 		}
 		if (!edgeKinds.includes(edge.kind)) {
 			diagnostics.push(
@@ -231,15 +262,38 @@ function checkShape(input: unknown): Diagnostic[] {
 		}
 	};
 
+	/** A Row has a name, and may have a value. */
+	const checkRow = (row: unknown, at: string) => {
+		checkStrings(row, at, ["name"]);
+		if (isObject(row)) {
+			check(row.value === undefined || typeof row.value === "string", `${at}/value`, "a string");
+		}
+	};
+	/** An Edge end is a Node's id, or an object that names a Node and one of its Rows. */
+	const checkEnd = (end: unknown, at: string) => {
+		if (isObject(end)) {
+			checkStrings(end, at, ["node", "row"]);
+		} else {
+			check(typeof end === "string", at, "a Node's id, or an object with `node` and `row`");
+		}
+	};
+
 	checkList(input.nodes, "/nodes", (node, at) => {
 		checkStrings(node, at, ["id", "kind", "title"]);
+		if (isObject(node) && node.rows !== undefined) {
+			checkList(node.rows, `${at}/rows`, checkRow);
+		}
 		if (isObject(node) && node.links !== undefined) {
 			checkList(node.links, `${at}/links`, checkLink);
 		}
 	});
 	checkList(input.groups, "/groups", () => {});
 	checkList(input.edges, "/edges", (edge, at) => {
-		checkStrings(edge, at, ["id", "kind", "from", "to"]);
+		checkStrings(edge, at, ["id", "kind"]);
+		if (isObject(edge)) {
+			checkEnd(edge.from, `${at}/from`);
+			checkEnd(edge.to, `${at}/to`);
+		}
 	});
 	checkList(input.walkthroughs, "/walkthroughs", () => {});
 	return diagnostics;

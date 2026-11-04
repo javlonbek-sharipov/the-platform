@@ -1419,6 +1419,43 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
 10. **Orphans.** An SVG is orphaned when discovery finds no module beside it. An SVG that git ignores isn't in the Atlas, so it's never reported.
 11. **Rules added:** `broken-link`, `kind-conflict`, `title-conflict` and `svg-orphaned`.
 
+**Ticket 08**
+
+1. **Rows in the model.**
+   - `rows` lists `{ name, value? }`, and both are strings, so a number is written `value: "3"`.
+   - Each Row's name is unique within its Node, since an Edge end names a Row by its name. Two Rows of one name are an error, `duplicate-row`.
+   - An empty value draws as no value.
+2. **Row ends.** This settles ticket 01's decision 3.
+   - In the model, an Edge end is a Node id or `{ node, row }`.
+   - In the authoring API, `handle.row(name)` gives that object. Written out with ids, it's checked only by validation.
+   - A default Edge id still names only the two Nodes, so two Edges from different Rows of one Node to the same Node need ids of their own.
+   - A missing Row is an `edge-end` error at `/edges/<n>/from/row` or `/to/row`, listing the Node's Rows, each quoted, since names may hold spaces.
+3. **Types.**
+   - `NodeHandle<R>` carries the Rows' names as `R`, which is `never` for a Node without Rows. `d.node` infers `R` from the names written.
+   - A shared Node keeps its Rows' names only when it's written `as const satisfies ArchitectureNode`. With `satisfies` alone, they widen to `string`, and any name type-checks.
+4. **Sizes.** These keep ticket 02's rule that Node sizes are multiples of 16 px.
+   - The header is 48 px, the height a whole Node had before.
+   - Each Row adds a band of 32 px, so every Row's Ports land on the 8 px grid too.
+   - For `right`, a Node's header Ports stay level with its header, so the Node reaches 24 px above its Ports' line and the rest below it.
+5. **Row text.**
+   - It's Inter Regular at 12 px, level in the middle of its band, with 12 px clear on each side of the Node and at least 8 px between name and value.
+   - It's still drawn centered on its point, so names line up on the left and values on the right because each point sits half the text's width in.
+   - White space collapses as in titles. The SVG draws a line across the Node at the top of the first Row's band.
+6. **Shortening.**
+   - When name and value don't fit side by side, the name is shortened first, as far as its first character and the ellipsis. Only then is the value shortened, to the room left beside that.
+   - A Row without a value has the whole width for its name.
+   - Each shortened text gets its own `text-shortened` warning, and each text with characters the font lacks its own `glyph-missing`, pointing at `/nodes/<n>/rows/<m>/name` or `/value`.
+7. **Row Ports.**
+   - A Row's `input` Port is on its Node's left side and its `output` Port on the right, in both directions.
+   - An Edge that starts at a Row leaves from its output Port, and one that ends at a Row enters at its input Port: the sides that header Ports have for `right`. So on a `down` Diagram, an Edge attached to a Row leaves or enters sideways.
+   - Row Ports have stubs like header Ports. The grid has lines through every Row Port's stub, whether an Edge uses it or not.
+8. **The fallback** works in the frame of the Ports' stubs rather than the Diagram's direction. When one stub runs along x and the other along y, as a Row Port and a header Port do on a `down` Diagram, the route joins the ends of the two stubs with one corner.
+9. **The scene and the SVG.**
+   - A scene Node has `rows`, each with its band as `box`, its `name` and `value` texts, and its `input` and `output` Ports.
+   - A scene Edge has `fromRow` and `toRow` when an end names a Row.
+   - The Edge's `<g>` then carries `data-from-row` after `data-from`, and `data-to-row` after `data-to`.
+10. **Rules added:** `duplicate-row`.
+
 ### References
 
 **Routing and layout papers**

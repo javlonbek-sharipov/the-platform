@@ -8,7 +8,7 @@
  * show a negative zero, and lines end with LF, as does the file.
  */
 
-import type { Point, RoutePoint, Scene, SceneEdge, SceneNode } from "./scene.ts";
+import type { Point, RoutePoint, Scene, SceneEdge, SceneNode, SceneText } from "./scene.ts";
 import { type FontData, type FontWeight, hasCharacter } from "./text.ts";
 
 type Attribute = readonly [name: string, value: string | number];
@@ -74,8 +74,7 @@ interface EmbeddedFont {
 
 /** The font data for each weight that the scene draws text in, in a fixed order. */
 function embeddedFonts(scene: Scene, fontData: FontData): EmbeddedFont[] {
-	// Every piece of text the scene draws.
-	const texts = scene.nodes.map((node) => node.title);
+	const texts = scene.nodes.flatMap(textsOf);
 	return (["regular", "semibold"] as const).flatMap((weight) => {
 		const drawn = new Set(
 			texts.filter((text) => text.weight === weight).flatMap((text) => [...text.text]),
@@ -109,8 +108,20 @@ function style(scope: string, fonts: EmbeddedFont[]): string[] {
 	];
 }
 
+/** Every piece of text a Node draws, in the order it draws them. */
+function textsOf(node: SceneNode): SceneText[] {
+	return [node.title, ...rowTextsOf(node)];
+}
+
+/** Each Row's name, and its value if it has one, in order. */
+function rowTextsOf(node: SceneNode): SceneText[] {
+	return node.rows.flatMap((row) => (row.value === undefined ? [row.name] : [row.name, row.value]));
+}
+
 function writeNode(node: SceneNode): string[] {
-	const { box, title } = node;
+	const { box, title, rows } = node;
+	// A line across the Node sets its Rows apart from its header.
+	const divider = rows[0]?.box.y;
 	return [
 		start("g", [
 			["data-node", node.id],
@@ -128,22 +139,38 @@ function writeNode(node: SceneNode): string[] {
 				["stroke", line],
 			]),
 		),
-		indent(
-			1,
-			element(
-				"text",
-				[
-					["x", title.point.x],
-					["y", title.point.y],
-					["font-size", title.size],
-					["font-weight", fontWeights[title.weight]],
-					["fill", ink],
-				],
-				title.text,
-			),
-		),
+		indent(1, writeText(title)),
+		...(divider === undefined
+			? []
+			: [
+					indent(
+						1,
+						empty("line", [
+							["x1", box.x],
+							["y1", divider],
+							["x2", box.x + box.width],
+							["y2", divider],
+							["stroke", line],
+						]),
+					),
+				]),
+		...rowTextsOf(node).map((text) => indent(1, writeText(text))),
 		"</g>",
 	];
+}
+
+function writeText(text: SceneText): string {
+	return element(
+		"text",
+		[
+			["x", text.point.x],
+			["y", text.point.y],
+			["font-size", text.size],
+			["font-weight", fontWeights[text.weight]],
+			["fill", ink],
+		],
+		text.text,
+	);
 }
 
 function writeEdge(edge: SceneEdge): string[] {
@@ -152,7 +179,9 @@ function writeEdge(edge: SceneEdge): string[] {
 			["data-edge", edge.id],
 			["data-kind", edge.kind],
 			["data-from", edge.from],
+			...(edge.fromRow === undefined ? [] : [["data-from-row", edge.fromRow] as const]),
 			["data-to", edge.to],
+			...(edge.toRow === undefined ? [] : [["data-to-row", edge.toRow] as const]),
 		]),
 		indent(1, empty("path", [["d", pathData(edge.route)]])),
 		"</g>",

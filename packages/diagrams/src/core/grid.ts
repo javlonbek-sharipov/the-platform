@@ -1,9 +1,10 @@
 /**
  * The routing grid (spec: Edge routing, step 1): a sparse set of horizontal
  * and vertical lines that keep clear of the Nodes. Lines run half a clearance
- * outside each side of each Node, through the end of each Port's stub, and
- * once more on each side, outside the whole drawing. Where two lines cross is
- * a vertex, and a segment joins two neighboring vertices on one line.
+ * outside each side of each Node, through the end of each Port's stub, Row
+ * Ports included, and once more on each side, outside the whole drawing.
+ * Where two lines cross is a vertex, and a segment joins two neighboring
+ * vertices on one line.
  *
  * A segment is open only if it stays clear of every Node, border included. A
  * crossing inside a Node, or on its border, has no open segment, so no route
@@ -31,10 +32,10 @@ export function buildGrid(nodes: SceneNode[], clearance: number): Grid {
 	const boxes = nodes.map((node) => node.box);
 	const xs = new Set<number>();
 	const ys = new Set<number>();
-	for (const { box, input, output } of nodes) {
+	for (const { box, input, output, rows } of nodes) {
 		xs.add(box.x - half).add(box.x + box.width + half);
 		ys.add(box.y - half).add(box.y + box.height + half);
-		for (const { stub } of [input, output]) {
+		for (const { stub } of [input, output, ...rows.flatMap((row) => [row.input, row.output])]) {
 			xs.add(stub.x);
 			ys.add(stub.y);
 		}
