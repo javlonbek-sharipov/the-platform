@@ -54,6 +54,22 @@ export const architectureEdgeKinds = ["call", "message"] as const;
 
 export type ArchitectureEdgeKind = (typeof architectureEdgeKinds)[number];
 
+/** How an Edge of one Kind looks, and how a sentence names it. A Kind alone decides both. */
+export interface ArchitectureEdgeLook {
+	/** Its line: solid for a call, which waits for its answer, and dashed for a message, which doesn't. */
+	line: "solid" | "dashed";
+	/**
+	 * The sentence that names an Edge of this Kind, for screen readers and the
+	 * SVG's description. `{from}` and `{to}` stand for its two ends.
+	 */
+	sentence: string;
+}
+
+export const architectureEdgeLooks: Record<ArchitectureEdgeKind, ArchitectureEdgeLook> = {
+	call: { line: "solid", sentence: "{from} calls {to}" },
+	message: { line: "dashed", sentence: "{from} sends messages to {to}" },
+};
+
 export const architectureGroupKinds = ["system", "region", "zone"] as const;
 
 export type ArchitectureGroupKind = (typeof architectureGroupKinds)[number];

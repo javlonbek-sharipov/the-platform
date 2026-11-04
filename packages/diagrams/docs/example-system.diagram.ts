@@ -4,6 +4,7 @@ import { architecture } from "@the-platform/diagrams";
  * A small example system: a shopper, the shop's client, gateway, two
  * services, database and queue, and a payment provider we don't run. The
  * shop's backend runs in one region, and its orders stack in one zone of it.
+ * A fraud check runs in another region, so the call to it crosses regions.
  * A few Edges say what they carry, and a few Nodes and Edges what they're
  * built with. Each ticket that adds to the engine extends it.
  */
@@ -71,4 +72,9 @@ export default architecture({ title: "Example system" }, (d) => {
 		external: true,
 	});
 	d.edge("payments-api", provider, { kind: "call", label: "Charges cards" });
+
+	d.group({ id: "us-east", kind: "region", title: "US East" }, (region) => {
+		const fraud = region.node({ id: "fraud-check", kind: "service", title: "Fraud check" });
+		d.edge("payments-api", fraud, { kind: "call" });
+	});
 });

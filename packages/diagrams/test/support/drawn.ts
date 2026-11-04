@@ -3,7 +3,7 @@
  * SVG read back with its style, and the parts of a Node's drawing.
  */
 
-import { type Box, render, type Scene, type SceneNode } from "../../src/index.ts";
+import { type Box, render, type Scene, type SceneEdge, type SceneNode } from "../../src/index.ts";
 import {
 	colorUnder,
 	computedStyle,
@@ -12,6 +12,7 @@ import {
 	isShape,
 	type Point,
 	paintedBounds,
+	parseColor,
 	parseSvg,
 	type Rule,
 	rulesOf,
@@ -125,5 +126,72 @@ export function fillAndBackground(drawn: Drawn, id: string, theme: Theme) {
 	return {
 		fill: colorUnder(drawn.root, title, point, drawn.rules, theme),
 		background: colorUnder(drawn.root, title, corner, drawn.rules, theme),
+	};
+}
+
+/** The group that draws an Edge, which carries its id. */
+export function edgeGroupOf({ root }: Drawn, id: string): Element {
+	const group = descendants(root).find((element) => element.attributes.get("data-edge") === id);
+	if (group === undefined) {
+		throw new Error(`no group draws Edge ${id}`);
+	}
+	return group;
+}
+
+/** How far a point lies from the nearest run of a route. */
+export function distanceToRoute(point: Point, route: Point[]): number {
+	let nearest = Number.POSITIVE_INFINITY;
+	route.slice(1).forEach((b, index) => {
+		const a = route[index] ?? b;
+		const x = Math.max(Math.min(a.x, b.x), Math.min(point.x, Math.max(a.x, b.x)));
+		const y = Math.max(Math.min(a.y, b.y), Math.min(point.y, Math.max(a.y, b.y)));
+		nearest = Math.min(nearest, Math.hypot(point.x - x, point.y - y));
+	});
+	return nearest;
+}
+
+/**
+ * Rounded corners cut inside a route's corner points by at most this much: a
+ * corner's arc, of radius 8 at most, passes 8 × (1 − 1/√2) from its corner.
+ */
+const cornerCut = 2.4;
+
+/**
+ * The strokes that draw an Edge's line, in the order they're painted: the
+ * unfilled, stroked shapes of its group that follow its route all the way from
+ * one Port to the other, give or take the arrowhead at its target.
+ */
+export function linesOf(drawn: Drawn, edge: SceneEdge, theme: Theme = "light"): Element[] {
+	const start = edge.route[0];
+	const end = edge.route.at(-1);
+	return descendants(edgeGroupOf(drawn, edge.id)).filter((shape) => {
+		if (!isShape(shape) || start === undefined || end === undefined) {
+			return false;
+		}
+		const points = runsOf(shape).flat();
+		const near = (target: Point, within: number) =>
+			points.some((point) => Math.hypot(point.x - target.x, point.y - target.y) <= within);
+		if (
+			!near(start, 1) ||
+			!near(end, 12) ||
+			!points.every((point) => distanceToRoute(point, edge.route) <= cornerCut)
+		) {
+			return false;
+		}
+		const style = computedStyle(shape, drawn.rules, theme);
+		return style.get("fill") === "none" && style.get("stroke") !== "none";
+	});
+}
+
+export function strokeOf(drawn: Drawn, shape: Element, theme: Theme) {
+	const style = computedStyle(shape, drawn.rules, theme);
+	const color = parseColor(style.get("stroke") ?? "");
+	if (color === undefined) {
+		throw new Error(`a stroke this test can't read: ${style.get("stroke")}`);
+	}
+	return {
+		color,
+		width: Number(style.get("stroke-width")),
+		dashes: style.get("stroke-dasharray") ?? "none",
 	};
 }

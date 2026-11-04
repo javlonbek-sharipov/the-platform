@@ -172,6 +172,20 @@ export interface SceneEdge {
 	fellBack: boolean;
 	/** What the Edge carries, drawn beside its route, when it has a label, a Technology or a rate. */
 	label?: SceneLabel;
+	/**
+	 * The marks that show which way the Edge runs, in order from its target
+	 * back to its source. They sit at a fixed spacing back from the target, on
+	 * straight stretches of the route, so that the Edges of a bundle share
+	 * them along their trunk.
+	 */
+	chevrons: SceneChevron[];
+	/**
+	 * Set when the Edge's ends sit in different `region` Groups, or in
+	 * different `zone` Groups, since such calls cost latency and egress: which
+	 * Kind of Group it crosses between, regions before zones, and where its
+	 * badge sits, in the middle of the stretch of its route that's its own.
+	 */
+	crosses?: { kind: "region" | "zone"; badge: Point };
 }
 
 /**
@@ -188,6 +202,25 @@ export interface SceneLabel {
 	logo?: SceneLogo;
 	/** The Edge's rate, after its Technology. */
 	rate?: SceneText;
+}
+
+/**
+ * Where the Edges that leave one Port part, so that a mark there shows that
+ * they split rather than cross.
+ */
+export interface SceneJunction {
+	point: Point;
+	/** The Node whose Port feeds the Edges. */
+	node: string;
+	/** The Row whose Port it is, when it isn't the Node's header Port. */
+	row?: string;
+}
+
+/** A direction mark on an Edge's route. */
+export interface SceneChevron {
+	point: Point;
+	/** Which way it points: the unit vector along its run, toward the Edge's target. */
+	heading: Point;
 }
 
 export interface Scene {
@@ -219,6 +252,8 @@ export interface Scene {
 	/** The Groups, in model order. */
 	groups: SceneGroup[];
 	edges: SceneEdge[];
+	/** Where the Edges that leave one Port part, Port by Port. */
+	junctions: SceneJunction[];
 	/** The diagnostics that layout and routing raised. */
 	diagnostics: Diagnostic[];
 }

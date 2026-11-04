@@ -9,6 +9,7 @@ import type { Diagnostic } from "./diagnostics.ts";
 import { hop } from "./hops.ts";
 import { labelSpacing } from "./labels.ts";
 import { clearance, grid, layOut, margin } from "./layout.ts";
+import { junctionsOf, markEdges } from "./marks.ts";
 import { lanes, route } from "./route.ts";
 import type { Box, Scene, SceneEdge } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
@@ -49,7 +50,8 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 	}
 	const model = validation.diagram;
 	const { nodes, groups } = layOut(model, options.bundle);
-	const { edges, diagnostics } = route(model, nodes, groups, options);
+	const routing = route(model, nodes, groups, options);
+	const edges = markEdges(model, routing.edges);
 	const scene: Scene = {
 		bounds: boundsOf(
 			[
@@ -69,12 +71,13 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		nodes,
 		groups,
 		edges,
-		diagnostics: [...textDiagnostics(model, nodes, groups, edges), ...diagnostics],
+		junctions: junctionsOf(routing.edges),
+		diagnostics: [...textDiagnostics(model, nodes, groups, edges), ...routing.diagnostics],
 	};
 	return {
 		diagnostics: [...validation.diagnostics, ...scene.diagnostics],
 		scene,
-		svg: writeSvg(scene, options.fontData),
+		svg: writeSvg(model, scene, options.fontData),
 	};
 }
 
