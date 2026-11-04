@@ -33,27 +33,30 @@ async function fixtureModels(): Promise<[name: string, model: unknown][]> {
 }
 
 /**
- * A copy of the every-field model, broken in one place: the value at
- * `pointer` replaced by `value`, or removed when `value` is undefined.
+ * A copy of the every-field model, changed at each pointer: the value there
+ * replaced by the one given, or removed when that is undefined.
  */
-function broken(pointer: string, value: unknown): unknown {
-	if (pointer === "") {
-		return value;
-	}
-	const model: unknown = structuredClone(everyField);
-	const path = pointer
-		.split("/")
-		.slice(1)
-		.map((segment) => segment.replaceAll("~1", "/").replaceAll("~0", "~"));
-	const field = path.pop() ?? "";
-	const parent = path.reduce(
-		(at, segment) => (at as Record<string, unknown>)[segment],
-		model,
-	) as Record<string, unknown>;
-	if (value === undefined) {
-		Reflect.deleteProperty(parent, field);
-	} else {
-		parent[field] = value;
+function broken(...changes: [pointer: string, value: unknown][]): unknown {
+	let model: unknown = structuredClone(everyField);
+	for (const [pointer, value] of changes) {
+		if (pointer === "") {
+			model = value;
+			continue;
+		}
+		const path = pointer
+			.split("/")
+			.slice(1)
+			.map((segment) => segment.replaceAll("~1", "/").replaceAll("~0", "~"));
+		const field = path.pop() ?? "";
+		const parent = path.reduce(
+			(at, segment) => (at as Record<string, unknown>)[segment],
+			model,
+		) as Record<string, unknown>;
+		if (value === undefined) {
+			Reflect.deleteProperty(parent, field);
+		} else {
+			parent[field] = value;
+		}
 	}
 	return model;
 }
@@ -175,7 +178,7 @@ describe("the JSON Schema", () => {
 		for (const [what, pointer, properties] of objects) {
 			// The core's message about a field it doesn't know lists the fields it does.
 			const at = `${pointer}/not-a-field`;
-			const { message } = render(broken(at, "x")).diagnostics.find((d) => d.pointer === at) ?? {};
+			const { message } = render(broken([at, "x"])).diagnostics.find((d) => d.pointer === at) ?? {};
 			const listed = /Its fields are (.+)\.$/.exec(message ?? "")?.[1]?.match(/`[^`]+`/g) ?? [];
 
 			expect(listed.length, what).toBeGreaterThan(1);
@@ -206,7 +209,7 @@ describe("the JSON Schema", () => {
 		// A control character, half a surrogate pair, and a noncharacter.
 		for (const text of ["Sh\u0007op", "Shop \ud83d", "Shop￿"]) {
 			for (const pointer of texts) {
-				const model = broken(pointer, text);
+				const model = broken([pointer, text]);
 				const what = `${JSON.stringify(text)} at ${pointer}`;
 
 				expect.soft(schemaPointers(model), what).toContain(pointer);
@@ -226,7 +229,7 @@ describe("the JSON Schema", () => {
 			"Shop 🛒",
 			"店",
 		]) {
-			const model = broken("/nodes/2/rows/0/value", text);
+			const model = broken(["/nodes/2/rows/0/value", text]);
 
 			expect(schemaErrors(model), JSON.stringify(text)).toEqual([]);
 			const errors = render(model).diagnostics.filter(({ severity }) => severity === "error");
@@ -234,9 +237,52 @@ describe("the JSON Schema", () => {
 		}
 	});
 
+	test("passes models that break the rules it can't express, which the core reports, and names those rules in its description", () => {
+		const cases: [what: string, rule: string, model: unknown][] = [
+			["two Nodes with one id", "duplicate-id", broken(["/nodes/1/id", "shopper"])],
+			["a Node and a Group with one id", "duplicate-id", broken(["/groups/1/id", "orders-db"])],
+			["two Edges with one id", "duplicate-id", broken(["/edges/3/id", "shopper->web-app"])],
+			[
+				"two Rows of one Node with one name",
+				"duplicate-row",
+				broken(["/nodes/2/rows/1/name", "replicas"]),
+			],
+			["an Edge end at no Node", "edge-end", broken(["/edges/0/from", "mailer"])],
+			["an Edge end at a Group", "edge-end", broken(["/edges/0/to", "eu-west"])],
+			["an Edge end at a Row its Node lacks", "edge-end", broken(["/edges/2/to/row", "stock"])],
+			["a member that names nothing", "nesting", broken(["/members/0", "mailer"])],
+			["a Node with two parents", "nesting", broken(["/groups/1/members/0", "orders-api"])],
+			["a Node with no parent", "nesting", broken(["/members", ["shopper", "web-app", "eu-west"]])],
+			[
+				"Groups that contain each other",
+				"nesting",
+				broken(
+					["/members", ["shopper", "web-app", "card-network"]],
+					["/groups/1/members", ["orders-db", "eu-west"]],
+				),
+			],
+			[
+				"an Edge that keeps its default id while another joins the same two Nodes",
+				"default-edge-id",
+				broken(["/edges/3/from", "web-app"], ["/edges/3/to", "orders-api"]),
+			],
+		];
+		for (const [what, rule, model] of cases) {
+			expect(schemaErrors(model), what).toEqual([]);
+			expect(render(model).diagnostics, what).toContainEqual(
+				expect.objectContaining({ severity: "error", rule }),
+			);
+			expect(schema.description, what).toContain(`\`${rule}\``);
+		}
+		// Lint checks these across the Atlas, where one model alone can't break them.
+		for (const rule of ["kind-conflict", "title-conflict", "broken-link"]) {
+			expect(schema.description, rule).toContain(`\`${rule}\``);
+		}
+	});
+
 	test("rejects each broken model where the core does", () => {
 		for (const [what, pointer, value, rule] of brokenModels) {
-			const model = broken(pointer, value);
+			const model = broken([pointer, value]);
 
 			expect.soft(schemaPointers(model), what).toContain(pointer);
 			expect
