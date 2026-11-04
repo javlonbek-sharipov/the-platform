@@ -12,7 +12,7 @@
 - 07 Architecture Nodes look like what they are
 - 09 Shared corridors
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Spec:**
 
@@ -82,3 +82,5 @@
   - Ticket 16: labels are placed before the marks, so a badge moves along its own stretch to clear labels, but no label moves for a badge. When an Edge's own stretch is all label, the label covers its badge. A label that kept clear of the badge's 8 px would fix it.
   - Slice 3, the web component: the model is in `<metadata>`, as JSON with sorted fields. `sentenceOf` gives the Edges' sentences for the screen-reader list. An Edge that crosses has `data-crosses="region"` or `"zone"`, and a junction's dot has `data-from`, with `data-from-row` for a Row's Port, so focus can keep it with its Edges.
   - Slice 4, flow animation: an Edge's line is written from its target back, so marks that flow toward the target run against the path's direction. They can follow `route`, which runs from the source.
+
+Merged into diagram-engine in 03b6062.
