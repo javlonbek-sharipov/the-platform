@@ -10,7 +10,13 @@ import {
 	type Scene,
 	type SceneGroup,
 } from "../src/index.ts";
-import { deepNesting, groupFixtures, region, twoRegions } from "./fixtures/groups.ts";
+import {
+	deepNesting,
+	groupFixtures,
+	region,
+	rowsAndCallouts,
+	twoRegions,
+} from "./fixtures/groups.ts";
 
 const directions: Direction[] = ["right", "down"];
 
@@ -293,6 +299,7 @@ const fixtures: [string, (direction: Direction) => Diagram, string[]][] = [
 	["a region with a zone", region, []],
 	["two regions", twoRegions, []],
 	["deeply nested Groups", deepNesting, ["ledger->billing-api"]],
+	["Rows and callouts in Groups", rowsAndCallouts, ["order-events->orders-api"]],
 	["Nodes with Rows", withRows, []],
 ];
 
@@ -511,6 +518,23 @@ function boxOfAny(scene: Scene, id: string): Box {
 	return scene.groups.find((group) => group.id === id)?.box ?? boxOf(scene, id);
 }
 
+/** What a Node or a Group covers: its box, and for a Node with a callout, the tag above it too. */
+function extentOf(scene: Scene, id: string): Box {
+	const tag = scene.nodes.find((node) => node.id === id)?.callout?.tag;
+	const box = boxOfAny(scene, id);
+	if (tag === undefined) {
+		return box;
+	}
+	const x = Math.min(box.x, tag.x);
+	const y = Math.min(box.y, tag.y);
+	return {
+		x,
+		y,
+		width: Math.max(end(box, "x"), end(tag, "x")) - x,
+		height: Math.max(end(box, "y"), end(tag, "y")) - y,
+	};
+}
+
 /** How far apart two boxes are, on the axis where they're furthest apart. It's negative where they overlap. */
 function gapBetween(a: Box, b: Box): number {
 	return Math.max(
@@ -626,7 +650,7 @@ describe.each(directions)("Groups laid out %s", (direction) => {
 			for (const group of model.groups) {
 				const { box, label } = groupOf(scene, group.id);
 				for (const member of group.members) {
-					const inner = boxOfAny(scene, member);
+					const inner = extentOf(scene, member);
 					const where = `${member} in ${group.id}`;
 					expect(start(inner, "x") - start(box, "x"), where).toBeGreaterThan(half);
 					expect(end(box, "x") - end(inner, "x"), where).toBeGreaterThan(half);
@@ -658,7 +682,9 @@ describe.each(directions)("Groups laid out %s", (direction) => {
 					const where = `${node.id} and ${group.id}`;
 					expect(gapBetween(node.box, group.label), where).toBeGreaterThanOrEqual(scene.clearance);
 					if (!members.has(node.id)) {
-						expect(gapBetween(node.box, group.box), where).toBeGreaterThanOrEqual(scene.clearance);
+						expect(gapBetween(extentOf(scene, node.id), group.box), where).toBeGreaterThanOrEqual(
+							scene.clearance,
+						);
 					}
 				}
 			}

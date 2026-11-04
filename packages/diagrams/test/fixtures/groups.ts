@@ -107,6 +107,44 @@ export function portLevelWithBorder(direction: Direction): Diagram {
 	);
 }
 
+/**
+ * Nodes with callouts and Rows in nested Groups. The Orders API's tag sits at
+ * the top of its region, just below the region's label, and Edges leave and
+ * enter the queue's Rows inside the zone.
+ */
+export function rowsAndCallouts(direction: Direction): Diagram {
+	return architecture({ id: "rows-and-callouts", title: "Rows and callouts", direction }, (d) => {
+		const web = d.node({ id: "web-app", kind: "client", title: "Web app", callout: "Beta" });
+		d.group({ id: "eu-west", kind: "region", title: "EU West" }, (eu) => {
+			const api = eu.node({
+				id: "orders-api",
+				kind: "service",
+				title: "Orders API",
+				callout: "SPOF",
+				rows: [{ name: "replicas", value: "1" }],
+			});
+			d.edge(web, api, { kind: "call" });
+			eu.group({ id: "eu-west-a", kind: "zone", title: "Zone A" }, (zone) => {
+				const events = zone.node({
+					id: "order-events",
+					kind: "queue",
+					title: "Order events",
+					rows: [{ name: "order-placed" }, { name: "order-paid" }],
+				});
+				const db = zone.node({
+					id: "orders-db",
+					kind: "database",
+					title: "Orders database",
+					callout: "Slow",
+				});
+				d.edge(api, events.row("order-placed"), { kind: "message" });
+				d.edge(events.row("order-paid"), api, { kind: "message" });
+				d.edge(api, db, { kind: "call" });
+			});
+		});
+	});
+}
+
 /** Every Group fixture, for the properties that hold on all of them. */
 export const groupFixtures: [string, (direction: Direction) => Diagram][] = [
 	["a region with a zone", region],
@@ -114,4 +152,5 @@ export const groupFixtures: [string, (direction: Direction) => Diagram][] = [
 	["deep nesting", deepNesting],
 	["a label in the way", labelInTheWay],
 	["a Port level with a Group's border", portLevelWithBorder],
+	["Rows and callouts in Groups", rowsAndCallouts],
 ];
