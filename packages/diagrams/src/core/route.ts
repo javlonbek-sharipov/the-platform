@@ -405,9 +405,6 @@ function searchRoute(
 			costs,
 		)?.reverse();
 	}
-	// The way the trunk runs at each vertex, from its source end toward its
-	// target end. A trunk into a target runs on along the target's stub at its
-	// end, and a trunk out of a source ends at other Edges' targets.
 	// Starting on the trunk costs the Group borders that the trunk crosses on
 	// the way, since the route crosses them too. A route between two Nodes of
 	// one Group joins the trunk inside that Group, so that it stays inside.
@@ -422,6 +419,9 @@ function searchRoute(
 		if (!inside(vertex)) {
 			return [];
 		}
+		// The way the trunk runs at each vertex, from its source end toward its
+		// target end. A trunk into a target runs on along the target's stub at
+		// its end, and a trunk out of a source ends at other Edges' targets.
 		const next = path[at + 1];
 		const previous = path[at - 1];
 		const runs =
@@ -438,7 +438,13 @@ function searchRoute(
 		return headings.flatMap((heading): SearchStart[] =>
 			heading === opposite[behind]
 				? []
-				: [{ vertex, heading, cost: heading === behind ? 0 : bendCost }],
+				: [
+						{
+							vertex,
+							heading,
+							cost: (heading === behind ? 0 : bendCost) + crossings * crossingCost,
+						},
+					],
 		);
 	});
 	const path = search(starts, atSource ? intoTarget : intoSource, costs);

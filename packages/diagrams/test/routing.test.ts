@@ -370,15 +370,15 @@ function inJunction(a: SceneEdge, b: SceneEdge, [i, j]: [number, number]): boole
 }
 
 /** The stretches two Edges share, other than in the junction of a Port they share. */
-function sharedBeyondJunctions(scene: Scene, a: SceneEdge, b: SceneEdge): [Point, Point][] {
+function sharedBeyondJunctions(a: SceneEdge, b: SceneEdge): [Point, Point][] {
 	return sharedStretches(a.route, b.route)
 		.filter(([, , i, j]) => !inJunction(a, b, [i, j]))
 		.map(([from, to]): [Point, Point] => [from, to]);
 }
 
 /** The stretches that two Edges of different bundles share beyond the junctions of their Ports, described. */
-function lanesShared(scene: Scene, a: SceneEdge, b: SceneEdge): string[] {
-	return sharedBeyondJunctions(scene, a, b).map(
+function lanesShared(a: SceneEdge, b: SceneEdge): string[] {
+	return sharedBeyondJunctions(a, b).map(
 		([from, to]) => `${a.id} and ${b.id} share (${from.x}, ${from.y})–(${to.x}, ${to.y})`,
 	);
 }
@@ -655,7 +655,7 @@ describe.each(fixtures)("every route in %s", (_, diagram) => {
 		const scene = sceneOf(diagram);
 		const { edges } = scene;
 		const shared = edges.flatMap((a, index) =>
-			edges.slice(index + 1).flatMap((b) => (sameBundle(a, b) ? [] : lanesShared(scene, a, b))),
+			edges.slice(index + 1).flatMap((b) => (sameBundle(a, b) ? [] : lanesShared(a, b))),
 		);
 		expect(shared).toEqual([]);
 	});
@@ -812,7 +812,7 @@ describe("bundling", () => {
 			// The message meets the calls only where they all converge on the Port,
 			// which is shorter than their trunk.
 			for (const call of calls) {
-				expect(sharedBeyondJunctions(scene, events, edgeOf(scene, call)), call).toEqual([]);
+				expect(sharedBeyondJunctions(events, edgeOf(scene, call)), call).toEqual([]);
 				expect(longestShared(events, edgeOf(scene, call)), call).toBeLessThan(trunk);
 			}
 		}
@@ -829,7 +829,7 @@ describe("bundling", () => {
 				const [first, second] = [edgeOf(scene, a), edgeOf(scene, b)];
 				// The calls meet only where they converge on the gateway's Port, which is
 				// shorter than the fan-out's trunk.
-				expect(sharedBeyondJunctions(scene, first, second), `${a} and ${b}`).toEqual([]);
+				expect(sharedBeyondJunctions(first, second), `${a} and ${b}`).toEqual([]);
 				expect(longestShared(first, second), `${a} and ${b}`).toBeLessThan(trunk);
 			}
 		}
@@ -843,7 +843,7 @@ describe("bundling", () => {
 			}
 			const edges = scene.edges;
 			const shared = edges.flatMap((a, index) =>
-				edges.slice(index + 1).flatMap((b) => lanesShared(scene, a, b)),
+				edges.slice(index + 1).flatMap((b) => lanesShared(a, b)),
 			);
 			expect(edges).toHaveLength(diagram.edges.length);
 			expect(shared).toEqual([]);
