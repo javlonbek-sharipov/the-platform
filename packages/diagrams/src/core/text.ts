@@ -451,7 +451,7 @@ function list(words: string[]): string {
  * SVG renderers collapse them that way, though not all alike, so the SVG gets
  * text that's already collapsed.
  */
-function collapseSpaces(text: string): string {
+export function collapseSpaces(text: string): string {
 	return text.replace(/[ \t\n\r]+/g, " ").replace(/^ | $/g, "");
 }
 

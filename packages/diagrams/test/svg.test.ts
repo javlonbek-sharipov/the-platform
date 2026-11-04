@@ -1,7 +1,19 @@
 import { describe, expect, test } from "vitest";
 import { architecture, type Diagram, render } from "../src/index.ts";
 import { deepNesting, twoRegions } from "./fixtures/groups.ts";
-import { pathRuns } from "./support/svg.ts";
+import { draw, linesOf } from "./support/drawn.ts";
+import { everyFixture } from "./support/fixtures.ts";
+import {
+	ancestors,
+	descendants,
+	type Element,
+	matches,
+	parseSvg,
+	pathRuns,
+	rulesOf,
+} from "./support/svg.ts";
+
+const fixtures = await everyFixture();
 
 const shop = architecture({ title: "Shop" }, (d) => {
 	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
@@ -138,48 +150,52 @@ describe("the SVG", () => {
 	});
 
 	test("draws each rounded corner of a route with an arc command of the corner's radius", () => {
-		const { scene, svg } = render(shop);
-		const paths = new Map(
-			[...(svg ?? "").matchAll(/<g data-edge="([^"]*)"[^>]*>\s*<path d="([^"]*)"\/>/g)].map(
-				([, id, d]) => [id?.replaceAll("&gt;", ">"), d ?? ""],
-			),
-		);
-		const corners = scene?.edges.flatMap((edge) => edge.route.slice(1, -1)) ?? [];
+		const drawn = draw(shop);
+		const corners = drawn.scene.edges.flatMap((edge) => edge.route.slice(1, -1));
 		expect(corners.length).toBeGreaterThan(0);
-		for (const edge of scene?.edges ?? []) {
-			const arcs = [...(paths.get(edge.id) ?? "").matchAll(/A ([\d.]+) ([\d.]+) 0 0 [01] /g)];
-			expect(arcs.map(([, rx, ry]) => [Number(rx), Number(ry)])).toEqual(
-				edge.route.slice(1, -1).map(({ radius }) => [radius, radius]),
-			);
+		for (const edge of drawn.scene.edges) {
+			const radii = edge.route.slice(1, -1).map(({ radius }) => [radius, radius]);
+			const lines = linesOf(drawn, edge);
+			expect(lines.length).toBeGreaterThan(0);
+			for (const line of lines) {
+				const d = line.attributes.get("d") ?? "";
+				const arcs = [...d.matchAll(/A ([\d.]+) ([\d.]+) 0 0 [01] /g)].map(([, rx, ry]) => [
+					Number(rx),
+					Number(ry),
+				]);
+				// A line may be drawn from either end.
+				expect([arcs, [...arcs].reverse()], edge.id).toContainEqual(radii);
+			}
 		}
 	});
 
-	test("draws an Edge's stroke as one subpath for each of its pieces, so that its hops show as gaps", () => {
+	test("draws an Edge's stroke as one subpath for each of its pieces, in its casing and its body, so that its hops show as gaps", () => {
+		const rounded = (point: { x: number; y: number } | undefined) => ({
+			x: Math.round((point?.x ?? 0) * 100) / 100,
+			y: Math.round((point?.y ?? 0) * 100) / 100,
+		});
 		for (const direction of ["right", "down"] as const) {
-			const { scene, svg = "" } = render(twoRegions(direction));
-			const paths = new Map(
-				[...svg.matchAll(/<g data-edge="([^"]*)"[^>]*>\s*<path d="([^"]*)"\/>/g)].map(
-					([, id, d]) => [id?.replaceAll("&gt;", ">"), d ?? ""],
-				),
-			);
-			const hopping = scene?.edges.filter(({ stroke }) => stroke.length > 1) ?? [];
+			const drawn = draw(twoRegions(direction));
+			const hopping = drawn.scene.edges.filter(({ stroke }) => stroke.length > 1);
 			expect(hopping.length, direction).toBeGreaterThan(0);
-			for (const { id, stroke } of scene?.edges ?? []) {
-				const subpaths = pathRuns(paths.get(id) ?? "");
-				expect(subpaths, id).toHaveLength(stroke.length);
-				subpaths.forEach((run, index) => {
-					const piece = stroke[index] ?? [];
-					const ends = [run[0], run.at(-1)].map((point) => ({
-						x: Math.round((point?.x ?? 0) * 100) / 100,
-						y: Math.round((point?.y ?? 0) * 100) / 100,
-					}));
-					expect(ends, `${id}, piece ${index}`).toEqual(
-						[piece[0], piece.at(-1)].map((point) => ({
-							x: Math.round((point?.x ?? 0) * 100) / 100,
-							y: Math.round((point?.y ?? 0) * 100) / 100,
-						})),
-					);
-				});
+			for (const edge of drawn.scene.edges) {
+				const lines = linesOf(drawn, edge);
+				expect(lines, edge.id).toHaveLength(2);
+				for (const line of lines) {
+					// The line is written from the target back, so its subpaths come in the
+					// reverse order of the pieces, each one reversed.
+					const subpaths = pathRuns(line.attributes.get("d") ?? "").reverse();
+					expect(subpaths, edge.id).toHaveLength(edge.stroke.length);
+					subpaths.forEach((run, index) => {
+						const piece = edge.stroke[index] ?? [];
+						const last = index === edge.stroke.length - 1;
+						expect(rounded(run.at(-1)), `${edge.id}, piece ${index}`).toEqual(rounded(piece[0]));
+						// The piece at the target stops short of it, inside the arrowhead.
+						const [end, target] = [rounded(run[0]), rounded(piece.at(-1))];
+						const short = Math.abs(end.x - target.x) + Math.abs(end.y - target.y);
+						expect(short, `${edge.id}, piece ${index}`).toBeLessThanOrEqual(last ? 8 : 0);
+					});
+				}
 			}
 		}
 	});
@@ -191,5 +207,29 @@ describe("the SVG", () => {
 			}),
 		);
 		expect(svg).toContain('>R&amp;D "Ops" &lt;beta&gt;</text>');
+	});
+});
+
+describe("every text in every fixture", () => {
+	test("sets its own baseline, or inherits none, since SVG 1.1 doesn't inherit one from a group", () => {
+		expect(fixtures.length).toBeGreaterThan(10);
+		for (const [name, diagram] of fixtures) {
+			const { svg } = render(diagram);
+			const root = parseSvg(svg ?? "");
+			const rules = rulesOf(root);
+			/** Whether the element sets `dominant-baseline`, by an attribute or by a rule that picks it. */
+			const sets = (element: Element) =>
+				element.attributes.has("dominant-baseline") ||
+				rules.some(
+					(rule) =>
+						rule.declarations.some(([property]) => property === "dominant-baseline") &&
+						rule.selectors.some((selector) => matches(element, selector)),
+				);
+			const texts = descendants(root).filter((element) => element.name === "text");
+			expect(texts.length, name).toBeGreaterThan(0);
+			for (const text of texts) {
+				expect(sets(text) || !ancestors(text).some(sets), `${name}: ${text.text}`).toBe(true);
+			}
+		}
 	});
 });
