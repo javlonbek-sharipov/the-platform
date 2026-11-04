@@ -318,3 +318,43 @@ describe("a Row too wide for its Node", () => {
 		]);
 	});
 });
+
+describe("a Row's text", () => {
+	test("collapses white space as a title's does, before it's measured", () => {
+		const { name, value } = firstRow([{ name: "\n read \t replicas ", value: " 4\r\n000 " }]);
+		expect(name.text).toBe("read replicas");
+		expect(value?.text).toBe("4 000");
+		expect(value?.width).toBeCloseTo(widthInInterRegular("4 000", value?.size ?? 0), 9);
+	});
+
+	test("with characters the bundled font lacks makes lint warn, naming the Node, the Row and the characters", () => {
+		// Inter has none of 東, 京, 大, 阪 and ☃.
+		const { diagnostics } = withRows([
+			{ name: "東京", value: "☃" },
+			{ name: "regions", value: "東京 and 大阪" },
+			{ name: "replicas", value: "3" },
+		]);
+		const lacks = (row: string, some: string, field: string, listed: string) =>
+			`Node \`orders-db\`'s Row \`${row}\` has ${some} in its ${field} that the bundled font lacks: ${listed}.`;
+		expect(diagnostics).toEqual([
+			{
+				severity: "warning",
+				rule: "glyph-missing",
+				message: `${lacks("東京", "characters", "name", "東 (U+6771) and 京 (U+4EAC)")} They're measured at an average width, and drawn in a fallback font.`,
+				pointer: "/nodes/0/rows/0/name",
+			},
+			{
+				severity: "warning",
+				rule: "glyph-missing",
+				message: `${lacks("東京", "a character", "value", "☃ (U+2603)")} It's measured at an average width, and drawn in a fallback font.`,
+				pointer: "/nodes/0/rows/0/value",
+			},
+			{
+				severity: "warning",
+				rule: "glyph-missing",
+				message: `${lacks("regions", "characters", "value", "東 (U+6771), 京 (U+4EAC), 大 (U+5927) and 阪 (U+962A)")} They're measured at an average width, and drawn in a fallback font.`,
+				pointer: "/nodes/0/rows/1/value",
+			},
+		]);
+	});
+});
