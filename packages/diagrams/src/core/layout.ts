@@ -74,7 +74,15 @@ export function layOut(diagram: Diagram): SceneNode[] {
 					width: nodeWidth,
 					height: rowHeight,
 				};
-				return { box: band, ...rowTexts(row, band) };
+				// A Row's Ports sit on the Node's left and right sides, whatever the
+				// direction, level with the middle of its band.
+				const level = band.y + rowHeight / 2;
+				return {
+					box: band,
+					...rowTexts(row, band),
+					input: port("left", { x: box.x, y: level }),
+					output: port("right", { x: box.x + nodeWidth, y: level }),
+				};
 			}),
 		};
 	});

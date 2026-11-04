@@ -151,6 +151,37 @@ describe.each(directions)("Rows on a Diagram laid out %s", (direction) => {
 	});
 });
 
+describe.each(directions)("the Ports of a Diagram laid out %s", (direction) => {
+	test("include one on each side of the Node for every Row, level with the Row, each with a stub out of its side", () => {
+		const node = nodeOf(sceneOf(database(direction, 3)), "orders-db");
+		expect(node.rows).toHaveLength(3);
+		for (const { name, input, output } of node.rows) {
+			const level = name.point.y;
+			expect(input).toMatchObject({ side: "left", point: { x: node.box.x, y: level } });
+			expect(output).toMatchObject({
+				side: "right",
+				point: { x: node.box.x + node.box.width, y: level },
+			});
+			expect(input.stub.y).toBe(level);
+			expect(input.stub.x).toBeLessThan(node.box.x);
+			expect(output.stub.y).toBe(level);
+			expect(output.stub.x).toBeGreaterThan(node.box.x + node.box.width);
+		}
+	});
+
+	test("keep the header's own Ports where the direction puts them, level with the header", () => {
+		const node = nodeOf(sceneOf(database(direction, 3)), "orders-db");
+		const { box, title, input, output } = node;
+		if (direction === "right") {
+			expect(input.point).toEqual({ x: box.x, y: title.point.y });
+			expect(output.point).toEqual({ x: box.x + box.width, y: title.point.y });
+		} else {
+			expect(input.point).toEqual({ x: title.point.x, y: box.y });
+			expect(output.point).toEqual({ x: title.point.x, y: box.y + box.height });
+		}
+	});
+});
+
 describe("the SVG", () => {
 	test("draws each Row's name and value in its Node's group, in the regular weight, where the scene puts them", () => {
 		for (const direction of directions) {

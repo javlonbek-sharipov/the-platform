@@ -64,7 +64,10 @@ export interface SceneNode {
 	rows: SceneRow[];
 }
 
-/** A Row of a Node: a band across the Node, below its header. */
+/**
+ * A Row of a Node: a band across the Node, below its header, with a Port on
+ * each side of the Node, whatever the direction.
+ */
 export interface SceneRow {
 	/** The Row's band. */
 	box: Box;
@@ -72,6 +75,10 @@ export interface SceneRow {
 	name: SceneText;
 	/** Its value, on the right, if it has one. */
 	value?: SceneText;
+	/** The Port on the Node's left side, where an Edge that ends at the Row enters. */
+	input: ScenePort;
+	/** The Port on the Node's right side, where an Edge that starts at the Row leaves. */
+	output: ScenePort;
 }
 
 export interface SceneEdge {
