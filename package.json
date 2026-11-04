@@ -10,6 +10,7 @@
 		"prepare": "lefthook install",
 		"test": "vitest run",
 		"golden:update": "DIAGRAMS_UPDATE_GOLDEN=1 vitest run",
+		"bench": "node packages/diagrams/scripts/benchmark.ts",
 		"check": "biome check",
 		"typecheck": "tsc -p .",
 		"generate:font-metrics": "node packages/diagrams/scripts/generate-font-metrics.ts"

@@ -1,11 +1,16 @@
 import { describe, expect, test } from "vitest";
+import { crowded } from "./fixtures/crowded.ts";
 import everyKind from "./fixtures/every-kind.ts";
 import externalStatusCallout from "./fixtures/external-status-callout.ts";
 import { renderWithFont } from "./support/fonts.ts";
 import { expectGolden } from "./support/golden.ts";
 
 /** Golden files change only through `pnpm golden:update`, so every visual change shows in review. */
-const fixtures = { "every-kind": everyKind, "external-status-callout": externalStatusCallout };
+const fixtures = {
+	"every-kind": everyKind,
+	"external-status-callout": externalStatusCallout,
+	crowded: crowded(),
+};
 
 describe("golden files", () => {
 	for (const [name, diagram] of Object.entries(fixtures)) {
