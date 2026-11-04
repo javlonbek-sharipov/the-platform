@@ -13,7 +13,7 @@
 - 03 Edges routed around Nodes
 - 06 Groups
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Spec:**
 
@@ -91,3 +91,5 @@
   - `pnpm bench` (plain Node, `packages/diagrams/scripts/benchmark.ts`): the crowded fixture takes 86 ms median drawn `right` and 132 ms drawn `down`. The suite's limit is 3 s.
   - A random 300-Node, 748-Edge Diagram takes 7.2 s in two passes, against about 3 s in ticket 03, nearly all of it in A*. Negotiation's costs weaken the Manhattan estimate, and the gaps between ranks are wider. Moving the search's vertex coordinates and queue into typed arrays brought it down from 10 s without changing any route.
 - **For ticket 10.** Labels go on a run that belongs to one Edge alone. Lane groups come from `laneGroups` in `src/core/bundles.ts`, and a trunk is where routes of one group share a stretch. `gapsOf` in `src/core/layers.ts` is where the gap between ranks gets its room for labels too.
+
+Merged into diagram-engine in 354a8c0.
