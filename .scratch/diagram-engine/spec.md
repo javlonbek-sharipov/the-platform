@@ -1419,6 +1419,49 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
 10. **Orphans.** An SVG is orphaned when discovery finds no module beside it. An SVG that git ignores isn't in the Atlas, so it's never reported.
 11. **Rules added:** `broken-link`, `kind-conflict`, `title-conflict` and `svg-orphaned`.
 
+**Ticket 06**
+
+1. **Declaring Groups.**
+   - `d.group({ id, kind, title, description?, links? }, (g) => { … })` declares a Group. Its callback gets a builder whose Nodes and Groups join that Group.
+   - Each builder adds to its own parent, whenever it's called: `d.node(…)` inside a Group's callback still declares a member of the Diagram. Edges belong to the Diagram, whichever builder declares them.
+   - It returns a handle with the Group's id. An Edge end can't be a Group's handle, since it has no `row`, so ending an Edge at a Group is a type error as well as a validation error.
+   - A Group is declared from a plain object, as a Node is. So one shared `{ id, kind: "system", title }`, written `satisfies ArchitectureNode`, can be a Node on one Diagram and a Group on another.
+   - The builder records each Group's declaration under `/groups/<n>`, so diagnostics about a Group point at its `d.group(` call.
+2. **Nesting.** The rule `nesting` covers four errors in generated JSON: a member that names no Node or Group on the Diagram; a Node or Group listed by two parents, or twice by one; one listed by none; and Groups that contain each other.
+   - The Diagram's `members` are read first, then each Group's, in model order. The first list that names a member is its parent, and each later one is an error.
+   - An id that names two things gets only `duplicate-id`, since its two listings are expected.
+   - A cycle is reported once, at the first of its Groups in model order, pointing at the member that names the next Group in the cycle.
+   - Node and Group ids share one namespace on a Diagram, so a Node and a Group with one id are a `duplicate-id` error. An Edge end that names a Group is an `edge-end` error that says so.
+3. **Levels.** This replaces ticket 02's decision 4.
+   - Declaration order on each level is that level's `members`.
+   - At its parent's level, a Group's Ports' line is that of the Node inside it that the level's first connection to it joins, in Edge order. Without a connection, it's that of its first Node, and without a Node, halfway across. So a Node outside a Group lines up with the Node it calls inside.
+   - A Node's block includes the room for its callout's tag, so the tag stays inside the Node's Group.
+4. **A Group's box.**
+   - The padding is one clearance, 32 px, at the sides and the bottom. The grid lines half a clearance outside the members then run down the middle of the padding.
+   - The label band is 24 px high, and the members start a clearance below it, so no Node comes within a clearance of the label.
+   - The box rounds up to whole steps of 16 px, growing to the right and down, so that a Group centered on a rank's line has its corners on the grid, as a Node does.
+   - An empty Group keeps room for one 176 by 48 px Node.
+   - The title is Inter SemiBold at 13 px, 12 px in from the box's left side, in the middle of the band. A title too wide for the box is shortened, with the usual `text-shortened` and `glyph-missing` warnings, at `/groups/<n>/title`.
+5. **The label box.**
+   - It's the part of the label band that the title fills, from the box's left side to 12 px past the title, rounded up to the 8 px grid. The scene calls it `label`.
+   - Only the label box is an obstacle. The rest of the band stays open, so that an Edge can enter a Group from above, as most do on a `down` Diagram.
+6. **The grid.**
+   - Lines run half a clearance outside each label box, and each Group's box. The spec asks only for the first. The second completes the ring of lines inside each Group's padding where a nested Group is outermost, so a route can pass a Group without crossing its border.
+   - The outer lines run a clearance outside every Node, tag and Group.
+   - Lines are global, so a Node far from a Group can bring one level with the Group's border. That happens often: a Group's Ports' line is often 80 px below its top, as tall as a 48 px Node and a clearance, so a Node stacked above the one it lines up with has its Ports level with the Group's top. Every segment along a Group's border is closed, so no route runs along one.
+7. **Crossing a border** costs 16, as much as 16 px of length. The grid counts the borders each segment crosses, and a border at a segment's far end counts for that segment, so a route that crosses at a vertex pays once.
+   - The padding's ring of grid lines means that a route between two Nodes of one Group always has a way inside that's shorter than any way outside. So the geometry keeps such routes inside, not the cost.
+   - The cost keeps routes out of Groups they only pass: where a route can turn beside a Group or inside its padding at the same length, it turns beside it.
+8. **The scene.** A scene Group has `id`, `kind`, `box`, `label`, `depth` and `title`, in model order. `depth` is 0 for a Group on the Diagram itself.
+9. **The SVG.**
+   - Groups are drawn after the background and beneath the Edges, in model order, in a `<g class="diagram-groups">`. Each Group's `<g>` carries `data-group` and `data-kind`, and holds a rect of class `diagram-group` and a title of class `diagram-group-title`.
+   - Boxes are stroked in `--diagram-border`, and titles drawn in `--diagram-muted`. A `system` is 2 px wide, a `region` 1.5 px, and a `zone` 1.5 px dashed 6 and 4. Corners round by 8 px.
+10. **The Atlas.**
+    - An id has one Kind and one title whether a Diagram draws it as a Node or as a Group. So a `system` Node and a `system` Group with one title agree.
+    - A title conflict at a Group says to define the Group once, in a shared module.
+    - A Group's Links resolve as a Node's do. A Link to an id resolves when any Diagram draws it, as a Node or as a Group.
+11. **Rules added:** `nesting`.
+
 **Ticket 07**
 
 1. **Looks live in the Notation.**
