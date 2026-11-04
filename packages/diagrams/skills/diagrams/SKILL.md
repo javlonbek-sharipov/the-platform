@@ -1,6 +1,6 @@
 ---
 name: diagrams
-description: Drawing Diagrams with @the-platform/diagrams. Use when a doc or spec describes how systems and services talk, when writing or editing a `*.diagram.ts` module, or when `diagrams lint` fails.
+description: Drawing Diagrams with @the-platform/diagrams. Use when a doc describes how systems talk, when writing or editing a `*.diagram.ts` module, or when `diagrams lint` fails.
 ---
 
 # Diagrams
@@ -44,7 +44,7 @@ Follow the example at the end. `packages/diagrams/src/authoring/architecture.ts`
 Run each command from the repo root, with the module's path for `<module>`:
 
 1. `pnpm exec diagrams render <module>` writes the SVG, or prints the errors that stop it.
-2. `pnpm typecheck` catches a misspelled option, which render leaves out without a word. Then `pnpm exec diagrams lint --json` checks the whole Atlas: fix every message it lists, warnings included, and render again, until `messages` is empty. Most messages say their fix. For the others:
+2. `pnpm typecheck` catches a misspelled option, which would otherwise vanish without a word. Then `pnpm exec diagrams lint --json` checks the whole Atlas: fix every message it lists, warnings included, and render again, until `messages` is empty. Most messages say their fix. For the others:
    - `label-placement` with no room beside any run: shorten the labels near it, or label fewer Edges.
    - `label-placement` with no run of its own: fix the `fallback-route` warning on that Edge first.
    - `fallback-route`: reorder the declarations, or change `direction`.
@@ -53,7 +53,7 @@ Run each command from the repo root, with the module's path for `<module>`:
 
 ## Example
 
-`packages/diagrams/docs/example-system.diagram.ts`:
+The example system, from `packages/diagrams/docs/example-system.diagram.ts`:
 
 ```ts
 import { architecture } from "@the-platform/diagrams";
