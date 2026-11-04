@@ -11,7 +11,7 @@
 - 05 The Atlas
 - 07 Architecture Nodes look like what they are
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Spec:**
 
@@ -64,3 +64,5 @@
   - Slice 4: export drops every at-rule, `@keyframes` included, and resvg would skip them anyway. Flow marks would still be drawn where they start, so decide whether the PNG shows them.
   - The SVG writer sets `dominant-baseline` on the group around all Nodes, and relies on its texts inheriting it. CSS says they do; SVG 1.1 says they don't, so a renderer that follows it, as resvg does past one level, draws the text 5 px high. Setting it on each `<text>` would fix that, and export's rule for it could go.
   - `diagrams export --index`, for the Atlas index, is still to come. Until then `--index` is an unknown option.
+
+Merged into diagram-engine in 0ed0ef8.
