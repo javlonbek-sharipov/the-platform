@@ -105,6 +105,15 @@ describe("the font data an SVG embeds", () => {
 		expect(requests).toEqual([{ weight: "semibold", characters: expected }]);
 	});
 
+	test("holds the characters of callouts as well as titles", () => {
+		const { requests } = renderRecording(
+			architecture({ title: "Ledger" }, (d) => {
+				d.node({ id: "ledger", kind: "database", title: "Ledger", callout: "SPOF" });
+			}),
+		);
+		expect(requests).toEqual([{ weight: "semibold", characters: "FLOPSdegr" }]);
+	});
+
 	test("isn't asked for when nothing is drawn, or when the caller passes no function", () => {
 		const { svg, requests } = renderRecording(architecture({ title: "Empty" }, () => {}));
 		expect(requests).toEqual([]);

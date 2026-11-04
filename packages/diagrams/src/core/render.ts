@@ -56,11 +56,14 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 }
 
 function boundsOf(nodes: SceneNode[], edges: SceneEdge[]): Box {
+	// A callout's tag sits above its Node, within the Node's width.
+	const tops = nodes.flatMap((node) => (node.callout === undefined ? [] : [node.callout.tag.y]));
 	const xs = [
 		...nodes.flatMap((node) => [node.box.x, node.box.x + node.box.width]),
 		...edges.flatMap((edge) => edge.route.map((point) => point.x)),
 	];
 	const ys = [
+		...tops,
 		...nodes.flatMap((node) => [node.box.y, node.box.y + node.box.height]),
 		...edges.flatMap((edge) => edge.route.map((point) => point.y)),
 	];

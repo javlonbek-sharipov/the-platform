@@ -10,17 +10,10 @@
 
 import { type Diagram, endNode } from "../authoring/model.ts";
 import { arrange, type Member } from "./layers.ts";
+import { faceOf, frameOf, partsOf, rowHeight } from "./nodes.ts";
 import type { Point, SceneNode, ScenePort, Side } from "./scene.ts";
-import { nodeTitle, rowTexts } from "./text.ts";
+import { rowTexts } from "./text.ts";
 
-const nodeWidth = 160;
-/** The band at the top of every Node, which holds its title. */
-const headerHeight = 48;
-/**
- * The band of each Row, below the header. It's two steps of 16 px, so that
- * every Node's size stays a multiple of 16 px.
- */
-const rowHeight = 32;
 const rankGap = 96;
 export const clearance = 32;
 /** Node sizes are multiples of twice the grid, so that their corners land on it too. */
@@ -39,15 +32,21 @@ export function layOut(diagram: Diagram): SceneNode[] {
 	const turn = (along: number, across: number): Point =>
 		down ? { x: margin + across, y: margin + along } : { x: margin + along, y: margin + across };
 
-	// A Node is as tall as its header and its Rows' bands together. Its header
-	// Ports sit on its sides along the rank axis: level with its header for
-	// `right`, and halfway across it for `down`.
-	const heights = diagram.nodes.map((node) => headerHeight + (node.rows?.length ?? 0) * rowHeight);
-	const members: Member[] = heights.map((height) =>
-		down
-			? { depth: height, before: nodeWidth / 2, after: nodeWidth / 2 }
-			: { depth: nodeWidth, before: headerHeight / 2, after: height - headerHeight / 2 },
+	// A Node is as tall as its Kind's header and its Rows' bands together. Its
+	// header Ports sit on its sides along the rank axis: level with its header
+	// for `right`, and halfway across it for `down`. Above the Node, a callout's
+	// tag needs room, which is across the rank for `right` and along it for `down`.
+	const frames = diagram.nodes.map(frameOf);
+	/** From a Node's leading side across the rank to its Ports' line. */
+	const toPorts = frames.map(({ width, headerTop, headerHeight }) =>
+		down ? width / 2 : headerTop + headerHeight / 2,
 	);
+	const members: Member[] = frames.map(({ width, height, tagRoom }, at) => {
+		const ports = toPorts[at] ?? 0;
+		return down
+			? { depth: height, lead: tagRoom, before: ports, after: width - ports }
+			: { depth: width, before: tagRoom + ports, after: height - ports };
+	});
 	const index = new Map(diagram.nodes.map((node, at) => [node.id, at]));
 	const connections = diagram.edges.map((edge) => ({
 		from: index.get(endNode(edge.from)) ?? 0,
@@ -57,21 +56,27 @@ export function layOut(diagram: Diagram): SceneNode[] {
 
 	return diagram.nodes.map((node, at) => {
 		const { x: line, y: ports } = placements[at] ?? { x: 0, y: 0 };
-		const { depth, before } = members[at] ?? { depth: 0, before: 0 };
-		const corner = turn(line - depth / 2, ports - before);
-		const box = { ...corner, width: nodeWidth, height: heights[at] ?? headerHeight };
+		const { depth } = members[at] ?? { depth: 0 };
+		const corner = turn(line - depth / 2, ports - (toPorts[at] ?? 0));
+		const { width, height } = frames[at] ?? { width: 0, height: 0 };
+		const box = { ...corner, width, height };
+		const { header, badge, title, status, callout } = partsOf(node, box, diagram.direction);
+		// Row text keeps to the outline's face, as the title does.
+		const face = faceOf(node, box);
 		return {
 			id: node.id,
 			kind: node.kind,
 			box,
+			header,
 			input: port(down ? "top" : "left", turn(line - depth / 2, ports)),
 			output: port(down ? "bottom" : "right", turn(line + depth / 2, ports)),
-			title: nodeTitle(node.title, { ...corner, width: nodeWidth, height: headerHeight }),
+			badge,
+			title,
 			rows: (node.rows ?? []).map((row, index) => {
 				const band = {
 					x: box.x,
-					y: box.y + headerHeight + index * rowHeight,
-					width: nodeWidth,
+					y: header.y + header.height + index * rowHeight,
+					width,
 					height: rowHeight,
 				};
 				// A Row's Ports sit on the Node's left and right sides, whatever the
@@ -79,11 +84,14 @@ export function layOut(diagram: Diagram): SceneNode[] {
 				const level = band.y + rowHeight / 2;
 				return {
 					box: band,
-					...rowTexts(row, band),
+					...rowTexts(row, { ...band, x: face.x, width: face.width }),
 					input: port("left", { x: box.x, y: level }),
-					output: port("right", { x: box.x + nodeWidth, y: level }),
+					output: port("right", { x: box.x + width, y: level }),
 				};
 			}),
+			external: node.external === true,
+			...(status === undefined ? {} : { status }),
+			...(callout === undefined ? {} : { callout }),
 		};
 	});
 }

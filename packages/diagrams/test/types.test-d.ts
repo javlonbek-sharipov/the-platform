@@ -127,3 +127,11 @@ test("the Atlas config is an object with no settings until slice 2 adds its cont
 	// @ts-expect-error: the config has no such setting.
 	atlas({ contxts: {} });
 });
+
+test("a status that the Notation doesn't have is a type error", () => {
+	architecture({ title: "Shop" }, (d) => {
+		d.node({ id: "shop-api", kind: "service", title: "Shop API", status: "degraded" });
+		// @ts-expect-error: `broken` isn't a status.
+		d.node({ id: "shop-db", kind: "database", title: "Shop database", status: "broken" });
+	});
+});

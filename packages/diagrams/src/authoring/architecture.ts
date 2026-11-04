@@ -1,6 +1,10 @@
 /** The builder for architecture Diagrams. */
 
-import type { ArchitectureEdgeKind, ArchitectureNodeKind } from "../notations/architecture.ts";
+import type {
+	ArchitectureEdgeKind,
+	ArchitectureNodeKind,
+	ArchitectureStatus,
+} from "../notations/architecture.ts";
 import { callerOf, type Declarations, declarationsKey } from "./declarations.ts";
 import {
 	type Diagram,
@@ -32,9 +36,15 @@ export interface ArchitectureNode<R extends string = string> {
 	id: string;
 	kind: ArchitectureNodeKind;
 	title: string;
+	/** Whether the Node stands for something we don't own or run, drawn with a dashed outline. */
+	external?: boolean;
+	/** How the Node is doing, shown as a mark at the end of its header. */
+	status?: ArchitectureStatus;
 	/** Shown below the header, each with its name on the left and its value on the right. */
 	rows?: readonly ArchitectureRow<R>[];
 	links?: readonly Link[];
+	/** A short tag above the Node that draws attention to it, such as `single point of failure`. */
+	callout?: string;
 }
 
 /** A Row to declare on a Node, such as `{ name: "replicas", value: "3" }`. */
@@ -99,12 +109,14 @@ export function architecture(
 	declare("", architecture);
 
 	const builder: ArchitectureBuilder = {
-		node({ id, kind, title, rows, links }) {
+		node({ id, kind, title, external, status, rows, links, callout }) {
 			declare(`/nodes/${nodes.length}`, builder.node);
 			nodes.push({
 				id,
 				kind,
 				title,
+				...(external === undefined ? {} : { external }),
+				...(status === undefined ? {} : { status }),
 				...(rows === undefined
 					? {}
 					: {
@@ -113,6 +125,7 @@ export function architecture(
 							),
 						}),
 				...(links === undefined ? {} : { links: links.map((link) => ({ ...link })) }),
+				...(callout === undefined ? {} : { callout }),
 			});
 			members.push(id);
 			return Object.freeze({ id, row: (name: string) => Object.freeze({ node: id, row: name }) });

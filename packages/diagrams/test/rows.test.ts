@@ -87,7 +87,7 @@ function nodeGroup(svg: string, id: string): string {
 function textsIn(svg: string) {
 	return [
 		...svg.matchAll(
-			/<text x="([^"]*)" y="([^"]*)" font-size="([^"]*)" font-weight="([^"]*)"[^>]*>([^<]*)<\/text>/g,
+			/<text (?:class="[^"]*" )?x="([^"]*)" y="([^"]*)" font-size="([^"]*)" font-weight="([^"]*)"[^>]*>([^<]*)<\/text>/g,
 		),
 	].map(([, x, y, size, weight, text]) => ({
 		x: Number(x),
@@ -177,8 +177,10 @@ describe.each(directions)("the Ports of a Diagram laid out %s", (direction) => {
 			expect(input.point).toEqual({ x: box.x, y: title.point.y });
 			expect(output.point).toEqual({ x: box.x + box.width, y: title.point.y });
 		} else {
-			expect(input.point).toEqual({ x: title.point.x, y: box.y });
-			expect(output.point).toEqual({ x: title.point.x, y: box.y + box.height });
+			// At the middle of the top and bottom sides.
+			const middle = box.x + box.width / 2;
+			expect(input.point).toEqual({ x: middle, y: box.y });
+			expect(output.point).toEqual({ x: middle, y: box.y + box.height });
 		}
 	});
 });
@@ -279,13 +281,20 @@ describe("the SVG", () => {
 	test("draws a line across the Node between its header and its first Row", () => {
 		const { scene, svg } = render(database("right", 2));
 		const node = nodeOf(scene ?? sceneOf(null), "orders-db");
-		const top = node.rows[0]?.box.y;
+		const top = node.rows[0]?.box.y ?? 0;
 		const lines = [
 			...nodeGroup(svg ?? "", "orders-db").matchAll(
 				/<line x1="([^"]*)" y1="([^"]*)" x2="([^"]*)" y2="([^"]*)"/g,
 			),
 		].map((match) => match.slice(1).map(Number));
-		expect(lines).toEqual([[node.box.x, top, node.box.x + node.box.width, top]]);
+		expect(lines).toHaveLength(1);
+		// From side to side of the Node, inside its outline's stroke.
+		const [x1 = 0, y1, x2 = 0, y2] = lines[0] ?? [];
+		expect([y1, y2]).toEqual([top, top]);
+		expect(x1).toBeGreaterThan(node.box.x);
+		expect(x1).toBeLessThan(node.box.x + 2);
+		expect(x2).toBeLessThan(node.box.x + node.box.width);
+		expect(x2).toBeGreaterThan(node.box.x + node.box.width - 2);
 		expect(nodeGroup(render(database("right", 0)).svg ?? "", "orders-db")).not.toContain("<line");
 	});
 

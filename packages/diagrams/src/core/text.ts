@@ -43,8 +43,7 @@ const metrics: Record<FontWeight, Metrics> = {
 };
 
 const titleSize = 14;
-/** The room a title leaves on each side, between it and the edge of its Node. */
-const titlePadding = 12;
+const calloutSize = 11;
 const rowSize = 12;
 /** The room a Row leaves on each side, between its text and the edge of its Node. */
 const rowPadding = 12;
@@ -52,13 +51,36 @@ const rowPadding = 12;
 const rowGap = 8;
 const ellipsis = "…";
 
-/** A Node's title, centered in its header, and shortened if it's too wide for the header. */
-export function nodeTitle(title: string, header: Box): SceneText {
+/**
+ * A Node's title, centered in the room its header leaves for it, and
+ * shortened if it's too wide for that room.
+ */
+export function nodeTitle(title: string, room: Box): SceneText {
 	return {
-		...fit(collapseSpaces(title), "semibold", titleSize, header.width - 2 * titlePadding),
-		point: { x: header.x + header.width / 2, y: header.y + header.height / 2 },
+		...fit(collapseSpaces(title), "semibold", titleSize, room.width),
+		point: { x: room.x + room.width / 2, y: room.y + room.height / 2 },
 		weight: "semibold",
 		size: titleSize,
+	};
+}
+
+/**
+ * A callout's text, for the tag above its Node: it starts at `left`, centered
+ * on `middle` from top to bottom, and is shortened if it's wider than
+ * `maxWidth`, so that the tag can be as wide as its text.
+ */
+export function calloutText(
+	callout: string,
+	left: number,
+	middle: number,
+	maxWidth: number,
+): SceneText {
+	const fitted = fit(collapseSpaces(callout), "semibold", calloutSize, maxWidth);
+	return {
+		...fitted,
+		point: { x: left + fitted.width / 2, y: middle },
+		weight: "semibold",
+		size: calloutSize,
 	};
 }
 
@@ -104,7 +126,8 @@ function rowWidthOf(text: string): number {
 
 /**
  * A warning for each piece of text with characters that the font lacks, and
- * for each one shortened: every Node's title, and its Rows' names and values.
+ * for each one shortened: every Node's title, its Rows' names and values, and
+ * its callout.
  */
 export function textDiagnostics(diagram: Diagram, nodes: SceneNode[]): Diagnostic[] {
 	const drawn = new Map(nodes.map((node) => [node.id, node]));
@@ -140,7 +163,21 @@ export function textDiagnostics(diagram: Diagram, nodes: SceneNode[]): Diagnosti
 						];
 			});
 		});
-		return [title, ...rows].flatMap(warningsAbout);
+		const callout: CheckedText[] =
+			node.callout === undefined
+				? []
+				: [
+						{
+							source: node.callout,
+							drawn: scene?.callout?.text,
+							weight: "semibold",
+							pointer: `/nodes/${index}/callout`,
+							lacking: (some) => `${named}'s callout has ${some} that the bundled font lacks`,
+							shortened: (text) =>
+								`${named}'s callout is too wide for its tag, so it's shortened to \`${text}\`. Choose a shorter callout to show it in full.`,
+						},
+					];
+		return [title, ...rows, ...callout].flatMap(warningsAbout);
 	});
 }
 

@@ -57,11 +57,19 @@ export interface SceneNode {
 	id: string;
 	kind: string;
 	box: Box;
+	/** The band that holds the badge and the title: the whole Node, or the part below a person's head. */
+	header: Box;
 	input: ScenePort;
 	output: ScenePort;
+	/** Where the Kind's badge is drawn, at the start of the header. */
+	badge: Box;
 	title: SceneText;
 	/** One for each of the Node's Rows, in order, in bands below its header. */
 	rows: SceneRow[];
+	/** Whether the Node stands for something we don't own or run, drawn with a dashed outline. */
+	external: boolean;
+	status?: SceneStatus;
+	callout?: SceneCallout;
 }
 
 /**
@@ -79,6 +87,18 @@ export interface SceneRow {
 	input: ScenePort;
 	/** The Port on the Node's right side, where an Edge that starts at the Row leaves. */
 	output: ScenePort;
+}
+
+/** A Node's status, and where its mark is drawn, at the end of the header. */
+export interface SceneStatus {
+	value: string;
+	mark: Box;
+}
+
+/** A Node's callout: a tag just above the Node, holding the callout's text. */
+export interface SceneCallout {
+	tag: Box;
+	text: SceneText;
 }
 
 export interface SceneEdge {

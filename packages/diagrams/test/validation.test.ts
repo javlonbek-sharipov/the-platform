@@ -413,6 +413,73 @@ describe("validation", () => {
 		);
 	});
 
+	test("reports an External flag that isn't true or false", () => {
+		const diagram = shopJson();
+		diagram.nodes[1] = { ...diagram.nodes[1], external: "yes" } as (typeof diagram.nodes)[number];
+
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "model-shape",
+				message: "`/nodes/1/external` must be `true` or `false`.",
+				pointer: "/nodes/1/external",
+			},
+		]);
+	});
+
+	test("reports a status that the Notation doesn't have", () => {
+		const diagram = shopJson();
+		diagram.nodes[1] = { ...diagram.nodes[1], status: "broken" } as (typeof diagram.nodes)[number];
+
+		expect(render(diagram)).toEqual({
+			diagnostics: [
+				{
+					severity: "error",
+					rule: "unknown-status",
+					message:
+						"Node `shop-api` has the status `broken`, which the architecture Notation doesn't have. Its statuses are ok, degraded, down and unknown.",
+					pointer: "/nodes/1/status",
+				},
+			],
+		});
+	});
+
+	test("reports a status that isn't a string", () => {
+		const diagram = shopJson();
+		diagram.nodes[1] = {
+			...diagram.nodes[1],
+			status: 3,
+		} as unknown as (typeof diagram.nodes)[number];
+
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "model-shape",
+				message: "`/nodes/1/status` must be a string.",
+				pointer: "/nodes/1/status",
+			},
+		]);
+	});
+
+	test("reports a callout with no text", () => {
+		for (const callout of ["", " \n\t", 7]) {
+			const diagram = shopJson();
+			diagram.nodes[1] = {
+				...diagram.nodes[1],
+				callout,
+			} as unknown as (typeof diagram.nodes)[number];
+
+			expect(render(diagram).diagnostics, JSON.stringify(callout)).toEqual([
+				{
+					severity: "error",
+					rule: "model-shape",
+					message: "`/nodes/1/callout` must be a string with some text in it.",
+					pointer: "/nodes/1/callout",
+				},
+			]);
+		}
+	});
+
 	test("accepts ids with digits, and context namespaces", () => {
 		const diagram = shopJson();
 		diagram.nodes[2] = { id: "billing/s3-archive", kind: "storage", title: "Archive" };

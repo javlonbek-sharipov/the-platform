@@ -3,7 +3,11 @@
  * The authoring API produces it, and generators may write it directly.
  */
 
-import type { ArchitectureEdgeKind, ArchitectureNodeKind } from "../notations/architecture.ts";
+import type {
+	ArchitectureEdgeKind,
+	ArchitectureNodeKind,
+	ArchitectureStatus,
+} from "../notations/architecture.ts";
 
 export type Direction = "right" | "down";
 
@@ -31,9 +35,14 @@ export interface Node {
 	id: string;
 	kind: ArchitectureNodeKind;
 	title: string;
+	/** Whether the Node stands for something we don't own or run, such as a third-party API. */
+	external?: boolean;
+	status?: ArchitectureStatus;
 	/** Drawn below the Node's header, one band each, in order. */
 	rows?: Row[];
 	links?: Link[];
+	/** A short tag that draws attention to the Node, such as `single point of failure`. */
+	callout?: string;
 }
 
 /**

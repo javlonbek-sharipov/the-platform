@@ -32,13 +32,27 @@ export type {
 	Point,
 	RoutePoint,
 	Scene,
+	SceneCallout,
 	SceneEdge,
 	SceneNode,
 	ScenePort,
 	SceneRow,
+	SceneStatus,
 	SceneText,
 	Side,
 } from "./core/scene.ts";
 export type { FontData, FontRequest, FontWeight } from "./core/text.ts";
-export type { ArchitectureEdgeKind, ArchitectureNodeKind } from "./notations/architecture.ts";
-export { architectureEdgeKinds, architectureNodeKinds } from "./notations/architecture.ts";
+export type {
+	ArchitectureEdgeKind,
+	ArchitectureFamily,
+	ArchitectureNodeKind,
+	ArchitectureNodeLook,
+	ArchitectureStatus,
+} from "./notations/architecture.ts";
+export {
+	architectureEdgeKinds,
+	architectureFamilies,
+	architectureNodeKinds,
+	architectureNodeLooks,
+	architectureStatuses,
+} from "./notations/architecture.ts";
