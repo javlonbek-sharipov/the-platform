@@ -290,7 +290,11 @@ export function validate(input: unknown): Validation {
 		}
 	});
 
-	diagnostics.push(...checkDefaultEdgeIds(diagram), ...checkNesting(diagram));
+	diagnostics.push(
+		...checkDefaultEdgeIds(diagram),
+		...checkNesting(diagram),
+		...checkCharacters(diagram),
+	);
 
 	return diagnostics.some((diagnostic) => diagnostic.severity === "error")
 		? { diagnostics }
@@ -342,6 +346,137 @@ function checkTechnology(
 					pointer,
 				),
 			];
+}
+
+/** A piece of text in the model: how a message names it, the text, and where it is. */
+type PlacedText = [where: string, text: string | undefined, pointer: string];
+
+/**
+ * Every text in the model must be one that an SVG can hold. XML forbids some
+ * characters even written as character references, so no escaping could
+ * write them: control characters other than tabs and line breaks, halves of
+ * surrogate pairs on their own, and U+FFFE and U+FFFF. Ids, Kinds and the
+ * other fields that have formats of their own can't hold them anyway.
+ */
+function checkCharacters(diagram: Diagram): Diagnostic[] {
+	const linkTexts = (owner: string, links: Link[] | undefined, pointer: string) =>
+		(links ?? []).flatMap((link, index): PlacedText[] => {
+			const named = `${owner}'s Link to \`${shown(link.id ?? link.doc ?? "")}\``;
+			const at = `${pointer}/links/${index}`;
+			return [
+				[`the document of ${named}`, link.doc, `${at}/doc`],
+				[`the section of ${named}`, link.section, `${at}/section`],
+				[`the label of ${named}`, link.label, `${at}/label`],
+			];
+		});
+	const texts: PlacedText[] = [
+		["the Diagram's id", diagram.id, "/id"],
+		["the Diagram's title", diagram.title, "/title"],
+		...diagram.nodes.flatMap((node, index): PlacedText[] => {
+			const named = `Node \`${shown(node.id)}\``;
+			const at = `/nodes/${index}`;
+			return [
+				[`${named}'s title`, node.title, `${at}/title`],
+				[`${named}'s callout`, node.callout, `${at}/callout`],
+				...(node.rows ?? []).flatMap((row, rowIndex) =>
+					(["name", "value"] as const).map(
+						(field): PlacedText => [
+							`the ${field} of ${named}'s Row \`${shown(row.name)}\``,
+							row[field],
+							`${at}/rows/${rowIndex}/${field}`,
+						],
+					),
+				),
+				...linkTexts(named, node.links, at),
+			];
+		}),
+		...diagram.groups.flatMap((group, index): PlacedText[] => {
+			const named = `Group \`${shown(group.id)}\``;
+			const at = `/groups/${index}`;
+			return [
+				[`${named}'s title`, group.title, `${at}/title`],
+				[`${named}'s description`, group.description, `${at}/description`],
+				...linkTexts(named, group.links, at),
+			];
+		}),
+		...diagram.edges.flatMap((edge, index): PlacedText[] => {
+			const named = `Edge \`${shown(edge.id)}\``;
+			const at = `/edges/${index}`;
+			const rows = (
+				[
+					["from", "starts"],
+					["to", "ends"],
+				] as const
+			).flatMap(([field, verb]): PlacedText[] => {
+				const end = edge[field];
+				return typeof end === "string"
+					? []
+					: [[`the Row that ${named} ${verb} at`, end.row, `${at}/${field}/row`]];
+			});
+			return [[`${named}'s label`, edge.label, `${at}/label`], ...rows];
+		}),
+	];
+	return texts.flatMap(([where, text, pointer]) => {
+		const found = [...new Set(text ?? "")].filter((character) => !writable(character));
+		const [first] = found;
+		if (first === undefined) {
+			return [];
+		}
+		const subject = `${where.charAt(0).toUpperCase()}${where.slice(1)}`;
+		return [
+			error(
+				"invalid-character",
+				found.length === 1
+					? `${subject} has ${unwritableKind(first)}, ${codePointOf(first)}, which an SVG can't hold. Remove it.`
+					: `${subject} has characters that an SVG can't hold: ${list(found.map(codePointOf))}. Remove them.`,
+				pointer,
+			),
+		];
+	});
+}
+
+/**
+ * Whether XML, and so an SVG, can hold the character: every character but
+ * the control characters other than tab, line feed and carriage return; the
+ * halves of surrogate pairs, on their own; and U+FFFE and U+FFFF.
+ */
+function writable(character: string): boolean {
+	const code = character.codePointAt(0) ?? 0;
+	return (
+		(code >= 0x20 || code === 0x09 || code === 0x0a || code === 0x0d) &&
+		(code < 0xd800 || code > 0xdfff) &&
+		code !== 0xfffe &&
+		code !== 0xffff
+	);
+}
+
+/** What kind of character an SVG can't hold this one is, for a message. */
+function unwritableKind(character: string): string {
+	const code = character.codePointAt(0) ?? 0;
+	return code < 0x20
+		? "a control character"
+		: code >= 0xd800 && code <= 0xdfff
+			? "an unpaired surrogate"
+			: "a noncharacter";
+}
+
+/** The text with each character that an SVG can't hold written as an escape, such as `\u0007`. */
+function shown(text: string): string {
+	return [...text]
+		.map((character) =>
+			writable(character) ? character : `\\u${hexOf(character.codePointAt(0) ?? 0)}`,
+		)
+		.join("");
+}
+
+/** `U+0007` */
+function codePointOf(character: string): string {
+	return `U+${hexOf(character.codePointAt(0) ?? 0)}`;
+}
+
+/** A code point as at least four uppercase hex digits. */
+function hexOf(code: number): string {
+	return code.toString(16).toUpperCase().padStart(4, "0");
 }
 
 /** A Link to an id must name it as the model writes ids. `owner` is the Node or Group that has the Links. */

@@ -999,3 +999,199 @@ describe("validation", () => {
 		expect(render(diagram).diagnostics).toEqual([]);
 	});
 });
+
+/**
+ * A valid model with text in every field that holds text, nested Groups,
+ * Rows and Links included. Its Edge from the Shop API leaves from the Row
+ * `zone`, so that the Row `replicas` can be renamed alone.
+ */
+function textJson() {
+	const diagram = regionJson();
+	return {
+		...diagram,
+		id: "docs/shop",
+		nodes: [
+			{ id: "web-app", kind: "client", title: "Web app" },
+			{
+				id: "shop-api",
+				kind: "service",
+				title: "Shop API",
+				callout: "SPOF",
+				rows: [{ name: "replicas", value: "3" }, { name: "zone" }],
+				links: [{ doc: "docs/shop.md", section: "Checkout", label: "How checkout works" }],
+			},
+			{ id: "shop-db", kind: "database", title: "Shop database", rows: [{ name: "orders" }] },
+		],
+		groups: [
+			{
+				id: "eu-west",
+				kind: "region",
+				title: "EU West",
+				members: ["shop-api", "eu-west-a"],
+				description: "Where the shop runs in Europe.",
+				links: [{ id: "us-east", label: "The US" }],
+			},
+			{ id: "eu-west-a", kind: "zone", title: "Zone A", members: ["shop-db"] },
+		],
+		edges: [
+			{
+				id: "web-app->shop-api",
+				kind: "call",
+				from: "web-app",
+				to: "shop-api",
+				label: "Places orders",
+			},
+			{
+				id: "shop-api->shop-db",
+				kind: "call",
+				from: { node: "shop-api", row: "zone" },
+				to: { node: "shop-db", row: "orders" },
+			},
+		],
+	};
+}
+
+/** Sets the value at a JSON Pointer that names an existing field. */
+function setAt(model: object, pointer: string, value: unknown): void {
+	const path = pointer.split("/").slice(1);
+	const field = path.pop() ?? "";
+	const parent = path.reduce((at, segment) => (at as Record<string, object>)[segment] ?? {}, model);
+	(parent as Record<string, unknown>)[field] = value;
+}
+
+/** An error of the rule about characters that an SVG can't hold. */
+function invalidCharacter(message: string, pointer: string) {
+	return { severity: "error", rule: "invalid-character", message, pointer };
+}
+
+describe("text that an SVG can't hold", () => {
+	test("accepts the valid fixture with text in every field", () => {
+		expect(render(textJson()).diagnostics).toEqual([]);
+	});
+
+	test("reports a title holding a control character, which would make the SVG invalid XML", () => {
+		const diagram = textJson();
+		diagram.nodes[1] = { ...diagram.nodes[1], title: "Shop\u0007API" } as never;
+
+		expect(render(diagram)).toEqual({
+			diagnostics: [
+				invalidCharacter(
+					"Node `shop-api`'s title has a control character, U+0007, which an SVG can't hold. Remove it.",
+					"/nodes/1/title",
+				),
+			],
+		});
+	});
+
+	test("reports such a character in every field that holds text, naming the field", () => {
+		const fields: [pointer: string, text: string, where: string][] = [
+			["/id", "docs/sh\u0007op", "The Diagram's id"],
+			["/title", "Sh\u0007op", "The Diagram's title"],
+			["/nodes/1/callout", "SP\u0007OF", "Node `shop-api`'s callout"],
+			[
+				"/nodes/1/rows/0/name",
+				"repl\u0007icas",
+				"The name of Node `shop-api`'s Row `repl\\u0007icas`",
+			],
+			["/nodes/1/rows/0/value", "\u00073", "The value of Node `shop-api`'s Row `replicas`"],
+			[
+				"/nodes/1/links/0/doc",
+				"docs/sh\u0007op.md",
+				"The document of Node `shop-api`'s Link to `docs/sh\\u0007op.md`",
+			],
+			[
+				"/nodes/1/links/0/section",
+				"Check\u0007out",
+				"The section of Node `shop-api`'s Link to `docs/shop.md`",
+			],
+			[
+				"/nodes/1/links/0/label",
+				"How\u0007",
+				"The label of Node `shop-api`'s Link to `docs/shop.md`",
+			],
+			["/groups/0/title", "EU\u0007West", "Group `eu-west`'s title"],
+			["/groups/0/description", "Europe\u0007", "Group `eu-west`'s description"],
+			[
+				"/groups/0/links/0/label",
+				"The\u0007US",
+				"The label of Group `eu-west`'s Link to `us-east`",
+			],
+			["/edges/0/label", "Places\u0007orders", "Edge `web-app->shop-api`'s label"],
+		];
+		for (const [pointer, text, where] of fields) {
+			const diagram = textJson();
+			setAt(diagram, pointer, text);
+
+			expect(render(diagram).diagnostics, pointer).toEqual([
+				invalidCharacter(
+					`${where} has a control character, U+0007, which an SVG can't hold. Remove it.`,
+					pointer,
+				),
+			]);
+		}
+	});
+
+	test("reports such a character in a Row's name, and in each Edge end that names the Row", () => {
+		const diagram = textJson();
+		setAt(diagram, "/nodes/1/rows/1/name", "zo\u001bne");
+		setAt(diagram, "/edges/1/from/row", "zo\u001bne");
+
+		expect(render(diagram).diagnostics).toEqual([
+			invalidCharacter(
+				"The name of Node `shop-api`'s Row `zo\\u001Bne` has a control character, U+001B, which an SVG can't hold. Remove it.",
+				"/nodes/1/rows/1/name",
+			),
+			invalidCharacter(
+				"The Row that Edge `shop-api->shop-db` starts at has a control character, U+001B, which an SVG can't hold. Remove it.",
+				"/edges/1/from/row",
+			),
+		]);
+	});
+
+	test("names every such character once, whether it's a control character, half a surrogate pair, or U+FFFE or U+FFFF", () => {
+		const cases: [title: string, found: string][] = [
+			["Shop\u0000API", "a control character, U+0000,"],
+			["Shop \ud83d", "an unpaired surrogate, U+D83D,"],
+			["\udc00Shop", "an unpaired surrogate, U+DC00,"],
+			["Shop￾", "a noncharacter, U+FFFE,"],
+			["Shop￿", "a noncharacter, U+FFFF,"],
+		];
+		for (const [title, found] of cases) {
+			const diagram = textJson();
+			setAt(diagram, "/nodes/1/title", title);
+
+			expect(render(diagram).diagnostics, found).toEqual([
+				invalidCharacter(
+					`Node \`shop-api\`'s title has ${found} which an SVG can't hold. Remove it.`,
+					"/nodes/1/title",
+				),
+			]);
+		}
+
+		const diagram = textJson();
+		setAt(diagram, "/nodes/1/title", "\u001b[31mShop\u0007 API\u0007\ud800");
+		expect(render(diagram).diagnostics).toEqual([
+			invalidCharacter(
+				"Node `shop-api`'s title has characters that an SVG can't hold: U+001B, U+0007 and U+D800. Remove them.",
+				"/nodes/1/title",
+			),
+		]);
+	});
+
+	test("accepts every character that XML allows, such as tabs, line breaks, DEL and emoji", () => {
+		for (const title of [
+			"Shop\tAPI",
+			"Shop\nAPI\r",
+			"Shop\u007f",
+			"Shop\u0085",
+			"Shop�",
+			"Shop 🛒",
+		]) {
+			const diagram = textJson();
+			setAt(diagram, "/nodes/1/title", title);
+
+			const errors = render(diagram).diagnostics.filter(({ severity }) => severity === "error");
+			expect(errors, JSON.stringify(title)).toEqual([]);
+		}
+	});
+});

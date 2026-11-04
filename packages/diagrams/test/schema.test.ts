@@ -185,6 +185,48 @@ describe("the JSON Schema", () => {
 		}
 	});
 
+	test("rejects text that an SVG can't hold in every field that holds text, where the core does", () => {
+		const texts = [
+			"/id",
+			"/title",
+			"/nodes/1/title",
+			"/nodes/2/callout",
+			"/nodes/2/rows/0/name",
+			"/nodes/2/rows/0/value",
+			"/nodes/1/links/0/doc",
+			"/nodes/1/links/0/section",
+			"/nodes/1/links/0/label",
+			"/nodes/2/links/0/label",
+			"/groups/0/title",
+			"/groups/0/description",
+			"/groups/0/links/0/section",
+			"/edges/1/label",
+			"/edges/2/from/row",
+		];
+		// A control character, half a surrogate pair, and a noncharacter.
+		for (const text of ["Sh\u0007op", "Shop \ud83d", "Shop￿"]) {
+			for (const pointer of texts) {
+				const model = broken(pointer, text);
+				const what = `${JSON.stringify(text)} at ${pointer}`;
+
+				expect.soft(schemaPointers(model), what).toContain(pointer);
+				expect
+					.soft(render(model).diagnostics, what)
+					.toContainEqual(expect.objectContaining({ rule: "invalid-character", pointer }));
+			}
+		}
+	});
+
+	test("passes text with any character that XML allows, such as tabs, DEL and emoji, as the core does", () => {
+		for (const text of ["Shop\tAPI\r\n", "Shop\u007f", "Shop\u0085", "Shop�", "Shop 🛒", "店"]) {
+			const model = broken("/nodes/2/rows/0/value", text);
+
+			expect(schemaErrors(model), JSON.stringify(text)).toEqual([]);
+			const errors = render(model).diagnostics.filter(({ severity }) => severity === "error");
+			expect(errors, JSON.stringify(text)).toEqual([]);
+		}
+	});
+
 	test("rejects each broken model where the core does", () => {
 		for (const [what, pointer, value, rule] of brokenModels) {
 			const model = broken(pointer, value);

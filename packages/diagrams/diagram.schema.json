@@ -13,11 +13,11 @@
 		},
 		"id": {
 			"description": "The Diagram's module's path from the repo root, minus `.diagram.ts`, such as `docs/shop`. The Atlas sets it, so a generated Diagram may leave it out.",
-			"type": "string"
+			"$ref": "#/$defs/text"
 		},
 		"title": {
 			"description": "The Diagram's title.",
-			"type": "string"
+			"$ref": "#/$defs/text"
 		},
 		"direction": {
 			"description": "Which way the ranks run: `right`, the default, or `down`.",
@@ -74,8 +74,14 @@
 			"type": "string",
 			"pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:/[a-z0-9]+(?:-[a-z0-9]+)*)*$"
 		},
+		"text": {
+			"description": "Text that an SVG can hold. XML forbids some characters even written as character references, so no SVG can hold them: the control characters other than tab, line feed and carriage return, U+0000 to U+001F; the halves of surrogate pairs on their own, U+D800 to U+DFFF; and U+FFFE and U+FFFF.",
+			"type": "string",
+			"pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\uD800-\\uDFFF\\uFFFE\\uFFFF]*$"
+		},
 		"someText": {
-			"description": "A string with some text other than spaces, tabs and line breaks.",
+			"description": "Text with something in it other than spaces, tabs and line breaks.",
+			"$ref": "#/$defs/text",
 			"type": "string",
 			"pattern": "[^ \\t\\n\\r]"
 		},
@@ -110,7 +116,7 @@
 				},
 				"title": {
 					"description": "The Node's title, drawn in its header. A title too wide for its Kind is shortened.",
-					"type": "string"
+					"$ref": "#/$defs/text"
 				},
 				"technology": {
 					"description": "What the Node is built with, drawn in its header.",
@@ -152,11 +158,11 @@
 			"properties": {
 				"name": {
 					"description": "The Row's name, drawn on the left. An Edge end names a Row by it.",
-					"type": "string"
+					"$ref": "#/$defs/text"
 				},
 				"value": {
 					"description": "The Row's value, drawn on the right. A number is written as a string, such as `\"3\"`.",
-					"type": "string"
+					"$ref": "#/$defs/text"
 				}
 			},
 			"required": ["name"],
@@ -175,7 +181,7 @@
 				},
 				"title": {
 					"description": "The Group's title, drawn in its label band.",
-					"type": "string"
+					"$ref": "#/$defs/text"
 				},
 				"members": {
 					"description": "The ids of the Group's Nodes and child Groups, in declaration order.",
@@ -186,7 +192,7 @@
 				},
 				"description": {
 					"description": "What the Group is, which isn't drawn.",
-					"type": "string"
+					"$ref": "#/$defs/text"
 				},
 				"links": {
 					"description": "\"See also\" pointers, which aren't drawn.",
@@ -258,7 +264,7 @@
 				},
 				"row": {
 					"description": "The Row's name.",
-					"type": "string"
+					"$ref": "#/$defs/text"
 				}
 			},
 			"required": ["node", "row"],
@@ -284,7 +290,7 @@
 				},
 				"label": {
 					"description": "Replaces the text shown for the Link.",
-					"type": "string"
+					"$ref": "#/$defs/text"
 				}
 			},
 			"required": ["id"],
@@ -296,15 +302,15 @@
 			"properties": {
 				"doc": {
 					"description": "The document's path from the repo root, such as `docs/adr/0001-clean-room.md`.",
-					"type": "string"
+					"$ref": "#/$defs/text"
 				},
 				"section": {
 					"description": "A heading in the document, by its text or by its anchor.",
-					"type": "string"
+					"$ref": "#/$defs/text"
 				},
 				"label": {
 					"description": "Replaces the text shown for the Link.",
-					"type": "string"
+					"$ref": "#/$defs/text"
 				}
 			},
 			"required": ["doc"],
