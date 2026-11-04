@@ -496,6 +496,87 @@ function inside(diagram: Diagram, id: string): Set<string> {
 }
 
 describe.each(directions)("Groups laid out %s", (direction) => {
+	const { rank, order } = axes[direction];
+
+	test("rank a Group after another when an Edge joins Nodes inside them, at any depth", () => {
+		const scene = sceneOf(
+			diagram("Two systems", direction, (d) => {
+				d.group({ id: "intake", kind: "system", title: "Intake" }, (intake) => {
+					intake.group({ id: "intake-zone", kind: "zone", title: "Zone A" }, (zone) => {
+						zone.node({ id: "web-app", kind: "client", title: "Web app" });
+					});
+				});
+				d.group({ id: "shop", kind: "system", title: "Shop" }, (shop) => {
+					shop.node({ id: "shop-api", kind: "service", title: "Shop API" });
+				});
+				d.edge("web-app", "shop-api", { kind: "call" });
+			}),
+		);
+
+		expect(start(groupOf(scene, "shop").box, rank)).toBeGreaterThan(
+			end(groupOf(scene, "intake").box, rank),
+		);
+	});
+
+	test("lay a Group's members out without the Edges that leave the Group", () => {
+		// The two APIs meet only through the queue, outside their Group.
+		const scene = sceneOf(
+			diagram("Leaving", direction, (d) => {
+				d.group({ id: "shop", kind: "system", title: "Shop" }, (shop) => {
+					shop.node({ id: "orders-api", kind: "service", title: "Orders API" });
+					shop.node({ id: "stock-api", kind: "service", title: "Stock API" });
+				});
+				d.node({ id: "order-events", kind: "queue", title: "Order events" });
+				d.edge("orders-api", "order-events", { kind: "message" });
+				d.edge("order-events", "stock-api", { kind: "message" });
+			}),
+		);
+
+		expect(middle(boxOf(scene, "stock-api"), rank)).toBe(middle(boxOf(scene, "orders-api"), rank));
+		expect(start(boxOf(scene, "order-events"), rank)).toBeGreaterThan(
+			end(groupOf(scene, "shop").box, rank),
+		);
+	});
+
+	test("let declaration order settle ties on every level", () => {
+		const regions = (ids: string[], members: string[]) =>
+			sceneOf(
+				diagram("Regions", direction, (d) => {
+					for (const id of ids) {
+						d.group({ id, kind: "region", title: id }, (region) => {
+							for (const member of members) {
+								region.node({ id: `${id}-${member}`, kind: "service", title: member });
+							}
+						});
+					}
+				}),
+			);
+		const across = (scene: Scene, id: string) => start(boxOfAny(scene, id), order);
+
+		const declared = regions(["eu-west", "us-east"], ["api", "db"]);
+		const swapped = regions(["us-east", "eu-west"], ["db", "api"]);
+		expect(across(declared, "eu-west")).toBeLessThan(across(declared, "us-east"));
+		expect(across(declared, "eu-west-api")).toBeLessThan(across(declared, "eu-west-db"));
+		expect(groupOf(swapped, "us-east").box).toEqual(groupOf(declared, "eu-west").box);
+		expect(across(swapped, "us-east-db")).toBe(across(declared, "eu-west-api"));
+		expect(across(swapped, "eu-west-api")).toBe(across(declared, "us-east-db"));
+	});
+
+	test("line a Node up with the Node it joins inside a Group, whichever the Group declares first", () => {
+		const scene = sceneOf(
+			diagram("Anchor", direction, (d) => {
+				const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+				d.group({ id: "shop", kind: "system", title: "Shop" }, (shop) => {
+					shop.node({ id: "shop-cache", kind: "cache", title: "Shop cache" });
+					const api = shop.node({ id: "shop-api", kind: "service", title: "Shop API" });
+					d.edge(web, api, { kind: "call" });
+				});
+			}),
+		);
+
+		expect(straight(scene, "web-app", "shop-api")).toBe(true);
+	});
+
 	describe.each(groupFixtures)("on %s", (_, fixture) => {
 		test("every Group contains its members, with more than half a clearance to spare on each side, below its label band", () => {
 			const model = fixture(direction);
