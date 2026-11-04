@@ -143,6 +143,9 @@ test("a Group's callback gets a builder for its members, and declaring a Group r
 		expectTypeOf(region).toEqualTypeOf<GroupHandle>();
 		// @ts-expect-error: a Group's members are declared in a callback.
 		d.group({ id: "us-east", kind: "region", title: "US East" });
+		const api = d.node({ id: "shop-api", kind: "service", title: "Shop API" });
+		// @ts-expect-error: an Edge ends at Nodes, never at a Group.
+		d.edge(api, region, { kind: "call" });
 	});
 });
 
