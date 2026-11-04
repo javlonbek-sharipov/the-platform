@@ -166,8 +166,15 @@ async function exportCommand(args: string[], context: CliContext): Promise<numbe
 		request.out === undefined
 			? join(cacheFolderOf(root), "export", exportName(model.id, request))
 			: resolve(context.cwd, request.out);
-	mkdirSync(dirname(file), { recursive: true });
-	writeFileSync(file, request.format === "json" ? modelJson(model) : drawPng(svg, request));
+	const contents = request.format === "json" ? modelJson(model) : drawPng(svg, request);
+	try {
+		mkdirSync(dirname(file), { recursive: true });
+		writeFileSync(file, contents);
+	} catch (error) {
+		const reason = error instanceof Error ? error.message : String(error);
+		context.stderr.write(`Couldn't write \`${shown(file, context)}\`: ${reason}\n`);
+		return 2;
+	}
 	context.stdout.write(`${file}\n`);
 	return 0;
 }

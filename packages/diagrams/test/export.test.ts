@@ -265,6 +265,17 @@ describe("diagrams export, with arguments it can't use", () => {
 		expect(existsSync(join(atlas, ".diagrams-cache"))).toBe(false);
 	});
 
+	test("rejects an --out it can't write, with exit code 2", async () => {
+		const atlas = await sampleAtlas({ "docs/shop.diagram.ts": shopModule() });
+
+		const run = await runCli(
+			["export", "docs/shop.diagram.ts", "--format", "png", "--out", "docs"],
+			atlas,
+		);
+		expect(run).toMatchObject({ code: 2, stdout: "" });
+		expect(run.stderr).toMatch(/^Couldn't write `docs`: EISDIR: .+\n$/);
+	});
+
 	test("rejects a Diagram that isn't there, with exit code 2", async () => {
 		const atlas = await sampleAtlas({ "docs/shop.diagram.ts": shopModule() });
 
