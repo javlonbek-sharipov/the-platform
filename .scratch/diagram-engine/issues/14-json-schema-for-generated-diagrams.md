@@ -13,7 +13,7 @@
 - 08 Rows and Row Ports
 - 10 Edge labels, rates and hops
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Spec:**
 
@@ -56,3 +56,5 @@
 - **For ticket 12.** The model's Node has `technology` now. Validation checks that it's a slug (`technology-format`), and the schema covers it. What's left is the authoring API (`ArchitectureNode` and the builder, which doesn't copy it yet) and the drawing.
 - **For every ticket that adds a field.** Add it to its type in `src/authoring/model.ts`. The type checker then asks for it in validation's `fields`, and the schema test asks for it in the schema. Add it to `test/fixtures/every-field.json` too. A Node's or Diagram's `description` and Walkthroughs are rejected until a slice reads them, as term Links were already.
 - **Slice 2.** The domain Notation needs the schema's `notation`, Kinds and roles, and term Links with their `context`.
+
+Merged into diagram-engine in 7a27f5d.
