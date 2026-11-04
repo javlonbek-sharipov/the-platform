@@ -8,6 +8,7 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { cacheFolder, lintAtlas, renderDiagrams } from "../atlas/atlas.ts";
 import { AtlasError, discover, findRoot } from "../atlas/discover.ts";
 import { type AtlasMessage, placeText } from "../atlas/messages.ts";
+import type { Diagram } from "../authoring/model.ts";
 import { drawPng, type Theme, themes } from "./png.ts";
 
 export interface Output {
@@ -120,6 +121,9 @@ async function lintCommand(options: string[], context: CliContext): Promise<numb
 	return errors === 0 ? 0 : 1;
 }
 
+const formats = ["png", "json"] as const;
+type Format = (typeof formats)[number];
+
 async function exportCommand(args: string[], context: CliContext): Promise<number> {
 	const parsed = parseOptions(args, ["--format", "--theme", "--scale"]);
 	if ("error" in parsed) {
@@ -131,6 +135,11 @@ async function exportCommand(args: string[], context: CliContext): Promise<numbe
 		context.stderr.write(`Name the Diagram to export.\n\n${usage}`);
 		return 2;
 	}
+	const format = parsed.values.get("--format") as Format;
+	if (!formats.includes(format)) {
+		context.stderr.write(`Choose \`--format png\` or \`--format json\`.\n\n${usage}`);
+		return 2;
+	}
 	const theme = parsed.values.get("--theme") ?? "light";
 	if (!themes.includes(theme as Theme)) {
 		context.stderr.write(`Choose \`--theme light\` or \`--theme dark\`.\n\n${usage}`);
@@ -139,15 +148,31 @@ async function exportCommand(args: string[], context: CliContext): Promise<numbe
 	const scale = Number(parsed.values.get("--scale") ?? "1");
 	const root = findRoot(context.cwd);
 	const [rendered] = await renderDiagrams(root, [resolve(context.cwd, diagram)]);
-	if (rendered?.svg === undefined || rendered.model?.id === undefined) {
+	const { svg, model } = rendered ?? {};
+	if (svg === undefined || model?.id === undefined) {
 		return 1;
 	}
-	const name = `${rendered.model.id}.${theme}${scale === 1 ? "" : `@${scale}x`}.png`;
+	const name =
+		format === "json"
+			? `${model.id}.json`
+			: `${model.id}.${theme}${scale === 1 ? "" : `@${scale}x`}.png`;
 	const file = join(root, cacheFolder, "export", name);
 	mkdirSync(dirname(file), { recursive: true });
-	writeFileSync(file, drawPng(rendered.svg, { theme: theme as Theme, scale }));
+	writeFileSync(
+		file,
+		format === "json" ? modelJson(model) : drawPng(svg, { theme: theme as Theme, scale }),
+	);
 	context.stdout.write(`${file}\n`);
 	return 0;
+}
+
+/**
+ * The model as JSON, indented by two spaces. The id that the Atlas gave it
+ * goes where a builder writes one, after the notation.
+ */
+function modelJson(model: Diagram): string {
+	const { version, notation, id, ...rest } = model;
+	return `${JSON.stringify({ version, notation, id, ...rest }, null, 2)}\n`;
 }
 
 /**

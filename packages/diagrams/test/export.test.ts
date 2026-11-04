@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
+import example from "../docs/example-system.diagram.ts";
 import { runCli, sampleAtlas, shopModule } from "./support/atlas.ts";
 import { decodePng, type Pixels, pngSize } from "./support/png.ts";
 import { descendants, type Element, parseSvg } from "./support/svg.ts";
@@ -133,6 +134,21 @@ export default architecture({ title: "Arrows" }, (d) => {
 			expect(Math.abs(drawn.left - expected.left), `${text.text}: left`).toBeLessThan(1);
 			expect(Math.abs(drawn.right - expected.right), `${text.text}: right`).toBeLessThan(1);
 		}
+	});
+});
+
+describe("diagrams export --format json", () => {
+	test("writes the Diagram's model: the module's default export, with the id the Atlas gives it", async () => {
+		const source = await readFile(new URL("../docs/example-system.diagram.ts", import.meta.url));
+		const atlas = await sampleAtlas({ "docs/example.diagram.ts": source.toString() });
+
+		const json = join(atlas, ".diagrams-cache/export/docs/example.json");
+		expect(await runCli(["export", "docs/example.diagram.ts", "--format", "json"], atlas)).toEqual({
+			code: 0,
+			stdout: `${json}\n`,
+			stderr: "",
+		});
+		expect(JSON.parse(await readFile(json, "utf8"))).toEqual({ ...example, id: "docs/example" });
 	});
 });
 
