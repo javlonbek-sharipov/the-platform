@@ -341,17 +341,16 @@ function stores(direction: Direction): Diagram {
  */
 function fanIn(direction: Direction): Diagram {
 	return architecture({ title: "Fan-in", direction }, (d) => {
-		const writers = [
+		const db = d.node({ id: "orders-db", kind: "database", title: "Orders database" });
+		for (const [id, title, label] of [
 			["orders-api", "Orders API", "Writes orders"],
 			["billing-api", "Billing API", "Reads orders"],
 			["reports-api", "Reports API", "Reads"],
 			["returns-api", "Returns API", "Writes returns"],
-		] as const;
-		const apis = writers.map(([id, title]) => d.node({ id, kind: "service", title }));
-		const db = d.node({ id: "orders-db", kind: "database", title: "Orders database" });
-		writers.forEach(([, , label], index) => {
-			d.edge(apis[index] ?? db, db, { kind: "call", label, technology: "postgres", rate: "2k/s" });
-		});
+		] as const) {
+			const api = d.node({ id, kind: "service", title });
+			d.edge(api, db, { kind: "call", label, technology: "postgres", rate: "2k/s" });
+		}
 	});
 }
 
