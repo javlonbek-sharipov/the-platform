@@ -63,6 +63,17 @@ export function validate(input: unknown): Validation {
 				),
 			);
 		}
+		node.links?.forEach((link, linkIndex) => {
+			if (link.id !== undefined && !idPattern.test(link.id)) {
+				diagnostics.push(
+					error(
+						"id-format",
+						`Node \`${node.id}\` has a Link to \`${link.id}\`, which isn't a lowercase kebab-case id. Write ids like \`payments-api\`.`,
+						`/nodes/${index}/links/${linkIndex}/id`,
+					),
+				);
+			}
+		});
 	});
 
 	const edgeIds = new Set<string>();
@@ -184,8 +195,47 @@ function checkShape(input: unknown): Diagnostic[] {
 	checkList(input.members, "/members", (member, at) => {
 		check(typeof member === "string", at, "an id");
 	});
+	/**
+	 * A Link has exactly one target, `id` or `doc`, and only a `doc` has a
+	 * `section`. The model's third target, `term`, comes in slice 2.
+	 */
+	const checkLink = (link: unknown, at: string) => {
+		if (!isObject(link)) {
+			check(false, at, "an object");
+			return;
+		}
+		const targets = ["id", "doc", "term"].filter((field) => link[field] !== undefined);
+		const [target] = targets;
+		if (target === undefined || target === "term" || targets.length > 1) {
+			diagnostics.push(
+				error("model-shape", `\`${at}\` must have exactly one of \`id\` and \`doc\`.`, at),
+			);
+			return;
+		}
+		check(typeof link[target] === "string", `${at}/${target}`, "a string");
+		check(link.label === undefined || typeof link.label === "string", `${at}/label`, "a string");
+		if (link.section !== undefined && target === "id") {
+			diagnostics.push(
+				error(
+					"model-shape",
+					`\`${at}/section\` must be left out: only a Link to a document has sections.`,
+					`${at}/section`,
+				),
+			);
+		} else {
+			check(
+				link.section === undefined || typeof link.section === "string",
+				`${at}/section`,
+				"a string",
+			);
+		}
+	};
+
 	checkList(input.nodes, "/nodes", (node, at) => {
 		checkStrings(node, at, ["id", "kind", "title"]);
+		if (isObject(node) && node.links !== undefined) {
+			checkList(node.links, `${at}/links`, checkLink);
+		}
 	});
 	checkList(input.groups, "/groups", () => {});
 	checkList(input.edges, "/edges", (edge, at) => {

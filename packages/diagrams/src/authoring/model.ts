@@ -31,6 +31,34 @@ export interface Node {
 	id: string;
 	kind: ArchitectureNodeKind;
 	title: string;
+	links?: Link[];
+}
+
+/**
+ * A "see also" pointer from a Node, which isn't drawn on the Diagram. It
+ * points at exactly one thing: an id or a document. Term Links come in
+ * slice 2.
+ */
+export type Link = IdLink | DocLink;
+
+/** A Link to another id in the Atlas. */
+export interface IdLink {
+	id: string;
+	/** Replaces the text shown for the Link. */
+	label?: string;
+	doc?: never;
+	section?: never;
+}
+
+/** A Link to a Markdown document, such as an ADR or a spec, and optionally to one of its sections. */
+export interface DocLink {
+	/** The document's path from the repo root, such as `docs/adr/0001-clean-room.md`. */
+	doc: string;
+	/** A heading in the document, by its text or by its anchor. */
+	section?: string;
+	/** Replaces the text shown for the Link. */
+	label?: string;
+	id?: never;
 }
 
 export interface Edge {

@@ -46,6 +46,34 @@ describe("the architecture builder", () => {
 		expect(diagram.edges.map((edge) => edge.id)).toEqual(["publish", "shop-api->shop-events"]);
 	});
 
+	test("keeps a Node's Links: to an id, or to a document and one of its sections", () => {
+		const diagram = architecture({ title: "Shop" }, (d) => {
+			d.node({
+				id: "shop-api",
+				kind: "service",
+				title: "Shop API",
+				links: [
+					{ id: "payments-api" },
+					{ doc: "docs/adr/0002-payments.md", label: "Why we pay later" },
+					{ doc: "docs/shop.md", section: "Checkout" },
+				],
+			});
+		});
+
+		expect(diagram.nodes).toEqual([
+			{
+				id: "shop-api",
+				kind: "service",
+				title: "Shop API",
+				links: [
+					{ id: "payments-api" },
+					{ doc: "docs/adr/0002-payments.md", label: "Why we pay later" },
+					{ doc: "docs/shop.md", section: "Checkout" },
+				],
+			},
+		]);
+	});
+
 	test("accepts a Node's id in place of its handle", () => {
 		const diagram = architecture({ title: "Shop" }, (d) => {
 			const api = d.node({ id: "shop-api", kind: "service", title: "Shop API" });

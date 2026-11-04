@@ -1379,6 +1379,46 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
 10. **Tests read fonts with their own code.** `test/support/truetype.ts` is a TrueType reader written separately from the engine's, so that tests don't trust the code under test. It reads both of the bundled font's Unicode subtables, where the engine reads only the format 12 one.
 11. **Exact arithmetic.** Ticket 02's Biome plugin rejects `**` throughout the core, even between BigInts, which are exact. So the hash's modulus, 2⁶⁴, is written `1n << 64n`.
 
+**Ticket 05**
+
+1. **The config and the root.** This replaces ticket 01's decision 7.
+   - `diagrams.config.ts` default-exports `atlas({})`. Its type takes no settings yet, so slice 2 can add `contexts` without breaking any config.
+   - The repo root is the nearest folder at or above the working directory that holds the config. Without one, `render` and `lint` exit with 2 and show how to write it.
+   - Only `lint` loads the config, since `render` doesn't need its contents. A config that fails to load, or doesn't default-export an object, is a `module-load` error.
+2. **Discovery.**
+   - With a `.git` at or above the root, the Atlas's files are what `git ls-files --cached --others --exclude-standard` lists under the root, minus files that were deleted but are still tracked.
+   - Git runs without `GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE`, so that it reads the repo that holds the root, even inside a hook. If git fails, the command exits with 2. It never falls back to the walk, which would bring in ignored folders.
+   - Outside git, the walk skips folders named `.git` and `node_modules`. `repos/` has no rule of its own any more, since git ignores it.
+   - Files come in path order, folder by folder, however they were found.
+3. **Declaration positions.**
+   - The builder finds each declaration's caller with `Error.captureStackTrace`. It's a V8 API, not a Node module, so the core may use it. Engines without it record nothing.
+   - The positions sit beside the model, never in it: a non-enumerable property under `Symbol.for("@the-platform/diagrams/declarations")`, keyed by JSON Pointer (`""` for the Diagram, `/nodes/2`, `/edges/0`). JSON and `toEqual` both ignore it.
+   - A diagnostic goes to the nearest declaration at or above its pointer. A shared Node is placed at the `d.node(…)` call on each Diagram. A declaration made inside a helper function is placed in the helper.
+   - The column is where V8 puts it: at `node` in `d.node(`.
+4. **Load failures.**
+   - A module that throws is placed at the first frame of the stack that lies in that module.
+   - A syntax error gets its line from the first line of the stack, and no column. Node shows the column only in a snippet, and expands tabs in it.
+   - When the error came from a module that it imports, the message stays on the diagram module and names the other place as a repo path, as in `The module failed to load: docs/shared/nodes.ts:3:7: No API today.`
+5. **Output.** This replaces the output of ticket 01's decision 5.
+   - A message about a whole file, such as an SVG, prints as `file: severity: message (rule)`, with no line and no column.
+   - Messages come file by file in path order, then by line and column. Paths inside a message are repo paths. Each message's own file is shown relative to the working directory, as before.
+   - `--json` prints one object, `{ diagrams, errors, warnings, messages }`, indented by two spaces. Each message has `file`, `line`, `column`, `severity`, `rule`, `message` and `pointer`, leaving out what isn't known. `file` is relative to the working directory, as in the text, and no summary line is printed.
+   - An unknown option exits with 2, like an unknown command.
+6. **Diagram ids.** The Atlas sets each Diagram's `id` to its module's path from the repo root, minus `.diagram.ts`, replacing any id the module gave. Messages name other Diagrams by these ids.
+7. **Links.**
+   - A Link is `{ id, label? }` or `{ doc, section?, label? }`. The types forbid a Link with both, and validation checks it again as `model-shape`. A Link's id must be a kebab-case id (`id-format`). Until slice 2, a Link with a `term` fails validation too, as one without exactly one of `id` and `doc`.
+   - A `doc` is a path from the repo root, and must name a file inside the repo. One that leaves the repo with `..` is broken, even if the file exists. Lint checks files on disk, not in git.
+   - A `section` names a heading by its text or by its anchor. Both go through GitHub's anchor rules: links keep only their text, letters are lowercased, punctuation is dropped, each space becomes a hyphen, and a repeated anchor gets `-1`, `-2` and so on. Only ATX headings count, outside code fences.
+   - A Link to an id resolves against the ids drawn on every Diagram that loaded, even one with errors, so that those errors don't also show as broken Links.
+   - The builder takes `readonly Link[]`, so that an `as const` definition works, and copies each Link into the model.
+8. **Ids across the Atlas.**
+   - Every place that draws a conflicting id gets an error. It names the values that the other Diagrams give the id, and those Diagrams' ids.
+   - Only Diagrams that pass validation take part.
+   - Only `kind` and `title` must agree. Links, and later Technologies and Rows, may differ from Diagram to Diagram.
+9. **Shared Nodes** are plain objects written with `satisfies ArchitectureNode`, which keeps the Kind's literal type.
+10. **Orphans.** An SVG is orphaned when discovery finds no module beside it. An SVG that git ignores isn't in the Atlas, so it's never reported.
+11. **Rules added:** `broken-link`, `kind-conflict`, `title-conflict` and `svg-orphaned`.
+
 ### References
 
 **Routing and layout papers**

@@ -1,8 +1,10 @@
 import { expectTypeOf, test } from "vitest";
 import {
 	type ArchitectureEdgeKind,
+	type ArchitectureNode,
 	type ArchitectureNodeKind,
 	architecture,
+	atlas,
 	type NodeHandle,
 } from "../src/index.ts";
 
@@ -48,4 +50,44 @@ test("declaring a Node returns a handle that an Edge accepts", () => {
 		// @ts-expect-error: an Edge end is a handle or an id, not a number.
 		d.edge(api, 7, { kind: "call" });
 	});
+});
+
+test("a Link points at exactly one thing: an id, or a document", () => {
+	architecture({ title: "Shop" }, (d) => {
+		d.node({
+			id: "shop-api",
+			kind: "service",
+			title: "Shop API",
+			links: [
+				{ id: "payments-api", label: "Payments" },
+				{ doc: "docs/shop.md", section: "Checkout", label: "Checkout" },
+			],
+		});
+		// @ts-expect-error: a Link has an id or a document, not both.
+		d.node({ id: "web-app", kind: "client", title: "Web app", links: [{ id: "a", doc: "b.md" }] });
+		// @ts-expect-error: only a document has sections.
+		d.node({ id: "shop-db", kind: "database", title: "DB", links: [{ id: "a", section: "b" }] });
+	});
+});
+
+test("a Node defined once, as a plain object, can be declared on any Diagram", () => {
+	const payments = {
+		id: "payments-api",
+		kind: "service",
+		title: "Payments API",
+		links: [{ doc: "docs/payments.md" }],
+	} satisfies ArchitectureNode;
+
+	architecture({ title: "Shop" }, (d) => {
+		expectTypeOf(d.node(payments)).toEqualTypeOf<NodeHandle>();
+	});
+	architecture({ title: "Billing" }, (d) => {
+		expectTypeOf(d.node(payments)).toEqualTypeOf<NodeHandle>();
+	});
+});
+
+test("the Atlas config is an object with no settings until slice 2 adds its contexts", () => {
+	atlas({});
+	// @ts-expect-error: the config has no such setting.
+	atlas({ contxts: {} });
 });
