@@ -6,6 +6,7 @@
  */
 
 import type { Diagram, Row } from "../authoring/model.ts";
+import { technologyOf } from "../notations/architecture.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { fontMetrics } from "./font-metrics.ts";
 import type { Box, SceneEdge, SceneGroup, SceneNode, SceneText } from "./scene.ts";
@@ -356,6 +357,16 @@ export function textDiagnostics(
 			shortened: (text) =>
 				`${named}'s title is too wide for its Node, so it's shortened to \`${text}\`. Choose a shorter title to show it in full.`,
 		};
+		const technology: CheckedText[] =
+			node.technology === undefined
+				? []
+				: [
+						{
+							...technologyText(named, technologyOf(node.technology), "its Node"),
+							drawn: scene?.technology,
+							pointer: `/nodes/${index}/technology`,
+						},
+					];
 		const rows = (node.rows ?? []).flatMap((row, at) => {
 			const rowNamed = `${named}'s Row \`${collapseSpaces(row.name)}\``;
 			return (["name", "value"] as const).flatMap((field): CheckedText[] => {
@@ -390,7 +401,7 @@ export function textDiagnostics(
 								`${named}'s callout is too wide for its tag, so it's shortened to \`${text}\`. Choose a shorter callout to show it in full.`,
 						},
 					];
-		return [title, ...rows, ...callout].flatMap(warningsAbout);
+		return [title, ...technology, ...rows, ...callout].flatMap(warningsAbout);
 	});
 	const labels = new Map(edges.map((edge) => [edge.id, edge.label]));
 	const edgeTexts = diagram.edges.flatMap((edge, index) => {
@@ -419,6 +430,26 @@ export function textDiagnostics(
 		});
 	});
 	return [...nodeTexts, ...groupTitles.flatMap(warningsAbout), ...edgeTexts.flatMap(warningsAbout)];
+}
+
+/**
+ * How warnings about a Technology's name read, for a Node or an Edge: a slug
+ * without a logo can be shortened by its author, but a logo's name can't.
+ */
+function technologyText(
+	named: string,
+	technology: { name: string; logo?: string },
+	place: string,
+): Pick<CheckedText, "source" | "weight" | "lacking" | "shortened"> {
+	return {
+		source: technology.name,
+		weight: "regular",
+		lacking: (some) => `${named}'s Technology has ${some} that the bundled font lacks`,
+		shortened: (text) =>
+			technology.logo === undefined
+				? `${named}'s Technology is too wide for ${place}, so it's shortened to \`${text}\`. Choose a shorter slug to show it in full.`
+				: `${named}'s Technology is too wide for ${place}, so its name is shortened to \`${text}\`. Its logo still shows which Technology it is.`,
+	};
 }
 
 /** A piece of text that a Node draws, and how warnings about it read. */

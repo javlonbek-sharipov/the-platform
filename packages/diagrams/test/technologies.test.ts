@@ -15,7 +15,7 @@ import {
 	type SceneText,
 	technologies,
 } from "../src/index.ts";
-import { draw, groupOf, nodeOf, paintsWithin, shapesOf } from "./support/drawn.ts";
+import { draw, groupOf, nodeOf, paintsWithin, sceneOf, shapesOf } from "./support/drawn.ts";
 import { computedStyle, descendants, type Point, paintedBounds, runsOf } from "./support/svg.ts";
 
 const run = promisify(execFile);
@@ -209,6 +209,70 @@ describe("a Node with a Technology", () => {
 			const texts = descendants(group).filter((element) => element.name === "text");
 			expect(texts.map((text) => text.text)).toEqual(["Orders API", slug]);
 		}
+	});
+
+	test("has its title shortened before it would touch the logo, with a warning", () => {
+		const title = "Orders database of record";
+		const { diagnostics, scene } = render(
+			architecture({ title: "Orders" }, (d) => {
+				d.node({ id: "orders-db", kind: "database", title, technology: "postgres" });
+			}),
+		);
+		const node = nodeOf(scene ?? sceneOf(undefined), "orders-db");
+		if (node.logo === undefined) {
+			throw new Error("expected a logo");
+		}
+		expect(node.title.shortened).toBe(true);
+		expect(title.startsWith(node.title.text.slice(0, -1))).toBe(true);
+		expect(node.title.text.endsWith("…")).toBe(true);
+		// The title ends short of the logo, with room to spare.
+		expect(node.title.point.x + node.title.width / 2).toBeLessThan(node.logo.box.x - 4);
+		expect(diagnostics).toEqual([
+			{
+				severity: "warning",
+				rule: "text-shortened",
+				message: `Node \`orders-db\`'s title is too wide for its Node, so it's shortened to \`${node.title.text}\`. Choose a shorter title to show it in full.`,
+				pointer: "/nodes/0/title",
+			},
+		]);
+	});
+
+	test("has its Technology's name shortened when it's too wide, with a warning", () => {
+		const { diagnostics, scene } = render(
+			architecture({ title: "Checkout" }, (d) => {
+				d.node({
+					id: "pricing",
+					kind: "function",
+					title: "Prices",
+					technology: "cloudflare-workers",
+					status: "ok",
+				});
+				d.node({
+					id: "ledger",
+					kind: "function",
+					title: "Ledger",
+					technology: "our-very-own-ledger-runtime",
+				});
+			}),
+		);
+		const pricing = nodeOf(scene ?? sceneOf(undefined), "pricing").technology;
+		const ledger = nodeOf(scene ?? sceneOf(undefined), "ledger").technology;
+		expect([pricing?.shortened, ledger?.shortened]).toEqual([true, true]);
+		expect(pricing?.text.endsWith("…")).toBe(true);
+		expect(diagnostics).toEqual([
+			{
+				severity: "warning",
+				rule: "text-shortened",
+				message: `Node \`pricing\`'s Technology is too wide for its Node, so its name is shortened to \`${pricing?.text}\`. Its logo still shows which Technology it is.`,
+				pointer: "/nodes/0/technology",
+			},
+			{
+				severity: "warning",
+				rule: "text-shortened",
+				message: `Node \`ledger\`'s Technology is too wide for its Node, so it's shortened to \`${ledger?.text}\`. Choose a shorter slug to show it in full.`,
+				pointer: "/nodes/1/technology",
+			},
+		]);
 	});
 
 	test("keeps its title, its Technology's name and the logo clear of its outline, in every Kind", () => {
