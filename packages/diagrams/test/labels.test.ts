@@ -12,6 +12,7 @@ import {
 } from "../src/index.ts";
 import { crowded } from "./fixtures/crowded.ts";
 import { groupFixtures } from "./fixtures/groups.ts";
+import { labeled } from "./fixtures/labeled.ts";
 import { computedStyle, descendants, type Element, parseSvg, rulesOf } from "./support/svg.ts";
 import { advanceOf, bundledFont, characterMap, unitsPerEm } from "./support/truetype.ts";
 
@@ -310,27 +311,6 @@ function chain(direction: Direction, label: string): Diagram {
 /** A box's start and end along an axis. */
 function span(box: Box, axis: "x" | "y"): [number, number] {
 	return axis === "x" ? [box.x, box.x + box.width] : [box.y, box.y + box.height];
-}
-
-/**
- * A Diagram with a label on every `every`th Edge, of a few lengths, some with
- * a Technology or a rate below it.
- */
-function labeled(diagram: Diagram, every = 1): Diagram {
-	const phrases = ["Reads", "Places orders", "Publishes events", "Syncs stock", "Charges cards"];
-	return {
-		...diagram,
-		edges: diagram.edges.map((edge, index) =>
-			index % every !== 0
-				? edge
-				: {
-						...edge,
-						label: phrases[(index / every) % phrases.length] ?? "Reads",
-						...(index % 3 === 0 ? { technology: "grpc" } : {}),
-						...(index % 4 === 1 ? { rate: "2k/s" } : {}),
-					},
-		),
-	};
 }
 
 /** The Orders API calls five stores, each labeled. */
