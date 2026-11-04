@@ -5,7 +5,7 @@
  * the Edge falls back to a simple route, and the router warns about it.
  */
 
-import { type Diagram, type Direction, endNode, type RowEnd } from "../authoring/model.ts";
+import { type Diagram, endNode, type RowEnd } from "../authoring/model.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { buildGrid, type Grid, pointOf, vertexAt } from "./grid.ts";
 import { clearance } from "./layout.ts";
@@ -84,9 +84,7 @@ export function route(diagram: Diagram, nodes: SceneNode[], options: RouteOption
 			to: to.id,
 			fromPort,
 			toPort,
-			route: roundCorners(
-				polyline(found ?? fallbackRoute(fromPort, toPort, [from.box, to.box], diagram.direction)),
-			),
+			route: roundCorners(polyline(found ?? fallbackRoute(fromPort, toPort, [from.box, to.box]))),
 			fellBack: found === undefined,
 		});
 	}
@@ -142,16 +140,24 @@ function searchRoute(
  * and runs on. Otherwise it steps out of the source's Port, moves to a lane
  * beyond both Nodes, travels back past them, and enters the target from its
  * input side.
+ *
+ * The direction is the one the Ports' stubs run in, which for header Ports is
+ * the Diagram's. A Row's Ports sit on its Node's left and right sides even on
+ * a Diagram drawn `down`, so when one stub runs across and the other down,
+ * the route leaves one stub at a right angle and turns once onto the line of
+ * the other.
  */
-function fallbackRoute(
-	fromPort: ScenePort,
-	toPort: ScenePort,
-	nodeBoxes: Box[],
-	direction: Direction,
-): Point[] {
-	// Worked out as if the direction were `right`: for `down`, x and y swap
-	// on the way in, and swap back on the way out.
-	const turn = direction === "down" ? transpose : (point: Point) => point;
+function fallbackRoute(fromPort: ScenePort, toPort: ScenePort, nodeBoxes: Box[]): Point[] {
+	const fromAcross = runsAcross(fromPort.side);
+	if (fromAcross !== runsAcross(toPort.side)) {
+		const corner = fromAcross
+			? { x: fromPort.stub.x, y: toPort.stub.y }
+			: { x: toPort.stub.x, y: fromPort.stub.y };
+		return [fromPort.point, fromPort.stub, corner, toPort.stub, toPort.point];
+	}
+	// Worked out as if both stubs ran along x, as for `right`: when they run
+	// along y, x and y swap on the way in, and swap back on the way out.
+	const turn = fromAcross ? (point: Point) => point : transpose;
 	const start = turn(fromPort.point);
 	const out = turn(fromPort.stub);
 	const end = turn(toPort.point);
@@ -160,12 +166,17 @@ function fallbackRoute(
 		const middle = (start.x + end.x) / 2;
 		return [start, { x: middle, y: start.y }, { x: middle, y: end.y }, end].map(turn);
 	}
-	const boxes = nodeBoxes.map((box) => (direction === "down" ? transposeBox(box) : box));
+	const boxes = nodeBoxes.map((box) => (fromAcross ? box : transposeBox(box)));
 	const above = Math.min(...boxes.map((box) => box.y)) - clearance / 2;
 	const below = Math.max(...boxes.map((box) => box.y + box.height)) + clearance / 2;
 	const lane =
 		start.y - above + (end.y - above) < below - start.y + (below - end.y) ? above : below;
 	return [start, out, { x: out.x, y: lane }, { x: into.x, y: lane }, into, end].map(turn);
+}
+
+/** Whether a stub out of this side runs along x. */
+function runsAcross(side: Side): boolean {
+	return side === "left" || side === "right";
 }
 
 function transpose({ x, y }: Point): Point {
