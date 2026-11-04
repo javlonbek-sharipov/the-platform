@@ -149,6 +149,25 @@ function crossedBackends(direction: Direction): Diagram {
 }
 
 /**
+ * Three clients and two backends. In declaration order, two pairs of Edges
+ * cross. Reordering the backends alone still leaves one crossing; only
+ * moving the admin app between the other two clients removes them all.
+ */
+function crossedClients(direction: Direction): Diagram {
+	return diagram("Clients", direction, (d) => {
+		const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+		const mobile = d.node({ id: "mobile-app", kind: "client", title: "Mobile app" });
+		const admin = d.node({ id: "admin-app", kind: "client", title: "Admin app" });
+		const accounts = d.node({ id: "accounts-api", kind: "service", title: "Accounts API" });
+		const catalog = d.node({ id: "catalog-api", kind: "service", title: "Catalog API" });
+		d.edge(web, catalog, { kind: "call" });
+		d.edge(mobile, accounts, { kind: "call" });
+		d.edge(admin, accounts, { kind: "call" });
+		d.edge(admin, catalog, { kind: "call" });
+	});
+}
+
+/**
  * How many pairs of Edges cross, drawing each Edge as a straight line from
  * its source's output Port to its target's input Port.
  */
@@ -186,7 +205,7 @@ const fixtures: [string, (direction: Direction) => Diagram, string[]][] = [
 ];
 
 describe.each(directions)("a Diagram laid out %s", (direction) => {
-	const { rank } = axes[direction];
+	const { rank, order } = axes[direction];
 
 	test("puts each rank after the one before it, along the direction", () => {
 		const scene = sceneOf(chain(direction));
@@ -266,6 +285,36 @@ describe.each(directions)("a Diagram laid out %s", (direction) => {
 
 	test("reorders a rank to remove the crossings that declaration order would make", () => {
 		expect(crossings(sceneOf(crossedBackends(direction)))).toBe(0);
+	});
+
+	test("reorders the first rank too, when only that removes the crossings", () => {
+		expect(crossings(sceneOf(crossedClients(direction)))).toBe(0);
+	});
+
+	test("swaps two unconnected Nodes of one rank when their declaration order is swapped", () => {
+		const across = (scene: Scene, id: string) => start(boxOf(scene, id), order);
+		const isolated = (ids: string[]) =>
+			sceneOf(
+				diagram("Isolated", direction, (d) => {
+					for (const id of ids) {
+						d.node({ id, kind: "service", title: id });
+					}
+				}),
+			);
+
+		const declared = isolated(["orders-api", "stock-api"]);
+		const swapped = isolated(["stock-api", "orders-api"]);
+		expect(across(declared, "orders-api")).toBeLessThan(across(declared, "stock-api"));
+		expect(across(swapped, "stock-api")).toBe(across(declared, "orders-api"));
+		expect(across(swapped, "orders-api")).toBe(across(declared, "stock-api"));
+
+		const targets = sceneOf(fanOut(direction, ["orders-db", "orders-cache", "orders-search"]));
+		const reversed = sceneOf(fanOut(direction, ["orders-search", "orders-cache", "orders-db"]));
+		expect(across(targets, "orders-db")).toBeLessThan(across(targets, "orders-cache"));
+		expect(across(targets, "orders-cache")).toBeLessThan(across(targets, "orders-search"));
+		expect(across(reversed, "orders-search")).toBe(across(targets, "orders-db"));
+		expect(across(reversed, "orders-cache")).toBe(across(targets, "orders-cache"));
+		expect(across(reversed, "orders-db")).toBe(across(targets, "orders-search"));
 	});
 
 	test("centers the members of each rank on the rank's line", () => {
