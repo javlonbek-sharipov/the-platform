@@ -203,11 +203,38 @@ export function validate(input: unknown): Validation {
 		}
 	});
 
-	diagnostics.push(...checkNesting(diagram));
+	diagnostics.push(...checkDefaultEdgeIds(diagram), ...checkNesting(diagram));
 
 	return diagnostics.some((diagnostic) => diagnostic.severity === "error")
 		? { diagnostics }
 		: { diagnostics, diagram };
+}
+
+/**
+ * The authoring API names an Edge without an id after its two Nodes, so two
+ * Edges that join the same two Nodes would get the same name, whatever Rows
+ * they attach to. Both must then be given ids. An Edge whose id is that name
+ * keeps the default, and is an error when another Edge would get it too.
+ * Two Edges that both keep it are already a `duplicate-id` error.
+ */
+function checkDefaultEdgeIds(diagram: Diagram): Diagnostic[] {
+	const nameOf = (edge: Diagram["edges"][number]) => `${endNode(edge.from)}->${endNode(edge.to)}`;
+	return diagram.edges.flatMap((edge, index) => {
+		const name = nameOf(edge);
+		const other = diagram.edges.find(
+			(candidate) => candidate !== edge && candidate.id !== name && nameOf(candidate) === name,
+		);
+		if (edge.id !== name || other === undefined) {
+			return [];
+		}
+		return [
+			error(
+				"default-edge-id",
+				`Edge \`${edge.id}\` keeps the default id, which Edge \`${other.id}\` would get too, since both join \`${endNode(edge.from)}\` to \`${endNode(edge.to)}\`. Give each Edge between the same two Nodes an id of its own.`,
+				`/edges/${index}/id`,
+			),
+		];
+	});
 }
 
 /** A Link to an id must name it as the model writes ids. `owner` is the Node or Group that has the Links. */
