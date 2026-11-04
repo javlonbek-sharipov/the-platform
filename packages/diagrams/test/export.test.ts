@@ -136,6 +136,42 @@ export default architecture({ title: "Arrows" }, (d) => {
 			expect(Math.abs(drawn.right - expected.right), `${text.text}: right`).toBeLessThan(1);
 		}
 	});
+
+	test("draws each text centered on its point, as the SVG's central baseline asks", async () => {
+		// Inter's central baseline lies halfway up its capitals, so a text in
+		// capitals is centered on its point.
+		const atlas = await sampleAtlas({
+			"docs/capitals.diagram.ts": `import { architecture } from "@the-platform/diagrams";
+
+export default architecture({ title: "Capitals" }, (d) => {
+	d.node({ id: "http-api", kind: "service", title: "HTTP API", rows: [{ name: "TLS", value: "ON" }] });
+});
+`,
+		});
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+		const svg = parseSvg(await readFile(join(atlas, "docs/capitals.diagram.svg"), "utf8"));
+		const scale = 4;
+		const run = await runCli(
+			["export", "docs/capitals.diagram.ts", "--format", "png", "--scale", String(scale)],
+			atlas,
+		);
+		const png = decodePng(await readFile(run.stdout.trim()));
+
+		const texts = descendants(svg).filter((element) => element.name === "text");
+		expect(texts.map((text) => text.text)).toEqual(["HTTP API", "TLS", "ON"]);
+		for (const text of texts) {
+			const weight = text.attributes.get("font-weight") === "600" ? "SemiBold" : "Regular";
+			const { left, right } = inkOf(text, bundledFont(`Inter-${weight}.ttf`));
+			const y = Number(text.attributes.get("y"));
+			const drawn = inkIn(png, scale, {
+				left: left - 4,
+				right: right + 4,
+				top: y - 12,
+				bottom: y + 12,
+			});
+			expect(Math.abs((drawn.top + drawn.bottom) / 2 - y), text.text).toBeLessThan(0.5);
+		}
+	});
 });
 
 describe("diagrams export --format json", () => {
@@ -309,24 +345,33 @@ function inkOf(text: Element, font: FontFile): { left: number; right: number } {
 }
 
 /**
- * Where the dark pixels in a box of a light-themed PNG start and end along x,
- * in the SVG's units. The box is in the SVG's units too.
+ * Where the dark pixels in a box of a light-themed PNG start and end, in the
+ * SVG's units. The box is in the SVG's units too.
  */
-function inkIn(
-	png: Pixels,
-	scale: number,
-	box: { left: number; right: number; top: number; bottom: number },
-): { left: number; right: number } {
-	let left = Number.POSITIVE_INFINITY;
-	let right = Number.NEGATIVE_INFINITY;
+function inkIn(png: Pixels, scale: number, box: Bounds): Bounds {
+	const ink = {
+		left: Number.POSITIVE_INFINITY,
+		right: Number.NEGATIVE_INFINITY,
+		top: Number.POSITIVE_INFINITY,
+		bottom: Number.NEGATIVE_INFINITY,
+	};
 	for (let y = Math.floor(box.top * scale); y < Math.ceil(box.bottom * scale); y++) {
 		for (let x = Math.floor(box.left * scale); x < Math.ceil(box.right * scale); x++) {
 			const [red, green, blue] = png.at(x, y);
 			if (red + green + blue < 3 * 128) {
-				left = Math.min(left, x);
-				right = Math.max(right, x + 1);
+				ink.left = Math.min(ink.left, x / scale);
+				ink.right = Math.max(ink.right, (x + 1) / scale);
+				ink.top = Math.min(ink.top, y / scale);
+				ink.bottom = Math.max(ink.bottom, (y + 1) / scale);
 			}
 		}
 	}
-	return { left: left / scale, right: right / scale };
+	return ink;
+}
+
+interface Bounds {
+	left: number;
+	right: number;
+	top: number;
+	bottom: number;
 }
