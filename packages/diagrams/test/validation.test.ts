@@ -262,6 +262,8 @@ describe("validation", () => {
 				{ doc: "docs/shop.md", label: 7 },
 				{ id: "shop-db", section: "Storage" },
 				{ doc: "docs/shop.md", section: ["Checkout"] },
+				{ term: "Database" },
+				{ id: "shop-db", term: "Database" },
 			],
 		} as never;
 
@@ -278,6 +280,8 @@ describe("validation", () => {
 					"`/nodes/1/links/5/section` must be left out: only a Link to a document has sections.",
 				],
 				["/nodes/1/links/6/section", "`/nodes/1/links/6/section` must be a string."],
+				["/nodes/1/links/7", "`/nodes/1/links/7` must have exactly one of `id` and `doc`."],
+				["/nodes/1/links/8", "`/nodes/1/links/8` must have exactly one of `id` and `doc`."],
 			].map(([pointer, message]) => ({ severity: "error", rule: "model-shape", message, pointer })),
 		);
 	});

@@ -195,15 +195,18 @@ function checkShape(input: unknown): Diagnostic[] {
 	checkList(input.members, "/members", (member, at) => {
 		check(typeof member === "string", at, "an id");
 	});
-	/** A Link has exactly one target, `id` or `doc`, and only a `doc` has a `section`. */
+	/**
+	 * A Link has exactly one target, `id` or `doc`, and only a `doc` has a
+	 * `section`. The model's third target, `term`, comes in slice 2.
+	 */
 	const checkLink = (link: unknown, at: string) => {
 		if (!isObject(link)) {
 			check(false, at, "an object");
 			return;
 		}
-		const targets = ["id", "doc"].filter((field) => link[field] !== undefined);
+		const targets = ["id", "doc", "term"].filter((field) => link[field] !== undefined);
 		const [target] = targets;
-		if (target === undefined || targets.length > 1) {
+		if (target === undefined || target === "term" || targets.length > 1) {
 			diagnostics.push(
 				error("model-shape", `\`${at}\` must have exactly one of \`id\` and \`doc\`.`, at),
 			);
