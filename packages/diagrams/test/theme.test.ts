@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import example from "../docs/example-system.diagram.ts";
 import { architecture } from "../src/index.ts";
 import everyKind from "./fixtures/every-kind.ts";
+import externalStatusCallout from "./fixtures/external-status-callout.ts";
 import { renderWithFont } from "./support/fonts.ts";
 import {
 	colorUnder,
@@ -25,7 +26,20 @@ const titles = architecture({ title: "Titles" }, (d) => {
 	d.node({ id: "orders-db", kind: "database", title: "Orders database" });
 });
 
-const fixtures: Record<string, unknown> = { "every Kind": everyKind, example, titles };
+/** A callout laid out down, where its tag is narrower. */
+const downward = architecture({ title: "Downward", direction: "down" }, (d) => {
+	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+	const api = d.node({ id: "orders-api", kind: "service", title: "Orders API", callout: "SPOF" });
+	d.edge(web, api, { kind: "call" });
+});
+
+const fixtures: Record<string, unknown> = {
+	"every Kind": everyKind,
+	"External, status and callout": externalStatusCallout,
+	example,
+	titles,
+	downward,
+};
 
 function svgOf(diagram: unknown): string {
 	const { svg, diagnostics } = renderWithFont(diagram);
