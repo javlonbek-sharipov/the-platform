@@ -13,7 +13,7 @@
       <path d="M 696 48 L 792 48 L 792 128"/>
     </g>
     <g data-edge="order-events-&gt;payments-api" data-kind="message" data-from="order-events" data-to="payments-api">
-      <path d="M 952 128 L 1048 128 L 1048 48"/>
+      <path d="M 952 128 L 1048 128"/>
     </g>
   </g>
   <g font-family="Inter, Helvetica, Arial, sans-serif" font-size="14" text-anchor="middle" dominant-baseline="central">
@@ -30,8 +30,8 @@
       <text x="616" y="48" fill="#1f2328">Orders API</text>
     </g>
     <g data-node="payments-api" data-kind="service">
-      <rect x="1048" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
-      <text x="1128" y="48" fill="#1f2328">Payments API</text>
+      <rect x="1048" y="104" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
+      <text x="1128" y="128" fill="#1f2328">Payments API</text>
     </g>
     <g data-node="orders-db" data-kind="database">
       <rect x="792" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
