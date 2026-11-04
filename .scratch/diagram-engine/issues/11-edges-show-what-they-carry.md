@@ -40,8 +40,8 @@
 
 **Text baselines**
 
-- [ ] Every `<text>` sets its own `dominant-baseline`, or its own position, instead of inheriting one from a group. SVG 1.1 doesn't inherit it, so strict renderers such as resvg drew every text 5 px high. Once the SVG does this, remove PNG export's rule that patches it.
-- [ ] A Seam 1 test checks every `<text>` in every fixture, so text added by other tickets can't regress.
+- [x] Every `<text>` sets its own `dominant-baseline`, or its own position, instead of inheriting one from a group. SVG 1.1 doesn't inherit it, so strict renderers such as resvg drew every text 5 px high. Once the SVG does this, remove PNG export's rule that patches it.
+- [x] A Seam 1 test checks every `<text>` in every fixture, so text added by other tickets can't regress.
 
 **Model**
 

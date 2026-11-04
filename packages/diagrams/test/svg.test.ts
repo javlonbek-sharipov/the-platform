@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { architecture, type Diagram, render } from "../src/index.ts";
 import { deepNesting } from "./fixtures/groups.ts";
+import { everyFixture } from "./support/fixtures.ts";
+import { ancestors, descendants, type Element, matches, parseSvg, rulesOf } from "./support/svg.ts";
+
+const fixtures = await everyFixture();
 
 const shop = architecture({ title: "Shop" }, (d) => {
 	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
@@ -160,5 +164,29 @@ describe("the SVG", () => {
 			}),
 		);
 		expect(svg).toContain('>R&amp;D "Ops" &lt;beta&gt;</text>');
+	});
+});
+
+describe("every text in every fixture", () => {
+	test("sets its own baseline, or inherits none, since SVG 1.1 doesn't inherit one from a group", () => {
+		expect(fixtures.length).toBeGreaterThan(10);
+		for (const [name, diagram] of fixtures) {
+			const { svg } = render(diagram);
+			const root = parseSvg(svg ?? "");
+			const rules = rulesOf(root);
+			/** Whether the element sets `dominant-baseline`, by an attribute or by a rule that picks it. */
+			const sets = (element: Element) =>
+				element.attributes.has("dominant-baseline") ||
+				rules.some(
+					(rule) =>
+						rule.declarations.some(([property]) => property === "dominant-baseline") &&
+						rule.selectors.some((selector) => matches(element, selector)),
+				);
+			const texts = descendants(root).filter((element) => element.name === "text");
+			expect(texts.length, name).toBeGreaterThan(0);
+			for (const text of texts) {
+				expect(sets(text) || !ancestors(text).some(sets), `${name}: ${text.text}`).toBe(true);
+			}
+		}
 	});
 });

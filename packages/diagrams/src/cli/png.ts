@@ -62,8 +62,7 @@ interface Rule {
  * its fallback, and for the dark theme, the rules in the
  * `prefers-color-scheme: dark` block take the place of the rules with the
  * same selectors before it. Every at-rule goes, `@font-face` included, since
- * resvg would skip it anyway. And texts get their `dominant-baseline` in a
- * way resvg reads.
+ * resvg would skip it anyway.
  */
 function forResvg(source: string, theme: Theme): { svg: string; faces: Uint8Array[] } {
 	const open = "<style>";
@@ -92,19 +91,7 @@ function forResvg(source: string, theme: Theme): { svg: string; faces: Uint8Arra
 		}
 	}
 	const chosen = theme === "light" ? rules : rules.map((it) => dark.get(it.selectors) ?? it);
-	// resvg lets an element take `dominant-baseline` from its parent only, and
-	// the SVG sets it on the group around every Node and on the one around
-	// every Group, two levels above their texts. So each text inside an element
-	// that sets it gets it directly. No text sets one of its own.
-	const baselines = new Set(
-		[...source.slice(end).matchAll(/ dominant-baseline="([a-z-]+)"/g)].map(([, value]) => value),
-	);
-	const style = [
-		...chosen.map(resolvedText),
-		...[...baselines].map(
-			(value) => `[dominant-baseline="${value}"] text { dominant-baseline: ${value}; }`,
-		),
-	].join("\n");
+	const style = chosen.map(resolvedText).join("\n");
 	return {
 		svg: `${source.slice(0, start)}${open}\n${style}\n${close}${source.slice(end + close.length)}`,
 		faces,

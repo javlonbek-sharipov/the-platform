@@ -89,7 +89,7 @@ export function writeSvg(scene: Scene, fontData?: FontData): string {
 		...(scene.groups.length === 0
 			? []
 			: [
-					indent(1, start("g", [["class", "diagram-groups"], ...textAttributes])),
+					indent(1, start("g", [["class", "diagram-groups"]])),
 					...scene.groups.flatMap((group) => writeGroup(group).map((text) => indent(2, text))),
 					indent(1, "</g>"),
 				]),
@@ -103,7 +103,7 @@ export function writeSvg(scene: Scene, fontData?: FontData): string {
 		),
 		...scene.edges.flatMap((edge) => writeEdge(edge).map((text) => indent(2, text))),
 		indent(1, "</g>"),
-		indent(1, start("g", textAttributes)),
+		indent(1, start("g", [["class", "diagram-nodes"]])),
 		...scene.nodes.flatMap((node) => writeNode(node).map((text) => indent(2, text))),
 		indent(1, "</g>"),
 	];
@@ -126,12 +126,6 @@ export function writeSvg(scene: Scene, fontData?: FontData): string {
 	];
 	return `${lines.join("\n")}\n`;
 }
-
-/** Every text is centered on its point. */
-const textAttributes: Attribute[] = [
-	["text-anchor", "middle"],
-	["dominant-baseline", "central"],
-];
 
 interface EmbeddedFont {
 	weight: FontWeight;
@@ -412,6 +406,12 @@ function writeNode(node: SceneNode): string[] {
 	];
 }
 
+/**
+ * A text, centered on its point. It sets its own anchor and baseline rather
+ * than inheriting them from a group: SVG 1.1 doesn't inherit
+ * `dominant-baseline`, so renderers that follow it, such as resvg, would set
+ * the text on its alphabetic baseline instead, 5 px high.
+ */
 function writeText(text: SceneText, className: string): string {
 	return element(
 		"text",
@@ -421,6 +421,8 @@ function writeText(text: SceneText, className: string): string {
 			["y", text.point.y],
 			["font-size", text.size],
 			["font-weight", fontWeights[text.weight]],
+			["text-anchor", "middle"],
+			["dominant-baseline", "central"],
 		],
 		text.text,
 	);

@@ -1,73 +1,73 @@
-<svg xmlns="http://www.w3.org/2000/svg" class="diagram-d1c70061dce25281" viewBox="0 0 7240 1920" width="7240" height="1920">
+<svg xmlns="http://www.w3.org/2000/svg" class="diagram-de50c81f05231334" viewBox="0 0 7240 1920" width="7240" height="1920">
   <style>
-    @font-face { font-family: "diagram-d1c70061dce25281"; font-weight: 600; src: url("data:font/ttf;base64,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AAAJNAAACXgAAAmQAAAJrAAACegAAAoEAAAKaAAACqwAAAsUAAALgAAAC7wAAAwwAAAMgAAADMQAAA0AAAANdAAADdQAAA4wAAAOYAAADmAAAA6QAAEAAAAtAIQACgBoAAcAAgBSAJMAjQAAAQ4ODAAHAAEAAAASAN4AAwABBAkAAABQAAAAAwABBAkAAQAcAFAAAwABBAkAAgAOAGwAAwABBAkAAwBOAHoAAwABBAkABAAcAMgAAwABBAkABQA2AOQAAwABBAkABgAcARoAAwABBAkABwBUATYAAwABBAkACAAIAYoAAwABBAkACQAgAZIAAwABBAkACwAgAbIAAwABBAkADAAgAdIAAwABBAkADQEgAfIAAwABBAkADgA0AxIAAwABBAkAEAAKA0YAAwABBAkAEQAQA1AAAwABBAkAFQAKA2AAAwABBAkAFgAQA2oAQwBvAHAAeQByAGkAZwBoAHQAIAAyADAAMQA2ACAAVABoAGUAIABJAG4AdABlAHIAIABQAHIAbwBqAGUAYwB0ACAAQQB1AHQAaABvAHIAcwBJAG4AdABlAHIAIABTAGUAbQBpAEIAbwBsAGQAUgBlAGcAdQBsAGEAcgA0AC4AMAAwADEAOwBnAGkAdAAtADkAMgAyADEAYgBlAGUAZAAzADsAUgBTAE0AUwA7AEkAbgB0AGUAcgAtAFMAZQBtAGkAQgBvAGwAZABJAG4AdABlAHIAIABTAGUAbQBpAEIAbwBsAGQAVgBlAHIAcwBpAG8AbgAgADQALgAwADAAMQA7AGcAaQB0AC0AOQAyADIAMQBiAGUAZQBkADMASQBuAHQAZQByAC0AUwBlAG0AaQBCAG8AbABkAEkAbgB0AGUAcgAgAFUASQAgAGEAbgBkACAASQBuAHQAZQByACAAaQBzACAAYQAgAHQAcgBhAGQAZQBtAGEAcgBrACAAbwBmACAAcgBzAG0AcwAuAHIAcwBtAHMAUgBhAHMAbQB1AHMAIABBAG4AZABlAHIAcwBzAG8AbgBoAHQAdABwAHMAOgAvAC8AcgBzAG0AcwAuAG0AZQAvAGgAdAB0AHAAcwA6AC8ALwByAHMAbQBzAC4AbQBlAC8AVABoAGkAcwAgAEYAbwBuAHQAIABTAG8AZgB0AHcAYQByAGUAIABpAHMAIABsAGkAYwBlAG4AcwBlAGQAIAB1AG4AZABlAHIAIAB0AGgAZQAgAFMASQBMACAATwBwAGUAbgAgAEYAbwBuAHQAIABMAGkAYwBlAG4AcwBlACwAIABWAGUAcgBzAGkAbwBuACAAMQAuADEALgAgAFQAaABpAHMAIABsAGkAYwBlAG4AcwBlACAAaQBzACAAYQB2AGEAaQBsAGEAYgBsAGUAIAB3AGkAdABoACAAYQAgAEYAQQBRACAAYQB0ADoAIABoAHQAdABwADoALwAvAHMAYwByAGkAcAB0AHMALgBzAGkAbAAuAG8AcgBnAC8ATwBGAEwAaAB0AHQAcAA6AC8ALwBzAGMAcgBpAHAAdABzAC4AcwBpAGwALgBvAHIAZwAvAE8ARgBMAEkAbgB0AGUAcgBTAGUAbQBpAEIAbwBsAGQASQBuAHQAZQByAFMAZQBtAGkAQgBvAGwAZAADAAAAAAAA/rUArQAAAAAAAAAAAAAAAAAAAAAAAAAA") format("truetype"); }
-    .diagram-d1c70061dce25281 { font-family: "diagram-d1c70061dce25281", Helvetica, Arial; font-kerning: none; font-variant-ligatures: none; }
-    .diagram-d1c70061dce25281 .diagram-background { fill: var(--diagram-background, #ffffff); }
-    .diagram-d1c70061dce25281 .diagram-group { stroke: var(--diagram-border, #d1d9e0); }
-    .diagram-d1c70061dce25281 .diagram-group-title { fill: var(--diagram-muted, #59636e); }
-    .diagram-d1c70061dce25281 .diagram-edges { stroke: var(--diagram-muted, #59636e); }
-    .diagram-d1c70061dce25281 .diagram-base { fill: var(--diagram-surface, #ffffff); }
-    .diagram-d1c70061dce25281 [data-node][data-kind="client"] { color: var(--diagram-hue-users, #8250df); }
-    .diagram-d1c70061dce25281 [data-node][data-kind="system"] { color: var(--diagram-hue-system, #424a53); }
-    .diagram-d1c70061dce25281 [data-node][data-kind="gateway"], .diagram-d1c70061dce25281 [data-node][data-kind="service"], .diagram-d1c70061dce25281 [data-node][data-kind="worker"], .diagram-d1c70061dce25281 [data-node][data-kind="function"] { color: var(--diagram-hue-compute, #0969da); }
-    .diagram-d1c70061dce25281 [data-node][data-kind="database"], .diagram-d1c70061dce25281 [data-node][data-kind="cache"], .diagram-d1c70061dce25281 [data-node][data-kind="storage"], .diagram-d1c70061dce25281 [data-node][data-kind="search"] { color: var(--diagram-hue-data, #1b7c83); }
-    .diagram-d1c70061dce25281 [data-node][data-kind="queue"] { color: var(--diagram-hue-messaging, #bc4c00); }
-    .diagram-d1c70061dce25281 .diagram-text { fill: var(--diagram-ink, #1f2328); }
+    @font-face { font-family: "diagram-de50c81f05231334"; font-weight: 600; src: url("data:font/ttf;base64,AAEAAAAKAIAAAwAgT1MvMh/TpxIAAACsAAAAYGNtYXACSQLpAAABDAAAAIRnbHlmxcxUHAAAAZAAAA6QaGVhZDRXdCYAABAgAAAANmhoZWEWQRImAAAQWAAAACRobXR40okTgwAAEHwAAAC0bG9jYQABZAAAABEwAAAAuG1heHACMw+OAAAR6AAAACBuYW1lbP+bPwAAEggAAARYcG9zdP64AK0AABZgAAAAIAAEBTgCWAAFAAAFMwTNAAAAmgUzBM0AAALNAK0CnwAAAgAHAwAAAAIABOAACv9SAKH/AAAAIQAAAABSU01TAMAAIAB6B8D+EgAAB8AB7gAAAZ8AAAAABF4F0gAAACAAAAAAAAIAAAADAAAAFAADAAEAAAAUAAQAcAAAABgAEAADAAgAIABDAEYASQBQAFUAVwBaAGkAcAB6//8AAAAgAEEARQBJAEwAUgBXAFoAYQBrAHL//wAL/8D/v/+9/7v/uv+5/7f/sf+x/7AAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAUj+YAP4B0AAAwAHABMAHQAjAC8AOQA/AEMARwAAASERIQERIREBESERIxUzNTMVIzUDFSE1Izc1IRUzAxUhNSM1JxUhNSM1MzUhFTMVAxUzNTM1IRUzFQcVITUjFREjNTMDIzUzA/j9UAKw/ggBQP7AAUDAQEDAQAFA19f+wNjYAUCAwAFAkJD+wHBwwID+wICAAUBAwMCAQED+YAjg+gD/AAEAAYD/AAEAgECAwPyAQEB/QUAFwOBAoIBAQGBAQGD9wECgQEBggEDgoP1AgAPgYAAAAAACADIAAAWhBdIABwAQAAAzASEBIQMhAxMhJyYmJwYGBzICCAFTAhT+23/903rBAZ1BIUcqKEQfBdL6LgFx/o8CSL5n+puc/WMAAAAAAwCWAAAE6wXSABIAGwAkAAAzESEyFhYVFAYHFR4CFRQGBiMlITI2NTQmIyE1ITI2NTQmIyGWAjqh1WuXbU+SXXDhq/6yASSUg5J8/tMBDWqOenj+7QXSZa9viJwZDwRYoHF0uGrfcllkiMFzY1dwAAEAZ//sBYYF5gAdAAAFIiQCNTQSJDMyBBYXISYmIyICFRASMzI2NyEGBgQDEcT+zLKzATTDowELrhj+8xnEhrfr7LWGxRkBDhWk/vQUtgFW8PEBV7Z656OEkf7v/v7//vSRhI/qiwAAAQCWAAAEYgXSAAsAADMRIRUhESEVIREhFZYDyP1DAon9dwLBBdLh/m7e/mDhAAAAAQCWAAAEUAXSAAkAADMRIRUhESEVIRGWA7r9UQJs/ZQF0uH+Qd79rAAAAAABAJYAAAGhBdIAAwAAAREhEQGh/vUF0vouBdIAAQCWAAAEMwXSAAUAADMRIREhFZYBCwKSBdL7D+EAAAABAJYAAAbLBdIAJAAAMxEhAR4CFz4CNwEhESERNDY2Nw4CBwEjAS4CJx4CFRGWAZIBGw8nKBERKCcOARgBk/72AwUBGTgyEv7t4/7pEjE3HAIFAwXS/P8sjaFKSaGNLQMB+i4C8DilullgvqAy/RAC8DCcvGBUt6Q5/RAAAQCWAAAFfQXSABYAADMRIQEWFhcmJjURIREhAS4CJxYWFRGWAS4CAyheMQgIAQ/+0f4vJ0VMMgcMBdL8y0CrcGzSRAMO+i4C4z56kGGK4D79HAAAAgBn/+wFvwXmAA8AGwAABSIkAjU0EiQzMgQSFRQCBCcyEjUQAiMiAhEUEgMUxP7LtLQBNcTDATWzs/7Lw7bo6La36uoUtgFW8PEBV7a2/qnx8f6rtu8BDv8BAAEP/vH/AP7+8QAAAAACAJYAAATQBdIADAAVAAAzESEyFhYVFAYGIyERETMyNjU0JiMjlgItq+p4eeys/uL7l4yMmfkF0oDfjo/ff/4IAtSad3eWAAACAJYAAAUHBdIADQAWAAAzESEgABUUBgcBIQEhEREzMjY1NCYjI5YCLQEBAQyIhAFD/tX+2/7q+5eMjJn5BdL++NWX2jT9sAIj/d0DAH92eIUAAAABAF//6QTVBeYALAAABSAkJyEWFjMyNjU0JicnJiY1NDY2MzIWFhchJiYjIgYVFBYWFxceAhUUBgYCof78/ssJAQcJsn6Ep5R5qbvRjvacn++IA/79Cpd5fpBNdTyLbsl/hvwX8N12c3dgV1kfLDDCnoTFbm7CfF9qb1U/TzAPJBtlqoKDx28AAQBTAAAE9QXSAAcAABM1IRUhESERUwSi/jX+9QTx4eH7DwTxAAAAAAEAlv/qBU4F0gATAAAFIiQmNREhERQWMzI2NREhERQGBALytv7wlgELt5qatwELl/7wFonznwPN/EmMtraMA7f8M5/ziQAAAAEAMgAAB/cF0gAeAAAhASETFhYXNjY3EyETFhYXNjY3EyEBIQMmJicGBgcDAcT+bgEfwhcoExQrGcoBG8kZKxQTKRfBASD+bf7O2RQiEA8fFtkF0vznZeFvb+FlAxn852Tebm7eZAMZ+i4DN06wYF2uU/zJAAAAAAEAdAAABMUF0gAVAAAzNQE2NjcGBiMhNSEVAQYGBzY2MyEVeAJxJFEqSJFJ/g4ETP2aJ1YtS5ZLAemmA4QzZjMDAuGo/Iw2bjYDAuEAAAAAAgBM/+kEDgRsACEALwAABSImJjU0NjY3NjY1NTQmIyIGByc2JDMyHgIVESM1IwYGJzI2NTUOAgcGBhUUFgHCaqpie8NskoJkX2J0FPExAQGoT6GGUvkKJaI/eI8SXGciWHVqF02Wbn6LPwsQGzoFUltWNzGUkCVXlXD9FZpIacGKXYQOFQ8FDEhNSEsAAAAAAgCK/+wEpgXSABYAIgAABSImJicjFSMRIREzPgIzMhYSFRQCBicyNjU0JiMiBhUUFgLYYH9MFBH+AQQLE0qAY4HRe3nQy4KHhYSBiIoUQVwosQXS/dMnXUOE/v+6uP7+h9bPnZzMxaOjyQAAAQBZ/+kEVARsABwAAAUiJgI1NBI2MzIEFwcmJiMiBhUUFhYzMjY3FwYEAm+j8IOD8KO7AQMk8xV6XoiHPHhbYHsV8yT+/BeRAQOsrgEFkLukM1do0p1npmFtWjOnwAAAAgBZ/+wEdQXSABYAIgAABSImAjU0EjYzMhYWFzMRIREjNSMOAicyNjU0JiMiBhUUFgImhNF4etGBZH9KFAsBBP8QFUx/GX+KiYCEhocUhwECuLoBAYRDXScCLfousShcQdbJo6PFzJydzwAAAgBZ/+kEZgRsABcAHgAABSImAjU0EjYzMhYWFRUhFhYzMjY3FwYGASEmJiMiBgJ4qfODge2giOmO/PYFnX1WexrvKPv+KwIMDIF0d4sXjgECr6wBBZN3+cRSlZxKRzGHpQKueJGZAAABABQAAAMEBhgAGAAAARUjESERIzUzNTQ2NjMyFhcHJiYjIgYVFQLW8v79zc1enWBFahk1ETEhST8EXsz8bgOSzGtvlUsWCcoFC0hCVwAAAAIAWf5GBHcEbAAjAC8AAAEiJic3FhYzMjY1NSMOAiMiJiY1NDY2MzIWFhczNTMRFAYGAzI2NTQmIyIGFRQWAmzK9CrcGnd6eZIWFEp8YYDRe3vSgWOATBQO/4jslX+KiIGEh4j+RpRvTzBccXjTKFY5efK2t/+EQl0oufuflsJfApi2oJ/DypibuwAAAQCKAAAEXAXSABIAAAERIREhETYzMhYVESERNCYjIgYBjv78AQBm7a3S/vt0ZmiHAo/9cQXS/b3d3Mn9OQKfcICGAP//AHUAAAGkBhkCJgAbAAAABgAs9gAAAAABAIoAAAGOBF4AAwAAMxEhEYoBBARe+6IAAAAAAQCKAAAEfwXSAAwAADMRIREzASEBASEBBxGKAQQTAZMBMf5PAcv+yP6nYAXS/MkBw/4d/YUB32f+iAAAAQCKAAABjgXSAAMAAAERIREBjv78BdL6LgXSAAEAigAABqoEcAAhAAAzETMXNjYzMhc2NjMyFhURIRE0JiMiBhURIxE0JiMiBhURivQILK1k1kktwnaXzP78clBfbP5qU1Z6BF7Vd3DzeXrEuv0OAspoYHZe/UIC1lVndXD9UwABAIoAAARbBGwAEgAAAREhETMXNjMyFhURIRE0JiMiBgGO/vz2A2T2rdH+/HRmaIcCj/1xBF7f7dzJ/TkCn3CAhgAAAAIAWf/pBIYEbAAPAB8AAAUiJgI1NBI2MzIWEhUUAgYnMjY2NTQmJiMiBgYVFBYWAm+j8IOD8KOj8ISE8KNbeDw8eFtaeDs7eBeRAQOsrgEFkJD++66s/v2R02KmZmemYmKmZ2amYgAAAgCK/l4EpgRsABYAIgAAExEzFTM+AjMyFhIVFAIGIyImJicjEQEyNjU0JiMiBhUUFor+ERNKgGOB0Xt50IVgf0wUCwEEgoeFhIGIiv5eBgC5J11DhP7/urj+/odBXCj9rQJkz52czMWjo8kAAQCKAAADBQRtABEAADMRMxUzNjYzMhcVJiYjIgYVEYr8DB6WYDItEEgjbY8EXrthaQfvBAmHa/1uAAAAAQBY/+kEEQRsACUAAAUiJic3FjMyNjU0JyckNTQ2NjMyFhcHJiYjIgYVFBYXFwQVFAYGAjHB+x3zLL9gcZe//sZyy4a+3SLoFGRaUnBJVr4BOXrZF6WYLqRNOV8hKUT1aJhUnoIuOlJJOTE/EyhD62qhWwABABT/8QKuBWgAFwAAARUjERQWMzI2NxcGBiMiJjURIzUzESERAo/YMzwSOhMpK1opoayfnwEEBF7M/ak9OQkEyQ0LoJQCbcwBCv72AAAAAAEAiv/yBFwEXgASAAAFIiY1ESERFBYzMjY1ESERIycGAgmt0gEEdWZohgEF9wJkDtzJAsf9YXCAhnoCj/ui4O4AAAAAAQAnAAAEjAReAAwAACEBIRMWFhc2NjcTIQEBx/5gARbMGScTEiYZywEU/l4EXv2gSpZMTJZKAmD7ogAAAQAsAAAGiwReAB4AACEBIRMWFhc2NjcTMxMWFhc2NjcTIQEhAyYmJwYGBwMBef6zARJuFTMYGDQYcfhuFjQZFzEXbgEU/rL++YMXLBUVLRaDBF7+SlzXf3zXXwG2/kpd1359114BtvuiAchQvV5evk/+OAABADIAAARbBF4AFwAAMwEBIRcWFhc2Njc3IQEBIScmJicGBgcHMgFy/qQBHnIhNxoaNiJ2ARj+ngFz/uSKITcaGTQhigI+AiC+OW00NG44vv3a/cjgN2szM2s34AAAAAABACf+VgSOBF4AFwAAEzcXFjY3NwEhExYWFzY2NxMhAQYGIyImfz0fWHYUEP5aARbMGCQQEycZ0wET/iAztpg3Xf5xywgYOWBHBGL9oEmRSUqRSAJg+xKGlBAAAAEAegAABA0EXgALAAAzNQE1ITUhFQEVIRV6AkH90QNu/doCOaYC1gnZtP04CdkAAAEAfwT8Aa4GGQALAAABIiY1NDYzMhYVFAYBFj5ZWT4/WVkE/FM8O1NTOzxTAAAAAAEAAAAEAEK/qsjdXw889QAHCAAAAAAA412UMgAAAADjXZR7+dT9WxSqCOMAAAADAAIAAQAAAAAAAQAAB8D+EgAAFXT51PZzFKoIAAAAAAAAAAAAAAAAAAAAAC0FQAFIBdIAMgVGAJYF5QBnBNgAlgS0AJYCNwCWBIYAlgdhAJYGEwCWBiYAZwUpAJYFOACWBTQAXwVIAFMF4wCWCCkAMgU4AHQEmABMBP4AigSpAFkE/gBZBLsAWQMcABQFAQBZBOYAigIYAHUCGACKBI4AigIYAIoHNACKBOUAigTfAFkE/gCKAy0AigRlAFgC0wAUBOYAigSyACcGtwAsBI0AMgS1ACcEhwB6AgQAAAAAAH8AAAAAAAAA2AAAASQAAAGUAAAB/AAAAiwAAAJYAAACdAAAApQAAAMQAAADZAAAA8wAAAQUAAAEaAAABPAAAAUYAAAFYAAABdgAAAYoAAAGuAAAByQAAAeEAAAH8AAACFgAAAioAAAJNAAACXgAAAmQAAAJrAAACegAAAoEAAAKaAAACqwAAAsUAAALgAAAC7wAAAwwAAAMgAAADMQAAA0AAAANdAAADdQAAA4wAAAOYAAADmAAAA6QAAEAAAAtAIQACgBoAAcAAgBSAJMAjQAAAQ4ODAAHAAEAAAASAN4AAwABBAkAAABQAAAAAwABBAkAAQAcAFAAAwABBAkAAgAOAGwAAwABBAkAAwBOAHoAAwABBAkABAAcAMgAAwABBAkABQA2AOQAAwABBAkABgAcARoAAwABBAkABwBUATYAAwABBAkACAAIAYoAAwABBAkACQAgAZIAAwABBAkACwAgAbIAAwABBAkADAAgAdIAAwABBAkADQEgAfIAAwABBAkADgA0AxIAAwABBAkAEAAKA0YAAwABBAkAEQAQA1AAAwABBAkAFQAKA2AAAwABBAkAFgAQA2oAQwBvAHAAeQByAGkAZwBoAHQAIAAyADAAMQA2ACAAVABoAGUAIABJAG4AdABlAHIAIABQAHIAbwBqAGUAYwB0ACAAQQB1AHQAaABvAHIAcwBJAG4AdABlAHIAIABTAGUAbQBpAEIAbwBsAGQAUgBlAGcAdQBsAGEAcgA0AC4AMAAwADEAOwBnAGkAdAAtADkAMgAyADEAYgBlAGUAZAAzADsAUgBTAE0AUwA7AEkAbgB0AGUAcgAtAFMAZQBtAGkAQgBvAGwAZABJAG4AdABlAHIAIABTAGUAbQBpAEIAbwBsAGQAVgBlAHIAcwBpAG8AbgAgADQALgAwADAAMQA7AGcAaQB0AC0AOQAyADIAMQBiAGUAZQBkADMASQBuAHQAZQByAC0AUwBlAG0AaQBCAG8AbABkAEkAbgB0AGUAcgAgAFUASQAgAGEAbgBkACAASQBuAHQAZQByACAAaQBzACAAYQAgAHQAcgBhAGQAZQBtAGEAcgBrACAAbwBmACAAcgBzAG0AcwAuAHIAcwBtAHMAUgBhAHMAbQB1AHMAIABBAG4AZABlAHIAcwBzAG8AbgBoAHQAdABwAHMAOgAvAC8AcgBzAG0AcwAuAG0AZQAvAGgAdAB0AHAAcwA6AC8ALwByAHMAbQBzAC4AbQBlAC8AVABoAGkAcwAgAEYAbwBuAHQAIABTAG8AZgB0AHcAYQByAGUAIABpAHMAIABsAGkAYwBlAG4AcwBlAGQAIAB1AG4AZABlAHIAIAB0AGgAZQAgAFMASQBMACAATwBwAGUAbgAgAEYAbwBuAHQAIABMAGkAYwBlAG4AcwBlACwAIABWAGUAcgBzAGkAbwBuACAAMQAuADEALgAgAFQAaABpAHMAIABsAGkAYwBlAG4AcwBlACAAaQBzACAAYQB2AGEAaQBsAGEAYgBsAGUAIAB3AGkAdABoACAAYQAgAEYAQQBRACAAYQB0ADoAIABoAHQAdABwADoALwAvAHMAYwByAGkAcAB0AHMALgBzAGkAbAAuAG8AcgBnAC8ATwBGAEwAaAB0AHQAcAA6AC8ALwBzAGMAcgBpAHAAdABzAC4AcwBpAGwALgBvAHIAZwAvAE8ARgBMAEkAbgB0AGUAcgBTAGUAbQBpAEIAbwBsAGQASQBuAHQAZQByAFMAZQBtAGkAQgBvAGwAZAADAAAAAAAA/rUArQAAAAAAAAAAAAAAAAAAAAAAAAAA") format("truetype"); }
+    .diagram-de50c81f05231334 { font-family: "diagram-de50c81f05231334", Helvetica, Arial; font-kerning: none; font-variant-ligatures: none; }
+    .diagram-de50c81f05231334 .diagram-background { fill: var(--diagram-background, #ffffff); }
+    .diagram-de50c81f05231334 .diagram-group { stroke: var(--diagram-border, #d1d9e0); }
+    .diagram-de50c81f05231334 .diagram-group-title { fill: var(--diagram-muted, #59636e); }
+    .diagram-de50c81f05231334 .diagram-edges { stroke: var(--diagram-muted, #59636e); }
+    .diagram-de50c81f05231334 .diagram-base { fill: var(--diagram-surface, #ffffff); }
+    .diagram-de50c81f05231334 [data-node][data-kind="client"] { color: var(--diagram-hue-users, #8250df); }
+    .diagram-de50c81f05231334 [data-node][data-kind="system"] { color: var(--diagram-hue-system, #424a53); }
+    .diagram-de50c81f05231334 [data-node][data-kind="gateway"], .diagram-de50c81f05231334 [data-node][data-kind="service"], .diagram-de50c81f05231334 [data-node][data-kind="worker"], .diagram-de50c81f05231334 [data-node][data-kind="function"] { color: var(--diagram-hue-compute, #0969da); }
+    .diagram-de50c81f05231334 [data-node][data-kind="database"], .diagram-de50c81f05231334 [data-node][data-kind="cache"], .diagram-de50c81f05231334 [data-node][data-kind="storage"], .diagram-de50c81f05231334 [data-node][data-kind="search"] { color: var(--diagram-hue-data, #1b7c83); }
+    .diagram-de50c81f05231334 [data-node][data-kind="queue"] { color: var(--diagram-hue-messaging, #bc4c00); }
+    .diagram-de50c81f05231334 .diagram-text { fill: var(--diagram-ink, #1f2328); }
     @media (prefers-color-scheme: dark) {
-      .diagram-d1c70061dce25281 .diagram-background { fill: var(--diagram-background, #0d1117); }
-      .diagram-d1c70061dce25281 .diagram-group { stroke: var(--diagram-border, #3d444d); }
-      .diagram-d1c70061dce25281 .diagram-group-title { fill: var(--diagram-muted, #9198a1); }
-      .diagram-d1c70061dce25281 .diagram-edges { stroke: var(--diagram-muted, #9198a1); }
-      .diagram-d1c70061dce25281 .diagram-base { fill: var(--diagram-surface, #161b22); }
-      .diagram-d1c70061dce25281 [data-node][data-kind="client"] { color: var(--diagram-hue-users, #ab7df8); }
-      .diagram-d1c70061dce25281 [data-node][data-kind="system"] { color: var(--diagram-hue-system, #b7bdc8); }
-      .diagram-d1c70061dce25281 [data-node][data-kind="gateway"], .diagram-d1c70061dce25281 [data-node][data-kind="service"], .diagram-d1c70061dce25281 [data-node][data-kind="worker"], .diagram-d1c70061dce25281 [data-node][data-kind="function"] { color: var(--diagram-hue-compute, #4493f8); }
-      .diagram-d1c70061dce25281 [data-node][data-kind="database"], .diagram-d1c70061dce25281 [data-node][data-kind="cache"], .diagram-d1c70061dce25281 [data-node][data-kind="storage"], .diagram-d1c70061dce25281 [data-node][data-kind="search"] { color: var(--diagram-hue-data, #39c5cf); }
-      .diagram-d1c70061dce25281 [data-node][data-kind="queue"] { color: var(--diagram-hue-messaging, #f0883e); }
-      .diagram-d1c70061dce25281 .diagram-text { fill: var(--diagram-ink, #f0f6fc); }
+      .diagram-de50c81f05231334 .diagram-background { fill: var(--diagram-background, #0d1117); }
+      .diagram-de50c81f05231334 .diagram-group { stroke: var(--diagram-border, #3d444d); }
+      .diagram-de50c81f05231334 .diagram-group-title { fill: var(--diagram-muted, #9198a1); }
+      .diagram-de50c81f05231334 .diagram-edges { stroke: var(--diagram-muted, #9198a1); }
+      .diagram-de50c81f05231334 .diagram-base { fill: var(--diagram-surface, #161b22); }
+      .diagram-de50c81f05231334 [data-node][data-kind="client"] { color: var(--diagram-hue-users, #ab7df8); }
+      .diagram-de50c81f05231334 [data-node][data-kind="system"] { color: var(--diagram-hue-system, #b7bdc8); }
+      .diagram-de50c81f05231334 [data-node][data-kind="gateway"], .diagram-de50c81f05231334 [data-node][data-kind="service"], .diagram-de50c81f05231334 [data-node][data-kind="worker"], .diagram-de50c81f05231334 [data-node][data-kind="function"] { color: var(--diagram-hue-compute, #4493f8); }
+      .diagram-de50c81f05231334 [data-node][data-kind="database"], .diagram-de50c81f05231334 [data-node][data-kind="cache"], .diagram-de50c81f05231334 [data-node][data-kind="storage"], .diagram-de50c81f05231334 [data-node][data-kind="search"] { color: var(--diagram-hue-data, #39c5cf); }
+      .diagram-de50c81f05231334 [data-node][data-kind="queue"] { color: var(--diagram-hue-messaging, #f0883e); }
+      .diagram-de50c81f05231334 .diagram-text { fill: var(--diagram-ink, #f0f6fc); }
     }
   </style>
   <rect class="diagram-background" x="0" y="0" width="7240" height="1920"/>
-  <g class="diagram-groups" text-anchor="middle" dominant-baseline="central">
+  <g class="diagram-groups">
     <g data-group="eu-west" data-kind="region">
       <rect class="diagram-group" x="1040" y="24" width="4240" height="1520" rx="8" fill="none" stroke-width="1.5"/>
-      <text class="diagram-group-title" x="1078.7" y="36" font-size="13" font-weight="600">EU West</text>
+      <text class="diagram-group-title" x="1078.7" y="36" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="central">EU West</text>
     </g>
     <g data-group="eu-west-a" data-kind="zone">
       <rect class="diagram-group" x="1344" y="280" width="1120" height="560" rx="8" fill="none" stroke-width="1.5" stroke-dasharray="6 4"/>
-      <text class="diagram-group-title" x="1378.39" y="292" font-size="13" font-weight="600">Zone A</text>
+      <text class="diagram-group-title" x="1378.39" y="292" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="central">Zone A</text>
     </g>
     <g data-group="payments" data-kind="system">
       <rect class="diagram-group" x="1648" y="576" width="512" height="224" rx="8" fill="none" stroke-width="2"/>
-      <text class="diagram-group-title" x="1691.29" y="588" font-size="13" font-weight="600">Payments</text>
+      <text class="diagram-group-title" x="1691.29" y="588" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="central">Payments</text>
     </g>
     <g data-group="eu-west-b" data-kind="zone">
       <rect class="diagram-group" x="2584" y="872" width="1392" height="640" rx="8" fill="none" stroke-width="1.5" stroke-dasharray="6 4"/>
-      <text class="diagram-group-title" x="2617.94" y="884" font-size="13" font-weight="600">Zone B</text>
+      <text class="diagram-group-title" x="2617.94" y="884" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="central">Zone B</text>
     </g>
     <g data-group="catalog" data-kind="system">
       <rect class="diagram-group" x="3160" y="1096" width="784" height="224" rx="8" fill="none" stroke-width="2"/>
-      <text class="diagram-group-title" x="3196.27" y="1108" font-size="13" font-weight="600">Catalog</text>
+      <text class="diagram-group-title" x="3196.27" y="1108" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="central">Catalog</text>
     </g>
     <g data-group="messaging" data-kind="system">
       <rect class="diagram-group" x="4088" y="360" width="256" height="384" rx="8" fill="none" stroke-width="2"/>
-      <text class="diagram-group-title" x="4134.52" y="372" font-size="13" font-weight="600">Messaging</text>
+      <text class="diagram-group-title" x="4134.52" y="372" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="central">Messaging</text>
     </g>
     <g data-group="fulfilment" data-kind="system">
       <rect class="diagram-group" x="4456" y="80" width="784" height="224" rx="8" fill="none" stroke-width="2"/>
-      <text class="diagram-group-title" x="4499.4" y="92" font-size="13" font-weight="600">Fulfilment</text>
+      <text class="diagram-group-title" x="4499.4" y="92" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="central">Fulfilment</text>
     </g>
     <g data-group="us-east" data-kind="region">
       <rect class="diagram-group" x="5440" y="1480" width="576" height="320" rx="8" fill="none" stroke-width="1.5"/>
-      <text class="diagram-group-title" x="5476.18" y="1492" font-size="13" font-weight="600">US East</text>
+      <text class="diagram-group-title" x="5476.18" y="1492" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="central">US East</text>
     </g>
     <g data-group="us-east-a" data-kind="zone">
       <rect class="diagram-group" x="5472" y="1536" width="512" height="224" rx="8" fill="none" stroke-width="1.5" stroke-dasharray="6 4"/>
-      <text class="diagram-group-title" x="5506.39" y="1548" font-size="13" font-weight="600">Zone A</text>
+      <text class="diagram-group-title" x="5506.39" y="1548" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="central">Zone A</text>
     </g>
     <g data-group="observability" data-kind="system">
       <rect class="diagram-group" x="6112" y="1672" width="784" height="224" rx="8" fill="none" stroke-width="2"/>
-      <text class="diagram-group-title" x="6165.87" y="1684" font-size="13" font-weight="600">Observability</text>
+      <text class="diagram-group-title" x="6165.87" y="1684" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="central">Observability</text>
     </g>
   </g>
   <g class="diagram-edges" fill="none" stroke-width="1.5">
@@ -516,52 +516,52 @@
       <path d="M 1248 896 L 1288 896 A 8 8 0 0 1 1296 904 L 1296 1744 A 8 8 0 0 0 1304 1752 L 6144 1752"/>
     </g>
   </g>
-  <g text-anchor="middle" dominant-baseline="central">
+  <g class="diagram-nodes">
     <g data-node="web-app" data-kind="client">
       <path class="diagram-base" d="M 30.75 1016.75 H 193.25 A 6 6 0 0 1 199.25 1022.75 V 1057.25 A 6 6 0 0 1 193.25 1063.25 H 30.75 A 6 6 0 0 1 24.75 1057.25 V 1022.75 A 6 6 0 0 1 30.75 1016.75 Z"/>
       <path d="M 30.75 1016.75 H 193.25 A 6 6 0 0 1 199.25 1022.75 V 1025 L 199.25 1025 H 24.75 L 24.75 1025 V 1022.75 A 6 6 0 0 1 30.75 1016.75 Z" fill="currentColor" fill-opacity="0.5"/>
       <path d="M 30.75 1016.75 H 193.25 A 6 6 0 0 1 199.25 1022.75 V 1057.25 A 6 6 0 0 1 193.25 1063.25 H 30.75 A 6 6 0 0 1 24.75 1057.25 V 1022.75 A 6 6 0 0 1 30.75 1016.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(36 1032)" d="M 1.5 2.5 H 14.5 V 11 H 1.5 Z M 5 14.5 H 11 M 8 11 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="124" y="1040" font-size="14" font-weight="600">Web app</text>
+      <text class="diagram-text" x="124" y="1040" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Web app</text>
     </g>
     <g data-node="mobile-app" data-kind="client">
       <path class="diagram-base" d="M 30.75 1096.75 H 193.25 A 6 6 0 0 1 199.25 1102.75 V 1137.25 A 6 6 0 0 1 193.25 1143.25 H 30.75 A 6 6 0 0 1 24.75 1137.25 V 1102.75 A 6 6 0 0 1 30.75 1096.75 Z"/>
       <path d="M 30.75 1096.75 H 193.25 A 6 6 0 0 1 199.25 1102.75 V 1105 L 199.25 1105 H 24.75 L 24.75 1105 V 1102.75 A 6 6 0 0 1 30.75 1096.75 Z" fill="currentColor" fill-opacity="0.5"/>
       <path d="M 30.75 1096.75 H 193.25 A 6 6 0 0 1 199.25 1102.75 V 1137.25 A 6 6 0 0 1 193.25 1143.25 H 30.75 A 6 6 0 0 1 24.75 1137.25 V 1102.75 A 6 6 0 0 1 30.75 1096.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(36 1112)" d="M 1.5 2.5 H 14.5 V 11 H 1.5 Z M 5 14.5 H 11 M 8 11 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="124" y="1120" font-size="14" font-weight="600">Mobile app</text>
+      <text class="diagram-text" x="124" y="1120" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Mobile app</text>
     </g>
     <g data-node="admin-app" data-kind="client">
       <path class="diagram-base" d="M 30.75 1312.75 H 193.25 A 6 6 0 0 1 199.25 1318.75 V 1353.25 A 6 6 0 0 1 193.25 1359.25 H 30.75 A 6 6 0 0 1 24.75 1353.25 V 1318.75 A 6 6 0 0 1 30.75 1312.75 Z"/>
       <path d="M 30.75 1312.75 H 193.25 A 6 6 0 0 1 199.25 1318.75 V 1321 L 199.25 1321 H 24.75 L 24.75 1321 V 1318.75 A 6 6 0 0 1 30.75 1312.75 Z" fill="currentColor" fill-opacity="0.5"/>
       <path d="M 30.75 1312.75 H 193.25 A 6 6 0 0 1 199.25 1318.75 V 1353.25 A 6 6 0 0 1 193.25 1359.25 H 30.75 A 6 6 0 0 1 24.75 1353.25 V 1318.75 A 6 6 0 0 1 30.75 1312.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(36 1328)" d="M 1.5 2.5 H 14.5 V 11 H 1.5 Z M 5 14.5 H 11 M 8 11 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="124" y="1336" font-size="14" font-weight="600">Admin app</text>
+      <text class="diagram-text" x="124" y="1336" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Admin app</text>
     </g>
     <g data-node="partner-portal" data-kind="client">
       <path class="diagram-base" d="M 30.75 1232.75 H 193.25 A 6 6 0 0 1 199.25 1238.75 V 1273.25 A 6 6 0 0 1 193.25 1279.25 H 30.75 A 6 6 0 0 1 24.75 1273.25 V 1238.75 A 6 6 0 0 1 30.75 1232.75 Z"/>
       <path d="M 30.75 1232.75 H 193.25 A 6 6 0 0 1 199.25 1238.75 V 1241 L 199.25 1241 H 24.75 L 24.75 1241 V 1238.75 A 6 6 0 0 1 30.75 1232.75 Z" fill="currentColor" fill-opacity="0.5"/>
       <path d="M 30.75 1232.75 H 193.25 A 6 6 0 0 1 199.25 1238.75 V 1273.25 A 6 6 0 0 1 193.25 1279.25 H 30.75 A 6 6 0 0 1 24.75 1273.25 V 1238.75 A 6 6 0 0 1 30.75 1232.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(36 1248)" d="M 1.5 2.5 H 14.5 V 11 H 1.5 Z M 5 14.5 H 11 M 8 11 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="124" y="1256" font-size="14" font-weight="600">Partner portal</text>
+      <text class="diagram-text" x="124" y="1256" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Partner portal</text>
     </g>
     <g data-node="api-gateway" data-kind="gateway">
       <path class="diagram-base" d="M 310.75 1232.75 L 457.25 1232.75 L 471.25 1256 L 457.25 1279.25 L 310.75 1279.25 L 296.75 1256 Z"/>
       <path d="M 310.75 1232.75 L 457.25 1232.75 L 471.25 1256 L 457.25 1279.25 L 310.75 1279.25 L 296.75 1256 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(308 1248)" d="M 1.5 14.5 H 14.5 M 3.5 14.5 V 7 A 4.5 4.5 0 0 1 12.5 7 V 14.5 M 5.5 10.5 H 10.5 M 8.5 8.5 L 10.5 10.5 L 8.5 12.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="396" y="1256" font-size="14" font-weight="600">API gateway</text>
+      <text class="diagram-text" x="396" y="1256" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">API gateway</text>
     </g>
     <g data-node="cdn" data-kind="gateway">
       <path class="diagram-base" d="M 310.75 1152.75 L 457.25 1152.75 L 471.25 1176 L 457.25 1199.25 L 310.75 1199.25 L 296.75 1176 Z"/>
       <path d="M 310.75 1152.75 L 457.25 1152.75 L 471.25 1176 L 457.25 1199.25 L 310.75 1199.25 L 296.75 1176 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(308 1168)" d="M 1.5 14.5 H 14.5 M 3.5 14.5 V 7 A 4.5 4.5 0 0 1 12.5 7 V 14.5 M 5.5 10.5 H 10.5 M 8.5 8.5 L 10.5 10.5 L 8.5 12.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="396" y="1176" font-size="14" font-weight="600">Cdn</text>
+      <text class="diagram-text" x="396" y="1176" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Cdn</text>
     </g>
     <g data-node="auth-service" data-kind="service">
       <path class="diagram-base" d="M 680.75 1096.75 H 839.25 A 8 8 0 0 1 847.25 1104.75 V 1135.25 A 8 8 0 0 1 839.25 1143.25 H 680.75 A 8 8 0 0 1 672.75 1135.25 V 1104.75 A 8 8 0 0 1 680.75 1096.75 Z"/>
       <path d="M 680.75 1096.75 H 839.25 A 8 8 0 0 1 847.25 1104.75 V 1135.25 A 8 8 0 0 1 839.25 1143.25 H 680.75 A 8 8 0 0 1 672.75 1135.25 V 1104.75 A 8 8 0 0 1 680.75 1096.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(684 1112)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="772" y="1120" font-size="14" font-weight="600">Auth service</text>
+      <text class="diagram-text" x="772" y="1120" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Auth service</text>
     </g>
     <g data-node="rate-limiter" data-kind="cache">
       <path class="diagram-base" d="M 676.75 1237 H 843.25 A 4 4 0 0 1 847.25 1241 V 1271 A 4 4 0 0 1 843.25 1275 H 676.75 A 4 4 0 0 1 672.75 1271 V 1241 A 4 4 0 0 1 676.75 1237 Z"/>
@@ -585,38 +585,38 @@
       <path d="M 832 1232.75 V 1237" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path d="M 832 1275 V 1279.25" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(684 1248)" d="M 9.5 1.5 L 3.5 9 H 8 L 6.5 14.5 L 12.5 7 H 8 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="772" y="1256" font-size="14" font-weight="600">Rate limiter</text>
+      <text class="diagram-text" x="772" y="1256" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Rate limiter</text>
     </g>
     <g data-node="feature-flags" data-kind="service">
       <path class="diagram-base" d="M 680.75 1312.75 H 839.25 A 8 8 0 0 1 847.25 1320.75 V 1351.25 A 8 8 0 0 1 839.25 1359.25 H 680.75 A 8 8 0 0 1 672.75 1351.25 V 1320.75 A 8 8 0 0 1 680.75 1312.75 Z"/>
       <path d="M 680.75 1312.75 H 839.25 A 8 8 0 0 1 847.25 1320.75 V 1351.25 A 8 8 0 0 1 839.25 1359.25 H 680.75 A 8 8 0 0 1 672.75 1351.25 V 1320.75 A 8 8 0 0 1 680.75 1312.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(684 1328)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="772" y="1336" font-size="14" font-weight="600">Feature flags</text>
+      <text class="diagram-text" x="772" y="1336" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Feature flags</text>
     </g>
     <g data-node="orders-api" data-kind="service">
       <path class="diagram-base" d="M 1384.75 416.75 H 1543.25 A 8 8 0 0 1 1551.25 424.75 V 455.25 A 8 8 0 0 1 1543.25 463.25 H 1384.75 A 8 8 0 0 1 1376.75 455.25 V 424.75 A 8 8 0 0 1 1384.75 416.75 Z"/>
       <path d="M 1384.75 416.75 H 1543.25 A 8 8 0 0 1 1551.25 424.75 V 455.25 A 8 8 0 0 1 1543.25 463.25 H 1384.75 A 8 8 0 0 1 1376.75 455.25 V 424.75 A 8 8 0 0 1 1384.75 416.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(1388 432)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="1476" y="440" font-size="14" font-weight="600">Orders API</text>
+      <text class="diagram-text" x="1476" y="440" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Orders API</text>
     </g>
     <g data-node="cart-api" data-kind="service">
       <path class="diagram-base" d="M 1824.75 336.75 H 1983.25 A 8 8 0 0 1 1991.25 344.75 V 375.25 A 8 8 0 0 1 1983.25 383.25 H 1824.75 A 8 8 0 0 1 1816.75 375.25 V 344.75 A 8 8 0 0 1 1824.75 336.75 Z"/>
       <path d="M 1824.75 336.75 H 1983.25 A 8 8 0 0 1 1991.25 344.75 V 375.25 A 8 8 0 0 1 1983.25 383.25 H 1824.75 A 8 8 0 0 1 1816.75 375.25 V 344.75 A 8 8 0 0 1 1824.75 336.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(1828 352)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="1916" y="360" font-size="14" font-weight="600">Cart API</text>
+      <text class="diagram-text" x="1916" y="360" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Cart API</text>
     </g>
     <g data-node="users-api" data-kind="service">
       <path class="diagram-base" d="M 1824.75 416.75 H 1983.25 A 8 8 0 0 1 1991.25 424.75 V 455.25 A 8 8 0 0 1 1983.25 463.25 H 1824.75 A 8 8 0 0 1 1816.75 455.25 V 424.75 A 8 8 0 0 1 1824.75 416.75 Z"/>
       <path d="M 1824.75 416.75 H 1983.25 A 8 8 0 0 1 1991.25 424.75 V 455.25 A 8 8 0 0 1 1983.25 463.25 H 1824.75 A 8 8 0 0 1 1816.75 455.25 V 424.75 A 8 8 0 0 1 1824.75 416.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(1828 432)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="1916" y="440" font-size="14" font-weight="600">Users API</text>
+      <text class="diagram-text" x="1916" y="440" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Users API</text>
     </g>
     <g data-node="orders-db" data-kind="database">
       <path class="diagram-base" d="M 1816.75 503.75 V 536.25 A 87.25 7 0 0 0 1991.25 536.25 V 503.75 A 87.25 7 0 0 0 1816.75 503.75 Z"/>
       <path d="M 1816.75 503.75 V 536.25 A 87.25 7 0 0 0 1991.25 536.25 V 503.75 A 87.25 7 0 0 0 1816.75 503.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M 1816.75 503.75 A 87.25 7 0 0 0 1991.25 503.75" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(1828 512)" d="M 2.5 4 A 5.5 2 0 0 0 13.5 4 A 5.5 2 0 0 0 2.5 4 V 12 A 5.5 2 0 0 0 13.5 12 V 4 M 2.5 8 A 5.5 2 0 0 0 13.5 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="1916" y="520" font-size="14" font-weight="600">Orders db</text>
+      <text class="diagram-text" x="1916" y="520" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Orders db</text>
     </g>
     <g data-node="cart-cache" data-kind="cache">
       <path class="diagram-base" d="M 2260.75 341 H 2427.25 A 4 4 0 0 1 2431.25 345 V 375 A 4 4 0 0 1 2427.25 379 H 2260.75 A 4 4 0 0 1 2256.75 375 V 345 A 4 4 0 0 1 2260.75 341 Z"/>
@@ -640,14 +640,14 @@
       <path d="M 2416 336.75 V 341" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path d="M 2416 379 V 383.25" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(2268 352)" d="M 9.5 1.5 L 3.5 9 H 8 L 6.5 14.5 L 12.5 7 H 8 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="2356" y="360" font-size="14" font-weight="600">Cart cache</text>
+      <text class="diagram-text" x="2356" y="360" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Cart cache</text>
     </g>
     <g data-node="users-db" data-kind="database">
       <path class="diagram-base" d="M 2256.75 503.75 V 536.25 A 87.25 7 0 0 0 2431.25 536.25 V 503.75 A 87.25 7 0 0 0 2256.75 503.75 Z"/>
       <path d="M 2256.75 503.75 V 536.25 A 87.25 7 0 0 0 2431.25 536.25 V 503.75 A 87.25 7 0 0 0 2256.75 503.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M 2256.75 503.75 A 87.25 7 0 0 0 2431.25 503.75" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(2268 512)" d="M 2.5 4 A 5.5 2 0 0 0 13.5 4 A 5.5 2 0 0 0 2.5 4 V 12 A 5.5 2 0 0 0 13.5 12 V 4 M 2.5 8 A 5.5 2 0 0 0 13.5 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="2356" y="520" font-size="14" font-weight="600">Users db</text>
+      <text class="diagram-text" x="2356" y="520" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Users db</text>
     </g>
     <g data-node="session-cache" data-kind="cache">
       <path class="diagram-base" d="M 2260.75 421 H 2427.25 A 4 4 0 0 1 2431.25 425 V 455 A 4 4 0 0 1 2427.25 459 H 2260.75 A 4 4 0 0 1 2256.75 455 V 425 A 4 4 0 0 1 2260.75 421 Z"/>
@@ -671,20 +671,20 @@
       <path d="M 2416 416.75 V 421" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path d="M 2416 459 V 463.25" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(2268 432)" d="M 9.5 1.5 L 3.5 9 H 8 L 6.5 14.5 L 12.5 7 H 8 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="2356" y="440" font-size="14" font-weight="600">Session cache</text>
+      <text class="diagram-text" x="2356" y="440" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Session cache</text>
     </g>
     <g data-node="payments-api" data-kind="service">
       <path class="diagram-base" d="M 1688.75 632.75 H 1847.25 A 8 8 0 0 1 1855.25 640.75 V 671.25 A 8 8 0 0 1 1847.25 679.25 H 1688.75 A 8 8 0 0 1 1680.75 671.25 V 640.75 A 8 8 0 0 1 1688.75 632.75 Z"/>
       <path d="M 1688.75 632.75 H 1847.25 A 8 8 0 0 1 1855.25 640.75 V 671.25 A 8 8 0 0 1 1847.25 679.25 H 1688.75 A 8 8 0 0 1 1680.75 671.25 V 640.75 A 8 8 0 0 1 1688.75 632.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(1692 648)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="1780" y="656" font-size="14" font-weight="600">Payments API</text>
+      <text class="diagram-text" x="1780" y="656" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Payments API</text>
     </g>
     <g data-node="payments-db" data-kind="database">
       <path class="diagram-base" d="M 1952.75 639.75 V 672.25 A 87.25 7 0 0 0 2127.25 672.25 V 639.75 A 87.25 7 0 0 0 1952.75 639.75 Z"/>
       <path d="M 1952.75 639.75 V 672.25 A 87.25 7 0 0 0 2127.25 672.25 V 639.75 A 87.25 7 0 0 0 1952.75 639.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M 1952.75 639.75 A 87.25 7 0 0 0 2127.25 639.75" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(1964 648)" d="M 2.5 4 A 5.5 2 0 0 0 13.5 4 A 5.5 2 0 0 0 2.5 4 V 12 A 5.5 2 0 0 0 13.5 12 V 4 M 2.5 8 A 5.5 2 0 0 0 13.5 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="2052" y="656" font-size="14" font-weight="600">Payments db</text>
+      <text class="diagram-text" x="2052" y="656" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Payments db</text>
     </g>
     <g data-node="fraud-worker" data-kind="worker">
       <path class="diagram-base" d="M 1692.75 712.75 H 1848.25 A 7 7 0 0 1 1855.25 719.75 V 747.25 A 7 7 0 0 1 1848.25 754.25 H 1692.75 A 7 7 0 0 1 1685.75 747.25 V 719.75 A 7 7 0 0 1 1692.75 712.75 Z"/>
@@ -692,63 +692,63 @@
       <path class="diagram-base" d="M 1687.75 717.75 H 1843.25 A 7 7 0 0 1 1850.25 724.75 V 752.25 A 7 7 0 0 1 1843.25 759.25 H 1687.75 A 7 7 0 0 1 1680.75 752.25 V 724.75 A 7 7 0 0 1 1687.75 717.75 Z"/>
       <path d="M 1687.75 717.75 H 1843.25 A 7 7 0 0 1 1850.25 724.75 V 752.25 A 7 7 0 0 1 1843.25 759.25 H 1687.75 A 7 7 0 0 1 1680.75 752.25 V 724.75 A 7 7 0 0 1 1687.75 717.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(1692 728)" d="M 12.68 6.24 L 14.86 6.61 L 14.86 9.39 L 12.68 9.76 L 12.55 10.06 L 13.83 11.87 L 11.87 13.83 L 10.06 12.55 L 9.76 12.68 L 9.39 14.86 L 6.61 14.86 L 6.24 12.68 L 5.94 12.55 L 4.13 13.83 L 2.17 11.87 L 3.45 10.06 L 3.32 9.76 L 1.14 9.39 L 1.14 6.61 L 3.32 6.24 L 3.45 5.94 L 2.17 4.13 L 4.13 2.17 L 5.94 3.45 L 6.24 3.32 L 6.61 1.14 L 9.39 1.14 L 9.76 3.32 L 10.06 3.45 L 11.87 2.17 L 13.83 4.13 L 12.55 5.94 Z M 6 8 A 2 2 0 1 0 10 8 A 2 2 0 1 0 6 8 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="1777.5" y="736" font-size="14" font-weight="600">Fraud worker</text>
+      <text class="diagram-text" x="1777.5" y="736" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Fraud worker</text>
     </g>
     <g data-node="search-api" data-kind="service">
       <path class="diagram-base" d="M 2896.75 1352.75 H 3055.25 A 8 8 0 0 1 3063.25 1360.75 V 1391.25 A 8 8 0 0 1 3055.25 1399.25 H 2896.75 A 8 8 0 0 1 2888.75 1391.25 V 1360.75 A 8 8 0 0 1 2896.75 1352.75 Z"/>
       <path d="M 2896.75 1352.75 H 3055.25 A 8 8 0 0 1 3063.25 1360.75 V 1391.25 A 8 8 0 0 1 3055.25 1399.25 H 2896.75 A 8 8 0 0 1 2888.75 1391.25 V 1360.75 A 8 8 0 0 1 2896.75 1352.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(2900 1368)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="2988" y="1376" font-size="14" font-weight="600">Search API</text>
+      <text class="diagram-text" x="2988" y="1376" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Search API</text>
     </g>
     <g data-node="inventory-api" data-kind="service">
       <path class="diagram-base" d="M 2624.75 928.75 H 2783.25 A 8 8 0 0 1 2791.25 936.75 V 967.25 A 8 8 0 0 1 2783.25 975.25 H 2624.75 A 8 8 0 0 1 2616.75 967.25 V 936.75 A 8 8 0 0 1 2624.75 928.75 Z"/>
       <path d="M 2624.75 928.75 H 2783.25 A 8 8 0 0 1 2791.25 936.75 V 967.25 A 8 8 0 0 1 2783.25 975.25 H 2624.75 A 8 8 0 0 1 2616.75 967.25 V 936.75 A 8 8 0 0 1 2624.75 928.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(2628 944)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="2716" y="952" font-size="14" font-weight="600">Inventory API</text>
+      <text class="diagram-text" x="2716" y="952" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Inventory API</text>
     </g>
     <g data-node="reviews-api" data-kind="service">
       <path class="diagram-base" d="M 2624.75 1040.75 H 2783.25 A 8 8 0 0 1 2791.25 1048.75 V 1079.25 A 8 8 0 0 1 2783.25 1087.25 H 2624.75 A 8 8 0 0 1 2616.75 1079.25 V 1048.75 A 8 8 0 0 1 2624.75 1040.75 Z"/>
       <path d="M 2624.75 1040.75 H 2783.25 A 8 8 0 0 1 2791.25 1048.75 V 1079.25 A 8 8 0 0 1 2783.25 1087.25 H 2624.75 A 8 8 0 0 1 2616.75 1079.25 V 1048.75 A 8 8 0 0 1 2624.75 1040.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(2628 1056)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="2716" y="1064" font-size="14" font-weight="600">Reviews API</text>
+      <text class="diagram-text" x="2716" y="1064" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Reviews API</text>
     </g>
     <g data-node="pricing-api" data-kind="service">
       <path class="diagram-base" d="M 2624.75 1152.75 H 2783.25 A 8 8 0 0 1 2791.25 1160.75 V 1191.25 A 8 8 0 0 1 2783.25 1199.25 H 2624.75 A 8 8 0 0 1 2616.75 1191.25 V 1160.75 A 8 8 0 0 1 2624.75 1152.75 Z"/>
       <path d="M 2624.75 1152.75 H 2783.25 A 8 8 0 0 1 2791.25 1160.75 V 1191.25 A 8 8 0 0 1 2783.25 1199.25 H 2624.75 A 8 8 0 0 1 2616.75 1191.25 V 1160.75 A 8 8 0 0 1 2624.75 1152.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(2628 1168)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="2716" y="1176" font-size="14" font-weight="600">Pricing API</text>
+      <text class="diagram-text" x="2716" y="1176" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Pricing API</text>
     </g>
     <g data-node="promotions-api" data-kind="service">
       <path class="diagram-base" d="M 2896.75 1152.75 H 3055.25 A 8 8 0 0 1 3063.25 1160.75 V 1191.25 A 8 8 0 0 1 3055.25 1199.25 H 2896.75 A 8 8 0 0 1 2888.75 1191.25 V 1160.75 A 8 8 0 0 1 2896.75 1152.75 Z"/>
       <path d="M 2896.75 1152.75 H 3055.25 A 8 8 0 0 1 3063.25 1160.75 V 1191.25 A 8 8 0 0 1 3055.25 1199.25 H 2896.75 A 8 8 0 0 1 2888.75 1191.25 V 1160.75 A 8 8 0 0 1 2896.75 1152.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(2900 1168)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="2988" y="1176" font-size="14" font-weight="600">Promotions API</text>
+      <text class="diagram-text" x="2988" y="1176" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Promotions API</text>
     </g>
     <g data-node="recs-api" data-kind="service">
       <path class="diagram-base" d="M 2624.75 1352.75 H 2783.25 A 8 8 0 0 1 2791.25 1360.75 V 1391.25 A 8 8 0 0 1 2783.25 1399.25 H 2624.75 A 8 8 0 0 1 2616.75 1391.25 V 1360.75 A 8 8 0 0 1 2624.75 1352.75 Z"/>
       <path d="M 2624.75 1352.75 H 2783.25 A 8 8 0 0 1 2791.25 1360.75 V 1391.25 A 8 8 0 0 1 2783.25 1399.25 H 2624.75 A 8 8 0 0 1 2616.75 1391.25 V 1360.75 A 8 8 0 0 1 2624.75 1352.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(2628 1368)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="2716" y="1376" font-size="14" font-weight="600">Recs API</text>
+      <text class="diagram-text" x="2716" y="1376" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Recs API</text>
     </g>
     <g data-node="search-index" data-kind="search">
       <path class="diagram-base" d="M 3488 1352.75 H 3616 A 23.25 23.25 0 0 1 3639.25 1376 V 1376 A 23.25 23.25 0 0 1 3616 1399.25 H 3488 A 23.25 23.25 0 0 1 3464.75 1376 V 1376 A 23.25 23.25 0 0 1 3488 1352.75 Z"/>
       <path d="M 3488 1352.75 H 3616 A 23.25 23.25 0 0 1 3639.25 1376 V 1376 A 23.25 23.25 0 0 1 3616 1399.25 H 3488 A 23.25 23.25 0 0 1 3464.75 1376 V 1376 A 23.25 23.25 0 0 1 3488 1352.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(3476 1368)" d="M 2 6.75 A 4.75 4.75 0 1 0 11.5 6.75 A 4.75 4.75 0 1 0 2 6.75 Z M 10.25 10.25 L 14.5 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="3564" y="1376" font-size="14" font-weight="600">Search index</text>
+      <text class="diagram-text" x="3564" y="1376" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Search index</text>
     </g>
     <g data-node="inventory-db" data-kind="database">
       <path class="diagram-base" d="M 2888.75 935.75 V 968.25 A 87.25 7 0 0 0 3063.25 968.25 V 935.75 A 87.25 7 0 0 0 2888.75 935.75 Z"/>
       <path d="M 2888.75 935.75 V 968.25 A 87.25 7 0 0 0 3063.25 968.25 V 935.75 A 87.25 7 0 0 0 2888.75 935.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M 2888.75 935.75 A 87.25 7 0 0 0 3063.25 935.75" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(2900 944)" d="M 2.5 4 A 5.5 2 0 0 0 13.5 4 A 5.5 2 0 0 0 2.5 4 V 12 A 5.5 2 0 0 0 13.5 12 V 4 M 2.5 8 A 5.5 2 0 0 0 13.5 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="2988" y="952" font-size="14" font-weight="600">Inventory db</text>
+      <text class="diagram-text" x="2988" y="952" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Inventory db</text>
     </g>
     <g data-node="reviews-db" data-kind="database">
       <path class="diagram-base" d="M 2888.75 1047.75 V 1080.25 A 87.25 7 0 0 0 3063.25 1080.25 V 1047.75 A 87.25 7 0 0 0 2888.75 1047.75 Z"/>
       <path d="M 2888.75 1047.75 V 1080.25 A 87.25 7 0 0 0 3063.25 1080.25 V 1047.75 A 87.25 7 0 0 0 2888.75 1047.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M 2888.75 1047.75 A 87.25 7 0 0 0 3063.25 1047.75" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(2900 1056)" d="M 2.5 4 A 5.5 2 0 0 0 13.5 4 A 5.5 2 0 0 0 2.5 4 V 12 A 5.5 2 0 0 0 13.5 12 V 4 M 2.5 8 A 5.5 2 0 0 0 13.5 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="2988" y="1064" font-size="14" font-weight="600">Reviews db</text>
+      <text class="diagram-text" x="2988" y="1064" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Reviews db</text>
     </g>
     <g data-node="recs-cache" data-kind="cache">
       <path class="diagram-base" d="M 2892.75 1437 H 3059.25 A 4 4 0 0 1 3063.25 1441 V 1471 A 4 4 0 0 1 3059.25 1475 H 2892.75 A 4 4 0 0 1 2888.75 1471 V 1441 A 4 4 0 0 1 2892.75 1437 Z"/>
@@ -772,26 +772,26 @@
       <path d="M 3048 1432.75 V 1437" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path d="M 3048 1475 V 1479.25" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(2900 1448)" d="M 9.5 1.5 L 3.5 9 H 8 L 6.5 14.5 L 12.5 7 H 8 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="2988" y="1456" font-size="14" font-weight="600">Recs cache</text>
+      <text class="diagram-text" x="2988" y="1456" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Recs cache</text>
     </g>
     <g data-node="catalog-api" data-kind="service">
       <path class="diagram-base" d="M 3200.75 1232.75 H 3359.25 A 8 8 0 0 1 3367.25 1240.75 V 1271.25 A 8 8 0 0 1 3359.25 1279.25 H 3200.75 A 8 8 0 0 1 3192.75 1271.25 V 1240.75 A 8 8 0 0 1 3200.75 1232.75 Z"/>
       <path d="M 3200.75 1232.75 H 3359.25 A 8 8 0 0 1 3367.25 1240.75 V 1271.25 A 8 8 0 0 1 3359.25 1279.25 H 3200.75 A 8 8 0 0 1 3192.75 1271.25 V 1240.75 A 8 8 0 0 1 3200.75 1232.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(3204 1248)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="3292" y="1256" font-size="14" font-weight="600">Catalog API</text>
+      <text class="diagram-text" x="3292" y="1256" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Catalog API</text>
     </g>
     <g data-node="catalog-db" data-kind="database">
       <path class="diagram-base" d="M 3464.75 1159.75 V 1192.25 A 87.25 7 0 0 0 3639.25 1192.25 V 1159.75 A 87.25 7 0 0 0 3464.75 1159.75 Z"/>
       <path d="M 3464.75 1159.75 V 1192.25 A 87.25 7 0 0 0 3639.25 1192.25 V 1159.75 A 87.25 7 0 0 0 3464.75 1159.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M 3464.75 1159.75 A 87.25 7 0 0 0 3639.25 1159.75" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(3476 1168)" d="M 2.5 4 A 5.5 2 0 0 0 13.5 4 A 5.5 2 0 0 0 2.5 4 V 12 A 5.5 2 0 0 0 13.5 12 V 4 M 2.5 8 A 5.5 2 0 0 0 13.5 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="3564" y="1176" font-size="14" font-weight="600">Catalog db</text>
+      <text class="diagram-text" x="3564" y="1176" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Catalog db</text>
     </g>
     <g data-node="image-resizer" data-kind="function">
       <path class="diagram-base" d="M 3474.75 1232.75 L 3629.25 1232.75 L 3639.25 1242.75 L 3639.25 1269.25 L 3629.25 1279.25 L 3474.75 1279.25 L 3464.75 1269.25 L 3464.75 1242.75 Z"/>
       <path d="M 3474.75 1232.75 L 3629.25 1232.75 L 3639.25 1242.75 L 3639.25 1269.25 L 3629.25 1279.25 L 3474.75 1279.25 L 3464.75 1269.25 L 3464.75 1242.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(3476 1248)" d="M 3.5 2 H 6.5 L 13 14 M 8.5 6.5 L 3.5 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="3564" y="1256" font-size="14" font-weight="600">Image resizer</text>
+      <text class="diagram-text" x="3564" y="1256" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Image resizer</text>
     </g>
     <g data-node="product-images" data-kind="storage">
       <path class="diagram-base" d="M 3736.75 1232.75 L 3897.25 1232.75 L 3911.25 1246.75 L 3911.25 1279.25 L 3736.75 1279.25 Z"/>
@@ -799,41 +799,41 @@
       <path d="M 3736.75 1232.75 L 3897.25 1232.75 L 3911.25 1246.75 L 3911.25 1279.25 L 3736.75 1279.25 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M 3897.25 1232.75 V 1246.75 H 3911.25" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(3748 1248)" d="M 2 4 A 6 2 0 0 0 14 4 A 6 2 0 0 0 2 4 L 3.5 13 A 4.5 1.5 0 0 0 12.5 13 L 14 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="3836" y="1256" font-size="14" font-weight="600">Product images</text>
+      <text class="diagram-text" x="3836" y="1256" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Product images</text>
     </g>
     <g data-node="order-events" data-kind="queue">
       <path class="diagram-base" d="M 4129.75 416.75 H 4302.25 A 9 23.25 0 0 1 4311.25 440 V 440 A 9 23.25 0 0 1 4302.25 463.25 H 4129.75 A 9 23.25 0 0 1 4120.75 440 V 440 A 9 23.25 0 0 1 4129.75 416.75 Z"/>
       <path d="M 4129.75 416.75 H 4302.25 A 9 23.25 0 0 1 4311.25 440 V 440 A 9 23.25 0 0 1 4302.25 463.25 H 4129.75 A 9 23.25 0 0 1 4120.75 440 V 440 A 9 23.25 0 0 1 4129.75 416.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M 4302.25 416.75 A 9 23.25 0 0 0 4293.25 440 V 440 A 9 23.25 0 0 0 4302.25 463.25" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(4132 432)" d="M 1.5 3.5 H 14.5 M 1.5 12.5 H 14.5 M 4.5 6.5 V 9.5 M 8 6.5 V 9.5 M 11.5 6.5 V 9.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="4219" y="440" font-size="14" font-weight="600">Order events</text>
+      <text class="diagram-text" x="4219" y="440" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Order events</text>
     </g>
     <g data-node="payment-events" data-kind="queue">
       <path class="diagram-base" d="M 4129.75 496.75 H 4302.25 A 9 23.25 0 0 1 4311.25 520 V 520 A 9 23.25 0 0 1 4302.25 543.25 H 4129.75 A 9 23.25 0 0 1 4120.75 520 V 520 A 9 23.25 0 0 1 4129.75 496.75 Z"/>
       <path d="M 4129.75 496.75 H 4302.25 A 9 23.25 0 0 1 4311.25 520 V 520 A 9 23.25 0 0 1 4302.25 543.25 H 4129.75 A 9 23.25 0 0 1 4120.75 520 V 520 A 9 23.25 0 0 1 4129.75 496.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M 4302.25 496.75 A 9 23.25 0 0 0 4293.25 520 V 520 A 9 23.25 0 0 0 4302.25 543.25" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(4132 512)" d="M 1.5 3.5 H 14.5 M 1.5 12.5 H 14.5 M 4.5 6.5 V 9.5 M 8 6.5 V 9.5 M 11.5 6.5 V 9.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="4219" y="520" font-size="14" font-weight="600">Payment events</text>
+      <text class="diagram-text" x="4219" y="520" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Payment events</text>
     </g>
     <g data-node="inventory-events" data-kind="queue">
       <path class="diagram-base" d="M 4129.75 576.75 H 4302.25 A 9 23.25 0 0 1 4311.25 600 V 600 A 9 23.25 0 0 1 4302.25 623.25 H 4129.75 A 9 23.25 0 0 1 4120.75 600 V 600 A 9 23.25 0 0 1 4129.75 576.75 Z"/>
       <path d="M 4129.75 576.75 H 4302.25 A 9 23.25 0 0 1 4311.25 600 V 600 A 9 23.25 0 0 1 4302.25 623.25 H 4129.75 A 9 23.25 0 0 1 4120.75 600 V 600 A 9 23.25 0 0 1 4129.75 576.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M 4302.25 576.75 A 9 23.25 0 0 0 4293.25 600 V 600 A 9 23.25 0 0 0 4302.25 623.25" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(4132 592)" d="M 1.5 3.5 H 14.5 M 1.5 12.5 H 14.5 M 4.5 6.5 V 9.5 M 8 6.5 V 9.5 M 11.5 6.5 V 9.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="4219" y="600" font-size="14" font-weight="600">Inventory events</text>
+      <text class="diagram-text" x="4219" y="600" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Inventory events</text>
     </g>
     <g data-node="notifications" data-kind="queue">
       <path class="diagram-base" d="M 4129.75 656.75 H 4302.25 A 9 23.25 0 0 1 4311.25 680 V 680 A 9 23.25 0 0 1 4302.25 703.25 H 4129.75 A 9 23.25 0 0 1 4120.75 680 V 680 A 9 23.25 0 0 1 4129.75 656.75 Z"/>
       <path d="M 4129.75 656.75 H 4302.25 A 9 23.25 0 0 1 4311.25 680 V 680 A 9 23.25 0 0 1 4302.25 703.25 H 4129.75 A 9 23.25 0 0 1 4120.75 680 V 680 A 9 23.25 0 0 1 4129.75 656.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M 4302.25 656.75 A 9 23.25 0 0 0 4293.25 680 V 680 A 9 23.25 0 0 0 4302.25 703.25" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(4132 672)" d="M 1.5 3.5 H 14.5 M 1.5 12.5 H 14.5 M 4.5 6.5 V 9.5 M 8 6.5 V 9.5 M 11.5 6.5 V 9.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="4219" y="680" font-size="14" font-weight="600">Notifications</text>
+      <text class="diagram-text" x="4219" y="680" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Notifications</text>
     </g>
     <g data-node="shipping-api" data-kind="service">
       <path class="diagram-base" d="M 4496.75 136.75 H 4655.25 A 8 8 0 0 1 4663.25 144.75 V 175.25 A 8 8 0 0 1 4655.25 183.25 H 4496.75 A 8 8 0 0 1 4488.75 175.25 V 144.75 A 8 8 0 0 1 4496.75 136.75 Z"/>
       <path d="M 4496.75 136.75 H 4655.25 A 8 8 0 0 1 4663.25 144.75 V 175.25 A 8 8 0 0 1 4655.25 183.25 H 4496.75 A 8 8 0 0 1 4488.75 175.25 V 144.75 A 8 8 0 0 1 4496.75 136.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(4500 152)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="4588" y="160" font-size="14" font-weight="600">Shipping API</text>
+      <text class="diagram-text" x="4588" y="160" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Shipping API</text>
     </g>
     <g data-node="picker" data-kind="worker">
       <path class="diagram-base" d="M 4772.75 136.75 H 4928.25 A 7 7 0 0 1 4935.25 143.75 V 171.25 A 7 7 0 0 1 4928.25 178.25 H 4772.75 A 7 7 0 0 1 4765.75 171.25 V 143.75 A 7 7 0 0 1 4772.75 136.75 Z"/>
@@ -841,20 +841,20 @@
       <path class="diagram-base" d="M 4767.75 141.75 H 4923.25 A 7 7 0 0 1 4930.25 148.75 V 176.25 A 7 7 0 0 1 4923.25 183.25 H 4767.75 A 7 7 0 0 1 4760.75 176.25 V 148.75 A 7 7 0 0 1 4767.75 141.75 Z"/>
       <path d="M 4767.75 141.75 H 4923.25 A 7 7 0 0 1 4930.25 148.75 V 176.25 A 7 7 0 0 1 4923.25 183.25 H 4767.75 A 7 7 0 0 1 4760.75 176.25 V 148.75 A 7 7 0 0 1 4767.75 141.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(4772 152)" d="M 12.68 6.24 L 14.86 6.61 L 14.86 9.39 L 12.68 9.76 L 12.55 10.06 L 13.83 11.87 L 11.87 13.83 L 10.06 12.55 L 9.76 12.68 L 9.39 14.86 L 6.61 14.86 L 6.24 12.68 L 5.94 12.55 L 4.13 13.83 L 2.17 11.87 L 3.45 10.06 L 3.32 9.76 L 1.14 9.39 L 1.14 6.61 L 3.32 6.24 L 3.45 5.94 L 2.17 4.13 L 4.13 2.17 L 5.94 3.45 L 6.24 3.32 L 6.61 1.14 L 9.39 1.14 L 9.76 3.32 L 10.06 3.45 L 11.87 2.17 L 13.83 4.13 L 12.55 5.94 Z M 6 8 A 2 2 0 1 0 10 8 A 2 2 0 1 0 6 8 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="4857.5" y="160" font-size="14" font-weight="600">Picker</text>
+      <text class="diagram-text" x="4857.5" y="160" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Picker</text>
     </g>
     <g data-node="label-printer" data-kind="function">
       <path class="diagram-base" d="M 5042.75 136.75 L 5197.25 136.75 L 5207.25 146.75 L 5207.25 173.25 L 5197.25 183.25 L 5042.75 183.25 L 5032.75 173.25 L 5032.75 146.75 Z"/>
       <path d="M 5042.75 136.75 L 5197.25 136.75 L 5207.25 146.75 L 5207.25 173.25 L 5197.25 183.25 L 5042.75 183.25 L 5032.75 173.25 L 5032.75 146.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(5044 152)" d="M 3.5 2 H 6.5 L 13 14 M 8.5 6.5 L 3.5 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="5132" y="160" font-size="14" font-weight="600">Label printer</text>
+      <text class="diagram-text" x="5132" y="160" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Label printer</text>
     </g>
     <g data-node="shipping-db" data-kind="database">
       <path class="diagram-base" d="M 5032.75 223.75 V 256.25 A 87.25 7 0 0 0 5207.25 256.25 V 223.75 A 87.25 7 0 0 0 5032.75 223.75 Z"/>
       <path d="M 5032.75 223.75 V 256.25 A 87.25 7 0 0 0 5207.25 256.25 V 223.75 A 87.25 7 0 0 0 5032.75 223.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M 5032.75 223.75 A 87.25 7 0 0 0 5207.25 223.75" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(5044 232)" d="M 2.5 4 A 5.5 2 0 0 0 13.5 4 A 5.5 2 0 0 0 2.5 4 V 12 A 5.5 2 0 0 0 13.5 12 V 4 M 2.5 8 A 5.5 2 0 0 0 13.5 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="5132" y="240" font-size="14" font-weight="600">Shipping db</text>
+      <text class="diagram-text" x="5132" y="240" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Shipping db</text>
     </g>
     <g data-node="email-worker" data-kind="worker">
       <path class="diagram-base" d="M 4772.75 336.75 H 4928.25 A 7 7 0 0 1 4935.25 343.75 V 371.25 A 7 7 0 0 1 4928.25 378.25 H 4772.75 A 7 7 0 0 1 4765.75 371.25 V 343.75 A 7 7 0 0 1 4772.75 336.75 Z"/>
@@ -862,7 +862,7 @@
       <path class="diagram-base" d="M 4767.75 341.75 H 4923.25 A 7 7 0 0 1 4930.25 348.75 V 376.25 A 7 7 0 0 1 4923.25 383.25 H 4767.75 A 7 7 0 0 1 4760.75 376.25 V 348.75 A 7 7 0 0 1 4767.75 341.75 Z"/>
       <path d="M 4767.75 341.75 H 4923.25 A 7 7 0 0 1 4930.25 348.75 V 376.25 A 7 7 0 0 1 4923.25 383.25 H 4767.75 A 7 7 0 0 1 4760.75 376.25 V 348.75 A 7 7 0 0 1 4767.75 341.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(4772 352)" d="M 12.68 6.24 L 14.86 6.61 L 14.86 9.39 L 12.68 9.76 L 12.55 10.06 L 13.83 11.87 L 11.87 13.83 L 10.06 12.55 L 9.76 12.68 L 9.39 14.86 L 6.61 14.86 L 6.24 12.68 L 5.94 12.55 L 4.13 13.83 L 2.17 11.87 L 3.45 10.06 L 3.32 9.76 L 1.14 9.39 L 1.14 6.61 L 3.32 6.24 L 3.45 5.94 L 2.17 4.13 L 4.13 2.17 L 5.94 3.45 L 6.24 3.32 L 6.61 1.14 L 9.39 1.14 L 9.76 3.32 L 10.06 3.45 L 11.87 2.17 L 13.83 4.13 L 12.55 5.94 Z M 6 8 A 2 2 0 1 0 10 8 A 2 2 0 1 0 6 8 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="4857.5" y="360" font-size="14" font-weight="600">Email worker</text>
+      <text class="diagram-text" x="4857.5" y="360" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Email worker</text>
     </g>
     <g data-node="sms-worker" data-kind="worker">
       <path class="diagram-base" d="M 4772.75 416.75 H 4928.25 A 7 7 0 0 1 4935.25 423.75 V 451.25 A 7 7 0 0 1 4928.25 458.25 H 4772.75 A 7 7 0 0 1 4765.75 451.25 V 423.75 A 7 7 0 0 1 4772.75 416.75 Z"/>
@@ -870,7 +870,7 @@
       <path class="diagram-base" d="M 4767.75 421.75 H 4923.25 A 7 7 0 0 1 4930.25 428.75 V 456.25 A 7 7 0 0 1 4923.25 463.25 H 4767.75 A 7 7 0 0 1 4760.75 456.25 V 428.75 A 7 7 0 0 1 4767.75 421.75 Z"/>
       <path d="M 4767.75 421.75 H 4923.25 A 7 7 0 0 1 4930.25 428.75 V 456.25 A 7 7 0 0 1 4923.25 463.25 H 4767.75 A 7 7 0 0 1 4760.75 456.25 V 428.75 A 7 7 0 0 1 4767.75 421.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(4772 432)" d="M 12.68 6.24 L 14.86 6.61 L 14.86 9.39 L 12.68 9.76 L 12.55 10.06 L 13.83 11.87 L 11.87 13.83 L 10.06 12.55 L 9.76 12.68 L 9.39 14.86 L 6.61 14.86 L 6.24 12.68 L 5.94 12.55 L 4.13 13.83 L 2.17 11.87 L 3.45 10.06 L 3.32 9.76 L 1.14 9.39 L 1.14 6.61 L 3.32 6.24 L 3.45 5.94 L 2.17 4.13 L 4.13 2.17 L 5.94 3.45 L 6.24 3.32 L 6.61 1.14 L 9.39 1.14 L 9.76 3.32 L 10.06 3.45 L 11.87 2.17 L 13.83 4.13 L 12.55 5.94 Z M 6 8 A 2 2 0 1 0 10 8 A 2 2 0 1 0 6 8 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="4857.5" y="440" font-size="14" font-weight="600">Sms worker</text>
+      <text class="diagram-text" x="4857.5" y="440" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Sms worker</text>
     </g>
     <g data-node="analytics-worker" data-kind="worker">
       <path class="diagram-base" d="M 4772.75 496.75 H 4928.25 A 7 7 0 0 1 4935.25 503.75 V 531.25 A 7 7 0 0 1 4928.25 538.25 H 4772.75 A 7 7 0 0 1 4765.75 531.25 V 503.75 A 7 7 0 0 1 4772.75 496.75 Z"/>
@@ -878,7 +878,7 @@
       <path class="diagram-base" d="M 4767.75 501.75 H 4923.25 A 7 7 0 0 1 4930.25 508.75 V 536.25 A 7 7 0 0 1 4923.25 543.25 H 4767.75 A 7 7 0 0 1 4760.75 536.25 V 508.75 A 7 7 0 0 1 4767.75 501.75 Z"/>
       <path d="M 4767.75 501.75 H 4923.25 A 7 7 0 0 1 4930.25 508.75 V 536.25 A 7 7 0 0 1 4923.25 543.25 H 4767.75 A 7 7 0 0 1 4760.75 536.25 V 508.75 A 7 7 0 0 1 4767.75 501.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(4772 512)" d="M 12.68 6.24 L 14.86 6.61 L 14.86 9.39 L 12.68 9.76 L 12.55 10.06 L 13.83 11.87 L 11.87 13.83 L 10.06 12.55 L 9.76 12.68 L 9.39 14.86 L 6.61 14.86 L 6.24 12.68 L 5.94 12.55 L 4.13 13.83 L 2.17 11.87 L 3.45 10.06 L 3.32 9.76 L 1.14 9.39 L 1.14 6.61 L 3.32 6.24 L 3.45 5.94 L 2.17 4.13 L 4.13 2.17 L 5.94 3.45 L 6.24 3.32 L 6.61 1.14 L 9.39 1.14 L 9.76 3.32 L 10.06 3.45 L 11.87 2.17 L 13.83 4.13 L 12.55 5.94 Z M 6 8 A 2 2 0 1 0 10 8 A 2 2 0 1 0 6 8 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="4857.5" y="520" font-size="14" font-weight="600">Analytics worker</text>
+      <text class="diagram-text" x="4857.5" y="520" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Analytics worker</text>
     </g>
     <g data-node="invoice-worker" data-kind="worker">
       <path class="diagram-base" d="M 4772.75 576.75 H 4928.25 A 7 7 0 0 1 4935.25 583.75 V 611.25 A 7 7 0 0 1 4928.25 618.25 H 4772.75 A 7 7 0 0 1 4765.75 611.25 V 583.75 A 7 7 0 0 1 4772.75 576.75 Z"/>
@@ -886,19 +886,19 @@
       <path class="diagram-base" d="M 4767.75 581.75 H 4923.25 A 7 7 0 0 1 4930.25 588.75 V 616.25 A 7 7 0 0 1 4923.25 623.25 H 4767.75 A 7 7 0 0 1 4760.75 616.25 V 588.75 A 7 7 0 0 1 4767.75 581.75 Z"/>
       <path d="M 4767.75 581.75 H 4923.25 A 7 7 0 0 1 4930.25 588.75 V 616.25 A 7 7 0 0 1 4923.25 623.25 H 4767.75 A 7 7 0 0 1 4760.75 616.25 V 588.75 A 7 7 0 0 1 4767.75 581.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(4772 592)" d="M 12.68 6.24 L 14.86 6.61 L 14.86 9.39 L 12.68 9.76 L 12.55 10.06 L 13.83 11.87 L 11.87 13.83 L 10.06 12.55 L 9.76 12.68 L 9.39 14.86 L 6.61 14.86 L 6.24 12.68 L 5.94 12.55 L 4.13 13.83 L 2.17 11.87 L 3.45 10.06 L 3.32 9.76 L 1.14 9.39 L 1.14 6.61 L 3.32 6.24 L 3.45 5.94 L 2.17 4.13 L 4.13 2.17 L 5.94 3.45 L 6.24 3.32 L 6.61 1.14 L 9.39 1.14 L 9.76 3.32 L 10.06 3.45 L 11.87 2.17 L 13.83 4.13 L 12.55 5.94 Z M 6 8 A 2 2 0 1 0 10 8 A 2 2 0 1 0 6 8 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="4857.5" y="600" font-size="14" font-weight="600">Invoice worker</text>
+      <text class="diagram-text" x="4857.5" y="600" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Invoice worker</text>
     </g>
     <g data-node="admin-api" data-kind="service">
       <path class="diagram-base" d="M 1080.75 872.75 H 1239.25 A 8 8 0 0 1 1247.25 880.75 V 911.25 A 8 8 0 0 1 1239.25 919.25 H 1080.75 A 8 8 0 0 1 1072.75 911.25 V 880.75 A 8 8 0 0 1 1080.75 872.75 Z"/>
       <path d="M 1080.75 872.75 H 1239.25 A 8 8 0 0 1 1247.25 880.75 V 911.25 A 8 8 0 0 1 1239.25 919.25 H 1080.75 A 8 8 0 0 1 1072.75 911.25 V 880.75 A 8 8 0 0 1 1080.75 872.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(1084 888)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="1172" y="896" font-size="14" font-weight="600">Admin API</text>
+      <text class="diagram-text" x="1172" y="896" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Admin API</text>
     </g>
     <g data-node="report-api" data-kind="service">
       <path class="diagram-base" d="M 1080.75 952.75 H 1239.25 A 8 8 0 0 1 1247.25 960.75 V 991.25 A 8 8 0 0 1 1239.25 999.25 H 1080.75 A 8 8 0 0 1 1072.75 991.25 V 960.75 A 8 8 0 0 1 1080.75 952.75 Z"/>
       <path d="M 1080.75 952.75 H 1239.25 A 8 8 0 0 1 1247.25 960.75 V 991.25 A 8 8 0 0 1 1239.25 999.25 H 1080.75 A 8 8 0 0 1 1072.75 991.25 V 960.75 A 8 8 0 0 1 1080.75 952.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(1084 968)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="1172" y="976" font-size="14" font-weight="600">Report API</text>
+      <text class="diagram-text" x="1172" y="976" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Report API</text>
     </g>
     <g data-node="audit-log" data-kind="storage">
       <path class="diagram-base" d="M 1816.75 872.75 L 1977.25 872.75 L 1991.25 886.75 L 1991.25 919.25 L 1816.75 919.25 Z"/>
@@ -906,20 +906,20 @@
       <path d="M 1816.75 872.75 L 1977.25 872.75 L 1991.25 886.75 L 1991.25 919.25 L 1816.75 919.25 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M 1977.25 872.75 V 886.75 H 1991.25" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(1828 888)" d="M 2 4 A 6 2 0 0 0 14 4 A 6 2 0 0 0 2 4 L 3.5 13 A 4.5 1.5 0 0 0 12.5 13 L 14 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="1916" y="896" font-size="14" font-weight="600">Audit log</text>
+      <text class="diagram-text" x="1916" y="896" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Audit log</text>
     </g>
     <g data-node="orders-replica" data-kind="database">
       <path class="diagram-base" d="M 5776.75 1599.75 V 1632.25 A 87.25 7 0 0 0 5951.25 1632.25 V 1599.75 A 87.25 7 0 0 0 5776.75 1599.75 Z"/>
       <path d="M 5776.75 1599.75 V 1632.25 A 87.25 7 0 0 0 5951.25 1632.25 V 1599.75 A 87.25 7 0 0 0 5776.75 1599.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M 5776.75 1599.75 A 87.25 7 0 0 0 5951.25 1599.75" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(5788 1608)" d="M 2.5 4 A 5.5 2 0 0 0 13.5 4 A 5.5 2 0 0 0 2.5 4 V 12 A 5.5 2 0 0 0 13.5 12 V 4 M 2.5 8 A 5.5 2 0 0 0 13.5 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="5876" y="1616" font-size="14" font-weight="600">Orders replica</text>
+      <text class="diagram-text" x="5876" y="1616" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Orders replica</text>
     </g>
     <g data-node="search-replica" data-kind="search">
       <path class="diagram-base" d="M 5800 1672.75 H 5928 A 23.25 23.25 0 0 1 5951.25 1696 V 1696 A 23.25 23.25 0 0 1 5928 1719.25 H 5800 A 23.25 23.25 0 0 1 5776.75 1696 V 1696 A 23.25 23.25 0 0 1 5800 1672.75 Z"/>
       <path d="M 5800 1672.75 H 5928 A 23.25 23.25 0 0 1 5951.25 1696 V 1696 A 23.25 23.25 0 0 1 5928 1719.25 H 5800 A 23.25 23.25 0 0 1 5776.75 1696 V 1696 A 23.25 23.25 0 0 1 5800 1672.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(5788 1688)" d="M 2 6.75 A 4.75 4.75 0 1 0 11.5 6.75 A 4.75 4.75 0 1 0 2 6.75 Z M 10.25 10.25 L 14.5 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="5876" y="1696" font-size="14" font-weight="600">Search replica</text>
+      <text class="diagram-text" x="5876" y="1696" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Search replica</text>
     </g>
     <g data-node="report-worker" data-kind="worker">
       <path class="diagram-base" d="M 5516.75 1592.75 H 5672.25 A 7 7 0 0 1 5679.25 1599.75 V 1627.25 A 7 7 0 0 1 5672.25 1634.25 H 5516.75 A 7 7 0 0 1 5509.75 1627.25 V 1599.75 A 7 7 0 0 1 5516.75 1592.75 Z"/>
@@ -927,7 +927,7 @@
       <path class="diagram-base" d="M 5511.75 1597.75 H 5667.25 A 7 7 0 0 1 5674.25 1604.75 V 1632.25 A 7 7 0 0 1 5667.25 1639.25 H 5511.75 A 7 7 0 0 1 5504.75 1632.25 V 1604.75 A 7 7 0 0 1 5511.75 1597.75 Z"/>
       <path d="M 5511.75 1597.75 H 5667.25 A 7 7 0 0 1 5674.25 1604.75 V 1632.25 A 7 7 0 0 1 5667.25 1639.25 H 5511.75 A 7 7 0 0 1 5504.75 1632.25 V 1604.75 A 7 7 0 0 1 5511.75 1597.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(5516 1608)" d="M 12.68 6.24 L 14.86 6.61 L 14.86 9.39 L 12.68 9.76 L 12.55 10.06 L 13.83 11.87 L 11.87 13.83 L 10.06 12.55 L 9.76 12.68 L 9.39 14.86 L 6.61 14.86 L 6.24 12.68 L 5.94 12.55 L 4.13 13.83 L 2.17 11.87 L 3.45 10.06 L 3.32 9.76 L 1.14 9.39 L 1.14 6.61 L 3.32 6.24 L 3.45 5.94 L 2.17 4.13 L 4.13 2.17 L 5.94 3.45 L 6.24 3.32 L 6.61 1.14 L 9.39 1.14 L 9.76 3.32 L 10.06 3.45 L 11.87 2.17 L 13.83 4.13 L 12.55 5.94 Z M 6 8 A 2 2 0 1 0 10 8 A 2 2 0 1 0 6 8 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="5601.5" y="1616" font-size="14" font-weight="600">Report worker</text>
+      <text class="diagram-text" x="5601.5" y="1616" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Report worker</text>
     </g>
     <g data-node="logs" data-kind="storage">
       <path class="diagram-base" d="M 6144.75 1728.75 L 6305.25 1728.75 L 6319.25 1742.75 L 6319.25 1775.25 L 6144.75 1775.25 Z"/>
@@ -935,7 +935,7 @@
       <path d="M 6144.75 1728.75 L 6305.25 1728.75 L 6319.25 1742.75 L 6319.25 1775.25 L 6144.75 1775.25 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M 6305.25 1728.75 V 1742.75 H 6319.25" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(6156 1744)" d="M 2 4 A 6 2 0 0 0 14 4 A 6 2 0 0 0 2 4 L 3.5 13 A 4.5 1.5 0 0 0 12.5 13 L 14 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="6244" y="1752" font-size="14" font-weight="600">Logs</text>
+      <text class="diagram-text" x="6244" y="1752" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Logs</text>
     </g>
     <g data-node="metrics" data-kind="storage">
       <path class="diagram-base" d="M 6416.75 1808.75 L 6577.25 1808.75 L 6591.25 1822.75 L 6591.25 1855.25 L 6416.75 1855.25 Z"/>
@@ -943,47 +943,47 @@
       <path d="M 6416.75 1808.75 L 6577.25 1808.75 L 6591.25 1822.75 L 6591.25 1855.25 L 6416.75 1855.25 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M 6577.25 1808.75 V 1822.75 H 6591.25" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path transform="translate(6428 1824)" d="M 2 4 A 6 2 0 0 0 14 4 A 6 2 0 0 0 2 4 L 3.5 13 A 4.5 1.5 0 0 0 12.5 13 L 14 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="6516" y="1832" font-size="14" font-weight="600">Metrics</text>
+      <text class="diagram-text" x="6516" y="1832" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Metrics</text>
     </g>
     <g data-node="tracing" data-kind="service">
       <path class="diagram-base" d="M 6152.75 1808.75 H 6311.25 A 8 8 0 0 1 6319.25 1816.75 V 1847.25 A 8 8 0 0 1 6311.25 1855.25 H 6152.75 A 8 8 0 0 1 6144.75 1847.25 V 1816.75 A 8 8 0 0 1 6152.75 1808.75 Z"/>
       <path d="M 6152.75 1808.75 H 6311.25 A 8 8 0 0 1 6319.25 1816.75 V 1847.25 A 8 8 0 0 1 6311.25 1855.25 H 6152.75 A 8 8 0 0 1 6144.75 1847.25 V 1816.75 A 8 8 0 0 1 6152.75 1808.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(6156 1824)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="6244" y="1832" font-size="14" font-weight="600">Tracing</text>
+      <text class="diagram-text" x="6244" y="1832" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Tracing</text>
     </g>
     <g data-node="alerting" data-kind="function">
       <path class="diagram-base" d="M 6698.75 1728.75 L 6853.25 1728.75 L 6863.25 1738.75 L 6863.25 1765.25 L 6853.25 1775.25 L 6698.75 1775.25 L 6688.75 1765.25 L 6688.75 1738.75 Z"/>
       <path d="M 6698.75 1728.75 L 6853.25 1728.75 L 6863.25 1738.75 L 6863.25 1765.25 L 6853.25 1775.25 L 6698.75 1775.25 L 6688.75 1765.25 L 6688.75 1738.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
       <path transform="translate(6700 1744)" d="M 3.5 2 H 6.5 L 13 14 M 8.5 6.5 L 3.5 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="6788" y="1752" font-size="14" font-weight="600">Alerting</text>
+      <text class="diagram-text" x="6788" y="1752" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Alerting</text>
     </g>
     <g data-node="payment-provider" data-kind="system">
       <path class="diagram-base" d="M 5635.5 1289.5 H 5820.5 A 10 10 0 0 1 5830.5 1299.5 V 1340.5 A 10 10 0 0 1 5820.5 1350.5 H 5635.5 A 10 10 0 0 1 5625.5 1340.5 V 1299.5 A 10 10 0 0 1 5635.5 1289.5 Z"/>
       <path d="M 5635.5 1289.5 H 5820.5 A 10 10 0 0 1 5830.5 1299.5 V 1340.5 A 10 10 0 0 1 5820.5 1350.5 H 5635.5 A 10 10 0 0 1 5625.5 1340.5 V 1299.5 A 10 10 0 0 1 5635.5 1289.5 Z" fill="currentColor" fill-opacity="0.16" stroke="currentColor" stroke-width="3" stroke-dasharray="12 7.5" stroke-linejoin="round"/>
       <path d="M 5636 1294 H 5820 A 6 6 0 0 1 5826 1300 V 1340 A 6 6 0 0 1 5820 1346 H 5636 A 6 6 0 0 1 5630 1340 V 1300 A 6 6 0 0 1 5636 1294 Z" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="4 2.5"/>
       <path transform="translate(5636 1312)" d="M 2 2 H 7 V 7 H 2 Z M 9 2 H 14 V 7 H 9 Z M 2 9 H 7 V 14 H 2 Z M 9 9 H 14 V 14 H 9 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="5740" y="1320" font-size="14" font-weight="600">Payment provider</text>
+      <text class="diagram-text" x="5740" y="1320" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Payment provider</text>
     </g>
     <g data-node="email-provider" data-kind="system">
       <path class="diagram-base" d="M 7003.5 1225.5 H 7188.5 A 10 10 0 0 1 7198.5 1235.5 V 1276.5 A 10 10 0 0 1 7188.5 1286.5 H 7003.5 A 10 10 0 0 1 6993.5 1276.5 V 1235.5 A 10 10 0 0 1 7003.5 1225.5 Z"/>
       <path d="M 7003.5 1225.5 H 7188.5 A 10 10 0 0 1 7198.5 1235.5 V 1276.5 A 10 10 0 0 1 7188.5 1286.5 H 7003.5 A 10 10 0 0 1 6993.5 1276.5 V 1235.5 A 10 10 0 0 1 7003.5 1225.5 Z" fill="currentColor" fill-opacity="0.16" stroke="currentColor" stroke-width="3" stroke-dasharray="12 7.5" stroke-linejoin="round"/>
       <path d="M 7004 1230 H 7188 A 6 6 0 0 1 7194 1236 V 1276 A 6 6 0 0 1 7188 1282 H 7004 A 6 6 0 0 1 6998 1276 V 1236 A 6 6 0 0 1 7004 1230 Z" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="4 2.5"/>
       <path transform="translate(7004 1248)" d="M 2 2 H 7 V 7 H 2 Z M 9 2 H 14 V 7 H 9 Z M 2 9 H 7 V 14 H 2 Z M 9 9 H 14 V 14 H 9 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="7108" y="1256" font-size="14" font-weight="600">Email provider</text>
+      <text class="diagram-text" x="7108" y="1256" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Email provider</text>
     </g>
     <g data-node="sms-provider" data-kind="system">
       <path class="diagram-base" d="M 7003.5 1801.5 H 7188.5 A 10 10 0 0 1 7198.5 1811.5 V 1852.5 A 10 10 0 0 1 7188.5 1862.5 H 7003.5 A 10 10 0 0 1 6993.5 1852.5 V 1811.5 A 10 10 0 0 1 7003.5 1801.5 Z"/>
       <path d="M 7003.5 1801.5 H 7188.5 A 10 10 0 0 1 7198.5 1811.5 V 1852.5 A 10 10 0 0 1 7188.5 1862.5 H 7003.5 A 10 10 0 0 1 6993.5 1852.5 V 1811.5 A 10 10 0 0 1 7003.5 1801.5 Z" fill="currentColor" fill-opacity="0.16" stroke="currentColor" stroke-width="3" stroke-dasharray="12 7.5" stroke-linejoin="round"/>
       <path d="M 7004 1806 H 7188 A 6 6 0 0 1 7194 1812 V 1852 A 6 6 0 0 1 7188 1858 H 7004 A 6 6 0 0 1 6998 1852 V 1812 A 6 6 0 0 1 7004 1806 Z" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="4 2.5"/>
       <path transform="translate(7004 1824)" d="M 2 2 H 7 V 7 H 2 Z M 9 2 H 14 V 7 H 9 Z M 2 9 H 7 V 14 H 2 Z M 9 9 H 14 V 14 H 9 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="7108" y="1832" font-size="14" font-weight="600">Sms provider</text>
+      <text class="diagram-text" x="7108" y="1832" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Sms provider</text>
     </g>
     <g data-node="shipping-carrier" data-kind="system">
       <path class="diagram-base" d="M 5635.5 1385.5 H 5820.5 A 10 10 0 0 1 5830.5 1395.5 V 1436.5 A 10 10 0 0 1 5820.5 1446.5 H 5635.5 A 10 10 0 0 1 5625.5 1436.5 V 1395.5 A 10 10 0 0 1 5635.5 1385.5 Z"/>
       <path d="M 5635.5 1385.5 H 5820.5 A 10 10 0 0 1 5830.5 1395.5 V 1436.5 A 10 10 0 0 1 5820.5 1446.5 H 5635.5 A 10 10 0 0 1 5625.5 1436.5 V 1395.5 A 10 10 0 0 1 5635.5 1385.5 Z" fill="currentColor" fill-opacity="0.16" stroke="currentColor" stroke-width="3" stroke-dasharray="12 7.5" stroke-linejoin="round"/>
       <path d="M 5636 1390 H 5820 A 6 6 0 0 1 5826 1396 V 1436 A 6 6 0 0 1 5820 1442 H 5636 A 6 6 0 0 1 5630 1436 V 1396 A 6 6 0 0 1 5636 1390 Z" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="4 2.5"/>
       <path transform="translate(5636 1408)" d="M 2 2 H 7 V 7 H 2 Z M 9 2 H 14 V 7 H 9 Z M 2 9 H 7 V 14 H 2 Z M 9 9 H 14 V 14 H 9 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text class="diagram-text" x="5740" y="1416" font-size="14" font-weight="600">Shipping carrier</text>
+      <text class="diagram-text" x="5740" y="1416" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Shipping carrier</text>
     </g>
   </g>
 </svg>
