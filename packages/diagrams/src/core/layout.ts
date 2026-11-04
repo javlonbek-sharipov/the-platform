@@ -9,10 +9,9 @@
  */
 
 import type { Diagram } from "../authoring/model.ts";
-import { architectureNodeLooks } from "../notations/architecture.ts";
 import { arrange, type Member } from "./layers.ts";
+import { frameOf, partsOf } from "./nodes.ts";
 import type { Point, SceneNode } from "./scene.ts";
-import { nodeTitle } from "./text.ts";
 
 const rankGap = 96;
 export const clearance = 32;
@@ -26,11 +25,15 @@ export function layOut(diagram: Diagram): SceneNode[] {
 	const turn = (along: number, across: number): Point =>
 		down ? { x: margin + across, y: margin + along } : { x: margin + along, y: margin + across };
 
-	// Header Ports sit on a Node's sides along the rank axis, halfway across it.
-	const sizes = diagram.nodes.map((node) => architectureNodeLooks[node.kind]);
-	const members: Member[] = sizes.map(({ width, height }) => {
-		const [depth, breadth] = down ? [height, width] : [width, height];
-		return { depth, before: breadth / 2, after: breadth / 2 };
+	// Header Ports sit on a Node's sides along the rank axis: for `right`, level
+	// with its header, and for `down`, halfway across it.
+	const frames = diagram.nodes.map(frameOf);
+	const members: Member[] = frames.map(({ width, height, headerTop, headerHeight }) => {
+		if (down) {
+			return { depth: height, before: width / 2, after: width / 2 };
+		}
+		const middle = headerTop + headerHeight / 2;
+		return { depth: width, before: middle, after: height - middle };
 	});
 	const index = new Map(diagram.nodes.map((node, at) => [node.id, at]));
 	const connections = diagram.edges.map((edge) => ({
@@ -43,15 +46,18 @@ export function layOut(diagram: Diagram): SceneNode[] {
 		const { x: line, y: ports } = placements[at] ?? { x: 0, y: 0 };
 		const { depth, before } = members[at] ?? { depth: 0, before: 0 };
 		const corner = turn(line - depth / 2, ports - before);
-		const { width, height } = sizes[at] ?? { width: 0, height: 0 };
+		const { width, height } = frames[at] ?? { width: 0, height: 0 };
 		const box = { ...corner, width, height };
+		const { header, badge, title } = partsOf(node, box);
 		return {
 			id: node.id,
 			kind: node.kind,
 			box,
+			header,
 			input: { side: down ? "top" : "left", point: turn(line - depth / 2, ports) },
 			output: { side: down ? "bottom" : "right", point: turn(line + depth / 2, ports) },
-			title: nodeTitle(node.title, box),
+			badge,
+			title,
 		};
 	});
 }

@@ -43,8 +43,12 @@ export interface SceneNode {
 	id: string;
 	kind: string;
 	box: Box;
+	/** The band that holds the badge and the title: the whole Node, or the part below a person's head. */
+	header: Box;
 	input: ScenePort;
 	output: ScenePort;
+	/** Where the Kind's badge is drawn, at the start of the header. */
+	badge: Box;
 	title: SceneText;
 }
 

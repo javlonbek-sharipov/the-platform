@@ -1,5 +1,7 @@
 /** The Kinds of the architecture Notation, and how each Node Kind looks. */
 
+import type { Outline } from "../core/outlines.ts";
+
 export const architectureNodeKinds = [
 	"person",
 	"system",
@@ -26,19 +28,21 @@ export interface ArchitectureNodeLook {
 	/** The Node's size, in px, which its title never changes. Both are multiples of 16, twice the grid. */
 	width: number;
 	height: number;
+	/** The shape drawn inside the Node's rectangle. */
+	outline: Outline;
 }
 
 export const architectureNodeLooks: Record<ArchitectureNodeKind, ArchitectureNodeLook> = {
-	person: { width: 160, height: 80 },
-	system: { width: 208, height: 64 },
-	client: { width: 176, height: 48 },
-	gateway: { width: 176, height: 48 },
-	service: { width: 176, height: 48 },
-	worker: { width: 176, height: 48 },
-	function: { width: 176, height: 48 },
-	database: { width: 176, height: 48 },
-	cache: { width: 176, height: 48 },
-	queue: { width: 192, height: 48 },
-	storage: { width: 176, height: 48 },
-	search: { width: 176, height: 48 },
+	person: { width: 160, height: 80, outline: "figure" },
+	system: { width: 208, height: 64, outline: "heavy" },
+	client: { width: 176, height: 48, outline: "window" },
+	gateway: { width: 176, height: 48, outline: "hexagon" },
+	service: { width: 176, height: 48, outline: "rounded" },
+	worker: { width: 176, height: 48, outline: "stack" },
+	function: { width: 176, height: 48, outline: "chamfer" },
+	database: { width: 176, height: 48, outline: "cylinder" },
+	cache: { width: 176, height: 48, outline: "chip" },
+	queue: { width: 192, height: 48, outline: "pipe" },
+	storage: { width: 176, height: 48, outline: "page" },
+	search: { width: 176, height: 48, outline: "pill" },
 };

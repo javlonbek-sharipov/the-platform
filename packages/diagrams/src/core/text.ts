@@ -43,15 +43,16 @@ const metrics: Record<FontWeight, Metrics> = {
 };
 
 const titleSize = 14;
-/** The room a title leaves on each side, between it and the edge of its Node. */
-const titlePadding = 12;
 const ellipsis = "…";
 
-/** A Node's title, centered in its header, and shortened if it's too wide for the header. */
-export function nodeTitle(title: string, header: Box): SceneText {
+/**
+ * A Node's title, centered in the room its header leaves for it, and
+ * shortened if it's too wide for that room.
+ */
+export function nodeTitle(title: string, room: Box): SceneText {
 	return {
-		...fit(collapseSpaces(title), "semibold", titleSize, header.width - 2 * titlePadding),
-		point: { x: header.x + header.width / 2, y: header.y + header.height / 2 },
+		...fit(collapseSpaces(title), "semibold", titleSize, room.width),
+		point: { x: room.x + room.width / 2, y: room.y + room.height / 2 },
 		weight: "semibold",
 		size: titleSize,
 	};
