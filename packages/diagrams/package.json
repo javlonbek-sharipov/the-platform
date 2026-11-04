@@ -12,5 +12,8 @@
 	},
 	"bin": {
 		"diagrams": "./bin/diagrams.ts"
+	},
+	"dependencies": {
+		"@resvg/resvg-js": "2.6.2"
 	}
 }

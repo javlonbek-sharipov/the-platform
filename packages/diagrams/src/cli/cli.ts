@@ -3,11 +3,12 @@
  * output streams. The binary only calls it, so tests can run it in-process.
  */
 
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { relative, resolve, sep } from "node:path";
-import { lintAtlas, renderDiagrams } from "../atlas/atlas.ts";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join, relative, resolve, sep } from "node:path";
+import { cacheFolder, lintAtlas, renderDiagrams } from "../atlas/atlas.ts";
 import { AtlasError, discover, findRoot } from "../atlas/discover.ts";
 import { type AtlasMessage, placeText } from "../atlas/messages.ts";
+import { drawPng } from "./png.ts";
 
 export interface Output {
 	write(text: string): unknown;
@@ -46,6 +47,8 @@ async function run(args: string[], context: CliContext): Promise<number> {
 			return renderCommand(rest, context);
 		case "lint":
 			return lintCommand(rest, context);
+		case "export":
+			return exportCommand(rest, context);
 		case undefined:
 		case "help":
 		case "--help":
@@ -115,6 +118,24 @@ async function lintCommand(options: string[], context: CliContext): Promise<numb
 		context.stdout.write(`Checked ${plural(diagrams, "Diagram")}: ${counts.join(", ")}.\n`);
 	}
 	return errors === 0 ? 0 : 1;
+}
+
+async function exportCommand(args: string[], context: CliContext): Promise<number> {
+	const [diagram] = args;
+	if (diagram === undefined) {
+		context.stderr.write(`Name the Diagram to export.\n\n${usage}`);
+		return 2;
+	}
+	const root = findRoot(context.cwd);
+	const [rendered] = await renderDiagrams(root, [resolve(context.cwd, diagram)]);
+	if (rendered?.svg === undefined || rendered.model?.id === undefined) {
+		return 1;
+	}
+	const file = join(root, cacheFolder, "export", `${rendered.model.id}.light.png`);
+	mkdirSync(dirname(file), { recursive: true });
+	writeFileSync(file, drawPng(rendered.svg));
+	context.stdout.write(`${file}\n`);
+	return 0;
 }
 
 /**
