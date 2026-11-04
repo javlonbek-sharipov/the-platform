@@ -9,7 +9,8 @@
  * A segment is open only if it stays clear of every Node and every Group
  * label, border included. A crossing inside one, or on its border, has no
  * open segment, so no route can reach it: the vertices that routes use all
- * lie outside them.
+ * lie outside them. A segment along a Group's border is closed too, so that
+ * routes cross Group borders but never run along them.
  */
 
 import type { Box, Point, SceneGroup, SceneNode } from "./scene.ts";
@@ -55,24 +56,27 @@ export function buildGrid(nodes: SceneNode[], groups: SceneGroup[], clearance: n
 		openSouth: new Uint8Array(xs.size * ys.size),
 	};
 	const columns = grid.xs.length;
+	const borders = groups.map((group) => group.box);
 	grid.ys.forEach((y, j) => {
 		const across = boxes.filter((box) => box.y <= y && y <= box.y + box.height);
+		// A line can come level with a Group's top or bottom, by way of a Node far
+		// from the Group. No route may run along that border.
+		const along = borders.filter((box) => box.y === y || box.y + box.height === y);
 		eachGap(grid.xs, (left, right, i) => {
-			grid.openEast[j * columns + i] = across.every(
-				(box) => box.x + box.width < left || right < box.x,
-			)
-				? 1
-				: 0;
+			const clear =
+				across.every((box) => box.x + box.width < left || right < box.x) &&
+				along.every((box) => box.x + box.width <= left || right <= box.x);
+			grid.openEast[j * columns + i] = clear ? 1 : 0;
 		});
 	});
 	grid.xs.forEach((x, i) => {
 		const across = boxes.filter((box) => box.x <= x && x <= box.x + box.width);
+		const along = borders.filter((box) => box.x === x || box.x + box.width === x);
 		eachGap(grid.ys, (top, bottom, j) => {
-			grid.openSouth[j * columns + i] = across.every(
-				(box) => box.y + box.height < top || bottom < box.y,
-			)
-				? 1
-				: 0;
+			const clear =
+				across.every((box) => box.y + box.height < top || bottom < box.y) &&
+				along.every((box) => box.y + box.height <= top || bottom <= box.y);
+			grid.openSouth[j * columns + i] = clear ? 1 : 0;
 		});
 	});
 	return grid;

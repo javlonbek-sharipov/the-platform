@@ -82,10 +82,36 @@ export function labelInTheWay(direction: Direction): Diagram {
 	});
 }
 
+/**
+ * The web app, in a system of its own, calls two APIs in a zone inside a
+ * region. Drawn right, the orders API sits two Groups deep, so its Ports come
+ * level with the top of the web app's system, and a grid line runs along
+ * that border.
+ */
+export function portLevelWithBorder(direction: Direction): Diagram {
+	return architecture(
+		{ id: "port-level-with-border", title: "Port level with a border", direction },
+		(d) => {
+			d.group({ id: "storefront", kind: "system", title: "Storefront" }, (storefront) => {
+				storefront.node({ id: "web-app", kind: "client", title: "Web app" });
+			});
+			d.group({ id: "eu-west", kind: "region", title: "EU West" }, (eu) => {
+				eu.group({ id: "eu-west-a", kind: "zone", title: "Zone A" }, (zone) => {
+					zone.node({ id: "orders-api", kind: "service", title: "Orders API" });
+					zone.node({ id: "stock-api", kind: "service", title: "Stock API" });
+				});
+			});
+			d.edge("web-app", "stock-api", { kind: "call" });
+			d.edge("web-app", "orders-api", { kind: "call" });
+		},
+	);
+}
+
 /** Every Group fixture, for the properties that hold on all of them. */
 export const groupFixtures: [string, (direction: Direction) => Diagram][] = [
 	["a region with a zone", region],
 	["two regions", twoRegions],
 	["deep nesting", deepNesting],
 	["a label in the way", labelInTheWay],
+	["a Port level with a Group's border", portLevelWithBorder],
 ];
