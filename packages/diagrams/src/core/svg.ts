@@ -10,12 +10,19 @@
 
 import type { Point, Scene, SceneEdge, SceneNode } from "./scene.ts";
 import { type FontData, type FontWeight, hasCharacter } from "./text.ts";
+import { type ColorName, palette } from "./theme.ts";
 
 type Attribute = readonly [name: string, value: string | number];
 
-const ink = "#1f2328";
-const line = "#57606a";
-const surface = "#ffffff";
+/**
+ * One place the SVG uses a color: the elements a selector picks, inside the
+ * SVG, and which of their properties takes the color.
+ */
+interface ColorUse {
+	selector: string;
+	property: "fill" | "stroke" | "color";
+	color: ColorName;
+}
 /**
  * Where the embedded font can't be used, text falls back to fonts no wider
  * than Inter, so that text shortened to fit still fits. There's no generic
@@ -34,9 +41,19 @@ export function writeSvg(scene: Scene, fontData?: FontData): string {
 	const body = [
 		indent(
 			1,
+			empty("rect", [
+				["class", "diagram-background"],
+				["x", bounds.x],
+				["y", bounds.y],
+				["width", bounds.width],
+				["height", bounds.height],
+			]),
+		),
+		indent(
+			1,
 			start("g", [
+				["class", "diagram-edges"],
 				["fill", "none"],
-				["stroke", line],
 				["stroke-width", 1.5],
 			]),
 		),
@@ -53,13 +70,19 @@ export function writeSvg(scene: Scene, fontData?: FontData): string {
 		indent(1, "</g>"),
 	];
 	const fonts = fontData === undefined ? [] : embeddedFonts(scene, fontData);
+	const uses = colorUses(scene);
 	// Inlined into a page, an SVG's style applies to the whole page, so the font's
 	// family and every selector carry a name made from everything else in the SVG.
-	const contents = [attributesText(size), ...fonts.map((font) => font.data), ...body];
+	const contents = [
+		attributesText(size),
+		...fonts.map((font) => font.data),
+		...themeRules("", uses),
+		...body,
+	];
 	const scope = `diagram-${hash(contents.join("\n"))}`;
 	const lines = [
 		start("svg", [["xmlns", "http://www.w3.org/2000/svg"], ["class", scope], ...size]),
-		...style(scope, fonts).map((text) => indent(1, text)),
+		...style(scope, fonts, uses).map((text) => indent(1, text)),
 		...body,
 		"</svg>",
 	];
@@ -89,10 +112,11 @@ function embeddedFonts(scene: Scene, fontData: FontData): EmbeddedFont[] {
 }
 
 /**
- * The embedded font's faces, and one rule for the SVG's root, which every text
- * inherits from. It turns kerning and ligatures off, since measuring ignores them.
+ * The embedded font's faces; one rule for the SVG's root, which every text
+ * inherits from, and which turns kerning and ligatures off, since measuring
+ * ignores them; and the theme's rules.
  */
-function style(scope: string, fonts: EmbeddedFont[]): string[] {
+function style(scope: string, fonts: EmbeddedFont[], uses: ColorUse[]): string[] {
 	return [
 		"<style>",
 		...fonts.map((font) =>
@@ -105,7 +129,41 @@ function style(scope: string, fonts: EmbeddedFont[]): string[] {
 			1,
 			`.${scope} { font-family: "${scope}", ${fallbackFonts}; font-kerning: none; font-variant-ligatures: none; }`,
 		),
+		...themeRules(scope, uses).map((text) => indent(1, text)),
 		"</style>",
+	];
+}
+
+/** The colors the scene's drawing uses, in a fixed order. */
+function colorUses(scene: Scene): ColorUse[] {
+	return [
+		{ selector: ".diagram-background", property: "fill", color: "background" },
+		...(scene.edges.length === 0
+			? []
+			: [{ selector: ".diagram-edges", property: "stroke", color: "muted" } as const]),
+		...(scene.nodes.length === 0
+			? []
+			: ([
+					{ selector: ".diagram-base", property: "fill", color: "surface" },
+					{ selector: ".diagram-base", property: "stroke", color: "muted" },
+					{ selector: ".diagram-title", property: "fill", color: "ink" },
+				] as const)),
+	];
+}
+
+/**
+ * One rule for each use of a color, with its light fallback, then the same
+ * rules again with dark fallbacks, for viewers who prefer a dark scheme. Each
+ * selector is scoped to the SVG.
+ */
+function themeRules(scope: string, uses: ColorUse[]): string[] {
+	const rule = (use: ColorUse, theme: "light" | "dark") =>
+		`.${scope} ${use.selector} { ${use.property}: var(--diagram-${use.color}, ${palette[use.color][theme]}); }`;
+	return [
+		...uses.map((use) => rule(use, "light")),
+		"@media (prefers-color-scheme: dark) {",
+		...uses.map((use) => indent(1, rule(use, "dark"))),
+		"}",
 	];
 }
 
@@ -119,13 +177,12 @@ function writeNode(node: SceneNode): string[] {
 		indent(
 			1,
 			empty("rect", [
+				["class", "diagram-base"],
 				["x", box.x],
 				["y", box.y],
 				["width", box.width],
 				["height", box.height],
 				["rx", 6],
-				["fill", surface],
-				["stroke", line],
 			]),
 		),
 		indent(
@@ -133,11 +190,11 @@ function writeNode(node: SceneNode): string[] {
 			element(
 				"text",
 				[
+					["class", "diagram-title"],
 					["x", title.point.x],
 					["y", title.point.y],
 					["font-size", title.size],
 					["font-weight", fontWeights[title.weight]],
-					["fill", ink],
 				],
 				title.text,
 			),
