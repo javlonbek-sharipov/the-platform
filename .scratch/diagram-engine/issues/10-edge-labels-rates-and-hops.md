@@ -13,7 +13,7 @@
 - 04 Text that fits everywhere
 - 09 Shared corridors
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Spec:**
 
@@ -64,3 +64,5 @@
 - **Speed.** `pnpm bench`: 84 ms median drawn right and 109 ms drawn down (86 and 132 before). With every Edge labeled, a render takes about 90 ms.
 - **For ticket 11.** `writeEdge` draws `edge.stroke`, the route in pieces between hops, as the subpaths of one path. A casing and a body should both draw those pieces, so hops show in both; chevrons and flow marks can follow `edge.route`, which stays whole. Label texts go through `writeText`, inside a group that carries the text attributes, as Node and Group texts do.
 - **For ticket 12.** A label's Technology is `label.technology`, its own scene text on the line below the label. `labelWidth` and `labelTexts` in `src/core/text.ts` measure and lay out that line; a logo goes before the Technology's text there.
+
+Merged into diagram-engine in 3574db9.
