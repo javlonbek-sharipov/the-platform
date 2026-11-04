@@ -323,13 +323,12 @@ describe.each(directions)("a Diagram laid out %s", (direction) => {
 			}),
 		);
 
-		const api = boxOf(scene, "orders-api");
-		const db = boxOf(scene, "orders-db");
-		expect(start(db, rank)).toBeGreaterThan(end(api, rank));
-		const width = end(db, rank) - start(api, rank);
-		expect(width).toBe(
-			end(boxOf(sceneOf(fanOut(direction, ["orders-db"])), "orders-db"), rank) -
-				start(boxOf(sceneOf(fanOut(direction, ["orders-db"])), "orders-api"), rank),
+		// The database sits one rank on, just where a single Edge would put it.
+		const single = sceneOf(fanOut(direction, ["orders-db"]));
+		expect(boxOf(scene, "orders-api")).toEqual(boxOf(single, "orders-api"));
+		expect(boxOf(scene, "orders-db")).toEqual(boxOf(single, "orders-db"));
+		expect(start(boxOf(scene, "orders-db"), rank)).toBeGreaterThan(
+			end(boxOf(scene, "orders-api"), rank),
 		);
 	});
 

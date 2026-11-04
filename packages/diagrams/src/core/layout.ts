@@ -10,7 +10,7 @@
 
 import type { Diagram } from "../authoring/model.ts";
 import { arrange, type Member } from "./layers.ts";
-import type { Box, SceneNode } from "./scene.ts";
+import type { Point, SceneNode } from "./scene.ts";
 
 const nodeWidth = 160;
 const nodeHeight = 48;
@@ -22,12 +22,16 @@ export const margin = 24;
 
 export function layOut(diagram: Diagram): SceneNode[] {
 	const down = diagram.direction === "down";
+	/** From the layout's frame, where the rank axis is x, to the scene. */
+	const turn = (along: number, across: number): Point =>
+		down ? { x: margin + across, y: margin + along } : { x: margin + along, y: margin + across };
+
+	// Header Ports sit on a Node's sides along the rank axis, halfway across it.
+	const members: Member[] = diagram.nodes.map(() => {
+		const [depth, breadth] = down ? [nodeHeight, nodeWidth] : [nodeWidth, nodeHeight];
+		return { depth, before: breadth / 2, after: breadth / 2 };
+	});
 	const index = new Map(diagram.nodes.map((node, at) => [node.id, at]));
-	const members: Member[] = diagram.nodes.map(() =>
-		down
-			? { depth: nodeHeight, before: nodeWidth / 2, after: nodeWidth / 2 }
-			: { depth: nodeWidth, before: nodeHeight / 2, after: nodeHeight / 2 },
-	);
 	const connections = diagram.edges.map((edge) => ({
 		from: index.get(edge.from) ?? 0,
 		to: index.get(edge.to) ?? 0,
@@ -36,33 +40,19 @@ export function layOut(diagram: Diagram): SceneNode[] {
 
 	return diagram.nodes.map((node, at) => {
 		const { x: line, y: ports } = placements[at] ?? { x: 0, y: 0 };
-		const box: Box = down
-			? {
-					x: margin + ports - nodeWidth / 2,
-					y: margin + line - nodeHeight / 2,
-					width: nodeWidth,
-					height: nodeHeight,
-				}
-			: {
-					x: margin + line - nodeWidth / 2,
-					y: margin + ports - nodeHeight / 2,
-					width: nodeWidth,
-					height: nodeHeight,
-				};
-		const { x, y } = box;
-		const center = x + nodeWidth / 2;
-		const middle = y + nodeHeight / 2;
+		const { depth, before } = members[at] ?? { depth: 0, before: 0 };
+		const corner = turn(line - depth / 2, ports - before);
+		const box = { ...corner, width: nodeWidth, height: nodeHeight };
 		return {
 			id: node.id,
 			kind: node.kind,
 			box,
-			input: down
-				? { side: "top", point: { x: center, y } }
-				: { side: "left", point: { x, y: middle } },
-			output: down
-				? { side: "bottom", point: { x: center, y: y + nodeHeight } }
-				: { side: "right", point: { x: x + nodeWidth, y: middle } },
-			title: { text: node.title, point: { x: center, y: middle } },
+			input: { side: down ? "top" : "left", point: turn(line - depth / 2, ports) },
+			output: { side: down ? "bottom" : "right", point: turn(line + depth / 2, ports) },
+			title: {
+				text: node.title,
+				point: { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+			},
 		};
 	});
 }
