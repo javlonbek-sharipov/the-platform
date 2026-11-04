@@ -218,7 +218,14 @@ describe("the JSON Schema", () => {
 	});
 
 	test("passes text with any character that XML allows, such as tabs, DEL and emoji, as the core does", () => {
-		for (const text of ["Shop\tAPI\r\n", "Shop\u007f", "Shop\u0085", "Shop�", "Shop 🛒", "店"]) {
+		for (const text of [
+			"Shop\tAPI\r\n",
+			"Shop\u007f",
+			"Shop\u0085",
+			"Shop\ufffd",
+			"Shop 🛒",
+			"店",
+		]) {
 			const model = broken("/nodes/2/rows/0/value", text);
 
 			expect(schemaErrors(model), JSON.stringify(text)).toEqual([]);

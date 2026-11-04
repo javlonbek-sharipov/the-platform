@@ -1184,7 +1184,7 @@ describe("text that an SVG can't hold", () => {
 			"Shop\nAPI\r",
 			"Shop\u007f",
 			"Shop\u0085",
-			"Shop�",
+			"Shop\ufffd",
 			"Shop 🛒",
 		]) {
 			const diagram = textJson();
