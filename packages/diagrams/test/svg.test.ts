@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { architecture, type Diagram, render } from "../src/index.ts";
-import { deepNesting } from "./fixtures/groups.ts";
+import { deepNesting, twoRegions } from "./fixtures/groups.ts";
+import { pathRuns } from "./support/svg.ts";
 
 const shop = architecture({ title: "Shop" }, (d) => {
 	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
@@ -150,6 +151,36 @@ describe("the SVG", () => {
 			expect(arcs.map(([, rx, ry]) => [Number(rx), Number(ry)])).toEqual(
 				edge.route.slice(1, -1).map(({ radius }) => [radius, radius]),
 			);
+		}
+	});
+
+	test("draws an Edge's stroke as one subpath for each of its pieces, so that its hops show as gaps", () => {
+		for (const direction of ["right", "down"] as const) {
+			const { scene, svg = "" } = render(twoRegions(direction));
+			const paths = new Map(
+				[...svg.matchAll(/<g data-edge="([^"]*)"[^>]*>\s*<path d="([^"]*)"\/>/g)].map(
+					([, id, d]) => [id?.replaceAll("&gt;", ">"), d ?? ""],
+				),
+			);
+			const hopping = scene?.edges.filter(({ stroke }) => stroke.length > 1) ?? [];
+			expect(hopping.length, direction).toBeGreaterThan(0);
+			for (const { id, stroke } of scene?.edges ?? []) {
+				const subpaths = pathRuns(paths.get(id) ?? "");
+				expect(subpaths, id).toHaveLength(stroke.length);
+				subpaths.forEach((run, index) => {
+					const piece = stroke[index] ?? [];
+					const ends = [run[0], run.at(-1)].map((point) => ({
+						x: Math.round((point?.x ?? 0) * 100) / 100,
+						y: Math.round((point?.y ?? 0) * 100) / 100,
+					}));
+					expect(ends, `${id}, piece ${index}`).toEqual(
+						[piece[0], piece.at(-1)].map((point) => ({
+							x: Math.round((point?.x ?? 0) * 100) / 100,
+							y: Math.round((point?.y ?? 0) * 100) / 100,
+						})),
+					);
+				});
+			}
 		}
 	});
 

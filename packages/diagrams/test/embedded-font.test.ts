@@ -127,6 +127,21 @@ describe("the font data an SVG embeds", () => {
 		expect(requests).toEqual([{ weight: "semibold", characters: "FLOPSdegr" }]);
 	});
 
+	test("holds the characters of Edge labels, with their Technologies and rates, in the regular weight", () => {
+		const { requests } = renderRecording(
+			architecture({ title: "Ledger" }, (d) => {
+				const api = d.node({ id: "api", kind: "service", title: "API" });
+				const ledger = d.node({ id: "ledger", kind: "database", title: "Ledger" });
+				d.edge(api, ledger, { kind: "call", label: "Posts", technology: "grpc", rate: "2k/s" });
+			}),
+		);
+		expect(requests).toEqual([
+			// Every character of "Posts", "grpc" and "2k/s", once, in order.
+			{ weight: "regular", characters: "/2Pcgkoprst" },
+			{ weight: "semibold", characters: "AILPdegr" },
+		]);
+	});
+
 	test("isn't asked for when nothing is drawn, or when the caller passes no function", () => {
 		const { svg, requests } = renderRecording(architecture({ title: "Empty" }, () => {}));
 		expect(requests).toEqual([]);

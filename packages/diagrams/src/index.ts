@@ -39,6 +39,7 @@ export type {
 	SceneCallout,
 	SceneEdge,
 	SceneGroup,
+	SceneLabel,
 	SceneNode,
 	ScenePort,
 	SceneRow,

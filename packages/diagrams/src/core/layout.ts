@@ -14,8 +14,9 @@
  * members, and an Edge that leaves the level is ignored there.
  */
 
-import { type Diagram, endNode } from "../authoring/model.ts";
+import { type Diagram, type Edge, endNode } from "../authoring/model.ts";
 import { type Bundling, laneGroups } from "./bundles.ts";
+import { labelEnds, labelSize } from "./labels.ts";
 import { arrange, type Connection, type Member } from "./layers.ts";
 import { faceOf, frameOf, type NodeFrame, partsOf, rowHeight } from "./nodes.ts";
 import type { Box, Point, SceneGroup, SceneNode, ScenePort, Side } from "./scene.ts";
@@ -75,6 +76,16 @@ const laneSpacing = 8;
 
 export function layOut(diagram: Diagram, bundle: Bundling = "target"): Layout {
 	const down = diagram.direction === "down";
+	/**
+	 * The room an Edge's label needs along the rank axis, in a gap between
+	 * ranks, with some to spare at each end: as wide as its box for `right`,
+	 * where it sits above or below a run across the gap, and as tall for
+	 * `down`.
+	 */
+	const labelRoom = (edge: Edge) => {
+		const size = labelSize(edge);
+		return size === undefined ? 0 : (down ? size.height : size.width) + 2 * labelEnds;
+	};
 	// Each Edge's lane group, so that each gap between ranks leaves room for a
 	// lane for each group that crosses it.
 	const laneOf = laneGroups(diagram, bundle);
@@ -153,7 +164,7 @@ export function layOut(diagram: Diagram, bundle: Bundling = "target"): Layout {
 			if (from === undefined || to === undefined) {
 				continue;
 			}
-			connections.push({ from, to, lane: laneOf.get(edge.id) ?? edge.id });
+			connections.push({ from, to, lane: laneOf.get(edge.id) ?? edge.id, label: labelRoom(edge) });
 			if (from !== to) {
 				anchors.set(from, anchors.get(from) ?? fromNode);
 				anchors.set(to, anchors.get(to) ?? toNode);

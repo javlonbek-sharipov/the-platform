@@ -8,7 +8,7 @@
 import type { Diagram, Row } from "../authoring/model.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { fontMetrics } from "./font-metrics.ts";
-import type { Box, SceneGroup, SceneNode, SceneText } from "./scene.ts";
+import type { Box, SceneEdge, SceneGroup, SceneNode, SceneText } from "./scene.ts";
 
 /** The weights that text is drawn in: regular for Rows and labels, and semibold for titles. */
 export type FontWeight = "regular" | "semibold";
@@ -129,32 +129,173 @@ export function rowTexts(row: Row, band: Box): { name: SceneText; value?: SceneT
 		const alone = fit(name, "regular", rowSize, room);
 		return { name: text(alone, left + alone.width / 2) };
 	}
-	const shortest = fit(name, "regular", rowSize, rowWidthOf(`${[...name][0] ?? ""}${ellipsis}`));
-	const fittedValue = fit(value, "regular", rowSize, room - rowGap - shortest.width);
-	const fittedName = fittedValue.shortened
-		? shortest
-		: fit(name, "regular", rowSize, room - rowGap - fittedValue.width);
+	const [fittedName, fittedValue] = sideBySide(name, value, rowSize, room, rowGap);
 	return {
 		name: text(fittedName, left + fittedName.width / 2),
 		value: text(fittedValue, right - fittedValue.width / 2),
 	};
 }
 
-/** A text's width in a Row: its characters' advance widths, summed. */
-function rowWidthOf(text: string): number {
-	const units = [...text].reduce((sum, character) => sum + unitsOf(character, "regular"), 0);
-	return (units * rowSize) / metrics.regular.unitsPerEm;
+/**
+ * Two texts side by side in the regular weight, in `room`, at least `gap`
+ * apart. When they don't both fit, the first is shortened first, as far as
+ * its first character and an ellipsis, and only then the second, to the room
+ * left beside that.
+ */
+function sideBySide(
+	first: string,
+	second: string,
+	size: number,
+	room: number,
+	gap: number,
+): [Fitted, Fitted] {
+	const shortest = fit(
+		first,
+		"regular",
+		size,
+		widthOf(`${[...first][0] ?? ""}${ellipsis}`, "regular", size),
+	);
+	const fittedSecond = fit(second, "regular", size, room - gap - shortest.width);
+	const fittedFirst = fittedSecond.shortened
+		? shortest
+		: fit(first, "regular", size, room - gap - fittedSecond.width);
+	return [fittedFirst, fittedSecond];
+}
+
+/** A text's width: its characters' advance widths, summed. */
+function widthOf(text: string, weight: FontWeight, size: number): number {
+	const units = [...text].reduce((sum, character) => sum + unitsOf(character, weight), 0);
+	return (units * size) / metrics[weight].unitsPerEm;
+}
+
+/** What an Edge's label shows: its own text, and its Technology and rate below it. */
+export interface LabelContent {
+	text?: string;
+	technology?: string;
+	rate?: string;
+}
+
+/** The size of a label's own text, and of the Technology and rate below it. */
+const labelTextSize = 12;
+const labelDetailSize = 11;
+/** The height of the line that each takes. */
+const labelTextLine = 16;
+const labelDetailLine = 14;
+/** The room a label's box leaves around its texts. */
+const labelPaddingX = 4;
+const labelPaddingY = 2;
+/** The room between the Technology and the rate. */
+const labelSeparation = 12;
+/**
+ * The widest a label's texts are drawn. A gap between ranks leaves no more
+ * room for a label than this, so a longer label is too long for any run.
+ */
+const widestLabel = 192;
+
+/** The size of a label's box when its texts are no wider than `width`. */
+export function labelBoxSize(
+	content: LabelContent,
+	width: number,
+): { width: number; height: number } {
+	const detail = content.technology !== undefined || content.rate !== undefined;
+	return {
+		width: width + 2 * labelPaddingX,
+		height:
+			2 * labelPaddingY +
+			(content.text === undefined ? 0 : labelTextLine) +
+			(detail ? labelDetailLine : 0),
+	};
+}
+
+/**
+ * How wide a label's texts are drawn, where there's room: as wide as its own
+ * text, or its Technology and rate side by side, but no wider than the widest
+ * a label is drawn.
+ */
+export function labelWidth(content: LabelContent): number {
+	const text =
+		content.text === undefined
+			? 0
+			: widthOf(collapseSpaces(content.text), "regular", labelTextSize);
+	const technology =
+		content.technology === undefined ? 0 : widthOf(content.technology, "regular", labelDetailSize);
+	const rate = content.rate === undefined ? 0 : widthOf(content.rate, "regular", labelDetailSize);
+	const separation = technology > 0 && rate > 0 ? labelSeparation : 0;
+	return Math.min(widestLabel, Math.max(text, technology + separation + rate));
+}
+
+/**
+ * A label's texts, laid out in its box: its own text centered on the first
+ * line, and its Technology and rate centered together on the line below. A
+ * text too wide for the box is shortened. When the Technology and the rate
+ * don't fit side by side, the Technology is shortened first, as a Row's name
+ * is before its value.
+ */
+export function labelTexts(
+	content: LabelContent,
+	box: Box,
+): { text?: SceneText; technology?: SceneText; rate?: SceneText } {
+	const room = box.width - 2 * labelPaddingX;
+	const middle = box.x + box.width / 2;
+	const top = box.y + labelPaddingY;
+	const placed = (fitted: Fitted, x: number, y: number, size: number): SceneText => ({
+		...fitted,
+		point: { x, y },
+		weight: "regular",
+		size,
+	});
+	const text =
+		content.text === undefined
+			? undefined
+			: placed(
+					fit(collapseSpaces(content.text), "regular", labelTextSize, room),
+					middle,
+					top + labelTextLine / 2,
+					labelTextSize,
+				);
+	const detailY = top + (text === undefined ? 0 : labelTextLine) + labelDetailLine / 2;
+	const [technology, rate] =
+		content.technology !== undefined && content.rate !== undefined
+			? sideBySide(content.technology, content.rate, labelDetailSize, room, labelSeparation)
+			: [
+					content.technology === undefined
+						? undefined
+						: fit(content.technology, "regular", labelDetailSize, room),
+					content.rate === undefined
+						? undefined
+						: fit(content.rate, "regular", labelDetailSize, room),
+				];
+	const separation = technology !== undefined && rate !== undefined ? labelSeparation : 0;
+	const left = middle - ((technology?.width ?? 0) + separation + (rate?.width ?? 0)) / 2;
+	return {
+		...(text === undefined ? {} : { text }),
+		...(technology === undefined
+			? {}
+			: { technology: placed(technology, left + technology.width / 2, detailY, labelDetailSize) }),
+		...(rate === undefined
+			? {}
+			: {
+					rate: placed(
+						rate,
+						left + (technology?.width ?? 0) + separation + rate.width / 2,
+						detailY,
+						labelDetailSize,
+					),
+				}),
+	};
 }
 
 /**
  * A warning for each piece of text with characters that the font lacks, and
  * for each one shortened: every Node's title, its Rows' names and values, and
- * its callout, then every Group's title.
+ * its callout, then every Group's title, then every Edge's label, Technology
+ * and rate.
  */
 export function textDiagnostics(
 	diagram: Diagram,
 	nodes: SceneNode[],
 	groups: SceneGroup[],
+	edges: SceneEdge[],
 ): Diagnostic[] {
 	const drawn = new Map(nodes.map((node) => [node.id, node]));
 	const groupTitles = diagram.groups.map((group, index): CheckedText => {
@@ -218,7 +359,33 @@ export function textDiagnostics(
 					];
 		return [title, ...rows, ...callout].flatMap(warningsAbout);
 	});
-	return [...nodeTexts, ...groupTitles.flatMap(warningsAbout)];
+	const labels = new Map(edges.map((edge) => [edge.id, edge.label]));
+	const edgeTexts = diagram.edges.flatMap((edge, index) => {
+		const named = `Edge \`${edge.id}\``;
+		const label = labels.get(edge.id);
+		const fields = [
+			["label", "label", label?.text, "Choose a shorter label to show it in full."],
+			["technology", "Technology", label?.technology, "Choose a shorter slug to show it in full."],
+			["rate", "rate", label?.rate, "Write it with `k` or `M` to show it in full."],
+		] as const;
+		return fields.flatMap(([field, name, drawn, advice]): CheckedText[] => {
+			const source = edge[field];
+			return source === undefined
+				? []
+				: [
+						{
+							source,
+							drawn,
+							weight: "regular",
+							pointer: `/edges/${index}/${field}`,
+							lacking: (some) => `${named}'s ${name} has ${some} that the bundled font lacks`,
+							shortened: (text) =>
+								`${named}'s ${name} is too long for its run, so it's shortened to \`${text}\`. ${advice}`,
+						},
+					];
+		});
+	});
+	return [...nodeTexts, ...groupTitles.flatMap(warningsAbout), ...edgeTexts.flatMap(warningsAbout)];
 }
 
 /** A piece of text that a Node draws, and how warnings about it read. */

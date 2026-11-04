@@ -23,6 +23,7 @@ import type {
 	Scene,
 	SceneEdge,
 	SceneGroup,
+	SceneLabel,
 	SceneNode,
 	SceneText,
 } from "./scene.ts";
@@ -70,6 +71,10 @@ const statusMarks: Record<ArchitectureStatus, { path: string; color: ColorName; 
 
 export function writeSvg(scene: Scene, fontData?: FontData): string {
 	const { bounds } = scene;
+	// Labels are drawn over every Edge, so that no route runs across one.
+	const labels = scene.edges.flatMap(({ id, label }): [string, SceneLabel][] =>
+		label === undefined ? [] : [[id, label]],
+	);
 	const size: Attribute[] = [
 		["viewBox", [bounds.x, bounds.y, bounds.width, bounds.height].map(number).join(" ")],
 		["width", bounds.width],
@@ -103,6 +108,13 @@ export function writeSvg(scene: Scene, fontData?: FontData): string {
 		),
 		...scene.edges.flatMap((edge) => writeEdge(edge).map((text) => indent(2, text))),
 		indent(1, "</g>"),
+		...(labels.length === 0
+			? []
+			: [
+					indent(1, start("g", [["class", "diagram-labels"], ...textAttributes])),
+					...labels.flatMap(([id, label]) => writeLabel(id, label).map((text) => indent(2, text))),
+					indent(1, "</g>"),
+				]),
 		indent(1, start("g", textAttributes)),
 		...scene.nodes.flatMap((node) => writeNode(node).map((text) => indent(2, text))),
 		indent(1, "</g>"),
@@ -142,7 +154,11 @@ interface EmbeddedFont {
 /** The font data for each weight that the scene draws text in, in a fixed order. */
 function embeddedFonts(scene: Scene, fontData: FontData): EmbeddedFont[] {
 	// Every piece of text the scene draws.
-	const texts = [...scene.nodes.flatMap(textsOf), ...scene.groups.map((group) => group.title)];
+	const texts = [
+		...scene.nodes.flatMap(textsOf),
+		...scene.groups.map((group) => group.title),
+		...scene.edges.flatMap(({ label }) => (label === undefined ? [] : labelTextsOf(label))),
+	];
 	return (["regular", "semibold"] as const).flatMap((weight) => {
 		const drawn = new Set(
 			texts.filter((text) => text.weight === weight).flatMap((text) => [...text.text]),
@@ -184,6 +200,7 @@ function style(scope: string, fonts: EmbeddedFont[], uses: ColorUse[]): string[]
  */
 function colorUses(scene: Scene): ColorUse[] {
 	const kinds = new Set(scene.nodes.map((node) => node.kind));
+	const labels = scene.edges.flatMap(({ label }) => (label === undefined ? [] : [label]));
 	const hues = architectureFamilies.flatMap((family): ColorUse[] => {
 		const members = architectureNodeKinds.filter(
 			(kind) => kinds.has(kind) && architectureNodeLooks[kind].family === family,
@@ -209,6 +226,15 @@ function colorUses(scene: Scene): ColorUse[] {
 		...(scene.edges.length === 0
 			? []
 			: [{ selector: ".diagram-edges", property: "stroke", color: "muted" } as const]),
+		...(labels.length === 0
+			? []
+			: [{ selector: ".diagram-label", property: "fill", color: "background" } as const]),
+		...(labels.some(({ text }) => text !== undefined)
+			? [{ selector: ".diagram-label-text", property: "fill", color: "ink" } as const]
+			: []),
+		...(labels.some(({ technology, rate }) => technology !== undefined || rate !== undefined)
+			? [{ selector: ".diagram-label-detail", property: "fill", color: "muted" } as const]
+			: []),
 		...(scene.nodes.length === 0
 			? []
 			: [{ selector: ".diagram-base", property: "fill", color: "surface" } as const]),
@@ -477,7 +503,59 @@ function writeEdge(edge: SceneEdge): string[] {
 			["data-to", edge.to],
 			...(edge.toRow === undefined ? [] : [["data-to-row", edge.toRow] as const]),
 		]),
-		indent(1, empty("path", [["d", pathData(edge.route)]])),
+		// Each piece of the stroke is a path of its own within one, so that hops show as gaps.
+		indent(1, empty("path", [["d", edge.stroke.map(pathData).join(" ")]])),
+		"</g>",
+	];
+}
+
+/** The texts of a label, in the order it draws them. */
+function labelTextsOf({ text, technology, rate }: SceneLabel): SceneText[] {
+	return [text, technology, rate].flatMap((each) => (each === undefined ? [] : [each]));
+}
+
+/** The radius of the dot between a label's Technology and its rate. */
+const separatorRadius = 1.25;
+
+/**
+ * An Edge's label: a box in the background's color, which hides whatever
+ * passes behind it, its text, and its Technology and rate below it, muted,
+ * with a dot between them.
+ */
+function writeLabel(id: string, label: SceneLabel): string[] {
+	const { box, text, technology, rate } = label;
+	return [
+		start("g", [["data-edge-label", id]]),
+		indent(
+			1,
+			empty("rect", [
+				["class", "diagram-label"],
+				["x", box.x],
+				["y", box.y],
+				["width", box.width],
+				["height", box.height],
+				["rx", 4],
+			]),
+		),
+		...(text === undefined ? [] : [indent(1, writeText(text, "diagram-label-text"))]),
+		...(technology === undefined ? [] : [indent(1, writeText(technology, "diagram-label-detail"))]),
+		...(technology === undefined || rate === undefined
+			? []
+			: [
+					indent(
+						1,
+						empty("circle", [
+							["class", "diagram-label-detail"],
+							[
+								"cx",
+								(technology.point.x + technology.width / 2 + rate.point.x - rate.width / 2) / 2,
+							],
+							["cy", rate.point.y],
+							["r", separatorRadius],
+						]),
+					),
+				]),
+		...(rate === undefined ? [] : [indent(1, writeText(rate, "diagram-label-detail"))]),
 		"</g>",
 	];
 }

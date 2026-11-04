@@ -145,10 +145,32 @@ export interface SceneEdge {
 	 */
 	route: RoutePoint[];
 	/**
+	 * The route as it's stroked: in pieces, broken by a short gap at each hop,
+	 * where it crosses an Edge with a different target. Each piece is an
+	 * orthogonal polyline with its corners' radii, sharp at both ends.
+	 */
+	stroke: RoutePoint[][];
+	/**
 	 * Whether the search found no route, so that the Edge fell back to the
 	 * simple route, which may cross Nodes.
 	 */
 	fellBack: boolean;
+	/** What the Edge carries, drawn beside its route, when it has a label, a Technology or a rate. */
+	label?: SceneLabel;
+}
+
+/**
+ * An Edge's label: its own text on the first line, and its Technology and
+ * its rate on the line below, in a box beside one of the Edge's runs.
+ */
+export interface SceneLabel {
+	box: Box;
+	/** The label's own text, if the Edge has one. */
+	text?: SceneText;
+	/** The Edge's Technology, shown as its name. */
+	technology?: SceneText;
+	/** The Edge's rate, after its Technology. */
+	rate?: SceneText;
 }
 
 export interface Scene {
@@ -168,6 +190,14 @@ export interface Scene {
 	 * A corridor holds as many lanes as its width divided by the spacing.
 	 */
 	lanes: { spacing: number; minimum: number; padding: number };
+	/**
+	 * How labels keep clear: the gap between a label's box and the line it
+	 * sits beside, and the margin it keeps from Nodes, tags, Port stubs, Group
+	 * labels and other labels.
+	 */
+	labelSpacing: { gap: number; margin: number };
+	/** The length of the gap a hop leaves in a stroke, centered on the crossing. */
+	hop: number;
 	nodes: SceneNode[];
 	/** The Groups, in model order. */
 	groups: SceneGroup[];
