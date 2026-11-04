@@ -5,11 +5,13 @@ import {
 	type Diagram,
 	type Direction,
 	type Edge,
+	type KnownTechnology,
 	type Point,
 	render,
 	type Scene,
 	type SceneEdge,
 	type SceneText,
+	technologies,
 } from "../src/index.ts";
 import { crowded } from "./fixtures/crowded.ts";
 import { groupFixtures, twoRegions } from "./fixtures/groups.ts";
@@ -333,9 +335,30 @@ function stores(direction: Direction): Diagram {
 	);
 }
 
+/**
+ * Four services write to the Orders database over PostgreSQL, whose logo
+ * shows in each label, so their Edges' bundle would ride one trunk.
+ */
+function fanIn(direction: Direction): Diagram {
+	return architecture({ title: "Fan-in", direction }, (d) => {
+		const writers = [
+			["orders-api", "Orders API", "Writes orders"],
+			["billing-api", "Billing API", "Reads orders"],
+			["reports-api", "Reports API", "Reads"],
+			["returns-api", "Returns API", "Writes returns"],
+		] as const;
+		const apis = writers.map(([id, title]) => d.node({ id, kind: "service", title }));
+		const db = d.node({ id: "orders-db", kind: "database", title: "Orders database" });
+		writers.forEach(([, , label], index) => {
+			d.edge(apis[index] ?? db, db, { kind: "call", label, technology: "postgres", rate: "2k/s" });
+		});
+	});
+}
+
 const labeledFixtures: [string, (direction: Direction) => Diagram][] = [
 	["orders", orders],
 	["a fan-out to five stores", stores],
+	["a fan-in of labels with Technology logos", fanIn],
 	...groupFixtures.map(([name, fixture]): [string, (direction: Direction) => Diagram] => [
 		name,
 		(direction) => labeled(fixture(direction)),
@@ -368,12 +391,22 @@ function sameBundle(a: SceneEdge, b: SceneEdge): boolean {
  * The width of an Edge's label box with its texts in full, read from the font
  * and the spec: its widest line, the text at 12 px, or the Technology and the
  * rate at 11 px, 12 px apart, but no wider than 192 px, and 4 px on each side.
+ * A Technology with a logo shows its name after the 12 px logo and a 4 px gap,
+ * and one without shows its slug.
  */
 function fullBoxWidth({ label, technology, rate }: Edge): number {
 	const text = label === undefined ? 0 : widthInInterRegular(label.replace(/\s+/g, " ").trim(), 12);
-	const details = [technology, rate].flatMap((part) =>
-		part === undefined ? [] : [widthInInterRegular(part, 11)],
-	);
+	const known = technology === undefined ? undefined : technologies[technology as KnownTechnology];
+	const details = [
+		...(technology === undefined
+			? []
+			: [
+					known === undefined
+						? widthInInterRegular(technology, 11)
+						: 16 + widthInInterRegular(known.name, 11),
+				]),
+		...(rate === undefined ? [] : [widthInInterRegular(rate, 11)]),
+	];
 	const detail = details.reduce((sum, width) => sum + width, 0) + (details.length === 2 ? 12 : 0);
 	return Math.min(192, Math.max(text, detail)) + 8;
 }
