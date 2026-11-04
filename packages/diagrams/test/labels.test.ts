@@ -644,6 +644,28 @@ describe.each(directions)("the labels in each fixture, laid out %s", (direction)
 				).toBe(true);
 			}
 		});
+
+		test("say why a label goes to its route's midpoint: no run of its own, too long for every one, or no room beside any", () => {
+			for (const [index, { id }] of diagram.edges.entries()) {
+				const edge = scene.edges.find((candidate) => candidate.id === id);
+				const warning = diagnostics.find(
+					({ rule, pointer }) => rule === "label-placement" && pointer === `/edges/${index}`,
+				);
+				if (edge?.label === undefined || warning === undefined) {
+					continue;
+				}
+				// At the midpoint, the label is drawn in full.
+				const { box } = edge.label;
+				const stretches = ownStretches(scene, edge);
+				const reason =
+					stretches.length === 0
+						? "has no run of its own"
+						: stretches.some((stretch) => longEnough(stretch, box))
+							? "has no room beside any run of the Edge's own"
+							: "is too long for any run of the Edge's own";
+				expect(warning.message).toContain(`Edge \`${id}\`'s label ${reason}`);
+			}
+		});
 	});
 });
 
@@ -734,6 +756,91 @@ describe("an Edge's label with no room beside a run of its own", () => {
 			const gap = near > line ? near - line : line - far;
 			expect(gap).toBeGreaterThan(0);
 			expect(gap).toBeLessThanOrEqual(8);
+		},
+	);
+});
+
+/**
+ * Whether a stretch is long enough for a label, at its narrowest: along a
+ * horizontal stretch, its box shortened to 48 px of text, unless it's
+ * narrower in full, and along a vertical one, its box's height.
+ */
+function longEnough(stretch: Stretch, box: { width: number; height: number }): boolean {
+	const needs = stretch.horizontal ? Math.min(box.width - 8, 48) + 8 : box.height;
+	return stretch.high - stretch.low >= needs;
+}
+
+describe("a label at its route's midpoint for want of a run of its own", () => {
+	/** A budget so small that every search runs out, so that every Edge takes the simple route. */
+	const tiny = { searchBudget: 1 };
+
+	test("gets a warning that it's too long for any run of the Edge's own", () => {
+		// The Edge leaves a Row of the Orders API, below its header, for the
+		// Payments API's header. On the simple route, it jogs halfway between the
+		// two, so none of its runs is long enough for its label, its Technology
+		// and its rate.
+		const diagram = architecture({ title: "Charges" }, (d) => {
+			const api = d.node({
+				id: "orders-api",
+				kind: "service",
+				title: "Orders API",
+				rows: [{ name: "replicas", value: "3" }],
+			});
+			const payments = d.node({ id: "payments-api", kind: "service", title: "Payments API" });
+			d.edge(api.row("replicas"), payments, {
+				kind: "call",
+				label: "Charges",
+				technology: "grpc",
+				rate: "2k/s",
+			});
+		});
+		const { scene, diagnostics } = render(diagram, tiny);
+		const edge = scene?.edges[0];
+		if (scene === undefined || edge?.label === undefined) {
+			throw new Error("expected a labeled Edge");
+		}
+		const stretches = ownStretches(scene, edge);
+		expect(stretches.length).toBeGreaterThan(0);
+		expect(
+			stretches.filter((stretch) => longEnough(stretch, edge.label?.box ?? scene.bounds)),
+		).toEqual([]);
+		expect(diagnostics.filter(({ rule }) => rule === "label-placement")).toEqual([
+			{
+				severity: "warning",
+				rule: "label-placement",
+				message:
+					"Edge `orders-api->payments-api`'s label is too long for any run of the Edge's own, so it's drawn at the middle of its route. Shorten it to fit beside a run.",
+				pointer: "/edges/0",
+			},
+		]);
+	});
+
+	test.each(directions)(
+		"gets a warning that it has no run of its own, where other Edges run along all of its route, laid out %s",
+		(direction) => {
+			// On the simple route, two parallel Edges run along the same line,
+			// straight from Port to Port.
+			const diagram = architecture({ title: "Sign-in", direction }, (d) => {
+				const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+				const gateway = d.node({ id: "gateway", kind: "gateway", title: "Gateway" });
+				d.edge(web, gateway, { kind: "call", id: "sign-in", label: "Signs in" });
+				d.edge(web, gateway, { kind: "call", id: "sign-out", label: "Signs out" });
+			});
+			const { scene, diagnostics } = render(diagram, tiny);
+			if (scene === undefined) {
+				throw new Error("expected a scene");
+			}
+			for (const edge of scene.edges) {
+				expect(ownStretches(scene, edge), edge.id).toEqual([]);
+			}
+			expect(diagnostics.filter(({ rule }) => rule === "label-placement")).toEqual(
+				["sign-in", "sign-out"].map((id, index) => ({
+					severity: "warning",
+					rule: "label-placement",
+					message: `Edge \`${id}\`'s label has no run of its own, since other Edges run along all of its route past its stubs. So it's drawn at the middle of its route.`,
+					pointer: `/edges/${index}`,
+				})),
+			);
 		},
 	);
 });

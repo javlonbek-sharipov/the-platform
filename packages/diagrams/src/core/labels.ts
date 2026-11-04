@@ -8,13 +8,19 @@
  * arc. It tries one side of the run, then the other. If the box would cover a
  * Node, a callout's tag, a Port's stub, a Group label or another label there,
  * it tries the next-longest run, and so on. When no run has room, it goes to
- * the route's midpoint, with a warning.
+ * the route's midpoint, with a warning that says why: the Edge has no run of
+ * its own, its label is too long for every one, or none has room clear of
+ * the rest.
  *
  * Labels are placed in three passes, each in the order of their Edges' ids.
  * The first places each label in full, and only where it also covers no
  * route and no Group's border, so that it hides nothing. The second places
  * the rest in full wherever they cover nothing else, and the third shortened,
  * if they must be, to fit the run.
+ *
+ * A trunk may take a run that a label needs. A labeled Edge that rides a
+ * trunk with no run of its own left that holds its label in full is crowded
+ * out: the caller routes it again in a lane of its own.
  */
 
 import type { Direction, Edge } from "../authoring/model.ts";
@@ -207,20 +213,42 @@ export function placeLabels(
 
 	const labels = new Map<string, SceneLabel>();
 	const diagnostics: Diagnostic[] = [];
-	for (const { edge, index, content, scene } of [...wanted].sort((a, b) => a.index - b.index)) {
+	for (const { edge, index, content, scene, stretches, candidates } of [...wanted].sort(
+		(a, b) => a.index - b.index,
+	)) {
 		let box = boxes.get(edge.id);
 		if (box === undefined) {
 			box = atMidpoint(content, scene.route, diagram.direction);
 			diagnostics.push({
 				severity: "warning",
 				rule: "label-placement",
-				message: `Edge \`${edge.id}\`'s label has no room beside any run of the Edge's own, clear of Nodes, Port stubs, Group labels and other labels, so it's drawn at the middle of its route.`,
+				message: fellBack(
+					edge.id,
+					stretches.length === 0 ? "none" : candidates.length === 0 ? "short" : "covered",
+				),
 				pointer: `/edges/${index}`,
 			});
 		}
 		labels.set(edge.id, { box, ...labelTexts(content, box) });
 	}
 	return { labels, diagnostics, crowdedOut };
+}
+
+/**
+ * The warning for a label drawn at its route's midpoint, which says why: its
+ * Edge has no run of its own past its stubs, every run of its own is too short
+ * for it, or every run long enough has no room beside it.
+ */
+function fellBack(id: string, why: "none" | "short" | "covered"): string {
+	const named = `Edge \`${id}\`'s label`;
+	switch (why) {
+		case "none":
+			return `${named} has no run of its own, since other Edges run along all of its route past its stubs. So it's drawn at the middle of its route.`;
+		case "short":
+			return `${named} is too long for any run of the Edge's own, so it's drawn at the middle of its route. Shorten it to fit beside a run.`;
+		default:
+			return `${named} has no room beside any run of the Edge's own, clear of Nodes, Port stubs, Group labels and other labels, so it's drawn at the middle of its route.`;
+	}
 }
 
 /** Whether any of the runs lies along the stretch, on its line, for more than a point. */
