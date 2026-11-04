@@ -4,9 +4,9 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { cacheFolderOf, lintAtlas, renderDiagrams } from "../atlas/atlas.ts";
-import { AtlasError, discover, findRoot, moduleSuffix } from "../atlas/discover.ts";
+import { AtlasError, configFile, discover, findRoot, moduleSuffix } from "../atlas/discover.ts";
 import { type AtlasMessage, placeText } from "../atlas/messages.ts";
 import type { Diagram } from "../authoring/model.ts";
 import { drawPng, type Theme, themes } from "./png.ts";
@@ -152,6 +152,13 @@ async function exportCommand(args: string[], context: CliContext): Promise<numbe
 	if (!module.endsWith(moduleSuffix) || !existsSync(module) || !statSync(module).isFile()) {
 		context.stderr.write(
 			`There's no Diagram at \`${shown(module, context)}\`. Name one by its module's path, which ends in \`${moduleSuffix}\`.\n`,
+		);
+		return 2;
+	}
+	const inAtlas = relative(root, module);
+	if (inAtlas.split(sep)[0] === ".." || isAbsolute(inAtlas)) {
+		context.stderr.write(
+			`\`${shown(module, context)}\` isn't in the Atlas: it lies outside the folder that holds \`${configFile}\`.\n`,
 		);
 		return 2;
 	}

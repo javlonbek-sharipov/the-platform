@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import example from "../docs/example-system.diagram.ts";
-import { git, runCli, sampleAtlas, shopModule } from "./support/atlas.ts";
+import { git, runCli, sampleAtlas, sampleConfig, shopModule } from "./support/atlas.ts";
 import { decodePng, type Pixels, pngSize } from "./support/png.ts";
 import { descendants, type Element, parseSvg } from "./support/svg.ts";
 import {
@@ -320,6 +320,22 @@ describe("diagrams export, with arguments it can't use", () => {
 			stdout: "",
 			stderr:
 				"There's no Diagram at `docs/shops.diagram.ts`. Name one by its module's path, which ends in `.diagram.ts`.\n",
+		});
+	});
+
+	test("rejects a Diagram outside the Atlas, whose id would lead out of the cache folder", async () => {
+		const folder = await sampleAtlas({
+			"site/diagrams.config.ts": sampleConfig,
+			"docs/shop.diagram.ts": shopModule(),
+		});
+
+		expect(
+			await runCli(["export", "../docs/shop.diagram.ts", "--format", "png"], join(folder, "site")),
+		).toEqual({
+			code: 2,
+			stdout: "",
+			stderr:
+				"`../docs/shop.diagram.ts` isn't in the Atlas: it lies outside the folder that holds `diagrams.config.ts`.\n",
 		});
 	});
 });
