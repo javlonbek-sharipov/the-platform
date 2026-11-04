@@ -238,6 +238,42 @@ describe("ids across the Atlas", () => {
 	});
 });
 
+describe("a clean Atlas", () => {
+	test("passes when ids agree across Diagrams and every Link resolves, in text and in JSON", async () => {
+		const atlas = await sampleAtlas({
+			"docs/payments.md": "# Payments\n\n## Refunds\n",
+			"docs/billing.diagram.ts": diagramModule("Billing", [
+				{
+					...paymentsApi,
+					links: [
+						{ doc: "docs/payments.md" },
+						{ doc: "docs/payments.md", section: "Refunds", label: "How refunds work" },
+					],
+				},
+			]),
+			"docs/shop.diagram.ts": diagramModule("Shop", [
+				{
+					id: "shop-api",
+					kind: "service",
+					title: "Shop API",
+					links: [{ id: "payments-api", label: "Payments" }],
+				},
+				paymentsApi,
+			]),
+		});
+		expect(await runCli(["render"], atlas)).toMatchObject({ code: 0, stderr: "" });
+
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 0,
+			stdout: "Checked 2 Diagrams: no errors.\n",
+			stderr: "",
+		});
+		const json = await runCli(["lint", "--json"], atlas);
+		expect(json.code).toBe(0);
+		expect(JSON.parse(json.stdout)).toEqual({ diagrams: 2, errors: 0, warnings: 0, messages: [] });
+	});
+});
+
 describe("shared definitions", () => {
 	/** A shared module that defines the Payments API once, as a plain object. */
 	const sharedNodes = (
