@@ -8,7 +8,8 @@
 		"node": ">=24"
 	},
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./diagram.schema.json": "./diagram.schema.json"
 	},
 	"bin": {
 		"diagrams": "./bin/diagrams.ts"

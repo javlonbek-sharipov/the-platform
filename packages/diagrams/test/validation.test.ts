@@ -225,6 +225,96 @@ describe("validation", () => {
 		]);
 	});
 
+	test("reports each field that the model doesn't have, such as a misspelled one, and lists the fields it does", () => {
+		const diagram = {
+			...regionJson(),
+			legend: "Shop",
+			nodes: [
+				{ id: "web-app", kind: "client", title: "Web app", extrenal: true },
+				{
+					id: "shop-api",
+					kind: "service",
+					title: "Shop API",
+					rows: [{ name: "replicas", unit: "pods" }],
+					links: [{ id: "shop-db", title: "Its database" }],
+				},
+				{ id: "shop-db", kind: "database", title: "Shop database" },
+			],
+			groups: [
+				{ ...regionJson().groups[0], color: "blue" },
+				{ id: "eu-west-a", kind: "zone", title: "Zone A", members: ["shop-db"] },
+			],
+			edges: [
+				{ id: "web-app->shop-api", kind: "call", from: "web-app", to: "shop-api", lable: "Orders" },
+				{
+					id: "shop-api->shop-db",
+					kind: "call",
+					from: { node: "shop-api", row: "replicas", side: "right" },
+					to: "shop-db",
+				},
+			],
+		};
+
+		expect(render(diagram).diagnostics).toEqual(
+			[
+				[
+					"/legend",
+					"a Diagram",
+					"`version`, `notation`, `id`, `title`, `direction`, `members`, `nodes`, `groups`, `edges` and `walkthroughs`",
+				],
+				[
+					"/nodes/0/extrenal",
+					"a Node",
+					"`id`, `kind`, `title`, `technology`, `external`, `status`, `rows`, `links` and `callout`",
+				],
+				["/nodes/1/rows/0/unit", "a Row", "`name` and `value`"],
+				["/nodes/1/links/0/title", "a Link", "`id`, `doc`, `section` and `label`"],
+				[
+					"/groups/0/color",
+					"a Group",
+					"`id`, `kind`, `title`, `members`, `description` and `links`",
+				],
+				[
+					"/edges/0/lable",
+					"an Edge",
+					"`id`, `kind`, `from`, `to`, `label`, `technology` and `rate`",
+				],
+				["/edges/1/from/side", "an Edge end at a Row", "`node` and `row`"],
+			].map(([pointer, thing, fields]) => ({
+				severity: "error",
+				rule: "model-shape",
+				message: `\`${pointer}\` must be left out: ${thing} has no such field. Its fields are ${fields}.`,
+				pointer,
+			})),
+		);
+	});
+
+	test("points at a field whose name holds a slash or a tilde, escaped as JSON Pointers escape them", () => {
+		const diagram = shopJson();
+		diagram.nodes[0] = { ...diagram.nodes[0], "replicas/zone~a": "3" } as never;
+
+		expect(render(diagram).diagnostics).toMatchObject([
+			{ rule: "model-shape", pointer: "/nodes/0/replicas~1zone~0a" },
+		]);
+	});
+
+	test("reports Walkthroughs, which this engine doesn't play yet, so that none is silently dropped", () => {
+		const diagram = {
+			...shopJson(),
+			walkthroughs: [{ id: "checkout", title: "Checkout", steps: [{ node: "shop-api" }] }],
+		};
+
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "model-shape",
+				message:
+					"`/walkthroughs` must be an empty list: this engine doesn't play Walkthroughs yet.",
+				pointer: "/walkthroughs",
+			},
+		]);
+	});
+
 	test("reports a Diagram that isn't an object", () => {
 		expect(render(null).diagnostics).toEqual([
 			{
@@ -837,6 +927,38 @@ describe("validation", () => {
 		}
 	});
 
+	test("accepts a Node's Technology written as a slug, and reports one written any other way", () => {
+		for (const technology of ["postgres", "aws-lambda", "go", "our-own-db"]) {
+			const diagram = shopJson();
+			diagram.nodes[2] = { ...diagram.nodes[2], technology } as (typeof diagram.nodes)[number];
+
+			expect(render(diagram).diagnostics, technology).toEqual([]);
+		}
+		for (const technology of ["PostgreSQL", "node.js", "google cloud", ""]) {
+			const diagram = shopJson();
+			diagram.nodes[2] = { ...diagram.nodes[2], technology } as (typeof diagram.nodes)[number];
+
+			expect(render(diagram).diagnostics, technology).toEqual([
+				{
+					severity: "error",
+					rule: "technology-format",
+					message: `Node \`shop-db\` has the Technology \`${technology}\`, which isn't a slug. Write a Technology as lowercase words joined by hyphens, such as \`postgres\` or \`grpc\`.`,
+					pointer: "/nodes/2/technology",
+				},
+			]);
+		}
+		const diagram = shopJson();
+		diagram.nodes[2] = { ...diagram.nodes[2], technology: 7 } as never;
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "model-shape",
+				message: "`/nodes/2/technology` must be a string.",
+				pointer: "/nodes/2/technology",
+			},
+		]);
+	});
+
 	test("reports an Edge's label, Technology or rate that isn't shaped like one", () => {
 		const cases: [field: string, value: unknown, what: string][] = [
 			["label", "", "a string with some text in it"],
@@ -875,5 +997,201 @@ describe("validation", () => {
 		};
 
 		expect(render(diagram).diagnostics).toEqual([]);
+	});
+});
+
+/**
+ * A valid model with text in every field that holds text, nested Groups,
+ * Rows and Links included. Its Edge from the Shop API leaves from the Row
+ * `zone`, so that the Row `replicas` can be renamed alone.
+ */
+function textJson() {
+	const diagram = regionJson();
+	return {
+		...diagram,
+		id: "docs/shop",
+		nodes: [
+			{ id: "web-app", kind: "client", title: "Web app" },
+			{
+				id: "shop-api",
+				kind: "service",
+				title: "Shop API",
+				callout: "SPOF",
+				rows: [{ name: "replicas", value: "3" }, { name: "zone" }],
+				links: [{ doc: "docs/shop.md", section: "Checkout", label: "How checkout works" }],
+			},
+			{ id: "shop-db", kind: "database", title: "Shop database", rows: [{ name: "orders" }] },
+		],
+		groups: [
+			{
+				id: "eu-west",
+				kind: "region",
+				title: "EU West",
+				members: ["shop-api", "eu-west-a"],
+				description: "Where the shop runs in Europe.",
+				links: [{ id: "us-east", label: "The US" }],
+			},
+			{ id: "eu-west-a", kind: "zone", title: "Zone A", members: ["shop-db"] },
+		],
+		edges: [
+			{
+				id: "web-app->shop-api",
+				kind: "call",
+				from: "web-app",
+				to: "shop-api",
+				label: "Places orders",
+			},
+			{
+				id: "shop-api->shop-db",
+				kind: "call",
+				from: { node: "shop-api", row: "zone" },
+				to: { node: "shop-db", row: "orders" },
+			},
+		],
+	};
+}
+
+/** Sets the value at a JSON Pointer that names an existing field. */
+function setAt(model: object, pointer: string, value: unknown): void {
+	const path = pointer.split("/").slice(1);
+	const field = path.pop() ?? "";
+	const parent = path.reduce((at, segment) => (at as Record<string, object>)[segment] ?? {}, model);
+	(parent as Record<string, unknown>)[field] = value;
+}
+
+/** An error of the rule about characters that an SVG can't hold. */
+function invalidCharacter(message: string, pointer: string) {
+	return { severity: "error", rule: "invalid-character", message, pointer };
+}
+
+describe("text that an SVG can't hold", () => {
+	test("accepts the valid fixture with text in every field", () => {
+		expect(render(textJson()).diagnostics).toEqual([]);
+	});
+
+	test("reports a title holding a control character, which would make the SVG invalid XML", () => {
+		const diagram = textJson();
+		diagram.nodes[1] = { ...diagram.nodes[1], title: "Shop\u0007API" } as never;
+
+		expect(render(diagram)).toEqual({
+			diagnostics: [
+				invalidCharacter(
+					"Node `shop-api`'s title has a control character, U+0007, which an SVG can't hold. Remove it.",
+					"/nodes/1/title",
+				),
+			],
+		});
+	});
+
+	test("reports such a character in every field that holds text, naming the field", () => {
+		const fields: [pointer: string, text: string, where: string][] = [
+			["/id", "docs/sh\u0007op", "The Diagram's id"],
+			["/title", "Sh\u0007op", "The Diagram's title"],
+			["/nodes/1/callout", "SP\u0007OF", "Node `shop-api`'s callout"],
+			[
+				"/nodes/1/rows/0/name",
+				"repl\u0007icas",
+				"The name of Node `shop-api`'s Row `repl\\u0007icas`",
+			],
+			["/nodes/1/rows/0/value", "\u00073", "The value of Node `shop-api`'s Row `replicas`"],
+			[
+				"/nodes/1/links/0/doc",
+				"docs/sh\u0007op.md",
+				"The document of Node `shop-api`'s Link to `docs/sh\\u0007op.md`",
+			],
+			[
+				"/nodes/1/links/0/section",
+				"Check\u0007out",
+				"The section of Node `shop-api`'s Link to `docs/shop.md`",
+			],
+			[
+				"/nodes/1/links/0/label",
+				"How\u0007",
+				"The label of Node `shop-api`'s Link to `docs/shop.md`",
+			],
+			["/groups/0/title", "EU\u0007West", "Group `eu-west`'s title"],
+			["/groups/0/description", "Europe\u0007", "Group `eu-west`'s description"],
+			[
+				"/groups/0/links/0/label",
+				"The\u0007US",
+				"The label of Group `eu-west`'s Link to `us-east`",
+			],
+			["/edges/0/label", "Places\u0007orders", "Edge `web-app->shop-api`'s label"],
+		];
+		for (const [pointer, text, where] of fields) {
+			const diagram = textJson();
+			setAt(diagram, pointer, text);
+
+			expect(render(diagram).diagnostics, pointer).toEqual([
+				invalidCharacter(
+					`${where} has a control character, U+0007, which an SVG can't hold. Remove it.`,
+					pointer,
+				),
+			]);
+		}
+	});
+
+	test("reports such a character in a Row's name, and in each Edge end that names the Row", () => {
+		const diagram = textJson();
+		setAt(diagram, "/nodes/1/rows/1/name", "zo\u001bne");
+		setAt(diagram, "/edges/1/from/row", "zo\u001bne");
+
+		expect(render(diagram).diagnostics).toEqual([
+			invalidCharacter(
+				"The name of Node `shop-api`'s Row `zo\\u001Bne` has a control character, U+001B, which an SVG can't hold. Remove it.",
+				"/nodes/1/rows/1/name",
+			),
+			invalidCharacter(
+				"The Row that Edge `shop-api->shop-db` starts at has a control character, U+001B, which an SVG can't hold. Remove it.",
+				"/edges/1/from/row",
+			),
+		]);
+	});
+
+	test("names every such character once, whether it's a control character, half a surrogate pair, or U+FFFE or U+FFFF", () => {
+		const cases: [title: string, found: string][] = [
+			["Shop\u0000API", "a control character, U+0000,"],
+			["Shop \ud83d", "an unpaired surrogate, U+D83D,"],
+			["\udc00Shop", "an unpaired surrogate, U+DC00,"],
+			["Shop\ufffe", "a noncharacter, U+FFFE,"],
+			["Shop\uffff", "a noncharacter, U+FFFF,"],
+		];
+		for (const [title, found] of cases) {
+			const diagram = textJson();
+			setAt(diagram, "/nodes/1/title", title);
+
+			expect(render(diagram).diagnostics, found).toEqual([
+				invalidCharacter(
+					`Node \`shop-api\`'s title has ${found} which an SVG can't hold. Remove it.`,
+					"/nodes/1/title",
+				),
+			]);
+		}
+
+		const diagram = textJson();
+		setAt(diagram, "/nodes/1/title", "\u001b[31mShop\u0007 API\u0007\ud800");
+		expect(render(diagram).diagnostics).toEqual([
+			invalidCharacter(
+				"Node `shop-api`'s title has characters that an SVG can't hold: U+001B, U+0007 and U+D800. Remove them.",
+				"/nodes/1/title",
+			),
+		]);
+	});
+
+	test("accepts every character that XML allows, such as tabs, line breaks, DEL and emoji", () => {
+		for (const title of [
+			"Shop\tAPI",
+			"Shop\nAPI\r",
+			"Shop\u007f",
+			"Shop\u0085",
+			"Shop\ufffd",
+			"Shop 🛒",
+		]) {
+			const diagram = textJson();
+			setAt(diagram, "/nodes/1/title", title);
+
+			const errors = render(diagram).diagnostics.filter(({ severity }) => severity === "error");
+			expect(errors, JSON.stringify(title)).toEqual([]);
+		}
 	});
 });

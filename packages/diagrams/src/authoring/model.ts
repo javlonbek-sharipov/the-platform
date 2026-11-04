@@ -1,6 +1,8 @@
 /**
  * Version 1 of the JSON model: the one stable, versioned format (ADR-0003).
- * The authoring API produces it, and generators may write it directly.
+ * The authoring API produces it, and generators may write it directly, then
+ * check it against the JSON Schema that the package ships for it,
+ * `@the-platform/diagrams/diagram.schema.json`.
  */
 
 import type {
@@ -35,6 +37,11 @@ export interface Node {
 	id: string;
 	kind: ArchitectureNodeKind;
 	title: string;
+	/**
+	 * The slug of the product, language or protocol the Node is built with,
+	 * such as `postgres` or `go`.
+	 */
+	technology?: string;
 	/** Whether the Node stands for something we don't own or run, such as a third-party API. */
 	external?: boolean;
 	status?: ArchitectureStatus;

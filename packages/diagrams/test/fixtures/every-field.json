@@ -1,0 +1,81 @@
+{
+	"version": 1,
+	"notation": "architecture",
+	"id": "every-field",
+	"title": "Orders",
+	"direction": "right",
+	"members": ["shopper", "web-app", "eu-west", "card-network"],
+	"nodes": [
+		{ "id": "shopper", "kind": "person", "title": "Shopper" },
+		{
+			"id": "web-app",
+			"kind": "client",
+			"title": "Web app",
+			"technology": "react",
+			"links": [{ "doc": "docs/orders.md", "section": "Placing an order", "label": "How it works" }]
+		},
+		{
+			"id": "orders-api",
+			"kind": "service",
+			"title": "Orders API",
+			"technology": "go",
+			"status": "degraded",
+			"rows": [{ "name": "replicas", "value": "3" }, { "name": "orders" }],
+			"links": [{ "id": "orders-db", "label": "Its database" }, { "doc": "docs/orders.md" }],
+			"callout": "SPOF"
+		},
+		{
+			"id": "orders-db",
+			"kind": "database",
+			"title": "Orders database",
+			"technology": "postgres",
+			"rows": [{ "name": "orders", "value": "table" }]
+		},
+		{
+			"id": "card-network",
+			"kind": "system",
+			"title": "Card network",
+			"external": true,
+			"status": "unknown"
+		}
+	],
+	"groups": [
+		{
+			"id": "eu-west",
+			"kind": "region",
+			"title": "EU West",
+			"members": ["orders-api", "eu-west-a"],
+			"description": "Where the shop runs in Europe.",
+			"links": [{ "doc": "docs/orders.md", "section": "Where it runs" }]
+		},
+		{ "id": "eu-west-a", "kind": "zone", "title": "Zone A", "members": ["orders-db"] }
+	],
+	"edges": [
+		{ "id": "shopper->web-app", "kind": "call", "from": "shopper", "to": "web-app" },
+		{
+			"id": "web-app->orders-api",
+			"kind": "call",
+			"from": "web-app",
+			"to": "orders-api",
+			"label": "Places orders",
+			"technology": "https",
+			"rate": "30/s"
+		},
+		{
+			"id": "orders-api->orders-db",
+			"kind": "call",
+			"from": { "node": "orders-api", "row": "orders" },
+			"to": { "node": "orders-db", "row": "orders" },
+			"label": "Writes orders"
+		},
+		{
+			"id": "charges",
+			"kind": "message",
+			"from": "orders-api",
+			"to": "card-network",
+			"technology": "kafka",
+			"rate": "1.5k/min"
+		}
+	],
+	"walkthroughs": []
+}

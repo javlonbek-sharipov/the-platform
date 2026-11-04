@@ -1719,6 +1719,30 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
 10. **Every fixture.** `test/support/fixtures.ts` lists the example and every Diagram that a module in `test/fixtures/` exports, drawn both ways when it's a function of the direction. The tests that check every text, every metadata, every casing and the chevrons' and junctions' properties run over that list, so fixtures that later tickets add are checked too.
 11. **Speed.** On one machine, `pnpm bench` reported 89 ms median drawn `right` and 118 ms drawn `down` for the commit this ticket started from, and 81 and 111 ms with this ticket and ticket 10 merged. Marks take under 1 ms of that. The crowded fixture's SVG is now 464 KB, from 186 KB, mostly chevrons and the casing's copy of each path.
 
+**Ticket 14**
+
+1. **The schema.**
+   - It's `packages/diagrams/diagram.schema.json`, JSON Schema draft 2020-12, written by hand. The package exports it as `@the-platform/diagrams/diagram.schema.json`.
+   - It has no `$id`, since the package's public name is chosen at the first publish. Its `$defs` name each object, `node`, `row`, `group`, `edge`, `end`, `rowEnd`, `link`, `idLink` and `docLink`, so that a tool can point at one.
+   - Its root `description` lists the rules that JSON Schema can't express, each by the name it's reported under: `duplicate-id`, `duplicate-row`, `edge-end`, `nesting` and `default-edge-id` from validation, and `kind-conflict`, `title-conflict` and `broken-link` from lint.
+2. **Fields the model doesn't have are errors.**
+   - The schema closes every object, and validation rejects such a field as `model-shape`, at the field, and lists the fields its object has: "`/edges/1/lable` must be left out: an Edge has no such field. Its fields are `id`, `kind`, `from`, `to`, `label`, `technology` and `rate`." The types forbid such a field, so validation does too, and a misspelled field is never silently ignored.
+   - Each object's fields are listed in `validate.ts` with `fieldsOf<T>`, which takes an object with one `true` per field, so that the type checker holds the list to the model's type.
+   - A pointer escapes `~` and `/` in a field's name, as RFC 6901 says.
+   - Fields of the spec's model that the engine doesn't read yet are rejected too: a Diagram's or a Node's `description`, and Walkthroughs, whose list must be empty ("`/walkthroughs` must be an empty list: this engine doesn't play Walkthroughs yet."). The slice that reads each one adds it to the model, validation and the schema. Term Links stay rejected as ticket 05 decided, with its message.
+3. **A Node's Technology.** The model's Node has `technology`, a slug, which validation checks as it checks an Edge's (`technology-format`). Ticket 12 adds it to the authoring API, and draws it.
+4. **Text that an SVG can hold.**
+   - XML can't hold some characters even as character references, so no escaping writes them: U+0000 to U+001F other than tab, line feed and carriage return, a half of a surrogate pair on its own, and U+FFFE and U+FFFF. Every field that holds text must leave them out: the Diagram's id and title, a Node's title and callout, a Row's name and value, a Group's title and description, a Link's `doc`, `section` and `label`, an Edge's label, and the Row that an Edge end names. Other fields have formats that leave them out already.
+   - The rule is `invalid-character`, at the field. The message names the field and each character by its code point, as in "Node `api`'s title has a control character, U+0007, which an SVG can't hold. Remove it.", or "…has characters that an SVG can't hold: U+001B and U+0007. Remove them." A Row's name or a Link's target in a message shows such characters as escapes, `\u0007`, never raw.
+   - Its errors come after those of the other rules. Characters that XML allows but discourages, such as DEL and the C1 controls, stay valid, with the usual `glyph-missing` warning.
+   - In the schema, `$defs/text` is a pattern that leaves those characters out. JSON Schema's patterns are ECMA-262 regular expressions with Unicode semantics, as Ajv runs them, so an emoji's surrogate pair passes and half of one doesn't.
+5. **Checking the schema.**
+   - Ajv 8.20.0 (MIT, with dependencies under MIT and BSD-3-Clause) is a dev dependency of the repo root. `test/support/schema.ts` compiles the schema in strict mode, which rejects any keyword Ajv doesn't know or would ignore, with every error reported. It names each problem by its JSON Pointer, and a missing or extra field by the field's own pointer, as the core's diagnostics do.
+   - `test/fixtures/every-field.json` is generated JSON with every field the engine reads. `everyFixture()` lists JSON fixtures too, so the properties that ticket 11 checks over every fixture cover it.
+   - Broken models must fail the schema at the pointer where the core reports its error. Each object must allow the fields that the core's message lists, no more and no fewer, and the schema's Kinds and statuses must be the Notation's.
+6. **`resolveJsonModule`** is set in `tsconfig.json`, since TypeScript doesn't document its default under `nodenext`.
+7. **Rules added:** `invalid-character`.
+
 **Orchestrator**
 
 Scope moved or added while the tickets ran. Each ticket's Comments say why.
