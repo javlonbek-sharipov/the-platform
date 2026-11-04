@@ -10,7 +10,7 @@ Every stage stays simple on purpose: a plain layout, straight or single-bend Edg
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Spec sections:**
 
@@ -82,3 +82,5 @@ Every stage stays simple on purpose: a plain layout, straight or single-bend Edg
 - **Biome and SVGs.** Biome 2.6 lints SVG files and flags the missing `<title>`, which ticket 11 adds. Biome skips generated SVGs (`*.diagram.svg` and the golden files), so it never reformats them.
 - **Not covered by any slice 1 ticket.** The spec's `<metadata>` element, which carries the JSON model in each SVG (Static SVG › Model and hooks), isn't in any ticket. The data attributes on each `<g>` are in place.
 - **Until ticket 02.** A generated model with `direction: "down"` passes validation but is laid out left to right.
+
+Merged into diagram-engine in 57319ce.
