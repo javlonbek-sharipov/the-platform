@@ -76,15 +76,19 @@ export default architecture({ title: ${JSON.stringify(title)} }, (d) => {
 `;
 }
 
-/** Runs git in a sample Atlas, unaffected by any repo that the environment points at. */
-export function git(root: string, ...args: string[]): void {
+/**
+ * Runs git in a sample Atlas, unaffected by any repo that the environment
+ * points at, and returns what it prints.
+ */
+export function git(root: string, ...args: string[]): string {
 	const env = { ...process.env };
 	for (const name of ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"]) {
 		delete env[name];
 	}
-	execFileSync("git", ["-c", "init.defaultBranch=main", ...args], {
+	return execFileSync("git", ["-c", "init.defaultBranch=main", ...args], {
 		cwd: root,
 		env,
-		stdio: "ignore",
+		stdio: ["ignore", "pipe", "ignore"],
+		encoding: "utf8",
 	});
 }

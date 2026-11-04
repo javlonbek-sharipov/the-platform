@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import example from "../docs/example-system.diagram.ts";
-import { runCli, sampleAtlas, shopModule } from "./support/atlas.ts";
+import { git, runCli, sampleAtlas, shopModule } from "./support/atlas.ts";
 import { decodePng, type Pixels, pngSize } from "./support/png.ts";
 import { descendants, type Element, parseSvg } from "./support/svg.ts";
 import {
@@ -177,6 +177,22 @@ describe("diagrams export, where it writes", () => {
 		});
 
 		expect(existsSync(join(atlas, ".diagrams-cache"))).toBe(false);
+	});
+
+	test("git ignores the cache folder, even in a repo that doesn't ignore it", async () => {
+		const atlas = await sampleAtlas({ "docs/shop.diagram.ts": shopModule() });
+		git(atlas, "init", "-q");
+		const untracked = () => git(atlas, "status", "--porcelain", "--untracked-files=all");
+		const before = untracked();
+
+		expect((await runCli(["export", "docs/shop.diagram.ts", "--format", "png"], atlas)).code).toBe(
+			0,
+		);
+		expect((await runCli(["export", "docs/shop.diagram.ts", "--format", "json"], atlas)).code).toBe(
+			0,
+		);
+		expect(existsSync(join(atlas, ".diagrams-cache/export/docs/shop.json"))).toBe(true);
+		expect(untracked()).toBe(before);
 	});
 });
 

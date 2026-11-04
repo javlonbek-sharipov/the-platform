@@ -5,7 +5,7 @@
 
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
-import { cacheFolder, lintAtlas, renderDiagrams } from "../atlas/atlas.ts";
+import { cacheFolderOf, lintAtlas, renderDiagrams } from "../atlas/atlas.ts";
 import { AtlasError, discover, findRoot } from "../atlas/discover.ts";
 import { type AtlasMessage, placeText } from "../atlas/messages.ts";
 import type { Diagram } from "../authoring/model.ts";
@@ -158,7 +158,7 @@ async function exportCommand(args: string[], context: CliContext): Promise<numbe
 			? `${model.id}.json`
 			: `${model.id}.${theme}${scale === 1 ? "" : `@${scale}x`}.png`;
 	const file =
-		out === undefined ? join(root, cacheFolder, "export", name) : resolve(context.cwd, out);
+		out === undefined ? join(cacheFolderOf(root), "export", name) : resolve(context.cwd, out);
 	mkdirSync(dirname(file), { recursive: true });
 	writeFileSync(
 		file,

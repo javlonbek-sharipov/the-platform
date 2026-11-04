@@ -4,7 +4,7 @@
  * model's own rules to those that span Diagrams and the SVGs on disk.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, relative, sep } from "node:path";
 import type { Declarations } from "../authoring/declarations.ts";
 import type { Diagram } from "../authoring/model.ts";
@@ -24,6 +24,21 @@ import { type AtlasMessage, located, placeText } from "./messages.ts";
 
 /** The engine's cache folder, at the repo root. Git ignores it. */
 export const cacheFolder = ".diagrams-cache";
+
+/**
+ * The cache folder of the Atlas at `root`, made if it's missing. It holds a
+ * `.gitignore` that ignores everything in it, itself included, so that git
+ * ignores the folder in any repo, whatever the repo's own `.gitignore` says.
+ */
+export function cacheFolderOf(root: string): string {
+	const folder = join(root, cacheFolder);
+	const ignore = join(folder, ".gitignore");
+	if (!existsSync(ignore)) {
+		mkdirSync(folder, { recursive: true });
+		writeFileSync(ignore, "# The diagrams engine's cache. Git ignores everything in it.\n*\n");
+	}
+	return folder;
+}
 
 export interface RenderedDiagram {
 	module: string;
