@@ -143,23 +143,23 @@ function searchRoute(
  * beyond both Nodes, travels back past them, and enters the target from its
  * input side.
  *
- * The direction is the one the Ports' stubs run in, which for header Ports is
- * the Diagram's. A Row's Ports sit on its Node's left and right sides even on
- * a Diagram drawn `down`, so when one stub runs across and the other down,
- * the route leaves one stub at a right angle and turns once onto the line of
- * the other.
+ * "Along the direction" means the way the Ports' stubs run, which for header
+ * Ports is the Diagram's direction. A Row's Ports sit on its Node's left and
+ * right sides even on a Diagram drawn `down`. So when one stub runs along x
+ * and the other along y, the route joins the ends of the two stubs with a
+ * single corner, leaving each stub at a right angle.
  */
 function fallbackRoute(fromPort: ScenePort, toPort: ScenePort, nodeBoxes: Box[]): Point[] {
-	const fromAcross = runsAcross(fromPort.side);
-	if (fromAcross !== runsAcross(toPort.side)) {
-		const corner = fromAcross
+	const alongX = runsAlongX(fromPort.side);
+	if (alongX !== runsAlongX(toPort.side)) {
+		const corner = alongX
 			? { x: fromPort.stub.x, y: toPort.stub.y }
 			: { x: toPort.stub.x, y: fromPort.stub.y };
 		return [fromPort.point, fromPort.stub, corner, toPort.stub, toPort.point];
 	}
 	// Worked out as if both stubs ran along x, as for `right`: when they run
 	// along y, x and y swap on the way in, and swap back on the way out.
-	const turn = fromAcross ? (point: Point) => point : transpose;
+	const turn = alongX ? (point: Point) => point : transpose;
 	const start = turn(fromPort.point);
 	const out = turn(fromPort.stub);
 	const end = turn(toPort.point);
@@ -168,7 +168,7 @@ function fallbackRoute(fromPort: ScenePort, toPort: ScenePort, nodeBoxes: Box[])
 		const middle = (start.x + end.x) / 2;
 		return [start, { x: middle, y: start.y }, { x: middle, y: end.y }, end].map(turn);
 	}
-	const boxes = nodeBoxes.map((box) => (fromAcross ? box : transposeBox(box)));
+	const boxes = nodeBoxes.map((box) => (alongX ? box : transposeBox(box)));
 	const above = Math.min(...boxes.map((box) => box.y)) - clearance / 2;
 	const below = Math.max(...boxes.map((box) => box.y + box.height)) + clearance / 2;
 	const lane =
@@ -177,7 +177,7 @@ function fallbackRoute(fromPort: ScenePort, toPort: ScenePort, nodeBoxes: Box[])
 }
 
 /** Whether a stub out of this side runs along x. */
-function runsAcross(side: Side): boolean {
+function runsAlongX(side: Side): boolean {
 	return side === "left" || side === "right";
 }
 

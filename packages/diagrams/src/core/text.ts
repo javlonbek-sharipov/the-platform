@@ -85,7 +85,7 @@ export function rowTexts(row: Row, band: Box): { name: SceneText; value?: SceneT
 		const alone = fit(name, "regular", rowSize, room);
 		return { name: text(alone, left + alone.width / 2) };
 	}
-	const shortest = fit(name, "regular", rowSize, widthOf(`${[...name][0] ?? ""}${ellipsis}`));
+	const shortest = fit(name, "regular", rowSize, rowWidthOf(`${[...name][0] ?? ""}${ellipsis}`));
 	const fittedValue = fit(value, "regular", rowSize, room - rowGap - shortest.width);
 	const fittedName = fittedValue.shortened
 		? shortest
@@ -97,7 +97,7 @@ export function rowTexts(row: Row, band: Box): { name: SceneText; value?: SceneT
 }
 
 /** A text's width in a Row: its characters' advance widths, summed. */
-function widthOf(text: string): number {
+function rowWidthOf(text: string): number {
 	const units = [...text].reduce((sum, character) => sum + unitsOf(character, "regular"), 0);
 	return (units * rowSize) / metrics.regular.unitsPerEm;
 }
@@ -111,83 +111,78 @@ export function textDiagnostics(diagram: Diagram, nodes: SceneNode[]): Diagnosti
 	return diagram.nodes.flatMap((node, index) => {
 		const scene = drawn.get(node.id);
 		const named = `Node \`${node.id}\``;
-		const pointer = `/nodes/${index}`;
-		const title = [
-			...glyphsMissing(
-				node.title,
-				"semibold",
-				(some) => `${named}'s title has ${some} that the bundled font lacks`,
-				`${pointer}/title`,
-			),
-			...(scene?.title.shortened === true
-				? [
-						shortened(
-							`${named}'s title is too wide for its Node, so it's shortened to \`${scene.title.text}\`. Choose a shorter title to show it in full.`,
-							`${pointer}/title`,
-						),
-					]
-				: []),
-		];
+		const title: CheckedText = {
+			source: node.title,
+			drawn: scene?.title,
+			weight: "semibold",
+			pointer: `/nodes/${index}/title`,
+			lacking: (some) => `${named}'s title has ${some} that the bundled font lacks`,
+			shortened: (text) =>
+				`${named}'s title is too wide for its Node, so it's shortened to \`${text}\`. Choose a shorter title to show it in full.`,
+		};
 		const rows = (node.rows ?? []).flatMap((row, at) => {
 			const rowNamed = `${named}'s Row \`${collapseSpaces(row.name)}\``;
-			return (["name", "value"] as const).flatMap((field) => {
+			return (["name", "value"] as const).flatMap((field): CheckedText[] => {
 				const source = row[field];
-				const text = scene?.rows[at]?.[field];
-				const fieldPointer = `${pointer}/rows/${at}/${field}`;
-				return [
-					...(source === undefined
-						? []
-						: glyphsMissing(
+				return source === undefined
+					? []
+					: [
+							{
 								source,
-								"regular",
-								(some) => `${rowNamed} has ${some} in its ${field} that the bundled font lacks`,
-								fieldPointer,
-							)),
-					...(text?.shortened === true
-						? [
-								shortened(
-									`${rowNamed} is too wide for its Node, so its ${field} is shortened to \`${text.text}\`. Choose a shorter name or value to show it in full.`,
-									fieldPointer,
-								),
-							]
-						: []),
-				];
+								drawn: scene?.rows[at]?.[field],
+								weight: "regular",
+								pointer: `/nodes/${index}/rows/${at}/${field}`,
+								lacking: (some) =>
+									`${rowNamed} has ${some} in its ${field} that the bundled font lacks`,
+								shortened: (text) =>
+									`${rowNamed} is too wide for its Node, so its ${field} is shortened to \`${text}\`. Choose a shorter name or value to show it in full.`,
+							},
+						];
 			});
 		});
-		return [...title, ...rows];
+		return [title, ...rows].flatMap(warningsAbout);
 	});
 }
 
-/**
- * A warning if a text has characters that the font lacks. `lacking` begins
- * its message, given `a character` or `characters`.
- */
-function glyphsMissing(
-	source: string,
-	weight: FontWeight,
-	lacking: (some: string) => string,
-	pointer: string,
-): Diagnostic[] {
-	const missing = missingCharacters(collapseSpaces(source), weight);
-	if (missing.length === 0) {
-		return [];
-	}
-	const listed = list(missing.map((character) => `${character} (${codePointOf(character)})`));
-	return [
-		{
+/** A piece of text that a Node draws, and how warnings about it read. */
+interface CheckedText {
+	/** The text as the model gives it. */
+	source: string;
+	/** The text as the scene draws it. */
+	drawn: SceneText | undefined;
+	weight: FontWeight;
+	pointer: string;
+	/** The start of a warning about characters the font lacks, given `a character` or `characters`. */
+	lacking: (some: string) => string;
+	/** A warning that the text was shortened, given the text drawn. */
+	shortened: (text: string) => string;
+}
+
+/** A warning if the text has characters that the font lacks, and one if it was shortened. */
+function warningsAbout(text: CheckedText): Diagnostic[] {
+	const diagnostics: Diagnostic[] = [];
+	const missing = missingCharacters(collapseSpaces(text.source), text.weight);
+	if (missing.length > 0) {
+		const listed = list(missing.map((character) => `${character} (${codePointOf(character)})`));
+		diagnostics.push({
 			severity: "warning",
 			rule: "glyph-missing",
 			message:
 				missing.length === 1
-					? `${lacking("a character")}: ${listed}. It's measured at an average width, and drawn in a fallback font.`
-					: `${lacking("characters")}: ${listed}. They're measured at an average width, and drawn in a fallback font.`,
-			pointer,
-		},
-	];
-}
-
-function shortened(message: string, pointer: string): Diagnostic {
-	return { severity: "warning", rule: "text-shortened", message, pointer };
+					? `${text.lacking("a character")}: ${listed}. It's measured at an average width, and drawn in a fallback font.`
+					: `${text.lacking("characters")}: ${listed}. They're measured at an average width, and drawn in a fallback font.`,
+			pointer: text.pointer,
+		});
+	}
+	if (text.drawn?.shortened === true) {
+		diagnostics.push({
+			severity: "warning",
+			rule: "text-shortened",
+			message: text.shortened(text.drawn.text),
+			pointer: text.pointer,
+		});
+	}
+	return diagnostics;
 }
 
 /** Each character in the text that the font lacks, once, in order. */
