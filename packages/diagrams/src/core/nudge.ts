@@ -252,7 +252,7 @@ function arrange(
 		}
 	});
 	for (const stretch of stretches) {
-		limit(stretch, stretches, runs, routes, corridors, lanes);
+		limit(stretch, runs, routes, corridors, lanes);
 	}
 	const sorted = overlapSets(stretches).map((set) => sortSet(set, allRuns));
 	for (const group of shareRoom(sorted, lanes)) {
@@ -421,7 +421,6 @@ function stubsCarried(run: Run, routes: NudgeRoute[]): number {
  */
 function limit(
 	stretch: Stretch,
-	stretches: Stretch[],
 	runs: Run[][],
 	routes: NudgeRoute[],
 	corridors: Corridors,
