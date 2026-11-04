@@ -4,14 +4,18 @@ import {
 	type Box,
 	type Diagram,
 	type Direction,
+	type Edge,
+	type KnownTechnology,
 	type Point,
 	render,
 	type Scene,
 	type SceneEdge,
 	type SceneText,
+	technologies,
 } from "../src/index.ts";
 import { crowded } from "./fixtures/crowded.ts";
-import { groupFixtures } from "./fixtures/groups.ts";
+import { groupFixtures, twoRegions } from "./fixtures/groups.ts";
+import { labeled } from "./support/labeled.ts";
 import { computedStyle, descendants, type Element, parseSvg, rulesOf } from "./support/svg.ts";
 import { advanceOf, bundledFont, characterMap, unitsPerEm } from "./support/truetype.ts";
 
@@ -312,27 +316,6 @@ function span(box: Box, axis: "x" | "y"): [number, number] {
 	return axis === "x" ? [box.x, box.x + box.width] : [box.y, box.y + box.height];
 }
 
-/**
- * A Diagram with a label on every `every`th Edge, of a few lengths, some with
- * a Technology or a rate below it.
- */
-function labeled(diagram: Diagram, every = 1): Diagram {
-	const phrases = ["Reads", "Places orders", "Publishes events", "Syncs stock", "Charges cards"];
-	return {
-		...diagram,
-		edges: diagram.edges.map((edge, index) =>
-			index % every !== 0
-				? edge
-				: {
-						...edge,
-						label: phrases[(index / every) % phrases.length] ?? "Reads",
-						...(index % 3 === 0 ? { technology: "grpc" } : {}),
-						...(index % 4 === 1 ? { rate: "2k/s" } : {}),
-					},
-		),
-	};
-}
-
 /** The Orders API calls five stores, each labeled. */
 function stores(direction: Direction): Diagram {
 	return labeled(
@@ -352,9 +335,29 @@ function stores(direction: Direction): Diagram {
 	);
 }
 
+/**
+ * Four services write to the Orders database over PostgreSQL, whose logo
+ * shows in each label, so their Edges' bundle would ride one trunk.
+ */
+function fanIn(direction: Direction): Diagram {
+	return architecture({ title: "Fan-in", direction }, (d) => {
+		const db = d.node({ id: "orders-db", kind: "database", title: "Orders database" });
+		for (const [id, title, label] of [
+			["orders-api", "Orders API", "Writes orders"],
+			["billing-api", "Billing API", "Reads orders"],
+			["reports-api", "Reports API", "Reads"],
+			["returns-api", "Returns API", "Writes returns"],
+		] as const) {
+			const api = d.node({ id, kind: "service", title });
+			d.edge(api, db, { kind: "call", label, technology: "postgres", rate: "2k/s" });
+		}
+	});
+}
+
 const labeledFixtures: [string, (direction: Direction) => Diagram][] = [
 	["orders", orders],
 	["a fan-out to five stores", stores],
+	["a fan-in of labels with Technology logos", fanIn],
 	...groupFixtures.map(([name, fixture]): [string, (direction: Direction) => Diagram] => [
 		name,
 		(direction) => labeled(fixture(direction)),
@@ -363,7 +366,49 @@ const labeledFixtures: [string, (direction: Direction) => Diagram][] = [
 		"the crowded fixture, with every sixth Edge labeled",
 		(direction) => labeled(crowded(direction), 6),
 	],
+	["the crowded fixture, with every Edge labeled", (direction) => labeled(crowded(direction))],
 ];
+
+/** A Port, named by its Node and its Row, if any. */
+function portKey(node: string, row: string | undefined): string {
+	return row === undefined ? node : `${node}/${row}`;
+}
+
+/**
+ * Whether two Edges share a bundle, read from the spec rather than the code:
+ * the same Kind into the same Port, unless they're parallel, joining the same
+ * pair of Ports.
+ */
+function sameBundle(a: SceneEdge, b: SceneEdge): boolean {
+	const parallel =
+		portKey(a.from, a.fromRow) === portKey(b.from, b.fromRow) &&
+		portKey(a.to, a.toRow) === portKey(b.to, b.toRow);
+	return a.kind === b.kind && portKey(a.to, a.toRow) === portKey(b.to, b.toRow) && !parallel;
+}
+
+/**
+ * The width of an Edge's label box with its texts in full, read from the font
+ * and the spec: its widest line, the text at 12 px, or the Technology and the
+ * rate at 11 px, 12 px apart, but no wider than 192 px, and 4 px on each side.
+ * A Technology with a logo shows its name after the 12 px logo and a 4 px gap,
+ * and one without shows its slug.
+ */
+function fullBoxWidth({ label, technology, rate }: Edge): number {
+	const text = label === undefined ? 0 : widthInInterRegular(label.replace(/\s+/g, " ").trim(), 12);
+	const known = technology === undefined ? undefined : technologies[technology as KnownTechnology];
+	const details = [
+		...(technology === undefined
+			? []
+			: [
+					known === undefined
+						? widthInInterRegular(technology, 11)
+						: 16 + widthInInterRegular(known.name, 11),
+				]),
+		...(rate === undefined ? [] : [widthInInterRegular(rate, 11)]),
+	];
+	const detail = details.reduce((sum, width) => sum + width, 0) + (details.length === 2 ? 12 : 0);
+	return Math.min(192, Math.max(text, detail)) + 8;
+}
 
 function overlaps(a: Box, b: Box): boolean {
 	return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
@@ -387,9 +432,14 @@ function grown(box: Box, by: number): Box {
 /**
  * What a label's box would cover that labels stay clear of: Nodes, callouts'
  * tags, the stubs of the Ports that Edges use, Group labels, and the boxes of
- * the other labels.
+ * the other labels, but for those of the Edges in `exempt`.
  */
-function coveredBy(scene: Scene, box: Box, edge: SceneEdge): string[] {
+function coveredBy(
+	scene: Scene,
+	box: Box,
+	edge: SceneEdge,
+	exempt: ReadonlySet<string> = new Set(),
+): string[] {
 	const stubs = new Map(
 		scene.edges.flatMap(({ fromPort, toPort }) =>
 			[fromPort, toPort].map((port) => [`${port.point.x} ${port.point.y}`, port] as const),
@@ -405,7 +455,9 @@ function coveredBy(scene: Scene, box: Box, edge: SceneEdge): string[] {
 		),
 		...scene.groups.flatMap(({ id, label }) => (overlaps(box, label) ? [`${id}'s label`] : [])),
 		...scene.edges.flatMap(({ id, label }) =>
-			id !== edge.id && label !== undefined && overlaps(box, label.box) ? [`${id}'s label`] : [],
+			id !== edge.id && !exempt.has(id) && label !== undefined && overlaps(box, label.box)
+				? [`${id}'s label`]
+				: [],
 		),
 	];
 }
@@ -468,7 +520,7 @@ describe.each(directions)("the labels in each fixture, laid out %s", (direction)
 		const fellBack = new Set(
 			diagnostics
 				.filter(({ rule }) => rule === "label-placement")
-				.map(({ pointer }) => diagram.edges[Number(pointer?.split("/")[2])]?.id),
+				.flatMap(({ pointer }) => diagram.edges[Number(pointer?.split("/")[2])]?.id ?? []),
 		);
 		const placed = scene.edges.filter(({ id, label }) => label !== undefined && !fellBack.has(id));
 
@@ -535,8 +587,12 @@ describe.each(directions)("the labels in each fixture, laid out %s", (direction)
 		});
 
 		test("stay clear of every Node, tag, Port stub, Group label and other label", () => {
+			// A label at its route's midpoint may overlap anything, other labels
+			// included, so only the labels placed beside their runs keep clear.
 			for (const edge of placed) {
-				expect(coveredBy(scene, edge.label?.box ?? scene.bounds, edge), edge.id).toEqual([]);
+				expect(coveredBy(scene, edge.label?.box ?? scene.bounds, edge, fellBack), edge.id).toEqual(
+					[],
+				);
 			}
 		});
 
@@ -597,50 +653,133 @@ describe.each(directions)("the labels in each fixture, laid out %s", (direction)
 				}
 			}
 		});
+
+		test("ride their bundle's trunk only where a run of their own holds them in full, and keep a lane of their own otherwise", () => {
+			for (const edge of scene.edges) {
+				const model = diagram.edges.find(({ id }) => id === edge.id);
+				if (edge.label === undefined || model === undefined) {
+					continue;
+				}
+				const rides = scene.edges.some(
+					(other) =>
+						other !== edge &&
+						sameBundle(edge, other) &&
+						sharedBeyondJunctions(scene, edge, other).length > 0,
+				);
+				const [width, height] = [fullBoxWidth(model), edge.label.box.height];
+				const holds = ownStretches(scene, edge).some(
+					(stretch) => stretch.high - stretch.low >= (stretch.horizontal ? width : height) - 1e-6,
+				);
+				expect(
+					!rides || holds,
+					`${edge.id} rides its trunk with no run of its own for its label`,
+				).toBe(true);
+			}
+		});
+
+		test("say why a label goes to its route's midpoint: no run of its own, too long for every one, or no room beside any", () => {
+			for (const [index, { id }] of diagram.edges.entries()) {
+				const edge = scene.edges.find((candidate) => candidate.id === id);
+				const warning = diagnostics.find(
+					({ rule, pointer }) => rule === "label-placement" && pointer === `/edges/${index}`,
+				);
+				if (edge?.label === undefined || warning === undefined) {
+					continue;
+				}
+				// At the midpoint, the label is drawn in full.
+				const { box } = edge.label;
+				const stretches = ownStretches(scene, edge);
+				const reason =
+					stretches.length === 0
+						? "has no run of its own"
+						: stretches.some((stretch) => longEnough(stretch, box))
+							? "has no room beside any run of the Edge's own"
+							: "is too long for any run of the Edge's own";
+				expect(warning.message).toContain(`Edge \`${id}\`'s label ${reason}`);
+			}
+		});
 	});
 });
 
-describe("an Edge's label with no room on a run of its own", () => {
+/** The point halfway along a route, and whether the run it lies on is horizontal. */
+function halfwayAlong(route: Point[]): { point: Point; horizontal: boolean } {
+	const runs = route.slice(1).map((to, index): [Point, Point] => [route[index] ?? to, to]);
+	const length = ([a, b]: [Point, Point]) => Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+	let left = runs.reduce((sum, run) => sum + length(run), 0) / 2;
+	for (const run of runs) {
+		const [a, b] = run;
+		if (left <= length(run)) {
+			const share = left / length(run);
+			return {
+				point: { x: a.x + (b.x - a.x) * share, y: a.y + (b.y - a.y) * share },
+				horizontal: a.y === b.y,
+			};
+		}
+		left -= length(run);
+	}
+	throw new Error("expected a route with some length");
+}
+
+describe("the two-regions fixture, with every Edge labeled", () => {
+	test.each(directions)(
+		"places every label beside a run of its own, with no label-placement warning, laid out %s",
+		(direction) => {
+			// The EU API calls the US database too. Riding that Edge's trunk, the US
+			// API's Edge to its database would be all trunk past its stub.
+			const { scene, diagnostics } = render(labeled(twoRegions(direction)));
+			if (scene === undefined) {
+				throw new Error("expected a scene");
+			}
+			expect(diagnostics.filter(({ rule }) => rule === "label-placement")).toEqual([]);
+			for (const edge of scene.edges) {
+				const box = edge.label?.box ?? scene.bounds;
+				expect(
+					ownStretches(scene, edge).some((stretch) => besideStretch(box, stretch)),
+					edge.id,
+				).toBe(true);
+			}
+		},
+	);
+});
+
+describe("an Edge's label with no room beside a run of its own", () => {
 	/**
-	 * The web app and the admin app both call the gateway. The admin app's Edge
-	 * is routed first, by id, and the web app's joins its trunk at the end of
-	 * its own stub, so it has no run of its own.
+	 * The web app calls the gateway three ways, so three parallel Edges run side
+	 * by side, each in a lane of its own. The outer two's labels sit outside the
+	 * three lanes, where they hide nothing. The middle one's label would cover
+	 * one of theirs on either side of its run, so it has no room.
 	 */
-	function joined(direction: Direction): Diagram {
-		return architecture({ title: "Joined", direction }, (d) => {
+	function threeWays(direction: Direction): Diagram {
+		return architecture({ title: "Three ways", direction }, (d) => {
 			const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
-			const admin = d.node({ id: "admin-app", kind: "client", title: "Admin app" });
 			const gateway = d.node({ id: "gateway", kind: "gateway", title: "Gateway" });
-			d.edge(web, gateway, { kind: "call", label: "Signs in" });
-			d.edge(admin, gateway, { kind: "call" });
+			d.edge(web, gateway, { kind: "call", id: "sign-in", label: "Signs in" });
+			d.edge(web, gateway, { kind: "call", id: "sign-out", label: "Signs out" });
+			d.edge(web, gateway, { kind: "call", id: "refresh", label: "Refreshes" });
 		});
 	}
 
 	test.each(directions)(
 		"goes beside its route's midpoint, and lint warns, laid out %s",
 		(direction) => {
-			const { scene, diagnostics } = render(joined(direction));
-			const edge = scene?.edges.find(({ id }) => id === "web-app->gateway");
+			const { scene, diagnostics } = render(threeWays(direction));
+			const edge = scene?.edges.find(({ id }) => id === "sign-in");
 			if (scene === undefined || edge === undefined) {
-				throw new Error("expected the web app's Edge");
+				throw new Error("expected the sign-in Edge");
 			}
-			expect(ownStretches(scene, edge)).toEqual([]);
 			expect(diagnostics).toEqual([
 				{
 					severity: "warning",
 					rule: "label-placement",
 					message:
-						"Edge `web-app->gateway`'s label has no room beside any run of the Edge's own, clear of Nodes, Port stubs, Group labels and other labels, so it's drawn at the middle of its route.",
+						"Edge `sign-in`'s label has no room beside any run of the Edge's own, clear of Nodes, Port stubs, Group labels and other labels, so it's drawn at the middle of its route.",
 					pointer: "/edges/0",
 				},
 			]);
-			// The route is one straight run from Port to Port, so its midpoint is
-			// halfway between them. The label is centered there, beside the run.
-			const [from, to] = [edge.fromPort.point, edge.toPort.point];
-			const horizontal = from.y === to.y;
-			const [line, middle] = horizontal
-				? [from.y, (from.x + to.x) / 2]
-				: [from.x, (from.y + to.y) / 2];
+			// The label is centered on the point halfway along the route, beside the
+			// run there.
+			const { point, horizontal } = halfwayAlong(edge.route);
+			const [line, middle] = horizontal ? [point.y, point.x] : [point.x, point.y];
 			const box = edge.label?.box ?? scene.bounds;
 			const [start, size, near, far] = horizontal
 				? [box.x, box.width, box.y, box.y + box.height]
@@ -649,6 +788,238 @@ describe("an Edge's label with no room on a run of its own", () => {
 			const gap = near > line ? near - line : line - far;
 			expect(gap).toBeGreaterThan(0);
 			expect(gap).toBeLessThanOrEqual(8);
+		},
+	);
+});
+
+/**
+ * Whether a stretch is long enough for a label, at its narrowest: along a
+ * horizontal stretch, its box shortened to 48 px of text, unless it's
+ * narrower in full, and along a vertical one, its box's height.
+ */
+function longEnough(stretch: Stretch, box: { width: number; height: number }): boolean {
+	const needs = stretch.horizontal ? Math.min(box.width - 8, 48) + 8 : box.height;
+	return stretch.high - stretch.low >= needs;
+}
+
+describe("a label at its route's midpoint for want of a run of its own", () => {
+	/** A budget so small that every search runs out, so that every Edge takes the simple route. */
+	const tiny = { searchBudget: 1 };
+
+	test("gets a warning that it's too long for any run of the Edge's own", () => {
+		// The Edge leaves a Row of the Orders API, below its header, for the
+		// Payments API's header. On the simple route, it jogs halfway between the
+		// two, so none of its runs is long enough for its label, its Technology
+		// and its rate.
+		const diagram = architecture({ title: "Charges" }, (d) => {
+			const api = d.node({
+				id: "orders-api",
+				kind: "service",
+				title: "Orders API",
+				rows: [{ name: "replicas", value: "3" }],
+			});
+			const payments = d.node({ id: "payments-api", kind: "service", title: "Payments API" });
+			d.edge(api.row("replicas"), payments, {
+				kind: "call",
+				label: "Charges",
+				technology: "grpc",
+				rate: "2k/s",
+			});
+		});
+		const { scene, diagnostics } = render(diagram, tiny);
+		const edge = scene?.edges[0];
+		if (scene === undefined || edge?.label === undefined) {
+			throw new Error("expected a labeled Edge");
+		}
+		const stretches = ownStretches(scene, edge);
+		expect(stretches.length).toBeGreaterThan(0);
+		expect(
+			stretches.filter((stretch) => longEnough(stretch, edge.label?.box ?? scene.bounds)),
+		).toEqual([]);
+		expect(diagnostics.filter(({ rule }) => rule === "label-placement")).toEqual([
+			{
+				severity: "warning",
+				rule: "label-placement",
+				message:
+					"Edge `orders-api->payments-api`'s label is too long for any run of the Edge's own, so it's drawn at the middle of its route. Shorten it to fit beside a run.",
+				pointer: "/edges/0",
+			},
+		]);
+	});
+
+	test.each(directions)(
+		"gets a warning that it has no run of its own, where other Edges run along all of its route, laid out %s",
+		(direction) => {
+			// On the simple route, two parallel Edges run along the same line,
+			// straight from Port to Port.
+			const diagram = architecture({ title: "Sign-in", direction }, (d) => {
+				const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+				const gateway = d.node({ id: "gateway", kind: "gateway", title: "Gateway" });
+				d.edge(web, gateway, { kind: "call", id: "sign-in", label: "Signs in" });
+				d.edge(web, gateway, { kind: "call", id: "sign-out", label: "Signs out" });
+			});
+			const { scene, diagnostics } = render(diagram, tiny);
+			if (scene === undefined) {
+				throw new Error("expected a scene");
+			}
+			for (const edge of scene.edges) {
+				expect(ownStretches(scene, edge), edge.id).toEqual([]);
+			}
+			expect(diagnostics.filter(({ rule }) => rule === "label-placement")).toEqual(
+				["sign-in", "sign-out"].map((id, index) => ({
+					severity: "warning",
+					rule: "label-placement",
+					message: `Edge \`${id}\`'s label has no run of its own, since other Edges run along all of its route past its stubs. So it's drawn at the middle of its route.`,
+					pointer: `/edges/${index}`,
+				})),
+			);
+		},
+	);
+});
+
+/** Whether two points are the same. */
+function same(a: Point, b: Point): boolean {
+	return a.x === b.x && a.y === b.y;
+}
+
+/** What's left of some pieces of a line once the stretch from `low` to `high` is cut out of them. */
+function cutOut(pieces: [number, number][], low: number, high: number): [number, number][] {
+	return pieces.flatMap(([a, b]): [number, number][] =>
+		high <= a || low >= b
+			? [[a, b]]
+			: [
+					...(low > a ? [[a, low] as [number, number]] : []),
+					...(high < b ? [[high, b] as [number, number]] : []),
+				],
+	);
+}
+
+/**
+ * The stretches where two Edges' routes run along one lane, read from the
+ * spec: runs on one line, within half a pixel, that overlap by more than
+ * that. Where both Edges leave one Port, or enter one, they may share its
+ * junction, where they converge on it: its stub's line, from the Port out
+ * past the stub's end by a lane's room, a grid step, for each Edge at it.
+ */
+function sharedBeyondJunctions(scene: Scene, a: SceneEdge, b: SceneEdge): Stretch[] {
+	const junctions = [
+		[a.fromPort, b.fromPort],
+		[a.toPort, b.toPort],
+	].flatMap(([port, other]) =>
+		port !== undefined && other !== undefined && same(port.point, other.point) ? [port] : [],
+	);
+	return runsOf(a.route, false).flatMap((first) =>
+		runsOf(b.route, false).flatMap((second): Stretch[] => {
+			if (
+				first.horizontal !== second.horizontal ||
+				Math.abs(first.line - second.line) >= sameLine
+			) {
+				return [];
+			}
+			let pieces: [number, number][] = [
+				[Math.max(first.low, second.low), Math.min(first.high, second.high)],
+			];
+			for (const { point, stub } of junctions) {
+				const alongStub = first.horizontal ? point.y === stub.y : point.x === stub.x;
+				const across = first.horizontal ? point.y : point.x;
+				if (!alongStub || Math.abs(across - first.line) >= sameLine) {
+					continue;
+				}
+				const atPort = scene.edges.filter(
+					(edge) => same(edge.fromPort.point, point) || same(edge.toPort.point, point),
+				).length;
+				const [start, end] = first.horizontal ? [point.x, stub.x] : [point.y, stub.y];
+				const far = start + Math.sign(end - start) * (Math.abs(end - start) + atPort * scene.grid);
+				pieces = cutOut(pieces, Math.min(start, far), Math.max(start, far));
+			}
+			return pieces
+				.filter(([low, high]) => high - low > sameLine)
+				.map(([low, high]) => ({ horizontal: first.horizontal, line: first.line, low, high }));
+		}),
+	);
+}
+
+describe("a labeled Edge in a bundle", () => {
+	/**
+	 * The web app and the admin app both call the gateway. The admin app's Edge
+	 * is routed first, by id. Riding its trunk, the web app's Edge would join it
+	 * at the end of its own stub, and have no run of its own.
+	 */
+	function joining(direction: Direction): Diagram {
+		return architecture({ title: "Joining", direction }, (d) => {
+			const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+			const admin = d.node({ id: "admin-app", kind: "client", title: "Admin app" });
+			const gateway = d.node({ id: "gateway", kind: "gateway", title: "Gateway" });
+			d.edge(web, gateway, { kind: "call", label: "Signs in" });
+			d.edge(admin, gateway, { kind: "call" });
+		});
+	}
+
+	/**
+	 * The same two apps, declared the other way round, so that the admin app
+	 * lines up with the gateway, and labeled the other way round. The admin
+	 * app's Edge is still routed first, straight into the gateway. Riding its
+	 * trunk, the web app's Edge would join it at the end of its stub, and leave
+	 * it no run of its own.
+	 */
+	function joined(direction: Direction): Diagram {
+		return architecture({ title: "Joined", direction }, (d) => {
+			const admin = d.node({ id: "admin-app", kind: "client", title: "Admin app" });
+			const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+			const gateway = d.node({ id: "gateway", kind: "gateway", title: "Gateway" });
+			d.edge(admin, gateway, { kind: "call", label: "Signs in" });
+			d.edge(web, gateway, { kind: "call" });
+		});
+	}
+
+	/** Each case: its Diagram, and the labeled Edge in it. */
+	const cases = {
+		"joining it": [joining, "web-app->gateway"],
+		"joined by it": [joined, "admin-app->gateway"],
+	} as const;
+
+	test.each(
+		directions.flatMap((direction) =>
+			Object.keys(cases).map((name) => [name as keyof typeof cases, direction] as const),
+		),
+	)(
+		"keeps a lane of its own from end to end, when its trunk would leave it no run of its own, %s, laid out %s",
+		(name, direction) => {
+			const [fixture, id] = cases[name];
+			const scene = sceneOf(fixture(direction));
+			const edge = edgeOf(scene, id);
+			const other = scene.edges.find((candidate) => candidate !== edge) ?? edge;
+			expect(sharedBeyondJunctions(scene, edge, other)).toEqual([]);
+			const box = edge.label?.box ?? scene.bounds;
+			expect(ownStretches(scene, edge).some((stretch) => besideStretch(box, stretch))).toBe(true);
+		},
+	);
+
+	test.each(directions)(
+		"rides its bundle's trunk as before, where the trunk leaves it a run of its own that holds its label, laid out %s",
+		(direction) => {
+			// As in `joining`, but the admin app's Edge carries the label, and its
+			// Technology and rate. It runs across the rank to the web app's Edge,
+			// and joins it there: that run is its own, and holds its label.
+			const scene = sceneOf(
+				architecture({ title: "Riding", direction }, (d) => {
+					const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+					const admin = d.node({ id: "admin-app", kind: "client", title: "Admin app" });
+					const gateway = d.node({ id: "gateway", kind: "gateway", title: "Gateway" });
+					d.edge(web, gateway, { kind: "call" });
+					d.edge(admin, gateway, {
+						kind: "call",
+						label: "Signs in",
+						technology: "oauth",
+						rate: "2/s",
+					});
+				}),
+			);
+			const edge = edgeOf(scene, "admin-app->gateway");
+			const trunk = sharedBeyondJunctions(scene, edge, edgeOf(scene, "web-app->gateway"));
+			expect(trunk.length).toBeGreaterThan(0);
+			const box = edge.label?.box ?? scene.bounds;
+			expect(ownStretches(scene, edge).some((stretch) => besideStretch(box, stretch))).toBe(true);
 		},
 	);
 });

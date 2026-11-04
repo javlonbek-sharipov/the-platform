@@ -1772,6 +1772,25 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
 6. **`resolveJsonModule`** is set in `tsconfig.json`, since TypeScript doesn't document its default under `nodenext`.
 7. **Rules added:** `invalid-character`.
 
+**Ticket 16**
+
+1. **Which labeled Edges ride a trunk.**
+   - A labeled Edge rides its bundle's trunk where routes of its lane group run along one of its runs, past its stubs. It may do so only while a run of its own, as ticket 10's decision 3 counts them, still holds its label in full: the box's width along a horizontal run, and its height along a vertical one.
+   - In full, because each gap between ranks leaves room for a label in full (ticket 10, decision 5). A trunk that left a shorter run would shorten the label, and the warning would ask the author for a shorter label when the trunk is to blame.
+   - An Edge with no such run is crowded out. It gets a lane group of its own, keyed by its bundle's key and its id, as a parallel Edge gets one. It joins no trunk, no Edge joins it, and it keeps its lane from end to end, sharing only its Ports' junctions, as parallel Edges do. It doesn't join the trunk past its label instead, since nudging gives each route one lane group.
+   - Unlabeled Edges, and labeled Edges that keep such a run, bundle as before.
+2. **Found by routing, then laid out and routed again.**
+   - Whether a trunk takes a label's run depends on the routes. So `render` lays out and routes as before, and the router reports the labeled Edges that their trunks crowd out. Those keep lanes of their own, and layout and routing run again, with layout leaving a lane for each in the gaps it crosses (ticket 09, decision 11). This repeats until no trunk crowds out a label, at most 5 times in all. Each time only adds Edges, and an Edge that has a lane of its own keeps it.
+   - Crowding Edges out of a bundle changes its trunk, which can crowd out others. Over 400 random Diagrams of up to 18 Nodes and 34 Edges, 70% of the Edges labeled, a render took 1 to 4 rounds. The crowded fixture with every Edge labeled takes 3 rounds drawn `right`, with 35 Edges in lanes of their own, and 2 drawn `down`, with 26.
+   - A Diagram whose trunks crowd out no label is laid out and routed once, as before.
+3. **The warning says why.** A label drawn at its route's midpoint gets one of three `label-placement` messages:
+   - when the Edge has no run of its own past its stubs: "Edge `x`'s label has no run of its own, since other Edges run along all of its route past its stubs. So it's drawn at the middle of its route." Now that trunks keep off labels' runs, this shows mostly on fallback routes (step 11), where two Edges can take one simple route;
+   - when no run of its own is long enough for the label, even shortened to 48 px of text (ticket 10, decision 3): "Edge `x`'s label is too long for any run of the Edge's own, so it's drawn at the middle of its route. Shorten it to fit beside a run." A shorter label fits a horizontal run, and one without its Technology and rate is shorter along a vertical one;
+   - otherwise, when every place beside a run long enough covers something, the message ticket 10 gave every one: "…has no room beside any run of the Edge's own, clear of Nodes, Port stubs, Group labels and other labels, so it's drawn at the middle of its route."
+
+   This replaces the last sentence of the sixth point of ticket 10's decision 3, about an Edge that is all trunk past its stub.
+4. **Speed.** With no labels crowded out, a render costs what it did: `pnpm bench` reports 79 ms median drawn `right` and 107 ms drawn `down`. It now times the crowded fixture with every Edge labeled too: 331 ms and 140 ms, from 70 ms and 66 ms on the commit this ticket merged. The second of three rounds drawn `right` costs the most, 162 ms, since its negotiation runs all 5 passes without clearing every corridor. The third, whose layout leaves room for 2 more lanes, needs 2 passes.
+
 **Orchestrator**
 
 Scope moved or added while the tickets ran. Each ticket's Comments say why.

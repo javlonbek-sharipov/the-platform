@@ -42,12 +42,22 @@ export interface RouteOptions {
 	 * out falls back to the simple route.
 	 */
 	searchBudget?: number;
+	/**
+	 * The labeled Edges that keep lanes of their own, out of their bundles'
+	 * trunks, as parallel Edges do.
+	 */
+	ownLanes?: ReadonlySet<string>;
 }
 
 export interface Routing {
 	/** One per Edge, in model order. */
 	edges: SceneEdge[];
 	diagnostics: Diagnostic[];
+	/**
+	 * The labeled Edges that ride a trunk with no run of their own that holds
+	 * their label, which should keep lanes of their own instead.
+	 */
+	crowdedOut: string[];
 }
 
 /** A bend costs as much as this much length, which favors routes with few bends. */
@@ -145,7 +155,7 @@ export function route(
 	const search = searchOn(grid);
 	const budget = options.searchBudget ?? defaultSearchBudget;
 	const bundle = options.bundle ?? "target";
-	const groupOf = laneGroups(diagram, bundle);
+	const groupOf = laneGroups(diagram, bundle, options.ownLanes);
 	// The Group that holds each Node or Group, and each Group's box.
 	const parentOf = new Map<string, string>();
 	for (const group of diagram.groups) {
@@ -363,7 +373,7 @@ export function route(
 	edges.forEach((edge, index) => {
 		edge.stroke = strokes[index] ?? [edge.route];
 	});
-	const labeling = placeLabels(diagram, nodes, groups, edges);
+	const labeling = placeLabels(diagram, nodes, groups, edges, groupOf);
 	for (const edge of edges) {
 		const label = labeling.labels.get(edge.id);
 		if (label !== undefined) {
@@ -382,7 +392,11 @@ export function route(
 				]
 			: [],
 	);
-	return { edges, diagnostics: [...fallbacks, ...labeling.diagnostics] };
+	return {
+		edges,
+		diagnostics: [...fallbacks, ...labeling.diagnostics],
+		crowdedOut: labeling.crowdedOut,
+	};
 }
 
 /**

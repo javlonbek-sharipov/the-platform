@@ -74,7 +74,16 @@ interface Block extends Level {
 /** The spacing of lanes, as the router spaces them where there's room. */
 const laneSpacing = 8;
 
-export function layOut(diagram: Diagram, bundle: Bundling = "target"): Layout {
+/**
+ * Lays the Diagram out. Each gap between ranks leaves room for a lane for
+ * each lane group whose Edges cross it, so layout takes the bundling, and the
+ * labeled Edges that keep lanes of their own, as the router will route them.
+ */
+export function layOut(
+	diagram: Diagram,
+	bundle: Bundling = "target",
+	ownLanes: ReadonlySet<string> = new Set(),
+): Layout {
 	const down = diagram.direction === "down";
 	/**
 	 * The room an Edge's label needs along the rank axis, in a gap between
@@ -88,7 +97,7 @@ export function layOut(diagram: Diagram, bundle: Bundling = "target"): Layout {
 	};
 	// Each Edge's lane group, so that each gap between ranks leaves room for a
 	// lane for each group that crosses it.
-	const laneOf = laneGroups(diagram, bundle);
+	const laneOf = laneGroups(diagram, bundle, ownLanes);
 	const groupsById = new Map(diagram.groups.map((group) => [group.id, group]));
 	// A Node is as tall as its Kind's header and its Rows' bands together.
 	const frames = new Map(diagram.nodes.map((node) => [node.id, frameOf(node)]));
