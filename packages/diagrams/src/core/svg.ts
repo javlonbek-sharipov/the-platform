@@ -548,18 +548,33 @@ const chevronLength = 4;
 const chevronHalfWidth = 3.5;
 
 /**
- * An Edge: its line, as a casing beneath a body, its chevrons, cased alike,
- * and its arrowhead. The line
- * stops just inside the arrowhead, so that its casing doesn't show beside the
- * tip. Its path is written from its target, so that its dashes start there:
- * the Edges of one bundle end at one Port, and so dash alike along the trunk
- * they share.
+ * An Edge: its line, as a casing beneath a body; its chevrons, cased alike;
+ * its arrowhead; and its badge, if it crosses between regions or zones. The
+ * line stops just inside the arrowhead, so that its casing doesn't show
+ * beside the tip. Its path is written from its target, so that its dashes
+ * start there: the Edges of one bundle end at one Port, and so dash alike
+ * along the trunk they share.
  */
 function writeEdge(edge: SceneEdge): string[] {
 	const line = pathData(trimmed(edge.route, arrowLength - arrowOutline).reverse());
 	const dashed: Attribute[] =
 		edgeLookOf(edge.kind).line === "dashed" ? [["stroke-dasharray", dashes]] : [];
-	const chevrons = edge.chevrons.map(chevronPath).join(" ");
+	const rounded: Attribute[] = [
+		["stroke-linecap", "round"],
+		["stroke-linejoin", "round"],
+	];
+	const parts = [
+		...cased(line, dashed),
+		...(edge.chevrons.length === 0 ? [] : cased(edge.chevrons.map(chevronPath).join(" "), rounded)),
+		empty("path", [
+			["class", "diagram-casing"],
+			["d", arrowhead(edge.toPort)],
+			["fill", "currentColor"],
+			["stroke-width", arrowOutline],
+			["stroke-linejoin", "round"],
+		]),
+		...(edge.crosses === undefined ? [] : writeBadge(edge.crosses.badge)),
+	];
 	return [
 		start("g", [
 			["data-edge", edge.id],
@@ -570,63 +585,35 @@ function writeEdge(edge: SceneEdge): string[] {
 			...(edge.toRow === undefined ? [] : [["data-to-row", edge.toRow] as const]),
 			...(edge.crosses === undefined ? [] : [["data-crosses", edge.crosses.kind] as const]),
 		]),
-		indent(
-			1,
-			empty("path", [
-				["class", "diagram-casing"],
-				["d", line],
-				["stroke-width", casingWidth],
-				...dashed,
-			]),
-		),
-		indent(
-			1,
-			empty("path", [
-				["d", line],
-				["stroke", "currentColor"],
-				["stroke-width", bodyWidth],
-				...dashed,
-			]),
-		),
-		...(edge.chevrons.length === 0
-			? []
-			: [
-					indent(
-						1,
-						empty("path", [
-							["class", "diagram-casing"],
-							["d", chevrons],
-							["stroke-width", casingWidth],
-							["stroke-linecap", "round"],
-							["stroke-linejoin", "round"],
-						]),
-					),
-					indent(
-						1,
-						empty("path", [
-							["d", chevrons],
-							["stroke", "currentColor"],
-							["stroke-width", bodyWidth],
-							["stroke-linecap", "round"],
-							["stroke-linejoin", "round"],
-						]),
-					),
-				]),
-		indent(
-			1,
-			empty("path", [
-				["class", "diagram-casing"],
-				["d", arrowhead(edge.toPort)],
-				["fill", "currentColor"],
-				["stroke-width", arrowOutline],
-				["stroke-linejoin", "round"],
-			]),
-		),
-		...(edge.crosses === undefined
-			? []
-			: writeBadge(edge.crosses.badge).map((text) => indent(1, text))),
+		...parts.map((text) => indent(1, text)),
 		"</g>",
 	];
+}
+
+/** A path stroked as an Edge's line is: a casing, then a body in the Edge's color over it. */
+function cased(d: string, attributes: Attribute[]): string[] {
+	return [
+		empty("path", [
+			["class", "diagram-casing"],
+			["d", d],
+			["stroke-width", casingWidth],
+			...attributes,
+		]),
+		empty("path", [
+			["d", d],
+			["stroke", "currentColor"],
+			["stroke-width", bodyWidth],
+			...attributes,
+		]),
+	];
+}
+
+function edgeLookOf(kind: string): ArchitectureEdgeLook {
+	const look = (architectureEdgeLooks as Partial<Record<string, ArchitectureEdgeLook>>)[kind];
+	if (look === undefined) {
+		throw new Error(`Edge Kind ${kind} has no look, so validation should have rejected it`);
+	}
+	return look;
 }
 
 /** The badge of an Edge that crosses between regions or zones: a disc in its color. */
@@ -739,14 +726,6 @@ function trimmed(route: RoutePoint[], by: number): RoutePoint[] {
 	const cut = Math.max(0, Math.min(by, room));
 	const back = heading(end, before);
 	return [...route.slice(0, -1), { x: end.x + back.x * cut, y: end.y + back.y * cut, radius: 0 }];
-}
-
-function edgeLookOf(kind: string): ArchitectureEdgeLook {
-	const look = (architectureEdgeLooks as Partial<Record<string, ArchitectureEdgeLook>>)[kind];
-	if (look === undefined) {
-		throw new Error(`Edge Kind ${kind} has no look, so validation should have rejected it`);
-	}
-	return look;
 }
 
 /**

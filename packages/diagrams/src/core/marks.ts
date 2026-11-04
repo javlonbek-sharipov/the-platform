@@ -26,12 +26,12 @@ const firstChevron = 48;
  */
 const chevronRoom = 2 + 4;
 /**
- * How far an Edge's chevrons keep from where it leaves the Edges that share
- * its source's Port, and from where it joins the Edges that share its
- * target's. Its arrowhead takes the end of its target's stub.
+ * How far an Edge's chevrons keep from the stretches it shares with other
+ * Edges: out of its source's Port, as far as it leaves them, and into its
+ * target's, from where it joins them. Each stretch is at least the Port's
+ * stub, so the arrowhead, which sits on the target's stub, keeps clear too.
  */
 const sharedClearance = 8;
-const arrowRoom = 16;
 
 /** Which Edges share a Port, by the point where it sits on its Node. */
 function byPort(edges: RoutedEdge[], end: "fromPort" | "toPort"): Map<string, RoutedEdge[]> {
@@ -66,7 +66,7 @@ export function markEdges(diagram: Diagram, edges: RoutedEdge[]): SceneEdge[] {
 			),
 		);
 		const fromSource = sharedOut + sharedClearance;
-		const intoTarget = Math.max(arrowRoom, sharedIn + sharedClearance);
+		const intoTarget = sharedIn + sharedClearance;
 		const chevrons = chevronsOf(edge.route, fromSource, clear);
 		const kind = crossing(edge.from, edge.to);
 		return {
@@ -93,9 +93,9 @@ function crossingOf(diagram: Diagram): (from: string, to: string) => "region" | 
 			parentOf.set(member, group.id);
 		}
 	}
-	const kindOf = new Map(diagram.groups.map((group) => [group.id, group.kind as string]));
+	const kindOf = new Map(diagram.groups.map((group) => [group.id, group.kind]));
 	/** The innermost Group of a Kind around a Node, if any. */
-	const around = (node: string, kind: string) => {
+	const around = (node: string, kind: "region" | "zone") => {
 		for (let at = parentOf.get(node); at !== undefined; at = parentOf.get(at)) {
 			if (kindOf.get(at) === kind) {
 				return at;
@@ -144,6 +144,7 @@ function ownMiddle(route: RoutePoint[], sharedOut: number, sharedIn: number): Po
  */
 export function junctionsOf(edges: RoutedEdge[]): SceneJunction[] {
 	return [...byPort(edges, "fromPort").values()].flatMap((feeding) => {
+		const [first] = feeding;
 		const parts = new Map<string, { point: Point; length: number }>();
 		feeding.forEach((a, index) => {
 			for (const b of feeding.slice(index + 1)) {
@@ -151,14 +152,15 @@ export function junctionsOf(edges: RoutedEdge[]): SceneJunction[] {
 				parts.set(pointKey(part.point), part);
 			}
 		});
-		const [{ from, fromRow } = { from: "" }] = feeding;
-		return [...parts.values()]
-			.sort((a, b) => a.length - b.length || a.point.x - b.point.x || a.point.y - b.point.y)
-			.map(({ point }) => ({
-				point: { x: point.x, y: point.y },
-				node: from,
-				...(fromRow === undefined ? {} : { row: fromRow }),
-			}));
+		return first === undefined
+			? []
+			: [...parts.values()]
+					.sort((a, b) => a.length - b.length || a.point.x - b.point.x || a.point.y - b.point.y)
+					.map(({ point }) => ({
+						point: { x: point.x, y: point.y },
+						node: first.from,
+						...(first.fromRow === undefined ? {} : { row: first.fromRow }),
+					}));
 	});
 }
 
@@ -208,9 +210,9 @@ function chevronsOf(route: RoutePoint[], fromSource: number, clear: Clear): Scen
 }
 
 /**
- * The one chevron of an Edge that the spacing leaves without any: as near the
- * middle of the stretch it shares with no other Edge as a chevron fits, if one
- * fits there at all.
+ * The one chevron an Edge gets when the spacing gives it none: as near the
+ * middle of the stretch it shares with no other Edge as a chevron fits, if
+ * one fits there at all.
  */
 function middleChevron(
 	route: RoutePoint[],
