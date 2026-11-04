@@ -37,6 +37,7 @@ export type {
 	RoutePoint,
 	Scene,
 	SceneCallout,
+	SceneChevron,
 	SceneEdge,
 	SceneGroup,
 	SceneNode,

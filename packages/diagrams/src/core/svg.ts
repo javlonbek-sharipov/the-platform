@@ -26,9 +26,11 @@ import type {
 	Point,
 	RoutePoint,
 	Scene,
+	SceneChevron,
 	SceneEdge,
 	SceneGroup,
 	SceneNode,
+	ScenePort,
 	SceneText,
 } from "./scene.ts";
 import { collapseSpaces, type FontData, type FontWeight, hasCharacter } from "./text.ts";
@@ -511,16 +513,33 @@ const bodyWidth = 1.5;
 const casingWidth = 3.5;
 /** The dashes of a dashed line, such as a message's: 6 px drawn, then 4 px left out. */
 const dashes = "6 4";
+/**
+ * The arrowhead at an Edge's target: how far it reaches back from its tip, and
+ * half its width there. Its outline is the casing's, a pixel wide.
+ */
+const arrowLength = 8;
+const arrowHalfWidth = 4.5;
+const arrowOutline = 1;
+/**
+ * A chevron: how far it reaches along its run, its tip half of that ahead of
+ * its point, and how far its arms reach to each side, past the casing.
+ */
+const chevronLength = 4;
+const chevronHalfWidth = 3.5;
 
 /**
- * An Edge: its line, as a casing beneath a body. The line's path is written
- * from its target, so that its dashes start there: the Edges of one bundle
- * end at one Port, and so dash alike along the trunk they share.
+ * An Edge: its line, as a casing beneath a body, its chevrons, cased alike,
+ * and its arrowhead. The line
+ * stops just inside the arrowhead, so that its casing doesn't show beside the
+ * tip. Its path is written from its target, so that its dashes start there:
+ * the Edges of one bundle end at one Port, and so dash alike along the trunk
+ * they share.
  */
 function writeEdge(edge: SceneEdge): string[] {
-	const line = pathData([...edge.route].reverse());
+	const line = pathData(trimmed(edge.route, arrowLength - arrowOutline).reverse());
 	const dashed: Attribute[] =
 		edgeLookOf(edge.kind).line === "dashed" ? [["stroke-dasharray", dashes]] : [];
+	const chevrons = edge.chevrons.map(chevronPath).join(" ");
 	return [
 		start("g", [
 			["data-edge", edge.id],
@@ -548,8 +567,92 @@ function writeEdge(edge: SceneEdge): string[] {
 				...dashed,
 			]),
 		),
+		...(edge.chevrons.length === 0
+			? []
+			: [
+					indent(
+						1,
+						empty("path", [
+							["class", "diagram-casing"],
+							["d", chevrons],
+							["stroke-width", casingWidth],
+							["stroke-linecap", "round"],
+							["stroke-linejoin", "round"],
+						]),
+					),
+					indent(
+						1,
+						empty("path", [
+							["d", chevrons],
+							["stroke", "currentColor"],
+							["stroke-width", bodyWidth],
+							["stroke-linecap", "round"],
+							["stroke-linejoin", "round"],
+						]),
+					),
+				]),
+		indent(
+			1,
+			empty("path", [
+				["class", "diagram-casing"],
+				["d", arrowhead(edge.toPort)],
+				["fill", "currentColor"],
+				["stroke-width", arrowOutline],
+				["stroke-linejoin", "round"],
+			]),
+		),
 		"</g>",
 	];
+}
+
+/** A chevron's path data: its two arms, which meet at its tip. */
+function chevronPath({ point, heading: way }: SceneChevron): string {
+	const tip = {
+		x: point.x + (way.x * chevronLength) / 2,
+		y: point.y + (way.y * chevronLength) / 2,
+	};
+	const back = {
+		x: point.x - (way.x * chevronLength) / 2,
+		y: point.y - (way.y * chevronLength) / 2,
+	};
+	const across = { x: -way.y * chevronHalfWidth, y: way.x * chevronHalfWidth };
+	return [
+		`M ${number(back.x + across.x)} ${number(back.y + across.y)}`,
+		`L ${number(tip.x)} ${number(tip.y)}`,
+		`L ${number(back.x - across.x)} ${number(back.y - across.y)}`,
+	].join(" ");
+}
+
+/**
+ * The arrowhead at a Port: a triangle whose tip touches the Node's side, and
+ * which points into the Node, along the Port's stub.
+ */
+function arrowhead({ point, stub }: ScenePort): string {
+	const into = heading(stub, point);
+	const base = { x: point.x - into.x * arrowLength, y: point.y - into.y * arrowLength };
+	const across = { x: -into.y * arrowHalfWidth, y: into.x * arrowHalfWidth };
+	return [
+		`M ${number(point.x)} ${number(point.y)}`,
+		`L ${number(base.x + across.x)} ${number(base.y + across.y)}`,
+		`L ${number(base.x - across.x)} ${number(base.y - across.y)}`,
+		"Z",
+	].join(" ");
+}
+
+/**
+ * A route with its target end moved back along its last run, by up to `by`,
+ * but never into the arc of the corner before it.
+ */
+function trimmed(route: RoutePoint[], by: number): RoutePoint[] {
+	const end = route.at(-1);
+	const before = route.at(-2);
+	if (end === undefined || before === undefined) {
+		return [...route];
+	}
+	const room = Math.abs(end.x - before.x) + Math.abs(end.y - before.y) - before.radius;
+	const cut = Math.max(0, Math.min(by, room));
+	const back = heading(end, before);
+	return [...route.slice(0, -1), { x: end.x + back.x * cut, y: end.y + back.y * cut, radius: 0 }];
 }
 
 function edgeLookOf(kind: string): ArchitectureEdgeLook {

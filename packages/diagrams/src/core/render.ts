@@ -7,6 +7,7 @@
 import type { Bundling } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { clearance, grid, layOut, margin } from "./layout.ts";
+import { markEdges } from "./marks.ts";
 import { lanes, route } from "./route.ts";
 import type { Box, Scene, SceneEdge } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
@@ -47,7 +48,8 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 	}
 	const model = validation.diagram;
 	const { nodes, groups } = layOut(model, options.bundle);
-	const { edges, diagnostics } = route(model, nodes, groups, options);
+	const routing = route(model, nodes, groups, options);
+	const edges = markEdges(routing.edges);
 	const scene: Scene = {
 		bounds: boundsOf(
 			[
@@ -64,7 +66,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		nodes,
 		groups,
 		edges,
-		diagnostics: [...textDiagnostics(model, nodes, groups), ...diagnostics],
+		diagnostics: [...textDiagnostics(model, nodes, groups), ...routing.diagnostics],
 	};
 	return {
 		diagnostics: [...validation.diagnostics, ...scene.diagnostics],

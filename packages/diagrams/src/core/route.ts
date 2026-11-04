@@ -10,17 +10,9 @@ import { type Bundling, compareText, laneGroups } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { buildGrid, type Grid, pointOf, vertexAt } from "./grid.ts";
 import { clearance } from "./layout.ts";
+import type { RoutedEdge } from "./marks.ts";
 import { type Corridors, type Nudged, type NudgeRoute, nudge, type Squeeze } from "./nudge.ts";
-import type {
-	Box,
-	Point,
-	RoutePoint,
-	SceneEdge,
-	SceneGroup,
-	SceneNode,
-	ScenePort,
-	Side,
-} from "./scene.ts";
+import type { Box, Point, RoutePoint, SceneGroup, SceneNode, ScenePort, Side } from "./scene.ts";
 import {
 	type Congestion,
 	type Heading,
@@ -44,7 +36,7 @@ export interface RouteOptions {
 
 export interface Routing {
 	/** One per Edge, in model order. */
-	edges: SceneEdge[];
+	edges: RoutedEdge[];
 	diagnostics: Diagnostic[];
 }
 
@@ -319,7 +311,7 @@ export function route(
 			break;
 		}
 	}
-	const routed = new Map<string, SceneEdge>();
+	const routed = new Map<string, RoutedEdge>();
 	for (const edge of order) {
 		const { from, to, fromPort, toPort } = ends.get(edge.id) ?? {};
 		if (from === undefined || to === undefined || fromPort === undefined || toPort === undefined) {

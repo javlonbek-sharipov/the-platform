@@ -149,6 +149,20 @@ export interface SceneEdge {
 	 * simple route, which may cross Nodes.
 	 */
 	fellBack: boolean;
+	/**
+	 * The marks that show which way the Edge runs, in order from its target
+	 * back to its source. They sit at a fixed spacing back from the target, on
+	 * straight stretches of the route, so that the Edges of a bundle share
+	 * them along their trunk.
+	 */
+	chevrons: SceneChevron[];
+}
+
+/** A direction mark on an Edge's route. */
+export interface SceneChevron {
+	point: Point;
+	/** Which way it points: the unit vector along its run, toward the Edge's target. */
+	heading: Point;
 }
 
 export interface Scene {
