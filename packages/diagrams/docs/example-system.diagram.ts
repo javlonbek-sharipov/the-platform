@@ -1,12 +1,12 @@
 import { architecture } from "@the-platform/diagrams";
 
 /**
- * A small example system: a shopper, the shop's client, gateway, two
+ * A small example system: a shopper, the shop's web app, gateway, two
  * services, database and queue, and a payment provider we don't run. The
- * shop's backend runs in one region, and its orders stack in one zone of it.
- * A fraud check runs in another region, so the call to it crosses regions.
- * A few Edges say what they carry, and a few Nodes and Edges what they're
- * built with. Each ticket that adds to the engine extends it.
+ * shop's backend runs in one region, and the Orders API, its database and its
+ * queue run in one zone of it. A fraud check runs in another region, so the
+ * call to it crosses regions. A few Edges say what they carry, and a few
+ * Nodes and Edges what they're built with.
  */
 export default architecture({ title: "Example system" }, (d) => {
 	const shopper = d.node({ id: "shopper", kind: "person", title: "Shopper" });
