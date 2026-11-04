@@ -1719,6 +1719,35 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
 10. **Every fixture.** `test/support/fixtures.ts` lists the example and every Diagram that a module in `test/fixtures/` exports, drawn both ways when it's a function of the direction. The tests that check every text, every metadata, every casing and the chevrons' and junctions' properties run over that list, so fixtures that later tickets add are checked too.
 11. **Speed.** On one machine, `pnpm bench` reported 89 ms median drawn `right` and 118 ms drawn `down` for the commit this ticket started from, and 81 and 111 ms with this ticket and ticket 10 merged. Marks take under 1 ms of that. The crowded fixture's SVG is now 464 KB, from 186 KB, mostly chevrons and the casing's copy of each path.
 
+**Ticket 12**
+
+1. **The logo table.**
+   - `pnpm generate:technologies` runs `packages/diagrams/scripts/generate-technologies.ts`, which writes `src/notations/technologies.ts` from the `simple-icons` package. It's a dev dependency of the package, pinned at 16.36.0, since even a patch release may change an icon's path. A test runs the script twice and compares both outputs with the committed file, as ticket 04's metrics test does.
+   - The script's list gives each Technology's slug and the slug of its icon in Simple Icons, one line each: `postgres: "postgresql"`. Our slugs are part of the model, so they're ours, written as authors would: `postgres`, `nodejs`, `google-cloud`. When Simple Icons renames an icon, in a major release, only the list changes.
+   - For each slug, in code point order, the table holds the icon's `title` as its display name, and its `path` as Simple Icons gives it, in a square 24 units wide. It leaves out the icon's `hex`, its brand color.
+   - The package exports the table as `technologies`, so the agent skill and the docs can list it.
+2. **Licenses.**
+   - The package is CC0, but 224 of its 3,467 icons carry a license of their own. The script takes only icons with no `license`, or with `CC0-1.0`, and stops with a message that names any other.
+   - So these show as their names: Apache Kafka, Cassandra and Pulsar (Apache-2.0), Rust and PHP (CC-BY-SA-4.0), Ruby (CC-BY-SA-2.5), JavaScript and Deno (MIT), and OpenJDK (BSD-3-Clause). Even a permissive icon would need its notice beside every SVG that drew it. Simple Icons has no AWS, Azure, Oracle or IBM icons at all.
+   - CC0 waives no trademarks. Simple Icons asks its users to follow each brand's guidelines. Drawing every logo in one theme color is the spec's choice, and nobody has checked it against each brand's guidelines.
+3. **The starting set** has 57 Technologies: 15 databases and other stores, 4 message brokers, 15 languages, 6 runtimes, 11 clouds, 5 gateways and proxies, and GraphQL. The table is 60 KB of source, and an SVG carries only the logos it draws.
+4. **A Node's Technology.**
+   - Nodes take `technology`, written after `title`, and checked as an Edge's is: `technology-format` at `/nodes/<n>/technology`, or `model-shape` when it isn't a string.
+   - The header holds the badge, the title, the logo and the status mark, in that order. The logo is 16 px square, the badge's size, level with the header's middle, and ends where the face does or 8 px before the status mark. The title's room ends 8 px before the logo, so a title is shortened before it would touch it.
+   - The Technology's name is Inter Regular at 11 px, in `--diagram-muted`, centered below the title in the title's room: its display name, or its slug when it has no logo. With it, the title rises 7 px above the header's middle and the name sits 8 px below it. The badge, the logo, the status mark and the header Ports stay level with the middle.
+   - An outline's `inset.top` says how far below the header's top its face starts: past a cylinder's lid (16 px), a window's title bar (9 px) or a chip's pins (5 px). A risen title keeps its em box below that line, so a database's title sits under its lid, and the name 15 px below the title. Found by looking: the risen title crossed the lid's front edge. A test now checks that no stroke of any Kind's outline crosses the title, the name or the logo.
+   - A shortened name gets `text-shortened` at `/nodes/<n>/technology`, right after the title's warnings, and so does `glyph-missing`. For a slug without a logo, the advice is a shorter slug. A logo's name can't be changed, so its message says that the logo still shows which Technology it is.
+5. **A label's Technology** shows its display name after a 12 px logo, 4 px before the name, on the line below the label's text. This replaces the last point of ticket 10's decision 1. The logo and its gap count in the label's width, the line stays centered, and when it's too long the name is shortened before the rate, keeping the logo. Its warnings read as a Node's do.
+6. **Drawing a logo.**
+   - Each logo is an `<svg class="diagram-logo">` of its own, with its box as `x`, `y`, `width` and `height`, and `viewBox="0 0 24 24"`, around one `<path>` with the table's data. The nested viewport scales the logo exactly, where `scale(0.67)` would round a 16 px logo to 16.08. It also clips the few logos whose rounded coordinates pass their square, as Python's do by 0.06 of 24 units.
+   - Every logo is filled in `--diagram-muted`, which is also the color of the Technology's name beside it, in both themes. A Node's name has the class `diagram-technology`.
+   - Logos are written where they're drawn, not shared through `<symbol>` and `<use>`, whose ids would clash when two SVGs are inlined into one page.
+   - The scene gives a Node `technology` and `logo`, and a label `logo`. A scene logo is the Technology's slug and its box, and the SVG writer takes the path from the table.
+7. **Types.** `KnownTechnology` is the table's slugs, and `Technology` is `KnownTechnology | (string & {})`. Intersecting with `{}` keeps the union from widening into `string`, which would leave editors nothing to offer. `ArchitectureNode` and `EdgeOptions` take a `Technology`, and the model's types keep `string`. TypeScript 7's language server, asked for completions inside `technology: ""`, offers all 57 slugs, in `d.node` and in `d.edge`.
+8. **The description** names a Technology by its display name: after an Edge's ` over `, as in "Orders API calls Orders DB over PostgreSQL", and among a Node's facts, after its Kind, as in `Orders API (service, Go)`. This changes ticket 11's decision 7. A screen reader can't read a logo, and the root's `role="img"` hides the name's text.
+9. **The test SVG reader** in `test/support/svg.ts` reads the whole grammar of path data: curves, smooth curves, quadratic curves, commands repeated without their letter, and numbers and arc flags written without separators. It runs each closed subpath's outline back to its start, and maps nested `<svg>` viewports that scale both ways alike.
+10. **Speed.** `pnpm bench` reported 78 ms median drawn `right` and 105 ms drawn `down`, about what ticket 11 left. The crowded fixture has no Technologies.
+
 **Orchestrator**
 
 Scope moved or added while the tickets ran. Each ticket's Comments say why.
