@@ -9,6 +9,7 @@ import {
 	type SceneEdge,
 	type SceneText,
 } from "../src/index.ts";
+import { computedStyle, descendants, type Element, parseSvg, rulesOf } from "./support/svg.ts";
 import { advanceOf, bundledFont, characterMap, unitsPerEm } from "./support/truetype.ts";
 
 const interRegular = bundledFont("Inter-Regular.ttf");
@@ -272,3 +273,71 @@ describe("an Edge's label", () => {
 		expect(besideStretch(edge.label?.box ?? scene.bounds, longest)).toBe(true);
 	});
 });
+
+describe("the SVG", () => {
+	test("draws each label's box and texts where the scene puts them, over every Edge and beneath every Node", () => {
+		const { scene, svg } = render(orders("right"));
+		const root = parseSvg(svg ?? "");
+		const all = descendants(root);
+		const label = edgeOf(
+			scene ?? ({ edges: [] } as unknown as Scene),
+			"orders-api->payments-api",
+		).label;
+		const group = all.find(
+			(element) => element.attributes.get("data-edge-label") === "orders-api->payments-api",
+		);
+		if (group === undefined || label === undefined) {
+			throw new Error("expected the label drawn in a group that names its Edge");
+		}
+		const box = descendants(group).find((element) => element.name === "rect");
+		expect(["x", "y", "width", "height"].map((name) => Number(box?.attributes.get(name)))).toEqual(
+			[label.box.x, label.box.y, label.box.width, label.box.height].map(twoDecimals),
+		);
+		const texts = descendants(group).filter((element) => element.name === "text");
+		expect(
+			texts.map((text) => [
+				text.text,
+				Number(text.attributes.get("x")),
+				Number(text.attributes.get("y")),
+				Number(text.attributes.get("font-size")),
+				text.attributes.get("font-weight"),
+			]),
+		).toEqual(
+			[label.text, label.technology, label.rate].map((text) => [
+				text?.text,
+				twoDecimals(text?.point.x ?? 0),
+				twoDecimals(text?.point.y ?? 0),
+				text?.size,
+				"400",
+			]),
+		);
+		const lastEdge = all.findLast((element) => element.attributes.has("data-edge"));
+		const firstNode = all.find((element) => element.attributes.has("data-node"));
+		expect(all.indexOf(group)).toBeGreaterThan(all.indexOf(lastEdge ?? root));
+		expect(all.indexOf(group)).toBeLessThan(all.indexOf(firstNode ?? root));
+	});
+
+	test("hides what passes behind a label in the background's color, and draws its Technology and rate muted", () => {
+		const root = parseSvg(render(orders("right")).svg ?? "");
+		const rules = rulesOf(root);
+		// The drawing's background is the first shape it paints.
+		const background = descendants(root).find((element) => element.name === "rect");
+		const group = descendants(root).find((element) => element.attributes.has("data-edge-label"));
+		const [box, text, technology, rate] = descendants(group ?? root).filter((element) =>
+			["rect", "text"].includes(element.name),
+		);
+		for (const theme of ["light", "dark"] as const) {
+			const fill = (element: Element | undefined) =>
+				computedStyle(element ?? root, rules, theme).get("fill");
+			expect(box?.name, theme).toBe("rect");
+			expect(fill(box), theme).toBe(fill(background));
+			expect(fill(technology), theme).not.toBe(fill(text));
+			expect(fill(rate), theme).toBe(fill(technology));
+		}
+	});
+});
+
+/** A number as the SVG writes it, with at most two decimals. */
+function twoDecimals(value: number): number {
+	return Math.round(value * 100) / 100;
+}
