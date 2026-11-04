@@ -9,6 +9,7 @@ import { type Diagram, endNode, type RowEnd } from "../authoring/model.ts";
 import { type Bundling, compareText, laneGroups } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { buildGrid, type Grid, pointOf, vertexAt } from "./grid.ts";
+import { strokesOf } from "./hops.ts";
 import { placeLabels } from "./labels.ts";
 import { clearance } from "./layout.ts";
 import { type Corridors, type Nudged, type NudgeRoute, nudge, type Squeeze } from "./nudge.ts";
@@ -342,6 +343,8 @@ export function route(
 			fromPort,
 			toPort,
 			route: roundCorners(polyline(path ?? fallbackRoute(fromPort, toPort, [from.box, to.box]))),
+			// The router breaks it at hops once every route is final.
+			stroke: [],
 			fellBack: path === undefined,
 		});
 	}
@@ -354,6 +357,10 @@ export function route(
 		}
 	});
 	const edges = diagram.edges.flatMap((edge) => routed.get(edge.id) ?? []);
+	const strokes = strokesOf(edges, diagram.direction);
+	edges.forEach((edge, index) => {
+		edge.stroke = strokes[index] ?? [edge.route];
+	});
 	const labeling = placeLabels(diagram, nodes, groups, edges);
 	for (const edge of edges) {
 		const label = labeling.labels.get(edge.id);

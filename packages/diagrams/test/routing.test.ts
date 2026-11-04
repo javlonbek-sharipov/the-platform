@@ -6,6 +6,7 @@ import {
 	type Direction,
 	type Edge,
 	type Point,
+	type RoutePoint,
 	render,
 	type Scene,
 	type SceneEdge,
@@ -14,7 +15,7 @@ import {
 	type Side,
 } from "../src/index.ts";
 import { crowded } from "./fixtures/crowded.ts";
-import { groupFixtures, labelInTheWay } from "./fixtures/groups.ts";
+import { groupFixtures, labelInTheWay, twoRegions } from "./fixtures/groups.ts";
 
 const shop = architecture({ title: "Shop" }, (d) => {
 	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
@@ -666,6 +667,110 @@ function tooClose(scene: Scene): string[] {
 	return found;
 }
 
+/** Points merged into runs: consecutive steps in the same direction become one run. */
+function polylineOf(points: Point[]): Point[] {
+	const kept: Point[] = [];
+	for (const point of points) {
+		const last = kept.at(-1);
+		const beforeLast = kept.at(-2);
+		if (last !== undefined && last.x === point.x && last.y === point.y) {
+			continue;
+		}
+		const sameWay =
+			last !== undefined &&
+			beforeLast !== undefined &&
+			Math.sign(last.x - beforeLast.x) === Math.sign(point.x - last.x) &&
+			Math.sign(last.y - beforeLast.y) === Math.sign(point.y - last.y);
+		if (sameWay) {
+			kept.pop();
+		}
+		kept.push(point);
+	}
+	return kept;
+}
+
+/** The Port an Edge enters: its target. Edges into one Port meet there. */
+function targetOf(edge: SceneEdge): string {
+	return portKey(edge.to, edge.toRow);
+}
+
+/** A run of a route, and the part of it that's straight, between the arcs of its corners. */
+interface StraightRun {
+	horizontal: boolean;
+	line: number;
+	low: number;
+	high: number;
+}
+
+function straightRunsOf(route: RoutePoint[]): StraightRun[] {
+	return route.slice(1).flatMap((to, index): StraightRun[] => {
+		const from = route[index];
+		if (from === undefined) {
+			return [];
+		}
+		const horizontal = from.y === to.y;
+		const [lowEnd, highEnd] = (horizontal ? from.x < to.x : from.y < to.y)
+			? [from, to]
+			: [to, from];
+		const along = (point: Point) => (horizontal ? point.x : point.y);
+		return [
+			{
+				horizontal,
+				line: horizontal ? from.y : from.x,
+				low: along(lowEnd) + lowEnd.radius,
+				high: along(highEnd) - highEnd.radius,
+			},
+		];
+	});
+}
+
+/**
+ * Where two routes cross at a right angle: a horizontal run of one passes
+ * through a vertical run of the other, where both are straight, beyond the
+ * arcs that round their corners. Each crossing comes with its two runs.
+ */
+function rightAngleCrossings(
+	a: SceneEdge,
+	b: SceneEdge,
+): { point: Point; runs: [StraightRun, StraightRun] }[] {
+	const found: { point: Point; runs: [StraightRun, StraightRun] }[] = [];
+	for (const first of straightRunsOf(a.route)) {
+		for (const second of straightRunsOf(b.route)) {
+			if (first.horizontal === second.horizontal) {
+				continue;
+			}
+			const [across, along] = first.horizontal ? [first, second] : [second, first];
+			const point = { x: along.line, y: across.line };
+			// At the end of a straight part, the route is still straight, unless it
+			// ends there for both: then both start to curve, and neither hops.
+			const rooms = [
+				Math.min(point.x - across.low, across.high - point.x),
+				Math.min(point.y - along.low, along.high - point.y),
+			];
+			if (Math.min(...rooms) >= 0 && Math.max(...rooms) > 0) {
+				found.push({ point, runs: [first, second] });
+			}
+		}
+	}
+	return found;
+}
+
+/** The gaps in an Edge's stroke: from where each piece ends to where the next begins. */
+function strokeGaps(edge: SceneEdge): [Point, Point][] {
+	return edge.stroke.slice(1).flatMap((piece, index) => {
+		const end = edge.stroke[index]?.at(-1);
+		const start = piece[0];
+		return end === undefined || start === undefined ? [] : [[at(end), at(start)] as [Point, Point]];
+	});
+}
+
+/** Whether an Edge's stroke has a gap at a point: the point lies inside a gap, short of its ends. */
+function brokenAt(edge: SceneEdge, point: Point): boolean {
+	return strokeGaps(edge).some(
+		([from, to]) => onSegment(point, from, to) && !same(point, from) && !same(point, to),
+	);
+}
+
 describe.each(fixtures)("every route in %s", (_, diagram) => {
 	test("exists, one for each Edge, and none of them fell back", () => {
 		const scene = sceneOf(diagram);
@@ -704,6 +809,72 @@ describe.each(fixtures)("every route in %s", (_, diagram) => {
 				expect(length, `${id} ${end} too short a stub`).toBeGreaterThanOrEqual(scene.lanes.padding);
 			}
 		}
+	});
+
+	test("is stroked in pieces that join up into the route, with a short gap along a straight run between each two", () => {
+		const scene = sceneOf(diagram);
+		for (const edge of scene.edges) {
+			const { id, route, stroke } = edge;
+			expect(stroke.length, id).toBeGreaterThan(0);
+			// Each piece is an orthogonal polyline whose ends are sharp.
+			for (const piece of stroke) {
+				expect(piece.length, id).toBeGreaterThanOrEqual(2);
+				expect(piece[0]?.radius, id).toBe(0);
+				expect(piece.at(-1)?.radius, id).toBe(0);
+			}
+			// Joined at their gaps, the pieces are the route again, corners and all.
+			const joined = stroke.flat();
+			const corners = joined.filter((point) => point.radius > 0);
+			expect(corners, id).toEqual(route.filter((point) => point.radius > 0));
+			expect(polylineOf(joined.map(at)), id).toEqual(route.map(at));
+			for (const [from, to] of strokeGaps(edge)) {
+				expect(from.x === to.x || from.y === to.y, `${id} has a slanted gap`).toBe(true);
+				const length = Math.abs(to.x - from.x) + Math.abs(to.y - from.y);
+				expect(length, id).toBeGreaterThan(0);
+				// A gap lies on a straight run of the route, clear of its corners' arcs.
+				const run = straightRunsOf(route).find(
+					(each) =>
+						(each.horizontal ? from.y === to.y : from.x === to.x) &&
+						each.line === (each.horizontal ? from.y : from.x) &&
+						[from, to].every((end) => {
+							const along = each.horizontal ? end.x : end.y;
+							return each.low <= along && along <= each.high;
+						}),
+				);
+				expect(run, `${id}'s gap at (${from.x}, ${from.y})`).toBeDefined();
+			}
+		}
+	});
+
+	test("is broken by a hop only where it crosses an Edge with a different target, which runs on unbroken there", () => {
+		const { edges } = sceneOf(diagram);
+		for (const edge of edges) {
+			for (const [from, to] of strokeGaps(edge)) {
+				const crossing = edges.some(
+					(other) =>
+						targetOf(other) !== targetOf(edge) &&
+						rightAngleCrossings(edge, other).some(
+							({ point }) => onSegment(point, from, to) && !brokenAt(other, point),
+						),
+				);
+				expect(crossing, `${edge.id}'s gap at (${from.x}, ${from.y})`).toBe(true);
+			}
+		}
+	});
+
+	test("hops, or lets the other hop, wherever it crosses an Edge with a different target at a right angle", () => {
+		const { edges } = sceneOf(diagram);
+		edges.forEach((a, index) => {
+			for (const b of edges.slice(index + 1)) {
+				if (targetOf(a) === targetOf(b)) {
+					continue;
+				}
+				for (const { point } of rightAngleCrossings(a, b)) {
+					const broken = [a, b].filter((edge) => brokenAt(edge, point)).map(({ id }) => id);
+					expect(broken, `${a.id} and ${b.id} at (${point.x}, ${point.y})`).toHaveLength(1);
+				}
+			}
+		});
 	});
 
 	test("rounds every corner with an arc whose radius is at most half of either run that meets there", () => {
@@ -881,6 +1052,81 @@ function longestShared(a: SceneEdge, b: SceneEdge): number {
 		),
 	);
 }
+
+describe("hops", () => {
+	test("break the Edges that run across the direction, unless one of them hasn't room for the hop and every Edge along it has, or has more", () => {
+		for (const direction of ["right", "down"] as const) {
+			const scene = sceneOf(crowded(direction));
+			// Each point where Edges with different targets cross, with the Edges
+			// through it that run across the direction, and those that run along it.
+			const points = new Map<
+				string,
+				{ point: Point; across: Map<SceneEdge, StraightRun>; along: Map<SceneEdge, StraightRun> }
+			>();
+			scene.edges.forEach((a, index) => {
+				for (const b of scene.edges.slice(index + 1)) {
+					if (targetOf(a) === targetOf(b)) {
+						continue;
+					}
+					for (const { point, runs } of rightAngleCrossings(a, b)) {
+						const key = `${point.x} ${point.y}`;
+						const entry = points.get(key) ?? { point, across: new Map(), along: new Map() };
+						for (const [edge, run] of [
+							[a, runs[0]],
+							[b, runs[1]],
+						] as const) {
+							(run.horizontal === (direction === "down") ? entry.across : entry.along).set(
+								edge,
+								run,
+							);
+						}
+						points.set(key, entry);
+					}
+				}
+			});
+			/** The least room for a hop that the runs through a point leave on either side of it. */
+			const room = (runs: Map<SceneEdge, StraightRun>, point: Point) =>
+				Math.min(
+					...[...runs.values()].map((run) => {
+						const middle = run.horizontal ? point.x : point.y;
+						return Math.min(middle - run.low, run.high - middle);
+					}),
+				);
+			const half = scene.hop / 2;
+			for (const { point, across, along } of points.values()) {
+				const [acrossRoom, alongRoom] = [room(across, point), room(along, point)];
+				// When neither side has room for the whole hop, the side with more room hops.
+				const acrossHops = acrossRoom >= half || (alongRoom < half && acrossRoom >= alongRoom);
+				if ((acrossHops ? acrossRoom : alongRoom) === 0) {
+					continue;
+				}
+				const [hopping, whole] = acrossHops ? [across, along] : [along, across];
+				for (const edge of hopping.keys()) {
+					expect(brokenAt(edge, point), `${edge.id} hops at (${point.x}, ${point.y})`).toBe(true);
+				}
+				for (const edge of whole.keys()) {
+					expect(brokenAt(edge, point), `${edge.id} runs on at (${point.x}, ${point.y})`).toBe(
+						false,
+					);
+				}
+			}
+			expect(points.size, direction).toBeGreaterThan(100);
+		}
+	});
+
+	test("are the same whatever order the Diagram declares its Edges in", () => {
+		// Two regions keep their routes when the Edges come in reverse; the
+		// crowded fixture doesn't, since declaration order breaks layout's ties.
+		for (const direction of ["right", "down"] as const) {
+			const fixture = twoRegions(direction);
+			const strokes = (diagram: Diagram) =>
+				Object.fromEntries(sceneOf(diagram).edges.map(({ id, stroke }) => [id, stroke]));
+			const reversed: Diagram = { ...fixture, edges: [...fixture.edges].reverse() };
+			expect(Object.values(strokes(fixture)).some((stroke) => stroke.length > 1)).toBe(true);
+			expect(strokes(reversed)).toEqual(strokes(fixture));
+		}
+	});
+});
 
 describe("bundling", () => {
 	const calls = ["web-app->gateway", "mobile-app->gateway", "partner-calls"];

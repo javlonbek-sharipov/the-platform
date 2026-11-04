@@ -145,6 +145,12 @@ export interface SceneEdge {
 	 */
 	route: RoutePoint[];
 	/**
+	 * The route as it's stroked: in pieces, broken by a short gap at each hop,
+	 * where it crosses an Edge with a different target. Each piece is an
+	 * orthogonal polyline with its corners' radii, sharp at both ends.
+	 */
+	stroke: RoutePoint[][];
+	/**
 	 * Whether the search found no route, so that the Edge fell back to the
 	 * simple route, which may cross Nodes.
 	 */
@@ -190,6 +196,8 @@ export interface Scene {
 	 * labels and other labels.
 	 */
 	labelSpacing: { gap: number; margin: number };
+	/** The length of the gap a hop leaves in a stroke, centered on the crossing. */
+	hop: number;
 	nodes: SceneNode[];
 	/** The Groups, in model order. */
 	groups: SceneGroup[];

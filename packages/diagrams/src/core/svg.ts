@@ -503,7 +503,8 @@ function writeEdge(edge: SceneEdge): string[] {
 			["data-to", edge.to],
 			...(edge.toRow === undefined ? [] : [["data-to-row", edge.toRow] as const]),
 		]),
-		indent(1, empty("path", [["d", pathData(edge.route)]])),
+		// Each piece of the stroke is a path of its own within one, so that hops show as gaps.
+		indent(1, empty("path", [["d", edge.stroke.map(pathData).join(" ")]])),
 		"</g>",
 	];
 }

@@ -6,6 +6,7 @@
 
 import type { Bundling } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
+import { hop } from "./hops.ts";
 import { labelSpacing } from "./labels.ts";
 import { clearance, grid, layOut, margin } from "./layout.ts";
 import { lanes, route } from "./route.ts";
@@ -64,6 +65,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		grid,
 		lanes,
 		labelSpacing,
+		hop,
 		nodes,
 		groups,
 		edges,
