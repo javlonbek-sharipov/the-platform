@@ -1,9 +1,17 @@
 import { describe, expect, test } from "vitest";
 import example from "../docs/example-system.diagram.ts";
-import { architecture, type Point, type SceneEdge, type Side } from "../src/index.ts";
+import {
+	architecture,
+	type Box,
+	type Diagram,
+	type Point,
+	type SceneEdge,
+	type Side,
+} from "../src/index.ts";
 import { crowded } from "./fixtures/crowded.ts";
 import orderFlow from "./fixtures/edges.ts";
-import { draw, edgeGroupOf, linesOf, sceneOf, strokeOf } from "./support/drawn.ts";
+import { twoRegions } from "./fixtures/groups.ts";
+import { type Drawn, draw, edgeGroupOf, linesOf, sceneOf, strokeOf } from "./support/drawn.ts";
 import { everyFixture } from "./support/fixtures.ts";
 import {
 	colorUnder,
@@ -21,6 +29,63 @@ import {
 
 const themes: Theme[] = ["light", "dark"];
 const fixtures = await everyFixture();
+
+/** A copy of a Diagram with a label on every `every`th Edge, some with a Technology or a rate. */
+function labeled(diagram: Diagram, every = 1): Diagram {
+	const words = ["Reads", "Places orders", "Announces events", "Charges cards"];
+	return {
+		...diagram,
+		edges: diagram.edges.map((edge, index) =>
+			index % every !== 0
+				? edge
+				: {
+						...edge,
+						label: words[(index / every) % words.length] ?? "Reads",
+						...(index % 3 === 0 ? { technology: "grpc" } : {}),
+						...(index % 4 === 1 ? { rate: "2k/s" } : {}),
+					},
+		),
+	};
+}
+
+/** Whether two boxes overlap, more than touching. */
+function overlap(a: Box, b: Box): boolean {
+	return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+}
+
+/** The box around points, grown by how far a stroke through them reaches. */
+function boxAround(points: Point[], reach: number): Box {
+	const [xs, ys] = [points.map(({ x }) => x), points.map(({ y }) => y)];
+	const [left, top] = [Math.min(...xs) - reach, Math.min(...ys) - reach];
+	return {
+		x: left,
+		y: top,
+		width: Math.max(...xs) + reach - left,
+		height: Math.max(...ys) + reach - top,
+	};
+}
+
+/**
+ * An Edge's chevrons as drawn: each run of three points of the stroked marks
+ * in its line's color that aren't its line, and how far their widest stroke,
+ * the casing, reaches past those points.
+ */
+function chevronMarksOf(drawn: Drawn, edge: SceneEdge): { points: Point[]; reach: number }[] {
+	const lines = linesOf(drawn, edge);
+	const [casing] = lines.map((line) => strokeOf(drawn, line, "light"));
+	const color = computedStyle(lines[1] ?? drawn.root, drawn.rules, "light").get("stroke");
+	return descendants(edgeGroupOf(drawn, edge.id))
+		.filter(
+			(shape) =>
+				isShape(shape) &&
+				!lines.includes(shape) &&
+				computedStyle(shape, drawn.rules, "light").get("fill") === "none" &&
+				computedStyle(shape, drawn.rules, "light").get("stroke") === color,
+		)
+		.flatMap((shape) => runsOf(shape))
+		.filter((run) => run.length === 3)
+		.map((points) => ({ points, reach: (casing?.width ?? 0) / 2 }));
+}
 
 describe("an Edge's line", () => {
 	test("is solid for a call and dashed for a message, in both themes", () => {
@@ -282,6 +347,50 @@ describe("an Edge's chevrons", () => {
 				}
 			}
 		}
+	});
+
+	test("keep clear of the gaps that their Edge's hops leave in its stroke", () => {
+		let gaps = 0;
+		for (const [name, diagram] of fixtures) {
+			for (const edge of sceneOf(diagram).edges) {
+				edge.stroke.slice(1).forEach((piece, index) => {
+					const [end, start] = [edge.stroke[index]?.at(-1), piece[0]];
+					if (end === undefined || start === undefined) {
+						return;
+					}
+					gaps += 1;
+					for (const { point } of edge.chevrons) {
+						const inGap =
+							point.x >= Math.min(end.x, start.x) - 4 &&
+							point.x <= Math.max(end.x, start.x) + 4 &&
+							point.y >= Math.min(end.y, start.y) - 4 &&
+							point.y <= Math.max(end.y, start.y) + 4;
+						expect(inGap, `${name}: ${edge.id} at (${point.x}, ${point.y})`).toBe(false);
+					}
+				});
+			}
+		}
+		expect(gaps).toBeGreaterThan(10);
+	});
+
+	test("keep clear of every label, which is drawn over the Edges", () => {
+		let seen = 0;
+		for (const diagram of [labeled(example), labeled(orderFlow), labeled(crowded(), 3)]) {
+			const drawn = draw(diagram);
+			const boxes = drawn.scene.edges.flatMap(({ label }) =>
+				label === undefined ? [] : [label.box],
+			);
+			for (const edge of drawn.scene.edges) {
+				const marks = chevronMarksOf(drawn, edge);
+				for (const mark of marks) {
+					seen += 1;
+					const box = boxAround(mark.points, mark.reach);
+					const hidden = boxes.filter((label) => overlap(box, label));
+					expect(hidden, `${edge.id} at (${mark.points[1]?.x}, ${mark.points[1]?.y})`).toEqual([]);
+				}
+			}
+		}
+		expect(seen).toBeGreaterThan(100);
 	});
 
 	test("show the direction of every Edge in the example and the order flow", () => {
@@ -578,6 +687,48 @@ describe("an Edge between regions or zones", () => {
 			}
 		}
 		expect(seen).toBeGreaterThan(5);
+	});
+
+	test("has its badge clear of every label, which is drawn over the Edges", () => {
+		let seen = 0;
+		for (const diagram of [
+			labeled(orderFlow),
+			labeled(example),
+			labeled(twoRegions("right")),
+			labeled(twoRegions("down")),
+			labeled(crowded(), 2),
+		]) {
+			const drawn = draw(diagram);
+			const boxes = drawn.scene.edges.flatMap(({ label }) =>
+				label === undefined ? [] : [label.box],
+			);
+			for (const edge of drawn.scene.edges) {
+				if (edge.crosses === undefined) {
+					continue;
+				}
+				const { badge } = edge.crosses;
+				const disc = descendants(edgeGroupOf(drawn, edge.id)).find(
+					(shape) =>
+						isShape(shape) &&
+						computedStyle(shape, drawn.rules, "light").get("fill") !== "none" &&
+						fillContains(shape, badge),
+				);
+				expect(disc, edge.id).toBeDefined();
+				const painted = paintedBounds(disc ?? drawn.root, drawn.rules, "light");
+				const box = {
+					x: painted.left,
+					y: painted.top,
+					width: painted.right - painted.left,
+					height: painted.bottom - painted.top,
+				};
+				seen += 1;
+				expect(
+					boxes.filter((label) => overlap(box, label)),
+					edge.id,
+				).toEqual([]);
+			}
+		}
+		expect(seen).toBeGreaterThan(10);
 	});
 
 	test("is drawn in the warning color, with a badge at its middle that says so, in both themes", () => {

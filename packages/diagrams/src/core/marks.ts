@@ -3,13 +3,14 @@
  * that show which way it runs, the junctions where Edges that leave one Port
  * part, and the badge of an Edge that crosses between regions or zones.
  * They're plain geometry in the scene, so that any renderer draws them alike.
+ * They're placed once the routes are final, broken at hops, and labeled.
  *
  * Every distance here is measured along a route's runs, from corner point to
  * corner point, ignoring the arcs that round the corners.
  */
 
 import type { Diagram } from "../authoring/model.ts";
-import type { Point, RoutePoint, SceneChevron, SceneEdge, SceneJunction } from "./scene.ts";
+import type { Box, Point, RoutePoint, SceneChevron, SceneEdge, SceneJunction } from "./scene.ts";
 
 /**
  * Chevrons sit at this spacing back from the target, the first of them this
@@ -18,10 +19,17 @@ import type { Point, RoutePoint, SceneChevron, SceneEdge, SceneJunction } from "
 const chevronSpacing = 128;
 const firstChevron = 48;
 /**
- * How far a chevron's middle keeps from a corner's arc: half its length
- * along its run, and some clearance.
+ * How far a chevron's middle keeps from a corner's arc, or from a hop's gap:
+ * half its length along its run, and some clearance.
  */
 const chevronRoom = 2 + 4;
+/**
+ * How far a chevron's drawing, and a badge's, reach from their points in any
+ * direction, casing included, so that neither is placed under a label, which
+ * is drawn over the Edges. The SVG writer draws them within these.
+ */
+export const chevronReach = 6;
+export const badgeReach = 8;
 /**
  * How far an Edge's chevrons keep from the stretches it shares with other
  * Edges: out of its source's Port, as far as it leaves them, and into its
@@ -35,7 +43,12 @@ function byPort(edges: SceneEdge[], end: "fromPort" | "toPort"): Map<string, Sce
 	const found = new Map<string, SceneEdge[]>();
 	for (const edge of edges) {
 		const key = pointKey(edge[end].point);
-		found.set(key, [...(found.get(key) ?? []), edge]);
+		const sharing = found.get(key);
+		if (sharing === undefined) {
+			found.set(key, [edge]);
+		} else {
+			sharing.push(edge);
+		}
 	}
 	return found;
 }
@@ -47,7 +60,8 @@ function byPort(edges: SceneEdge[], end: "fromPort" | "toPort"): Map<string, Sce
 export function markEdges(diagram: Diagram, edges: SceneEdge[]): SceneEdge[] {
 	const fromPort = byPort(edges, "fromPort");
 	const toPort = byPort(edges, "toPort");
-	const clear = clearOfCorners(edges);
+	const clear = clearOf(edges);
+	const labels = edges.flatMap(({ label }) => (label === undefined ? [] : [label.box]));
 	const crossing = crossingOf(diagram);
 	return edges.map((edge) => {
 		const others = (sharing: Map<string, SceneEdge[]>, end: "fromPort" | "toPort") =>
@@ -76,7 +90,7 @@ export function markEdges(diagram: Diagram, edges: SceneEdge[]): SceneEdge[] {
 				chevrons.length > 0 ? chevrons : middleChevron(edge.route, fromSource, intoTarget, clear),
 			...(kind === undefined
 				? {}
-				: { crosses: { kind, badge: ownMiddle(edge.route, sharedOut, sharedIn) } }),
+				: { crosses: { kind, badge: badgeOf(edge.route, sharedOut, sharedIn, labels) } }),
 		};
 	});
 }
@@ -112,14 +126,31 @@ function crossingOf(diagram: Diagram): (from: string, to: string) => "region" | 
 }
 
 /**
- * The middle of the stretch of a route that's its Edge's own: past the
- * stretch it shares out of its source's Port, and short of the stretch it
- * shares into its target's. When the shared stretches leave nothing between
+ * Where an Edge's badge goes: the middle of the stretch of its route that's
+ * its own, past the stretch it shares out of its source's Port and short of
+ * the stretch it shares into its target's, or as near it along that stretch
+ * as clears every label. When the shared stretches leave nothing between
  * them, the middle of the whole route.
  */
-function ownMiddle(route: RoutePoint[], sharedOut: number, sharedIn: number): Point {
+function badgeOf(route: RoutePoint[], sharedOut: number, sharedIn: number, labels: Box[]): Point {
 	const length = lengthOf(route);
-	const middle = sharedOut < length - sharedIn ? (sharedOut + length - sharedIn) / 2 : length / 2;
+	if (sharedOut >= length - sharedIn) {
+		return pointAlong(route, length / 2);
+	}
+	const middle = (sharedOut + length - sharedIn) / 2;
+	for (let offset = 0; offset <= middle - sharedOut; offset += 1) {
+		for (const distance of [middle - offset, middle + offset]) {
+			const point = pointAlong(route, distance);
+			if (labels.every((label) => !reaches(point, badgeReach, label))) {
+				return point;
+			}
+		}
+	}
+	return pointAlong(route, middle);
+}
+
+/** The point a distance along a route from its source. */
+function pointAlong(route: RoutePoint[], distance: number): Point {
 	let start = 0;
 	for (let index = 1; index < route.length; index += 1) {
 		const from = route[index - 1];
@@ -128,13 +159,26 @@ function ownMiddle(route: RoutePoint[], sharedOut: number, sharedIn: number): Po
 			break;
 		}
 		const run = lengthOf([from, to]);
-		if (middle <= start + run) {
+		if (distance <= start + run) {
 			const heading = headingOf(from, to);
-			return { x: from.x + heading.x * (middle - start), y: from.y + heading.y * (middle - start) };
+			return {
+				x: from.x + heading.x * (distance - start),
+				y: from.y + heading.y * (distance - start),
+			};
 		}
 		start += run;
 	}
 	return { x: route.at(-1)?.x ?? 0, y: route.at(-1)?.y ?? 0 };
+}
+
+/** Whether a drawing that reaches this far from a point, in any direction, would overlap a box. */
+function reaches(point: Point, reach: number, box: Box): boolean {
+	return (
+		point.x + reach > box.x &&
+		point.x - reach < box.x + box.width &&
+		point.y + reach > box.y &&
+		point.y - reach < box.y + box.height
+	);
 }
 
 /**
@@ -169,25 +213,47 @@ export function junctionsOf(edges: SceneEdge[]): SceneJunction[] {
 type Clear = (point: Point, heading: Point) => boolean;
 
 /**
- * Whether a point keeps clear of every corner on its line, whichever Edge
- * turns there. Edges that share a lane then agree on where a chevron fits,
+ * Whether a chevron fits at a point: clear of every corner on its line and
+ * every gap a hop leaves there, whichever Edge turns or hops there, and clear
+ * of every label. Edges that share a lane then agree on where a chevron fits,
  * even beside a corner that only one of them turns at.
  */
-function clearOfCorners(edges: SceneEdge[]): Clear {
-	const corners = new Map<string, { at: number; radius: number }[]>();
-	const add = (line: string, at: number, radius: number) => {
-		corners.set(line, [...(corners.get(line) ?? []), { at, radius }]);
+function clearOf(edges: SceneEdge[]): Clear {
+	// What each line holds, by how far along it, and how far either way it reaches.
+	const taken = new Map<string, { at: number; reach: number }[]>();
+	const take = (line: string, at: number, reach: number) => {
+		const list = taken.get(line);
+		if (list === undefined) {
+			taken.set(line, [{ at, reach }]);
+		} else {
+			list.push({ at, reach });
+		}
 	};
-	for (const { route } of edges) {
+	const labels: Box[] = [];
+	for (const { route, stroke, label } of edges) {
 		for (const point of route.slice(1, -1)) {
-			add(`y ${point.y}`, point.x, point.radius);
-			add(`x ${point.x}`, point.y, point.radius);
+			take(`y ${point.y}`, point.x, point.radius);
+			take(`x ${point.x}`, point.y, point.radius);
+		}
+		stroke.slice(1).forEach((piece, index) => {
+			const end = stroke[index]?.at(-1);
+			const start = piece[0];
+			if (end !== undefined && start !== undefined) {
+				const [line, a, b] =
+					end.y === start.y ? [`y ${end.y}`, end.x, start.x] : [`x ${end.x}`, end.y, start.y];
+				take(line, (a + b) / 2, Math.abs(a - b) / 2);
+			}
+		});
+		if (label !== undefined) {
+			labels.push(label.box);
 		}
 	}
 	return (point, heading) => {
 		const [line, at] = heading.y === 0 ? [`y ${point.y}`, point.x] : [`x ${point.x}`, point.y];
-		return (corners.get(line) ?? []).every(
-			(corner) => Math.abs(at - corner.at) >= corner.radius + chevronRoom,
+		return (
+			(taken.get(line) ?? []).every(
+				(thing) => Math.abs(at - thing.at) >= thing.reach + chevronRoom,
+			) && labels.every((box) => !reaches(point, chevronReach, box))
 		);
 	};
 }
