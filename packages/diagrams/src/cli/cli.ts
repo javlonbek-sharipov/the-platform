@@ -6,7 +6,7 @@
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { cacheFolderOf, lintAtlas, renderDiagrams } from "../atlas/atlas.ts";
-import { AtlasError, discover, findRoot } from "../atlas/discover.ts";
+import { AtlasError, discover, findRoot, moduleSuffix } from "../atlas/discover.ts";
 import { type AtlasMessage, placeText } from "../atlas/messages.ts";
 import type { Diagram } from "../authoring/model.ts";
 import { drawPng, type Theme, themes } from "./png.ts";
@@ -26,6 +26,9 @@ const usage = `Usage: diagrams <command>
 Commands:
   render [paths...]  Write each Diagram's SVG next to its source
   lint [--json]      Check the whole Atlas: every Diagram, Link and SVG
+  export <diagram> --format png|json [--theme light|dark] [--scale n] [--out path]
+                     Write a Diagram, named by its module's path, as a PNG or
+                     as its JSON model, and print the file's path
 `;
 
 /** Runs one command, and returns its exit code. */
@@ -124,50 +127,91 @@ async function lintCommand(options: string[], context: CliContext): Promise<numb
 const formats = ["png", "json"] as const;
 type Format = (typeof formats)[number];
 
+/** How far `--scale` goes, either way. */
+const scales = { least: 0.25, most: 8 };
+
+/** What `diagrams export` was asked for. */
+interface ExportRequest {
+	/** The path of the Diagram's module, as given. */
+	diagram: string;
+	format: Format;
+	theme: Theme;
+	scale: number;
+	/** The path of the file to write, as given. Without it, the file goes into the cache folder. */
+	out?: string;
+}
+
 async function exportCommand(args: string[], context: CliContext): Promise<number> {
-	const parsed = parseOptions(args, ["--format", "--theme", "--scale", "--out"]);
-	if ("error" in parsed) {
-		context.stderr.write(`${parsed.error}\n\n${usage}`);
+	const request = exportRequest(args);
+	if ("error" in request) {
+		context.stderr.write(`${request.error}\n\n${usage}`);
 		return 2;
 	}
-	const [diagram] = parsed.positionals;
-	if (diagram === undefined) {
-		context.stderr.write(`Name the Diagram to export.\n\n${usage}`);
-		return 2;
-	}
-	const format = parsed.values.get("--format") as Format;
-	if (!formats.includes(format)) {
-		context.stderr.write(`Choose \`--format png\` or \`--format json\`.\n\n${usage}`);
-		return 2;
-	}
-	const theme = parsed.values.get("--theme") ?? "light";
-	if (!themes.includes(theme as Theme)) {
-		context.stderr.write(`Choose \`--theme light\` or \`--theme dark\`.\n\n${usage}`);
-		return 2;
-	}
-	const scale = Number(parsed.values.get("--scale") ?? "1");
 	const root = findRoot(context.cwd);
-	const [rendered] = await renderDiagrams(root, [resolve(context.cwd, diagram)]);
+	const module = resolve(context.cwd, request.diagram);
+	if (!module.endsWith(moduleSuffix) || !existsSync(module) || !statSync(module).isFile()) {
+		context.stderr.write(
+			`There's no Diagram at \`${shown(module, context)}\`. Name one by its module's path, which ends in \`${moduleSuffix}\`.\n`,
+		);
+		return 2;
+	}
+	const [rendered] = await renderDiagrams(root, [module]);
 	const { svg, model, messages = [] } = rendered ?? {};
 	// The path alone goes to stdout, so that a script can read it.
 	print(messages, context, context.stderr);
 	if (svg === undefined || model?.id === undefined) {
 		return 1;
 	}
-	const out = parsed.values.get("--out");
-	const name =
-		format === "json"
-			? `${model.id}.json`
-			: `${model.id}.${theme}${scale === 1 ? "" : `@${scale}x`}.png`;
 	const file =
-		out === undefined ? join(cacheFolderOf(root), "export", name) : resolve(context.cwd, out);
+		request.out === undefined
+			? join(cacheFolderOf(root), "export", exportName(model.id, request))
+			: resolve(context.cwd, request.out);
 	mkdirSync(dirname(file), { recursive: true });
-	writeFileSync(
-		file,
-		format === "json" ? modelJson(model) : drawPng(svg, { theme: theme as Theme, scale }),
-	);
+	writeFileSync(file, request.format === "json" ? modelJson(model) : drawPng(svg, request));
 	context.stdout.write(`${file}\n`);
 	return 0;
+}
+
+/** Reads the export's arguments, or says what's wrong with them. */
+function exportRequest(args: string[]): ExportRequest | { error: string } {
+	const parsed = parseOptions(args, ["--format", "--theme", "--scale", "--out"]);
+	if ("error" in parsed) {
+		return parsed;
+	}
+	const { positionals, values } = parsed;
+	const [diagram, ...others] = positionals;
+	if (diagram === undefined) {
+		return {
+			error: "Name the Diagram to export by its module's path, such as `docs/shop.diagram.ts`.",
+		};
+	}
+	if (others.length > 0) {
+		return { error: "Export one Diagram at a time." };
+	}
+	const format = formats.find((name) => name === values.get("--format"));
+	if (format === undefined) {
+		return { error: "Choose a format: `--format png` or `--format json`." };
+	}
+	const theme = themes.find((name) => name === (values.get("--theme") ?? "light"));
+	if (theme === undefined) {
+		return { error: "Choose a theme: `--theme light` or `--theme dark`." };
+	}
+	const scaleText = values.get("--scale") ?? "1";
+	const scale = Number(scaleText);
+	if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(scaleText) || scale < scales.least || scale > scales.most) {
+		return {
+			error: `\`--scale\` takes a number from ${scales.least} to ${scales.most}, such as \`2\`.`,
+		};
+	}
+	return { diagram, format, theme, scale, out: values.get("--out") };
+}
+
+/**
+ * A file's name in the cache folder: the Diagram's id, and for a PNG, its
+ * theme and any scale but 1, as in `docs/shop.dark@2x.png`.
+ */
+function exportName(id: string, { format, theme, scale }: ExportRequest): string {
+	return format === "json" ? `${id}.json` : `${id}.${theme}${scale === 1 ? "" : `@${scale}x`}.png`;
 }
 
 /**

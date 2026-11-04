@@ -236,6 +236,47 @@ export default architecture({ title: "Offices" }, (d) => {
 	});
 });
 
+describe("diagrams export, with arguments it can't use", () => {
+	test("rejects them with exit code 2, says why, and writes nothing", async () => {
+		const atlas = await sampleAtlas({ "docs/shop.diagram.ts": shopModule() });
+		const shop = ["docs/shop.diagram.ts", "--format", "png"];
+		const cases: [args: string[], message: string][] = [
+			[[], "Name the Diagram to export by its module's path, such as `docs/shop.diagram.ts`."],
+			[["docs/shop.diagram.ts"], "Choose a format: `--format png` or `--format json`."],
+			[[...shop, "--format", "svg"], "Choose a format: `--format png` or `--format json`."],
+			[[...shop, "--theme", "sepia"], "Choose a theme: `--theme light` or `--theme dark`."],
+			...["0", "0.2", "8.5", "-1", "2x", "1e1", "two", ""].map((scale): [string[], string] => [
+				[...shop, "--scale", scale],
+				"`--scale` takes a number from 0.25 to 8, such as `2`.",
+			]),
+			[[...shop, "--size", "2"], "Unknown option `--size`."],
+			[[...shop, "--out"], "The option `--out` needs a value."],
+			[[...shop, "docs/other.diagram.ts"], "Export one Diagram at a time."],
+		];
+		for (const [args, message] of cases) {
+			const run = await runCli(["export", ...args], atlas);
+			expect(run, args.join(" ")).toMatchObject({ code: 2, stdout: "" });
+			expect(run.stderr.split("\n").slice(0, 3), args.join(" ")).toEqual([
+				message,
+				"",
+				"Usage: diagrams <command>",
+			]);
+		}
+		expect(existsSync(join(atlas, ".diagrams-cache"))).toBe(false);
+	});
+
+	test("rejects a Diagram that isn't there, with exit code 2", async () => {
+		const atlas = await sampleAtlas({ "docs/shop.diagram.ts": shopModule() });
+
+		expect(await runCli(["export", "docs/shops.diagram.ts", "--format", "png"], atlas)).toEqual({
+			code: 2,
+			stdout: "",
+			stderr:
+				"There's no Diagram at `docs/shops.diagram.ts`. Name one by its module's path, which ends in `.diagram.ts`.\n",
+		});
+	});
+});
+
 /**
  * Where a text's ink starts and ends along x, in the SVG's units, as Inter
  * draws it without kerning or alternates: centered on the text's point, from
