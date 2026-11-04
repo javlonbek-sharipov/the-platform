@@ -53,4 +53,14 @@ describe("the agent skill", () => {
 		});
 		expect(pngSize(await readFile(png)).width).toBeGreaterThan(0);
 	});
+
+	test("its example is the package's example, so the repo renders, lints and type-checks the Diagram it teaches", async () => {
+		const skill = await readFile(skillFile, "utf8");
+		const example = await readFile(new URL("../docs/example-system.diagram.ts", import.meta.url));
+
+		// Each ticket that adds to the engine extends the example. Copy it into the skill then.
+		expect(exampleIn(skill), "the skill's copy of docs/example-system.diagram.ts").toBe(
+			example.toString(),
+		);
+	});
 });
