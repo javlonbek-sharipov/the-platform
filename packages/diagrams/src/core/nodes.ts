@@ -7,7 +7,7 @@
 
 import type { Node } from "../authoring/model.ts";
 import { architectureNodeLooks } from "../notations/architecture.ts";
-import { outlineFrames } from "./outlines.ts";
+import { outlines } from "./outlines.ts";
 import type { Box, SceneText } from "./scene.ts";
 import { nodeTitle } from "./text.ts";
 
@@ -27,7 +27,7 @@ export interface NodeFrame {
 
 export function frameOf(node: Node): NodeFrame {
 	const { width, height, outline } = architectureNodeLooks[node.kind];
-	const { headRoom } = outlineFrames[outline];
+	const { headRoom } = outlines[outline];
 	return { width, height, headerTop: headRoom, headerHeight: height - headRoom };
 }
 
@@ -40,7 +40,7 @@ export interface NodeParts {
 /** Where a Node's parts go, once its box is placed. */
 export function partsOf(node: Node, box: Box): NodeParts {
 	const { headerTop, headerHeight } = frameOf(node);
-	const { inset } = outlineFrames[architectureNodeLooks[node.kind].outline];
+	const { inset } = outlines[architectureNodeLooks[node.kind].outline];
 	const header = { x: box.x, y: box.y + headerTop, width: box.width, height: headerHeight };
 	const middle = header.y + header.height / 2;
 	const badge = {

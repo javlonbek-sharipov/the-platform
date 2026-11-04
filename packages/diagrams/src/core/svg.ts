@@ -8,6 +8,13 @@
  * show a negative zero, and lines end with LF, as does the file.
  */
 
+import {
+	type ArchitectureNodeLook,
+	architectureFamilies,
+	architectureNodeKinds,
+	architectureNodeLooks,
+} from "../notations/architecture.ts";
+import { outlines, type PathData } from "./outlines.ts";
 import type { Point, Scene, SceneEdge, SceneNode } from "./scene.ts";
 import { type FontData, type FontWeight, hasCharacter } from "./text.ts";
 import { type ColorName, palette } from "./theme.ts";
@@ -30,6 +37,9 @@ interface ColorUse {
  */
 const fallbackFonts = "Helvetica, Arial";
 const fontWeights: Record<FontWeight, number> = { regular: 400, semibold: 600 };
+/** How opaque the hue is in the solid parts of an outline, such as a window's title bar. */
+const solidOpacity = 0.5;
+const badgeStroke = 1.5;
 
 export function writeSvg(scene: Scene, fontData?: FontData): string {
 	const { bounds } = scene;
@@ -134,8 +144,26 @@ function style(scope: string, fonts: EmbeddedFont[], uses: ColorUse[]): string[]
 	];
 }
 
-/** The colors the scene's drawing uses, in a fixed order. */
+/**
+ * The colors the scene's drawing uses, in a fixed order. Each Node takes its
+ * Kind's hue as its `color`, which the parts of its outline and its badge use.
+ */
 function colorUses(scene: Scene): ColorUse[] {
+	const kinds = new Set(scene.nodes.map((node) => node.kind));
+	const hues = architectureFamilies.flatMap((family): ColorUse[] => {
+		const members = architectureNodeKinds.filter(
+			(kind) => kinds.has(kind) && architectureNodeLooks[kind].family === family,
+		);
+		return members.length === 0
+			? []
+			: [
+					{
+						selector: members.map((kind) => `[data-node][data-kind="${kind}"]`).join(", "),
+						property: "color",
+						color: `hue-${family}`,
+					},
+				];
+	});
 	return [
 		{ selector: ".diagram-background", property: "fill", color: "background" },
 		...(scene.edges.length === 0
@@ -143,11 +171,11 @@ function colorUses(scene: Scene): ColorUse[] {
 			: [{ selector: ".diagram-edges", property: "stroke", color: "muted" } as const]),
 		...(scene.nodes.length === 0
 			? []
-			: ([
-					{ selector: ".diagram-base", property: "fill", color: "surface" },
-					{ selector: ".diagram-base", property: "stroke", color: "muted" },
-					{ selector: ".diagram-title", property: "fill", color: "ink" },
-				] as const)),
+			: [{ selector: ".diagram-base", property: "fill", color: "surface" } as const]),
+		...hues,
+		...(scene.nodes.length === 0
+			? []
+			: [{ selector: ".diagram-title", property: "fill", color: "ink" } as const]),
 	];
 }
 
@@ -157,8 +185,13 @@ function colorUses(scene: Scene): ColorUse[] {
  * selector is scoped to the SVG.
  */
 function themeRules(scope: string, uses: ColorUse[]): string[] {
-	const rule = (use: ColorUse, theme: "light" | "dark") =>
-		`.${scope} ${use.selector} { ${use.property}: var(--diagram-${use.color}, ${palette[use.color][theme]}); }`;
+	const rule = (use: ColorUse, theme: "light" | "dark") => {
+		const selectors = use.selector
+			.split(", ")
+			.map((selector) => `.${scope} ${selector}`)
+			.join(", ");
+		return `${selectors} { ${use.property}: var(--diagram-${use.color}, ${palette[use.color][theme]}); }`;
+	};
 	return [
 		...uses.map((use) => rule(use, "light")),
 		"@media (prefers-color-scheme: dark) {",
@@ -167,40 +200,90 @@ function themeRules(scope: string, uses: ColorUse[]): string[] {
 	];
 }
 
+/**
+ * A Node: its Kind's outline, each shape of it filled with the surface, then
+ * tinted and stroked in the Kind's hue; its badge; and its title.
+ */
 function writeNode(node: SceneNode): string[] {
-	const { box, title } = node;
+	const { box, badge, title } = node;
+	const look = lookOf(node.kind);
+	const outline = outlines[look.outline];
+	const { shapes, solids, details } = outline.draw(box, outline.stroke);
+	const parts = [
+		...shapes.flatMap((shape) => [
+			empty("path", [
+				["class", "diagram-base"],
+				["d", pathText(shape)],
+			]),
+			empty("path", [
+				["d", pathText(shape)],
+				["fill", "currentColor"],
+				["fill-opacity", outline.tint],
+				["stroke", "currentColor"],
+				["stroke-width", outline.stroke],
+				["stroke-linejoin", "round"],
+			]),
+		]),
+		...solids.map((solid) =>
+			empty("path", [
+				["d", pathText(solid)],
+				["fill", "currentColor"],
+				["fill-opacity", solidOpacity],
+				["stroke", "currentColor"],
+				["stroke-width", outline.detail],
+				["stroke-linejoin", "round"],
+			]),
+		),
+		...details.map((detail) =>
+			empty("path", [
+				["d", pathText(detail)],
+				["fill", "none"],
+				["stroke", "currentColor"],
+				["stroke-width", outline.detail],
+			]),
+		),
+		empty("path", [
+			["transform", `translate(${number(badge.x)} ${number(badge.y)})`],
+			["d", look.badge],
+			["fill", "none"],
+			["stroke", "currentColor"],
+			["stroke-width", badgeStroke],
+			["stroke-linecap", "round"],
+			["stroke-linejoin", "round"],
+		]),
+		element(
+			"text",
+			[
+				["class", "diagram-title"],
+				["x", title.point.x],
+				["y", title.point.y],
+				["font-size", title.size],
+				["font-weight", fontWeights[title.weight]],
+			],
+			title.text,
+		),
+	];
 	return [
 		start("g", [
 			["data-node", node.id],
 			["data-kind", node.kind],
 		]),
-		indent(
-			1,
-			empty("rect", [
-				["class", "diagram-base"],
-				["x", box.x],
-				["y", box.y],
-				["width", box.width],
-				["height", box.height],
-				["rx", 6],
-			]),
-		),
-		indent(
-			1,
-			element(
-				"text",
-				[
-					["class", "diagram-title"],
-					["x", title.point.x],
-					["y", title.point.y],
-					["font-size", title.size],
-					["font-weight", fontWeights[title.weight]],
-				],
-				title.text,
-			),
-		),
+		...parts.map((text) => indent(1, text)),
 		"</g>",
 	];
+}
+
+function lookOf(kind: string): ArchitectureNodeLook {
+	const look = (architectureNodeLooks as Partial<Record<string, ArchitectureNodeLook>>)[kind];
+	if (look === undefined) {
+		throw new Error(`Node Kind ${kind} has no look, so validation should have rejected it`);
+	}
+	return look;
+}
+
+/** Path data, with its numbers written as every number in the SVG is. */
+function pathText(path: PathData): string {
+	return path.map((part) => (typeof part === "number" ? number(part) : part)).join(" ");
 }
 
 function writeEdge(edge: SceneEdge): string[] {

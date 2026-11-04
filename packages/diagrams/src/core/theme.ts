@@ -15,6 +15,12 @@ export const palette = {
 	ok: { light: "#1a7f37", dark: "#3fb950" },
 	warn: { light: "#9a6700", dark: "#d29922" },
 	danger: { light: "#d1242f", dark: "#f85149" },
+	// One hue for each family of architecture Kinds.
+	"hue-users": { light: "#8250df", dark: "#ab7df8" },
+	"hue-system": { light: "#424a53", dark: "#b7bdc8" },
+	"hue-compute": { light: "#0969da", dark: "#4493f8" },
+	"hue-data": { light: "#1b7c83", dark: "#39c5cf" },
+	"hue-messaging": { light: "#bc4c00", dark: "#f0883e" },
 } as const;
 
 export type ColorName = keyof typeof palette;
