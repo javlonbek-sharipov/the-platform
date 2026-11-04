@@ -52,8 +52,9 @@
 			}
 		},
 		"walkthroughs": {
-			"description": "The Diagram's Walkthroughs.",
-			"type": "array"
+			"description": "The Diagram's Walkthroughs. This engine doesn't play them yet, so the list must be empty.",
+			"type": "array",
+			"maxItems": 0
 		}
 	},
 	"required": [

@@ -77,6 +77,12 @@ const brokenModels: [what: string, pointer: string, value: unknown, rule: string
 	["Groups that aren't a list", "/groups", {}, "model-shape"],
 	["a Diagram without Edges", "/edges", undefined, "model-shape"],
 	["a Diagram without Walkthroughs", "/walkthroughs", undefined, "model-shape"],
+	[
+		"a Walkthrough, which the engine doesn't play yet",
+		"/walkthroughs",
+		[{ id: "checkout", title: "Checkout", steps: [{ node: "web-app" }] }],
+		"model-shape",
+	],
 
 	["a Node that isn't an object", "/nodes/0", "shopper", "model-shape"],
 	["a Node without an id", "/nodes/0/id", undefined, "model-shape"],

@@ -698,7 +698,16 @@ function checkShape(input: unknown): Diagnostic[] {
 			check(rate === undefined || typeof rate === "string", `${at}/rate`, "a string");
 		}
 	});
-	checkList(input.walkthroughs, "/walkthroughs", () => {});
+	// Walkthroughs come with the web component. Until then, one would be dropped unseen.
+	if (Array.isArray(input.walkthroughs)) {
+		check(
+			input.walkthroughs.length === 0,
+			"/walkthroughs",
+			"an empty list: this engine doesn't play Walkthroughs yet",
+		);
+	} else {
+		check(false, "/walkthroughs", "a list");
+	}
 	return diagnostics;
 }
 

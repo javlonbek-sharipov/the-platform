@@ -298,6 +298,23 @@ describe("validation", () => {
 		]);
 	});
 
+	test("reports Walkthroughs, which this engine doesn't play yet, so that none is silently dropped", () => {
+		const diagram = {
+			...shopJson(),
+			walkthroughs: [{ id: "checkout", title: "Checkout", steps: [{ node: "shop-api" }] }],
+		};
+
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "model-shape",
+				message:
+					"`/walkthroughs` must be an empty list: this engine doesn't play Walkthroughs yet.",
+				pointer: "/walkthroughs",
+			},
+		]);
+	});
+
 	test("reports a Diagram that isn't an object", () => {
 		expect(render(null).diagnostics).toEqual([
 			{
