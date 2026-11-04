@@ -4,11 +4,14 @@ import {
 	type Box,
 	type Diagram,
 	type Direction,
+	type Point,
 	render,
 	type Scene,
 	type SceneEdge,
 	type SceneText,
 } from "../src/index.ts";
+import { crowded } from "./fixtures/crowded.ts";
+import { groupFixtures } from "./fixtures/groups.ts";
 import { computedStyle, descendants, type Element, parseSvg, rulesOf } from "./support/svg.ts";
 import { advanceOf, bundledFont, characterMap, unitsPerEm } from "./support/truetype.ts";
 
@@ -124,7 +127,9 @@ function runsOf(route: SceneEdge["route"], straight: boolean): Stretch[] {
  * The stretches of an Edge's route that belong to it alone, read from the
  * spec: each run's straight part, between the arcs that round its corners,
  * beyond the stubs of the Edge's two Ports, less every part that another
- * route runs along too.
+ * route runs along too. A run that crosses a Group's border makes a stretch
+ * on each side of it, so that a label centered on one doesn't sit across the
+ * border.
  */
 function ownStretches(scene: Scene, edge: SceneEdge): Stretch[] {
 	const others = scene.edges
@@ -154,6 +159,23 @@ function ownStretches(scene: Scene, edge: SceneEdge): Stretch[] {
 		for (const other of others) {
 			if (other.horizontal === run.horizontal && Math.abs(other.line - run.line) < sameLine) {
 				cut(other.low, other.high);
+			}
+		}
+		for (const { box } of scene.groups) {
+			const [near, far, sides] = run.horizontal
+				? [box.y, box.y + box.height, [box.x, box.x + box.width]]
+				: [box.x, box.x + box.width, [box.y, box.y + box.height]];
+			if (near < run.line && run.line < far) {
+				for (const side of sides) {
+					pieces = pieces.flatMap(([a, b]): [number, number][] =>
+						a < side && side < b
+							? [
+									[a, side],
+									[side, b],
+								]
+							: [[a, b]],
+					);
+				}
 			}
 		}
 		return pieces
@@ -289,6 +311,309 @@ function chain(direction: Direction, label: string): Diagram {
 function span(box: Box, axis: "x" | "y"): [number, number] {
 	return axis === "x" ? [box.x, box.x + box.width] : [box.y, box.y + box.height];
 }
+
+/**
+ * A Diagram with a label on every `every`th Edge, of a few lengths, some with
+ * a Technology or a rate below it.
+ */
+function labeled(diagram: Diagram, every = 1): Diagram {
+	const phrases = ["Reads", "Places orders", "Publishes events", "Syncs stock", "Charges cards"];
+	return {
+		...diagram,
+		edges: diagram.edges.map((edge, index) =>
+			index % every !== 0
+				? edge
+				: {
+						...edge,
+						label: phrases[(index / every) % phrases.length] ?? "Reads",
+						...(index % 3 === 0 ? { technology: "grpc" } : {}),
+						...(index % 4 === 1 ? { rate: "2k/s" } : {}),
+					},
+		),
+	};
+}
+
+/** The Orders API calls five stores, each labeled. */
+function stores(direction: Direction): Diagram {
+	return labeled(
+		architecture({ title: "Stores", direction }, (d) => {
+			const api = d.node({ id: "orders-api", kind: "service", title: "Orders API" });
+			for (const [id, kind] of [
+				["orders-db", "database"],
+				["orders-cache", "cache"],
+				["order-events", "queue"],
+				["orders-search", "search"],
+				["invoices", "storage"],
+			] as const) {
+				d.node({ id, kind, title: id });
+				d.edge(api, id, { kind: kind === "queue" ? "message" : "call" });
+			}
+		}),
+	);
+}
+
+const labeledFixtures: [string, (direction: Direction) => Diagram][] = [
+	["orders", orders],
+	["a fan-out to five stores", stores],
+	...groupFixtures.map(([name, fixture]): [string, (direction: Direction) => Diagram] => [
+		name,
+		(direction) => labeled(fixture(direction)),
+	]),
+	[
+		"the crowded fixture, with every sixth Edge labeled",
+		(direction) => labeled(crowded(direction), 6),
+	],
+];
+
+function overlaps(a: Box, b: Box): boolean {
+	return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+}
+
+/** Whether a horizontal or vertical segment passes through a box, inside its border. */
+function crosses(box: Box, a: Point, b: Point): boolean {
+	const inside = 1e-6;
+	return (
+		Math.min(a.x, b.x) < box.x + box.width - inside &&
+		Math.max(a.x, b.x) > box.x + inside &&
+		Math.min(a.y, b.y) < box.y + box.height - inside &&
+		Math.max(a.y, b.y) > box.y + inside
+	);
+}
+
+function grown(box: Box, by: number): Box {
+	return { x: box.x - by, y: box.y - by, width: box.width + 2 * by, height: box.height + 2 * by };
+}
+
+/**
+ * What a label's box would cover that labels stay clear of: Nodes, callouts'
+ * tags, the stubs of the Ports that Edges use, Group labels, and the boxes of
+ * the other labels.
+ */
+function coveredBy(scene: Scene, box: Box, edge: SceneEdge): string[] {
+	const stubs = new Map(
+		scene.edges.flatMap(({ fromPort, toPort }) =>
+			[fromPort, toPort].map((port) => [`${port.point.x} ${port.point.y}`, port] as const),
+		),
+	);
+	return [
+		...scene.nodes.flatMap(({ id, box: node, callout }) => [
+			...(overlaps(box, node) ? [`Node ${id}`] : []),
+			...(callout !== undefined && overlaps(box, callout.tag) ? [`${id}'s tag`] : []),
+		]),
+		...[...stubs.values()].flatMap(({ point, stub }) =>
+			crosses(box, point, stub) ? [`the stub at (${point.x}, ${point.y})`] : [],
+		),
+		...scene.groups.flatMap(({ id, label }) => (overlaps(box, label) ? [`${id}'s label`] : [])),
+		...scene.edges.flatMap(({ id, label }) =>
+			id !== edge.id && label !== undefined && overlaps(box, label.box) ? [`${id}'s label`] : [],
+		),
+	];
+}
+
+/** The routes and Group borders that pass through a box. */
+function linesThrough(scene: Scene, box: Box): string[] {
+	return [
+		...scene.edges.flatMap(({ id, route }) =>
+			route.slice(1).some((to, index) => crosses(box, route[index] ?? to, to)) ? [id] : [],
+		),
+		...scene.groups.flatMap(({ id, box: group }) => {
+			const corners = [
+				{ x: group.x, y: group.y },
+				{ x: group.x + group.width, y: group.y },
+				{ x: group.x + group.width, y: group.y + group.height },
+				{ x: group.x, y: group.y + group.height },
+			];
+			return corners.some((corner, index) =>
+				crosses(box, corner, corners[(index + 1) % 4] ?? corner),
+			)
+				? [`${id}'s border`]
+				: [];
+		}),
+	];
+}
+
+/** How far a box sits from a stretch's line, if it sits beside the stretch, centered along it. */
+function gapBeside(box: Box, stretch: Stretch): number | undefined {
+	return besideStretch(box, stretch)
+		? stretch.horizontal
+			? Math.max(box.y - stretch.line, stretch.line - (box.y + box.height))
+			: Math.max(box.x - stretch.line, stretch.line - (box.x + box.width))
+		: undefined;
+}
+
+/** A box of a given size beside a stretch, centered along it, on one side, `gap` clear of its line. */
+function besideAt(stretch: Stretch, size: Box, gap: number, side: -1 | 1): Box {
+	const middle = (stretch.low + stretch.high) / 2;
+	return stretch.horizontal
+		? {
+				...size,
+				x: middle - size.width / 2,
+				y: side < 0 ? stretch.line - gap - size.height : stretch.line + gap,
+			}
+		: {
+				...size,
+				x: side < 0 ? stretch.line - gap - size.width : stretch.line + gap,
+				y: middle - size.height / 2,
+			};
+}
+
+describe.each(directions)("the labels in each fixture, laid out %s", (direction) => {
+	describe.each(labeledFixtures)("%s", (_, fixture) => {
+		const diagram = fixture(direction);
+		const { scene, diagnostics } = render(diagram);
+		if (scene === undefined) {
+			throw new Error("expected a scene");
+		}
+		/** The Edges whose labels went to the route's midpoint, as warnings say. */
+		const fellBack = new Set(
+			diagnostics
+				.filter(({ rule }) => rule === "label-placement")
+				.map(({ pointer }) => diagram.edges[Number(pointer?.split("/")[2])]?.id),
+		);
+		const placed = scene.edges.filter(({ id, label }) => label !== undefined && !fellBack.has(id));
+
+		test("raise no errors, and place some labels", () => {
+			expect(diagnostics.filter(({ severity }) => severity === "error")).toEqual([]);
+			expect(placed.length).toBeGreaterThan(0);
+		});
+
+		test("send a label to its route's midpoint only when no run of its Edge's own holds it in full, clear of everything", () => {
+			const { gap, margin } = scene.labelSpacing;
+			for (const edge of scene.edges.filter(({ id }) => fellBack.has(id))) {
+				const box = edge.label?.box ?? scene.bounds;
+				for (const stretch of ownStretches(scene, edge)) {
+					for (const side of [-1, 1] as const) {
+						const candidate = besideAt(stretch, box, gap, side);
+						const extent = stretch.horizontal ? candidate.width : candidate.height;
+						if (extent <= stretch.high - stretch.low) {
+							expect(
+								coveredBy(scene, grown(candidate, margin), edge).length,
+								`${edge.id} could sit beside its run on ${stretch.horizontal ? "y" : "x"} = ${stretch.line}`,
+							).toBeGreaterThan(0);
+						}
+					}
+				}
+			}
+		});
+
+		test("stay clear of every Node, tag, Port stub, Group label and other label", () => {
+			for (const edge of placed) {
+				expect(coveredBy(scene, edge.label?.box ?? scene.bounds, edge), edge.id).toEqual([]);
+			}
+		});
+
+		test("each sit beside a straight run of their own Edge's, centered along it", () => {
+			for (const edge of placed) {
+				const box = edge.label?.box ?? scene.bounds;
+				expect(
+					ownStretches(scene, edge).some((stretch) => besideStretch(box, stretch)),
+					edge.id,
+				).toBe(true);
+			}
+		});
+
+		test("sit beside a shorter run only where every longer run of their Edge's is taken", () => {
+			const { margin } = scene.labelSpacing;
+			for (const edge of placed) {
+				const box = edge.label?.box ?? scene.bounds;
+				if (
+					[edge.label?.text, edge.label?.technology, edge.label?.rate].some(
+						(text) => text?.shortened,
+					)
+				) {
+					continue;
+				}
+				const stretches = ownStretches(scene, edge);
+				const at = stretches
+					.filter((stretch) => gapBeside(box, stretch) !== undefined)
+					.sort((a, b) => b.high - b.low - (a.high - a.low))[0];
+				const gap = at === undefined ? undefined : gapBeside(box, at);
+				if (at === undefined || gap === undefined) {
+					throw new Error(`${edge.id}'s label isn't beside a run of its own`);
+				}
+				// A label that covers a route or a Group's border found no place clear of them.
+				const coversLines = linesThrough(scene, box).length > 0;
+				for (const other of stretches) {
+					const longer = other.high - other.low > at.high - at.low + 0.5;
+					if (!longer && !coversLines) {
+						continue;
+					}
+					for (const side of [-1, 1] as const) {
+						const candidate = besideAt(other, box, gap, side);
+						const extent = other.horizontal ? candidate.width : candidate.height;
+						if (
+							extent > other.high - other.low ||
+							(candidate.x === box.x && candidate.y === box.y)
+						) {
+							continue;
+						}
+						const hard = coveredBy(scene, grown(candidate, margin), edge);
+						const lines = linesThrough(scene, candidate);
+						expect(
+							longer
+								? hard.length > 0 || (!coversLines && lines.length > 0)
+								: hard.length + lines.length > 0,
+							`${edge.id} could sit beside its run on ${other.horizontal ? "y" : "x"} = ${other.line}`,
+						).toBe(true);
+					}
+				}
+			}
+		});
+	});
+});
+
+describe("an Edge's label with no room on a run of its own", () => {
+	/**
+	 * The web app and the admin app both call the gateway. The admin app's Edge
+	 * is routed first, by id, and the web app's joins its trunk at the end of
+	 * its own stub, so it has no run of its own.
+	 */
+	function joined(direction: Direction): Diagram {
+		return architecture({ title: "Joined", direction }, (d) => {
+			const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+			const admin = d.node({ id: "admin-app", kind: "client", title: "Admin app" });
+			const gateway = d.node({ id: "gateway", kind: "gateway", title: "Gateway" });
+			d.edge(web, gateway, { kind: "call", label: "Signs in" });
+			d.edge(admin, gateway, { kind: "call" });
+		});
+	}
+
+	test.each(directions)(
+		"goes beside its route's midpoint, and lint warns, laid out %s",
+		(direction) => {
+			const { scene, diagnostics } = render(joined(direction));
+			const edge = scene?.edges.find(({ id }) => id === "web-app->gateway");
+			if (scene === undefined || edge === undefined) {
+				throw new Error("expected the web app's Edge");
+			}
+			expect(ownStretches(scene, edge)).toEqual([]);
+			expect(diagnostics).toEqual([
+				{
+					severity: "warning",
+					rule: "label-placement",
+					message:
+						"Edge `web-app->gateway`'s label has no room beside any run of the Edge's own, clear of Nodes, Port stubs, Group labels and other labels, so it's drawn at the middle of its route.",
+					pointer: "/edges/0",
+				},
+			]);
+			// The route is one straight run from Port to Port, so its midpoint is
+			// halfway between them. The label is centered there, beside the run.
+			const [from, to] = [edge.fromPort.point, edge.toPort.point];
+			const horizontal = from.y === to.y;
+			const [line, middle] = horizontal
+				? [from.y, (from.x + to.x) / 2]
+				: [from.x, (from.y + to.y) / 2];
+			const box = edge.label?.box ?? scene.bounds;
+			const [start, size, near, far] = horizontal
+				? [box.x, box.width, box.y, box.y + box.height]
+				: [box.y, box.height, box.x, box.x + box.width];
+			expect(start + size / 2).toBeCloseTo(middle, 9);
+			const gap = near > line ? near - line : line - far;
+			expect(gap).toBeGreaterThan(0);
+			expect(gap).toBeLessThanOrEqual(8);
+		},
+	);
+});
 
 describe("the gap between two ranks", () => {
 	test.each(directions)(

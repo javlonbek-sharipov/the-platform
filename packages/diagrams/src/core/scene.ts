@@ -184,6 +184,12 @@ export interface Scene {
 	 * A corridor holds as many lanes as its width divided by the spacing.
 	 */
 	lanes: { spacing: number; minimum: number; padding: number };
+	/**
+	 * How labels keep clear: the gap between a label's box and the line it
+	 * sits beside, and the margin it keeps from Nodes, tags, Port stubs, Group
+	 * labels and other labels.
+	 */
+	labelSpacing: { gap: number; margin: number };
 	nodes: SceneNode[];
 	/** The Groups, in model order. */
 	groups: SceneGroup[];

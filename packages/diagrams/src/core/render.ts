@@ -6,6 +6,7 @@
 
 import type { Bundling } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
+import { labelSpacing } from "./labels.ts";
 import { clearance, grid, layOut, margin } from "./layout.ts";
 import { lanes, route } from "./route.ts";
 import type { Box, Scene, SceneEdge } from "./scene.ts";
@@ -55,12 +56,14 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 					callout === undefined ? [box] : [box, callout.tag],
 				),
 				...groups.map(({ box }) => box),
+				...edges.flatMap(({ label }) => (label === undefined ? [] : [label.box])),
 			],
 			edges,
 		),
 		clearance,
 		grid,
 		lanes,
+		labelSpacing,
 		nodes,
 		groups,
 		edges,
@@ -75,7 +78,8 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 
 /**
  * The bounds of the drawing, with a margin: every Node's and Group's box,
- * every callout's tag, which sits above its Node, and every route.
+ * every callout's tag, which sits above its Node, every label, and every
+ * route.
  */
 function boundsOf(boxes: Box[], edges: SceneEdge[]): Box {
 	const xs = [

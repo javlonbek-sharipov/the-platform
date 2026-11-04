@@ -354,14 +354,14 @@ export function route(
 		}
 	});
 	const edges = diagram.edges.flatMap((edge) => routed.get(edge.id) ?? []);
-	const labels = placeLabels(diagram, edges);
+	const labeling = placeLabels(diagram, nodes, groups, edges);
 	for (const edge of edges) {
-		const label = labels.get(edge.id);
+		const label = labeling.labels.get(edge.id);
 		if (label !== undefined) {
 			edge.label = label;
 		}
 	}
-	const diagnostics = edges.flatMap(({ id, fellBack }, index): Diagnostic[] =>
+	const fallbacks = edges.flatMap(({ id, fellBack }, index): Diagnostic[] =>
 		fellBack
 			? [
 					{
@@ -373,7 +373,7 @@ export function route(
 				]
 			: [],
 	);
-	return { edges, diagnostics };
+	return { edges, diagnostics: [...fallbacks, ...labeling.diagnostics] };
 }
 
 /**
