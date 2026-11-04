@@ -1,6 +1,6 @@
 # Example system
 
-A shop's web app calls the shop's gateway, which calls the Orders API. The Orders API stores each order in its database and announces it on the order events queue, which the Payments API listens to.
+A shop's web app calls the shop's gateway, which calls the Orders API. The Orders API stores each order in its database and announces it on the order events queue, which the Payments API listens to. Everything but the web app runs in the EU West region, and the Orders API, its database and its queue run in one zone of it.
 
 ![Example system](./example-system.diagram.svg)
 
