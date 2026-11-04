@@ -23,6 +23,11 @@ export interface ScenePort {
 	side: Side;
 	/** Where an Edge attaches, on the Node's side. */
 	point: Point;
+	/**
+	 * The far end of the Port's stub: a short, straight run out of the side,
+	 * at a right angle to it. Every Edge at the Port runs along it.
+	 */
+	stub: Point;
 }
 
 /** A piece of text, drawn centered on its point. */

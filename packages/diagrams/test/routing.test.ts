@@ -1,5 +1,15 @@
 import { describe, expect, test } from "vitest";
-import { architecture, render, type Scene, type SceneNode } from "../src/index.ts";
+import {
+	architecture,
+	type Box,
+	type Diagram,
+	type Point,
+	render,
+	type Scene,
+	type SceneNode,
+	type ScenePort,
+	type Side,
+} from "../src/index.ts";
 
 const shop = architecture({ title: "Shop" }, (d) => {
 	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
@@ -13,8 +23,14 @@ const shop = architecture({ title: "Shop" }, (d) => {
 	d.edge(events, mail, { kind: "message" });
 });
 
+/** The same Diagram, drawn top to bottom. */
+function down(diagram: Diagram): Diagram {
+	return { ...diagram, direction: "down" };
+}
+
 function sceneOf(diagram: unknown): Scene {
-	const { scene } = render(diagram);
+	const { scene, diagnostics } = render(diagram);
+	expect(diagnostics).toEqual([]);
 	if (scene === undefined) {
 		throw new Error("expected a scene");
 	}
@@ -29,17 +45,64 @@ function nodeOf(scene: Scene, id: string): SceneNode {
 	return node;
 }
 
-describe("the minimal route", () => {
-	test("leaves from the right side, and enters at the left side, level with the header", () => {
-		for (const node of sceneOf(shop).nodes) {
-			const { box, input, output } = node;
-			expect(input).toEqual({ side: "left", point: { x: box.x, y: input.point.y } });
-			expect(output).toEqual({ side: "right", point: { x: box.x + box.width, y: input.point.y } });
-			expect(input.point.y).toBeGreaterThan(box.y);
-			expect(input.point.y).toBeLessThan(box.y + box.height);
+/** The unit vector that points out of a Node through its side. */
+const outward: Record<Side, Point> = {
+	left: { x: -1, y: 0 },
+	right: { x: 1, y: 0 },
+	top: { x: 0, y: -1 },
+	bottom: { x: 0, y: 1 },
+};
+
+/** How far a point lies from a box: zero inside it. */
+function distanceToBox(point: Point, box: Box): number {
+	const dx = Math.max(box.x - point.x, 0, point.x - (box.x + box.width));
+	const dy = Math.max(box.y - point.y, 0, point.y - (box.y + box.height));
+	return Math.sqrt(dx * dx + dy * dy);
+}
+
+function portsOf(node: SceneNode): ScenePort[] {
+	return [node.input, node.output];
+}
+
+describe("Ports", () => {
+	test("for `right`, the input Port is on the left side and the output Port on the right, level with the header", () => {
+		for (const { box, input, output, title } of sceneOf(shop).nodes) {
+			expect(input.side).toBe("left");
+			expect(input.point).toEqual({ x: box.x, y: title.point.y });
+			expect(output.side).toBe("right");
+			expect(output.point).toEqual({ x: box.x + box.width, y: title.point.y });
 		}
 	});
 
+	test("for `down`, the input Port is in the middle of the top side and the output Port in the middle of the bottom", () => {
+		for (const { box, input, output } of sceneOf(down(shop)).nodes) {
+			const middle = box.x + box.width / 2;
+			expect(input.side).toBe("top");
+			expect(input.point).toEqual({ x: middle, y: box.y });
+			expect(output.side).toBe("bottom");
+			expect(output.point).toEqual({ x: middle, y: box.y + box.height });
+		}
+	});
+
+	test("every Port has a short, straight stub, at a right angle to its side", () => {
+		for (const scene of [sceneOf(shop), sceneOf(down(shop))]) {
+			for (const node of scene.nodes) {
+				for (const { side, point, stub } of portsOf(node)) {
+					const normal = outward[side];
+					const length = (stub.x - point.x) * normal.x + (stub.y - point.y) * normal.y;
+					expect(length).toBeGreaterThan(0);
+					expect(stub).toEqual({ x: point.x + normal.x * length, y: point.y + normal.y * length });
+					// Short: the stub's end is no nearer to any other Node than to its own.
+					for (const other of scene.nodes.filter((candidate) => candidate !== node)) {
+						expect(distanceToBox(stub, other.box)).toBeGreaterThanOrEqual(length);
+					}
+				}
+			}
+		}
+	});
+});
+
+describe("the minimal route", () => {
 	test("joins the source's output Port to the target's input Port", () => {
 		const scene = sceneOf(shop);
 		for (const edge of scene.edges) {

@@ -4,13 +4,26 @@
  * top in declaration order. Ticket 02 replaces it with the full layout.
  */
 
-import type { Diagram } from "../authoring/model.ts";
-import type { SceneNode } from "./scene.ts";
+import type { Diagram, Direction } from "../authoring/model.ts";
+import type { Box, Point, SceneNode, ScenePort, Side } from "./scene.ts";
+
+/**
+ * The margin every Node keeps around it, which no other Node may enter. It
+ * leaves a corridor for Edges between any two Nodes, and the router relies
+ * on it.
+ */
+export const clearance = 32;
+
+/**
+ * A Port's stub is half a clearance long, so it ends on the routing grid's
+ * line beside its side.
+ */
+const stubLength = clearance / 2;
 
 const nodeWidth = 160;
 const nodeHeight = 48;
 const rankGap = 96;
-const nodeGap = 32;
+const nodeGap = clearance;
 export const margin = 24;
 
 export function layOut(diagram: Diagram): SceneNode[] {
@@ -20,18 +33,59 @@ export function layOut(diagram: Diagram): SceneNode[] {
 		const rank = ranks.get(node.id) ?? 0;
 		const order = nextInRank[rank] ?? 0;
 		nextInRank[rank] = order + 1;
-		const x = margin + rank * (nodeWidth + rankGap);
-		const y = margin + order * (nodeHeight + nodeGap);
-		const middle = y + nodeHeight / 2;
+		const box = {
+			x: margin + rank * (nodeWidth + rankGap),
+			y: margin + order * (nodeHeight + nodeGap),
+			width: nodeWidth,
+			height: nodeHeight,
+		};
 		return {
 			id: node.id,
 			kind: node.kind,
-			box: { x, y, width: nodeWidth, height: nodeHeight },
-			input: { side: "left", point: { x, y: middle } },
-			output: { side: "right", point: { x: x + nodeWidth, y: middle } },
-			title: { text: node.title, point: { x: x + nodeWidth / 2, y: middle } },
+			box,
+			...headerPorts(box, diagram.direction),
+			title: {
+				text: node.title,
+				point: { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+			},
 		};
 	});
+}
+
+/**
+ * Each Node's input and output Port, level with its header: on its left and
+ * right sides for `right`, and in the middle of its top and bottom for `down`.
+ * Until Nodes have Rows, the header is the whole Node.
+ */
+function headerPorts(box: Box, direction: Direction): { input: ScenePort; output: ScenePort } {
+	if (direction === "down") {
+		const middle = box.x + box.width / 2;
+		return {
+			input: port("top", { x: middle, y: box.y }),
+			output: port("bottom", { x: middle, y: box.y + box.height }),
+		};
+	}
+	const level = box.y + box.height / 2;
+	return {
+		input: port("left", { x: box.x, y: level }),
+		output: port("right", { x: box.x + box.width, y: level }),
+	};
+}
+
+const outward: Record<Side, Point> = {
+	left: { x: -1, y: 0 },
+	right: { x: 1, y: 0 },
+	top: { x: 0, y: -1 },
+	bottom: { x: 0, y: 1 },
+};
+
+function port(side: Side, point: Point): ScenePort {
+	const normal = outward[side];
+	return {
+		side,
+		point,
+		stub: { x: point.x + normal.x * stubLength, y: point.y + normal.y * stubLength },
+	};
 }
 
 /**
