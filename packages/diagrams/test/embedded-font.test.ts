@@ -118,6 +118,15 @@ describe("the font data an SVG embeds", () => {
 		expect(requests).toEqual([{ weight: "semibold", characters: expected }]);
 	});
 
+	test("holds the characters of callouts as well as titles", () => {
+		const { requests } = renderRecording(
+			architecture({ title: "Ledger" }, (d) => {
+				d.node({ id: "ledger", kind: "database", title: "Ledger", callout: "SPOF" });
+			}),
+		);
+		expect(requests).toEqual([{ weight: "semibold", characters: "FLOPSdegr" }]);
+	});
+
 	test("isn't asked for when nothing is drawn, or when the caller passes no function", () => {
 		const { svg, requests } = renderRecording(architecture({ title: "Empty" }, () => {}));
 		expect(requests).toEqual([]);
@@ -293,7 +302,8 @@ describe("an SVG", () => {
 		const embedded = [...committed.matchAll(/base64,([A-Za-z0-9+/=]+)/g)].map(
 			([, data]) => data ?? "",
 		);
-		expect(embedded).toHaveLength(1);
+		// One for each weight it draws: regular for Rows, and semibold for titles.
+		expect(embedded).toHaveLength(2);
 		const size = embedded.reduce((total, data) => total + data.length, 0);
 		expect(size).toBeGreaterThan(1024);
 		expect(size).toBeLessThanOrEqual(30 * 1024);

@@ -14,13 +14,12 @@
  * members, and an Edge that leaves the level is ignored there.
  */
 
-import type { Diagram } from "../authoring/model.ts";
+import { type Diagram, endNode } from "../authoring/model.ts";
 import { arrange, type Connection, type Member } from "./layers.ts";
+import { faceOf, frameOf, type NodeFrame, partsOf, rowHeight } from "./nodes.ts";
 import type { Box, Point, SceneGroup, SceneNode, ScenePort, Side } from "./scene.ts";
-import { groupTitle, nodeTitle, titlePadding } from "./text.ts";
+import { groupTitle, labelPadding, rowTexts } from "./text.ts";
 
-const nodeWidth = 160;
-const nodeHeight = 48;
 const rankGap = 96;
 export const clearance = 32;
 /** Node sizes are multiples of twice the grid, so that their corners land on it too. */
@@ -51,8 +50,8 @@ export interface Layout {
 	groups: SceneGroup[];
 }
 
-/** A Node, or a laid-out level: its size, and where everything in it sits, from its top-left corner. */
-interface Block {
+/** A laid-out level: its size, and where everything in it sits, from its top-left corner. */
+interface Level {
 	width: number;
 	height: number;
 	/** The top-left corner of each Node's box. */
@@ -61,9 +60,28 @@ interface Block {
 	groups: Map<string, Box>;
 }
 
+/** A member of a level, laid out: a Node, or a Group with everything in it. */
+interface Block extends Level {
+	/**
+	 * The room at the block's top for the tag above a Node with a callout. A
+	 * Group holds its members' tags inside its box, so its block has none.
+	 */
+	tagRoom: number;
+}
+
 export function layOut(diagram: Diagram): Layout {
 	const down = diagram.direction === "down";
 	const groupsById = new Map(diagram.groups.map((group) => [group.id, group]));
+	// A Node is as tall as its Kind's header and its Rows' bands together.
+	const frames = new Map(diagram.nodes.map((node) => [node.id, frameOf(node)]));
+	/**
+	 * From a Node's leading side across the rank to its header Ports' line:
+	 * level with its header for `right`, and halfway across it for `down`.
+	 */
+	const toPorts = ({ width, headerTop, headerHeight }: NodeFrame) =>
+		down ? width / 2 : headerTop + headerHeight / 2;
+	/** An empty Group keeps room for a plain Node, so that its title has room too. */
+	const emptyRoom = frameOf({ id: "", kind: "service", title: "" });
 	/** The Group that each Node or Group is a member of, unless it's on the Diagram itself. */
 	const parentOf = new Map<string, string>();
 	for (const group of diagram.groups) {
@@ -75,17 +93,18 @@ export function layOut(diagram: Diagram): Layout {
 	const blockOf = (id: string): Block => {
 		const group = groupsById.get(id);
 		if (group === undefined) {
+			const { width, height, tagRoom } = frames.get(id) ?? emptyRoom;
 			return {
-				width: nodeWidth,
-				height: nodeHeight,
-				nodes: new Map([[id, { x: 0, y: 0 }]]),
+				width,
+				height: tagRoom + height,
+				tagRoom,
+				nodes: new Map([[id, { x: 0, y: tagRoom }]]),
 				groups: new Map(),
 			};
 		}
-		// An empty Group keeps room for one Node, so that its title has room too.
-		const content =
+		const content: Level =
 			group.members.length === 0
-				? { width: nodeWidth, height: nodeHeight, nodes: new Map(), groups: new Map() }
+				? { width: emptyRoom.width, height: emptyRoom.height, nodes: new Map(), groups: new Map() }
 				: layOutLevel(group.members);
 		// Whole steps of twice the grid, so that a Group centered on a rank's line
 		// has its corners on the grid, as a Node does.
@@ -94,6 +113,7 @@ export function layOut(diagram: Diagram): Layout {
 		const block: Block = {
 			width,
 			height,
+			tagRoom: 0,
 			nodes: new Map(),
 			groups: new Map([[id, { x: 0, y: 0, width, height }]]),
 		};
@@ -101,8 +121,8 @@ export function layOut(diagram: Diagram): Layout {
 		return block;
 	};
 
-	/** Lays out one level's members, and returns the block they make together. */
-	const layOutLevel = (members: string[]): Block => {
+	/** Lays out one level's members, and returns what they make together. */
+	const layOutLevel = (members: string[]): Level => {
 		const blocks = members.map(blockOf);
 		const index = new Map(members.map((id, at) => [id, at]));
 		/** The member of this level that holds a Node, unless the Node lies outside the level. */
@@ -119,40 +139,49 @@ export function layOut(diagram: Diagram): Layout {
 		/** For each member, the Node inside it that its first connection joins. */
 		const anchors = new Map<number, string>();
 		for (const edge of diagram.edges) {
-			const from = memberHolding(edge.from);
-			const to = memberHolding(edge.to);
+			const fromNode = endNode(edge.from);
+			const toNode = endNode(edge.to);
+			const from = memberHolding(fromNode);
+			const to = memberHolding(toNode);
 			if (from === undefined || to === undefined) {
 				continue;
 			}
 			connections.push({ from, to });
 			if (from !== to) {
-				anchors.set(from, anchors.get(from) ?? edge.from);
-				anchors.set(to, anchors.get(to) ?? edge.to);
+				anchors.set(from, anchors.get(from) ?? fromNode);
+				anchors.set(to, anchors.get(to) ?? toNode);
 			}
 		}
 
 		// A member's Ports' line is that of the Node its first connection joins, so
-		// that layout can line that connection up. A Node's header Ports sit
-		// halfway across it.
+		// that layout can line that connection up. Above a Node, a callout's tag
+		// needs room: across the rank for `right`, and along it for `down`, where
+		// it doesn't move the rank's line.
 		const measured = blocks.map((block, member): Member => {
-			const [depth, breadth] = down ? [block.height, block.width] : [block.width, block.height];
 			const anchor = anchors.get(member) ?? [...block.nodes.keys()][0];
 			const corner = anchor === undefined ? undefined : block.nodes.get(anchor);
+			const frame = anchor === undefined ? undefined : frames.get(anchor);
+			const breadth = down ? block.width : block.height;
 			const ports =
-				corner === undefined
+				corner === undefined || frame === undefined
 					? Math.floor(breadth / 2 / grid) * grid
-					: down
-						? corner.x + nodeWidth / 2
-						: corner.y + nodeHeight / 2;
-			return { depth, before: ports, after: breadth - ports };
+					: (down ? corner.x : corner.y) + toPorts(frame);
+			return down
+				? {
+						depth: block.height - block.tagRoom,
+						lead: block.tagRoom,
+						before: ports,
+						after: breadth - ports,
+					}
+				: { depth: block.width, before: ports, after: breadth - ports };
 		});
 		const placements = arrange(measured, connections, { clearance, rankGap, grid });
 
-		const level: Block = { width: 0, height: 0, nodes: new Map(), groups: new Map() };
+		const level: Level = { width: 0, height: 0, nodes: new Map(), groups: new Map() };
 		blocks.forEach((block, member) => {
 			const { x: line, y: ports } = placements[member] ?? { x: 0, y: 0 };
-			const { depth, before } = measured[member] ?? { depth: 0, before: 0 };
-			const along = line - depth / 2;
+			const { depth, lead = 0, before } = measured[member] ?? { depth: 0, before: 0 };
+			const along = line - depth / 2 - lead;
 			const across = ports - before;
 			place(level, block, down ? { x: across, y: along } : { x: along, y: across });
 		});
@@ -164,24 +193,44 @@ export function layOut(diagram: Diagram): Layout {
 
 	const nodes = diagram.nodes.map((node): SceneNode => {
 		const corner = drawing.nodes.get(node.id) ?? { x: 0, y: 0 };
-		const box = {
-			x: origin.x + corner.x,
-			y: origin.y + corner.y,
-			width: nodeWidth,
-			height: nodeHeight,
-		};
-		const middle = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+		const frame = frames.get(node.id) ?? frameOf(node);
+		const { width, height } = frame;
+		const box = { x: origin.x + corner.x, y: origin.y + corner.y, width, height };
+		const ports = (down ? box.x : box.y) + toPorts(frame);
+		const { header, badge, title, status, callout } = partsOf(node, box, diagram.direction);
+		// Row text keeps to the outline's face, as the title does.
+		const face = faceOf(node, box);
 		return {
 			id: node.id,
 			kind: node.kind,
 			box,
-			input: down
-				? port("top", { x: middle.x, y: box.y })
-				: port("left", { x: box.x, y: middle.y }),
+			header,
+			input: down ? port("top", { x: ports, y: box.y }) : port("left", { x: box.x, y: ports }),
 			output: down
-				? port("bottom", { x: middle.x, y: box.y + box.height })
-				: port("right", { x: box.x + box.width, y: middle.y }),
-			title: nodeTitle(node.title, box),
+				? port("bottom", { x: ports, y: box.y + height })
+				: port("right", { x: box.x + width, y: ports }),
+			badge,
+			title,
+			rows: (node.rows ?? []).map((row, index) => {
+				const band = {
+					x: box.x,
+					y: header.y + header.height + index * rowHeight,
+					width,
+					height: rowHeight,
+				};
+				// A Row's Ports sit on the Node's left and right sides, whatever the
+				// direction, level with the middle of its band.
+				const level = band.y + rowHeight / 2;
+				return {
+					box: band,
+					...rowTexts(row, { ...band, x: face.x, width: face.width }),
+					input: port("left", { x: box.x, y: level }),
+					output: port("right", { x: box.x + width, y: level }),
+				};
+			}),
+			external: node.external === true,
+			...(status === undefined ? {} : { status }),
+			...(callout === undefined ? {} : { callout }),
 		};
 	});
 
@@ -192,7 +241,7 @@ export function layOut(diagram: Diagram): Layout {
 		const label = {
 			x: box.x,
 			y: box.y,
-			width: Math.min(roundUp(titlePadding + title.width + titlePadding, grid), box.width),
+			width: Math.min(roundUp(labelPadding + title.width + labelPadding, grid), box.width),
 			height: labelBand,
 		};
 		let depth = 0;
@@ -206,7 +255,7 @@ export function layOut(diagram: Diagram): Layout {
 }
 
 /** Puts a block into a level at `corner`, growing the level to hold it. */
-function place(level: Block, block: Block, corner: Point): void {
+function place(level: Level, block: Level, corner: Point): void {
 	for (const [id, point] of block.nodes) {
 		level.nodes.set(id, { x: corner.x + point.x, y: corner.y + point.y });
 	}

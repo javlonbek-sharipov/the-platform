@@ -245,6 +245,42 @@ function crossingBesideUnconnected(direction: Direction): Diagram {
 	});
 }
 
+/**
+ * Nodes with different numbers of Rows: the web app has none, the Orders API
+ * one, the order events two, and the Orders database three.
+ */
+function withRows(direction: Direction): Diagram {
+	return diagram("Rows", direction, (d) => {
+		const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+		const api = d.node({
+			id: "orders-api",
+			kind: "service",
+			title: "Orders API",
+			rows: [{ name: "replicas", value: "3" }],
+		});
+		const db = d.node({
+			id: "orders-db",
+			kind: "database",
+			title: "Orders database",
+			rows: [
+				{ name: "replicas", value: "2" },
+				{ name: "region", value: "eu-west-1" },
+				{ name: "engine", value: "Postgres" },
+			],
+		});
+		const events = d.node({
+			id: "order-events",
+			kind: "queue",
+			title: "Order events",
+			rows: [{ name: "order-placed" }, { name: "order-paid" }],
+		});
+		d.edge(web, api, { kind: "call" });
+		d.edge(api, db, { kind: "call" });
+		d.edge(api, events, { kind: "message" });
+		d.edge(web, events, { kind: "message" });
+	});
+}
+
 /** Each fixture, with the Edges that close a cycle in it. */
 const fixtures: [string, (direction: Direction) => Diagram, string[]][] = [
 	["a chain", chain, []],
@@ -257,6 +293,7 @@ const fixtures: [string, (direction: Direction) => Diagram, string[]][] = [
 	["a region with a zone", region, []],
 	["two regions", twoRegions, []],
 	["deeply nested Groups", deepNesting, ["ledger->billing-api"]],
+	["Nodes with Rows", withRows, []],
 ];
 
 describe.each(directions)("a Diagram laid out %s", (direction) => {
@@ -429,16 +466,17 @@ describe.each(directions)("a Diagram laid out %s", (direction) => {
 			}
 		});
 
-		test("snaps every Node's corners and Ports to the grid", () => {
+		test("snaps every Node's corners and Ports to the grid, its Rows' Ports included", () => {
 			const scene = sceneOf(fixture(direction));
 			const { grid } = scene;
 			expect(grid).toBeGreaterThan(0);
-			for (const { id, box, input, output } of scene.nodes) {
+			for (const { id, box, input, output, rows } of scene.nodes) {
 				const points = [
 					{ x: box.x, y: box.y },
 					{ x: box.x + box.width, y: box.y + box.height },
 					input.point,
 					output.point,
+					...rows.flatMap((row) => [row.input.point, row.output.point]),
 				];
 				for (const { x, y } of points) {
 					expect([x % grid, y % grid], id).toEqual([0, 0]);

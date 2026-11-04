@@ -4,6 +4,7 @@ import {
 	type Box,
 	type Diagram,
 	type Direction,
+	type Edge,
 	type Point,
 	render,
 	type Scene,
@@ -47,6 +48,45 @@ const orders = architecture({ title: "Orders" }, (d) => {
 	d.edge(mailer, mailer, { kind: "message", id: "mailer-retries" });
 });
 
+/**
+ * Edges attached to Rows. The Orders API publishes to the `order-placed`
+ * topic, which the Payments API reads, and the Payments API publishes back
+ * to `order-paid`, against the direction. Each API writes to its own table,
+ * and the database archives orders from one of its Rows to another, through
+ * a self-loop.
+ */
+const rows = architecture({ title: "Rows" }, (d) => {
+	const api = d.node({
+		id: "orders-api",
+		kind: "service",
+		title: "Orders API",
+		rows: [{ name: "replicas", value: "3" }],
+	});
+	const events = d.node({
+		id: "order-events",
+		kind: "queue",
+		title: "Order events",
+		rows: [{ name: "order-placed" }, { name: "order-paid" }],
+	});
+	const payments = d.node({ id: "payments-api", kind: "service", title: "Payments API" });
+	const db = d.node({
+		id: "orders-db",
+		kind: "database",
+		title: "Orders database",
+		rows: [
+			{ name: "orders", value: "table" },
+			{ name: "payments", value: "table" },
+			{ name: "archive", value: "table" },
+		],
+	});
+	d.edge(api, events.row("order-placed"), { kind: "message" });
+	d.edge(events.row("order-placed"), payments, { kind: "message" });
+	d.edge(payments, events.row("order-paid"), { kind: "message" });
+	d.edge(api, db.row("orders"), { kind: "call" });
+	d.edge(payments, db.row("payments"), { kind: "call" });
+	d.edge(db.row("orders"), db.row("archive"), { kind: "message", id: "archive-orders" });
+});
+
 /** The same Diagram, drawn top to bottom. */
 function down(diagram: Diagram): Diagram {
 	return { ...diagram, direction: "down" };
@@ -55,8 +95,10 @@ function down(diagram: Diagram): Diagram {
 const fixtures: [string, Diagram][] = [
 	["shop", shop],
 	["orders", orders],
+	["rows", rows],
 	["shop, drawn down", down(shop)],
 	["orders, drawn down", down(orders)],
+	["rows, drawn down", down(rows)],
 	...groupFixtures.flatMap(([name, fixture]): [string, Diagram][] => [
 		[name, fixture("right")],
 		[`${name}, drawn down`, fixture("down")],
@@ -95,8 +137,28 @@ function distanceToBox(point: Point, box: Box): number {
 	return Math.sqrt(dx * dx + dy * dy);
 }
 
+/** A Node's Ports: its header's two, and each Row's two. */
 function portsOf(node: SceneNode): ScenePort[] {
-	return [node.input, node.output];
+	return [node.input, node.output, ...node.rows.flatMap((row) => [row.input, row.output])];
+}
+
+/** The Node at an Edge end, or the Row it names: whichever owns the Ports the Edge uses. */
+function portsAt(
+	diagram: Diagram,
+	scene: Scene,
+	end: Edge["from"],
+): { input: ScenePort; output: ScenePort } {
+	if (typeof end === "string") {
+		return nodeOf(scene, end);
+	}
+	const names = diagram.nodes.find((node) => node.id === end.node)?.rows ?? [];
+	const row = nodeOf(scene, end.node).rows[
+		names.findIndex((candidate) => candidate.name === end.row)
+	];
+	if (row === undefined) {
+		throw new Error(`no Row ${end.row} on ${end.node}`);
+	}
+	return row;
 }
 
 /** Just the coordinates of a route's point. */
@@ -207,7 +269,7 @@ function onSegment(point: Point, a: Point | undefined, b: Point | undefined): bo
 
 describe("Ports", () => {
 	test("every Port has a short, straight stub, at a right angle to its side", () => {
-		for (const scene of [sceneOf(shop), sceneOf(down(shop))]) {
+		for (const scene of [shop, down(shop), rows, down(rows)].map(sceneOf)) {
 			for (const node of scene.nodes) {
 				for (const { side, point, stub } of portsOf(node)) {
 					const normal = outward[side];
@@ -229,6 +291,13 @@ describe("an Edge", () => {
 		for (const scene of [sceneOf(orders), sceneOf(down(orders))]) {
 			const loop = scene.edges.find((edge) => edge.id === "mailer-retries");
 			expect(loop && goesAround(loop.route, nodeOf(scene, "mailer").box)).toBe(true);
+		}
+	});
+
+	test("from one Row of a Node to another goes around the Node", () => {
+		for (const scene of [sceneOf(rows), sceneOf(down(rows))]) {
+			const loop = scene.edges.find((edge) => edge.id === "archive-orders");
+			expect(loop && goesAround(loop.route, nodeOf(scene, "orders-db").box)).toBe(true);
 		}
 	});
 
@@ -294,11 +363,12 @@ describe.each(fixtures)("every route in %s", (_, diagram) => {
 		);
 	});
 
-	test("records its Edge's two Ports: its source's output Port and its target's input Port", () => {
+	test("records its Edge's two Ports: its source's output Port and its target's input Port, or those of the Rows it names", () => {
 		const scene = sceneOf(diagram);
-		for (const edge of scene.edges) {
-			expect(edge.fromPort).toEqual(nodeOf(scene, edge.from).output);
-			expect(edge.toPort).toEqual(nodeOf(scene, edge.to).input);
+		for (const { id, from, to } of diagram.edges) {
+			const edge = scene.edges.find((candidate) => candidate.id === id);
+			expect(edge?.fromPort, id).toEqual(portsAt(diagram, scene, from).output);
+			expect(edge?.toPort, id).toEqual(portsAt(diagram, scene, to).input);
 		}
 	});
 
@@ -550,6 +620,33 @@ describe("an Edge that the search can't route", () => {
 						: laneStart.x < Math.min(...boxes.map((box) => box.x)) ||
 							laneStart.x > Math.max(...boxes.map((box) => box.x + box.width));
 				expect(beyondBoth, `${id}'s lane runs between its Nodes`).toBe(true);
+			}
+		}
+	});
+});
+
+describe("an Edge attached to a Row that the search can't route", () => {
+	test("still leaves and enters along its Ports' stubs, in horizontal and vertical runs, and the core warns", () => {
+		for (const diagram of [rows, down(rows)]) {
+			const { scene, diagnostics } = render(diagram, { searchBudget: 1 });
+			expect(diagnostics.map(({ rule, pointer }) => [rule, pointer])).toEqual(
+				diagram.edges.map((_, index) => ["fallback-route", `/edges/${index}`]),
+			);
+			for (const { id, route, fromPort, toPort } of scene?.edges ?? []) {
+				const [first, second] = route;
+				expect(first && at(first), id).toEqual(fromPort.point);
+				expect(onSegment(fromPort.stub, first, second), `${id} leaves off its stub`).toBe(true);
+				const [beforeLast, last] = route.slice(-2);
+				expect(last && at(last), id).toEqual(toPort.point);
+				expect(onSegment(toPort.stub, beforeLast, last), `${id} enters off its stub`).toBe(true);
+				const runs = segmentsOf(route).map(([a, b]) => {
+					expect(a.x === b.x || a.y === b.y, `${id} has a slanted segment`).toBe(true);
+					expect(a.x !== b.x || a.y !== b.y, `${id} has an empty segment`).toBe(true);
+					return a.y === b.y ? "horizontal" : "vertical";
+				});
+				runs.slice(1).forEach((run, index) => {
+					expect(run, `${id} has two ${run} runs in a row`).not.toBe(runs[index]);
+				});
 			}
 		}
 	});

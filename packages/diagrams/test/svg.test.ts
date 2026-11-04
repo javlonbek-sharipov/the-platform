@@ -105,7 +105,7 @@ describe("the SVG", () => {
 		const { scene, svg = "" } = render(regions);
 		const drawn = [
 			...svg.matchAll(
-				/<g data-group="([^"]*)" data-kind="([^"]*)">\s*<rect x="([^"]*)" y="([^"]*)" width="([^"]*)" height="([^"]*)"([^>]*)\/>\s*<text [^>]*>([^<]*)<\/text>/g,
+				/<g data-group="([^"]*)" data-kind="([^"]*)">\s*<rect class="diagram-group" x="([^"]*)" y="([^"]*)" width="([^"]*)" height="([^"]*)"([^>]*)\/>\s*<text [^>]*>([^<]*)<\/text>/g,
 			),
 		];
 

@@ -1,12 +1,13 @@
 /**
  * The routing grid (spec: Edge routing, step 1): a sparse set of horizontal
  * and vertical lines that keep clear of the Nodes and the Group labels. Lines
- * run half a clearance outside each side of each Node, each Group label and
- * each Group's box, through the end of each Port's stub, and once more on
- * each side, outside the whole drawing. Where two lines cross is a vertex,
- * and a segment joins two neighboring vertices on one line.
+ * run half a clearance outside each side of each Node, each callout's tag,
+ * each Group label and each Group's box, through the end of each Port's stub,
+ * Row Ports included, and once more on each side, outside the whole drawing.
+ * Where two lines cross is a vertex, and a segment joins two neighboring
+ * vertices on one line.
  *
- * A segment is open only if it stays clear of every Node and every Group
+ * A segment is open only if it stays clear of every Node, tag and Group
  * label, border included. A crossing inside one, or on its border, has no
  * open segment, so no route can reach it: the vertices that routes use all
  * lie outside them. A segment along a Group's border is closed too, so that
@@ -36,23 +37,31 @@ export interface Grid {
 
 export function buildGrid(nodes: SceneNode[], groups: SceneGroup[], clearance: number): Grid {
 	const half = clearance / 2;
-	/** What no route may pass through: every Node, and every Group's label. */
-	const boxes = [...nodes.map((node) => node.box), ...groups.map((group) => group.label)];
+	// A callout's tag sits above its Node, where layout leaves room for it, and
+	// is in the way of routes as the Node is. So is a Group's label.
+	const tags = nodes.flatMap((node) => (node.callout === undefined ? [] : [node.callout.tag]));
+	const labels = groups.map((group) => group.label);
+	const boxes = [...nodes.map((node) => node.box), ...tags, ...labels];
+	const borders = groups.map((group) => group.box);
 	const xs = new Set<number>();
 	const ys = new Set<number>();
-	const borders = groups.map((group) => group.box);
 	// Around a Group's box, the lines run down the middle of its parent's
 	// padding and of the gaps beside it, so that a route can pass a Group
 	// without crossing its border.
-	for (const box of [...boxes, ...borders]) {
+	for (const box of [...nodes.map((node) => node.box), ...labels, ...borders]) {
 		xs.add(box.x - half).add(box.x + box.width + half);
 		ys.add(box.y - half).add(box.y + box.height + half);
 	}
-	for (const { input, output } of nodes) {
-		for (const { stub } of [input, output]) {
+	for (const { input, output, rows } of nodes) {
+		for (const { stub } of [input, output, ...rows.flatMap((row) => [row.input, row.output])]) {
 			xs.add(stub.x);
 			ys.add(stub.y);
 		}
+	}
+	// A tag's bottom is just above its Node, so no line runs below it.
+	for (const tag of tags) {
+		xs.add(tag.x - half).add(tag.x + tag.width + half);
+		ys.add(tag.y - half);
 	}
 	const drawing = boundsOf([...boxes, ...borders]);
 	xs.add(drawing.x - clearance).add(drawing.x + drawing.width + clearance);

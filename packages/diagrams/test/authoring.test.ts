@@ -161,6 +161,59 @@ describe("the architecture builder", () => {
 		]);
 	});
 
+	test("keeps a Node's Rows in order, each a name and an optional value", () => {
+		const diagram = architecture({ title: "Shop" }, (d) => {
+			d.node({
+				id: "shop-db",
+				kind: "database",
+				title: "Shop database",
+				rows: [{ name: "replicas", value: "3" }, { name: "read-only" }],
+			});
+		});
+
+		expect(diagram.nodes).toEqual([
+			{
+				id: "shop-db",
+				kind: "database",
+				title: "Shop database",
+				rows: [{ name: "replicas", value: "3" }, { name: "read-only" }],
+			},
+		]);
+	});
+
+	test("ends an Edge at one of a Node's Rows, named through the Node's handle or by ids", () => {
+		const diagram = architecture({ title: "Shop" }, (d) => {
+			const api = d.node({ id: "shop-api", kind: "service", title: "Shop API" });
+			const events = d.node({
+				id: "shop-events",
+				kind: "queue",
+				title: "Shop events",
+				rows: [{ name: "order-placed" }, { name: "order-paid" }],
+			});
+			const placed = d.edge(api, events.row("order-placed"), { kind: "message" });
+			const paid = d.edge({ node: "shop-events", row: "order-paid" }, "shop-api", {
+				kind: "message",
+			});
+			// Default ids name the two Nodes, whatever their Rows.
+			expect([placed.id, paid.id]).toEqual(["shop-api->shop-events", "shop-events->shop-api"]);
+		});
+
+		expect(diagram.edges).toEqual([
+			{
+				id: "shop-api->shop-events",
+				kind: "message",
+				from: "shop-api",
+				to: { node: "shop-events", row: "order-placed" },
+			},
+			{
+				id: "shop-events->shop-api",
+				kind: "message",
+				from: { node: "shop-events", row: "order-paid" },
+				to: "shop-api",
+			},
+		]);
+	});
+
 	test("accepts a Node's id in place of its handle", () => {
 		const diagram = architecture({ title: "Shop" }, (d) => {
 			const api = d.node({ id: "shop-api", kind: "service", title: "Shop API" });

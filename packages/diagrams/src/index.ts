@@ -5,6 +5,7 @@ export type {
 	ArchitectureGroup,
 	ArchitectureNode,
 	ArchitectureOptions,
+	ArchitectureRow,
 	EdgeEnd,
 	EdgeHandle,
 	EdgeOptions,
@@ -23,6 +24,8 @@ export type {
 	IdLink,
 	Link,
 	Node,
+	Row,
+	RowEnd,
 } from "./authoring/model.ts";
 export type { Diagnostic, Severity } from "./core/diagnostics.ts";
 export type { RenderOptions, RenderResult } from "./core/render.ts";
@@ -32,21 +35,30 @@ export type {
 	Point,
 	RoutePoint,
 	Scene,
+	SceneCallout,
 	SceneEdge,
 	SceneGroup,
 	SceneNode,
 	ScenePort,
+	SceneRow,
+	SceneStatus,
 	SceneText,
 	Side,
 } from "./core/scene.ts";
 export type { FontData, FontRequest, FontWeight } from "./core/text.ts";
 export type {
 	ArchitectureEdgeKind,
+	ArchitectureFamily,
 	ArchitectureGroupKind,
 	ArchitectureNodeKind,
+	ArchitectureNodeLook,
+	ArchitectureStatus,
 } from "./notations/architecture.ts";
 export {
 	architectureEdgeKinds,
+	architectureFamilies,
 	architectureGroupKinds,
 	architectureNodeKinds,
+	architectureNodeLooks,
+	architectureStatuses,
 } from "./notations/architecture.ts";

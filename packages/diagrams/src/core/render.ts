@@ -9,7 +9,7 @@ import { clearance, grid, layOut, margin } from "./layout.ts";
 import { route } from "./route.ts";
 import type { Box, Scene, SceneEdge } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
-import { type FontData, titleDiagnostics } from "./text.ts";
+import { type FontData, textDiagnostics } from "./text.ts";
 import { validate } from "./validate.ts";
 
 export interface RenderResult {
@@ -42,7 +42,12 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 	const { edges, diagnostics } = route(model, nodes, groups, options);
 	const scene: Scene = {
 		bounds: boundsOf(
-			[...nodes, ...groups].map(({ box }) => box),
+			[
+				...nodes.flatMap(({ box, callout }) =>
+					callout === undefined ? [box] : [box, callout.tag],
+				),
+				...groups.map(({ box }) => box),
+			],
 			edges,
 		),
 		clearance,
@@ -50,7 +55,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		nodes,
 		groups,
 		edges,
-		diagnostics: [...titleDiagnostics(model, nodes, groups), ...diagnostics],
+		diagnostics: [...textDiagnostics(model, nodes, groups), ...diagnostics],
 	};
 	return {
 		diagnostics: [...validation.diagnostics, ...scene.diagnostics],
@@ -59,7 +64,10 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 	};
 }
 
-/** The bounds of the drawing: every Node's and Group's box, and every route, with a margin. */
+/**
+ * The bounds of the drawing, with a margin: every Node's and Group's box,
+ * every callout's tag, which sits above its Node, and every route.
+ */
 function boundsOf(boxes: Box[], edges: SceneEdge[]): Box {
 	const xs = [
 		...boxes.flatMap((box) => [box.x, box.x + box.width]),

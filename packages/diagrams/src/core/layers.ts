@@ -10,8 +10,14 @@
 
 /** A member of the level, such as a Node, measured in the layout's frame. */
 export interface Member {
-	/** Its size along the rank axis. */
+	/** Its size along the rank axis, centered on its rank's line. */
 	depth: number;
+	/**
+	 * Room it needs along the rank axis before its leading side, such as for
+	 * the tag above a Node laid out down. Its rank's line doesn't move for it,
+	 * but the gap before the rank grows.
+	 */
+	lead?: number;
 	/** Across the rank: from its leading side to its Ports' line, and from that line to its trailing side. */
 	before: number;
 	after: number;
@@ -134,6 +140,7 @@ interface Vertex {
 	placeholder: boolean;
 	/** Placeholders have no size. */
 	depth: number;
+	lead?: number;
 	before: number;
 	after: number;
 	/** Its neighbors in the ranks just before and just after its own. */
@@ -262,16 +269,23 @@ function crossings(ranks: number[][], lower: number[][]): number {
 	return count;
 }
 
-/** Each vertex's rank line, along the rank axis: the ranks follow each other, a gap apart. */
+/**
+ * Each vertex's rank line, along the rank axis: the ranks follow each other,
+ * a gap apart, counting from the room each rank needs before and after its line.
+ */
 function ranksAlong(vertices: Vertex[], ranks: number[][], spacing: Spacing): number[] {
 	const { rankGap, grid } = spacing;
 	const along: number[] = vertices.map(() => 0);
 	let line = 0;
-	let previousDepth = 0;
+	let previousAfter = 0;
 	for (const [index, rank] of ranks.entries()) {
-		const depth = Math.max(...rank.map((vertex) => vertices[vertex]?.depth ?? 0));
-		line = snap(index === 0 ? depth / 2 : line + previousDepth / 2 + rankGap + depth / 2, grid);
-		previousDepth = depth;
+		const members = rank.map((vertex) => vertices[vertex]);
+		const before = Math.max(
+			...members.map((vertex) => (vertex?.depth ?? 0) / 2 + (vertex?.lead ?? 0)),
+		);
+		const after = Math.max(...members.map((vertex) => (vertex?.depth ?? 0) / 2));
+		line = snap(index === 0 ? before : line + previousAfter + rankGap + before, grid);
+		previousAfter = after;
 		for (const vertex of rank) {
 			along[vertex] = line;
 		}

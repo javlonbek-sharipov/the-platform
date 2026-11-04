@@ -1368,7 +1368,7 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
    - `post` is version 3, without glyph names. `name` drops the names of the stylistic sets that `GSUB` held, which are IDs 256 and up. `loca` is long, and `head` keeps the font's own timestamps.
    - `cmap` has a format 4 subtable under (0,3) and (3,1), and also a format 12 subtable under (0,4) and (3,10) when a character lies beyond the Basic Multilingual Plane.
 7. **Family name and scope.**
-   - Both are `diagram-` and a 64-bit FNV-1a hash, in hex, of the SVG's size, its font data and the rest of its body.
+   - Both are `diagram-` and a 64-bit FNV-1a hash, in hex, of the SVG's size, its font data, the rules that color it (since ticket 07) and the rest of its body.
    - The root `<svg>` carries that name as a class, and the style's one rule selects that class. Text inherits the font stack, and kerning and ligatures turned off, from the root.
    - One family has one face per weight, with `font-weight` 400 or 600. The data URL's type is `font/ttf`.
 8. **The fallback stack** is `"<family>", Helvetica, Arial`, with no generic family at the end, since that could be a wider font.
@@ -1418,6 +1418,106 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
 9. **Shared Nodes** are plain objects written with `satisfies ArchitectureNode`, which keeps the Kind's literal type.
 10. **Orphans.** An SVG is orphaned when discovery finds no module beside it. An SVG that git ignores isn't in the Atlas, so it's never reported.
 11. **Rules added:** `broken-link`, `kind-conflict`, `title-conflict` and `svg-orphaned`.
+
+**Ticket 07**
+
+1. **Looks live in the Notation.**
+   - `architectureNodeLooks` gives each Kind its size, its outline, its badge and its family. A badge is path data for a glyph 16 px square, drawn stroked.
+   - `src/core/outlines.ts` draws each outline as path data, from addition, subtraction, multiplication and division only, so another renderer could use it.
+   - Every stroke stays inside the Node's rectangle, and the outline meets the Node's sides wherever the Node has a Port.
+2. **Sizes.** Every Kind is 176 by 48 px, except:
+   - a queue, 192 px wide, since the pipe's open end takes 18 px;
+   - a system, 208 by 64 px, to look heavier;
+   - a person, 160 by 80 px: its head takes the top 32 px, above a header of 48.
+
+   Each Row adds 32 px below the header, as in ticket 08.
+3. **Outlines.** No two Kinds share an outline, and no two share a badge.
+   - person: a head above rounded shoulders.
+   - system: a 3 px border with a thin frame inside it.
+   - client: a window with a title bar.
+   - gateway: a hexagon, pointed at both ends.
+   - service: a rectangle with rounded corners.
+   - worker: two cards, one behind the other.
+   - function: a rectangle with its corners cut off.
+   - database: an upright cylinder.
+   - cache: a memory chip, with pins along its top and bottom.
+   - queue: a pipe on its side, open toward the right.
+   - storage: a page with a folded corner.
+   - search: a pill, like a search field.
+4. **Outlines with Rows.** Below its pointed header, a gateway's sides run straight down to cut corners. A pill's corners round by 16 px instead of half its height. A pipe's ends run straight down past the Rows, and round off over 16 px. So each Row's Ports, at the middle of its band, meet a straight side.
+5. **Hues.**
+   - The Kinds fall into five families, each with a hue: `users` (person, client), `system`, `compute` (gateway, service, worker, function), `data` (database, cache, storage, search) and `messaging` (queue).
+   - A Node's `<g>` takes its family's hue as its `color`, through a `[data-node][data-kind="…"]` selector. Its outline, badge and lines use `currentColor`.
+   - Each shape of an outline is drawn twice: filled with `--diagram-surface`, then tinted with the hue at a fill opacity of 0.08 (0.16 for a system) and stroked. So a Node looks the same over anything behind it.
+6. **The header.** This replaces the 12 px on each side of ticket 04's decision 3.
+   - The badge sits 12 px in from the outline's face, centered on the header's middle.
+   - The title is centered in the room from 8 px after the badge to 12 px before the face's far side, or to 8 px before a status mark. The fallback fonts' extra width, at most about 1% (ticket 04, decision 8), still fits in 8 px.
+   - The face starts 18 px in from a queue's right side, past the pipe's open end, and 5 px in from a worker's, past the card behind. Row text keeps to the face too, and so does the line above the Rows, drawn in the hue.
+   - Laid out `right`, the header Ports are level with the header's middle: 24 px down for most Kinds, 32 for a system, and 56 for a person.
+7. **External** dashes every stroke of the outline, but not the badge, in a rhythm of 4 and 2.5 times the stroke's width. Solid parts, such as a window's title bar, lie under the outline's stroke, so that its dashes stay clean.
+8. **Statuses** are `architectureStatuses`. Each mark is 12 px square, at the end of the header:
+   - `ok` is a dot in `--diagram-ok`;
+   - `degraded` is a triangle in `--diagram-warn`;
+   - `down` is a cross in `--diagram-danger`;
+   - `unknown` is a square in `--diagram-muted`.
+
+   A status the Notation doesn't have is the error `unknown-status`, and one that isn't a string is `model-shape`.
+9. **Callouts.**
+   - The tag is a pill 20 px high, 4 px above its Node, at the Node's left edge, as wide as its text plus 8 px on each side. The text is Inter SemiBold at 11 px, in `--diagram-surface` on `--diagram-accent`.
+   - Laid out `right`, a tag may be as wide as its Node. Laid out `down`, it stops 12 px short of the input Port at the middle of the Node's top, where Edges come in from above. So a long callout is shortened there, with the usual `text-shortened` warning: on a 176 px Node, "single point of failure" doesn't fit, but "SPOF" does.
+   - The highlighted outline is 1 px wider than usual, in `--diagram-accent`.
+   - A callout must hold some text other than white space, or it's a `model-shape` error.
+10. **Room for a tag.**
+    - Laid out `right`, layout gives the tag's 24 px across the rank, before the Node.
+    - Laid out `down`, it gives them along the rank, before the Node's rank. The rank's line stays put, so the rank's other Nodes don't move, and the gap before the rank grows.
+    - The router treats each tag as an obstacle, with grid lines half a clearance around it, as it treats a Node.
+11. **The theme.**
+    - `src/core/theme.ts` holds each property's light and dark fallbacks: `background`, `surface`, `border`, `ink`, `muted`, `accent`, `ok`, `warn`, `danger`, and a `hue-` for each family.
+    - The SVG's style has one rule for each use of a color, with its light fallback, then a `@media (prefers-color-scheme: dark)` block that repeats every rule with its dark fallback. It writes only the uses its drawing needs.
+    - A rectangle in `--diagram-background` fills the drawing. So the SVG stays readable on a page whose theme differs from the viewer's, as on GitHub when its theme and the system's disagree.
+    - Edges are drawn in `--diagram-muted` until ticket 11 styles them.
+12. **Classes.** The SVG's own classes start with `diagram-`, as in `diagram-base`, `diagram-text`, `diagram-status-down` and `diagram-tag`, so that a page's CSS is unlikely to reach them when the SVG is inlined.
+13. **The scope's hash** also covers the theme's rules, written without the scope, so that two SVGs styled differently never share a name. This changes ticket 04's decision 7.
+14. **Tests look as a viewer does.** `test/support/svg.ts` reads an SVG with its own small XML, CSS and geometry readers. It finds the color at a point by blending the fills painted there, and the color tests check every `<text>` that way, in both themes.
+15. **For PNG export (ticket 13).** resvg 2.6 reads neither `var()` nor `@media`. To draw a theme, replace each `var(--diagram-…, fallback)` with its fallback, and for dark, use the rules in the `@media` block in place of those before it. The selectors use only classes and attributes, and paint uses `currentColor`, all of which resvg reads.
+16. **Rules added:** `unknown-status`.
+
+**Ticket 08**
+
+1. **Rows in the model.**
+   - `rows` lists `{ name, value? }`, and both are strings, so a number is written `value: "3"`.
+   - Each Row's name is unique within its Node, since an Edge end names a Row by its name. Two Rows of one name are an error, `duplicate-row`.
+   - An empty value draws as no value.
+2. **Row ends.** This settles ticket 01's decision 3.
+   - In the model, an Edge end is a Node id or `{ node, row }`.
+   - In the authoring API, `handle.row(name)` gives that object. Written out with ids, it's checked only by validation.
+   - A default Edge id still names only the two Nodes, so two Edges from different Rows of one Node to the same Node need ids of their own.
+   - A missing Row is an `edge-end` error at `/edges/<n>/from/row` or `/to/row`, listing the Node's Rows, each quoted, since names may hold spaces.
+3. **Types.**
+   - `NodeHandle<R>` carries the Rows' names as `R`, which is `never` for a Node without Rows. `d.node` infers `R` from the names written.
+   - A shared Node keeps its Rows' names only when it's written `as const satisfies ArchitectureNode`. With `satisfies` alone, they widen to `string`, and any name type-checks.
+4. **Sizes.** These keep ticket 02's rule that Node sizes are multiples of 16 px.
+   - The header is 48 px, the height a whole Node had before. Ticket 07 sizes it by Kind.
+   - Each Row adds a band of 32 px, so every Row's Ports land on the 8 px grid too.
+   - For `right`, a Node's header Ports stay level with its header, so the Node reaches 24 px above its Ports' line and the rest below it.
+5. **Row text.**
+   - It's Inter Regular at 12 px, level in the middle of its band, with 12 px clear on each side of the Node, or of its outline's face since ticket 07, and at least 8 px between name and value.
+   - It's still drawn centered on its point, so names line up on the left and values on the right because each point sits half the text's width in.
+   - White space collapses as in titles. The SVG draws a line across the Node at the top of the first Row's band.
+6. **Shortening.**
+   - When name and value don't fit side by side, the name is shortened first, as far as its first character and the ellipsis. Only then is the value shortened, to the room left beside that.
+   - A Row without a value has the whole width for its name.
+   - Each shortened text gets its own `text-shortened` warning, and each text with characters the font lacks its own `glyph-missing`, pointing at `/nodes/<n>/rows/<m>/name` or `/value`.
+7. **Row Ports.**
+   - A Row's `input` Port is on its Node's left side and its `output` Port on the right, in both directions.
+   - An Edge that starts at a Row leaves from its output Port, and one that ends at a Row enters at its input Port: the sides that header Ports have for `right`. So on a `down` Diagram, an Edge attached to a Row leaves or enters sideways.
+   - Row Ports have stubs like header Ports. The grid has lines through every Row Port's stub, whether an Edge uses it or not.
+8. **The fallback** works in the frame of the Ports' stubs rather than the Diagram's direction. When one stub runs along x and the other along y, as a Row Port and a header Port do on a `down` Diagram, the route joins the ends of the two stubs with one corner.
+9. **The scene and the SVG.**
+   - A scene Node has `rows`, each with its band as `box`, its `name` and `value` texts, and its `input` and `output` Ports.
+   - A scene Edge has `fromRow` and `toRow` when an end names a Row.
+   - The Edge's `<g>` then carries `data-from-row` after `data-from`, and `data-to-row` after `data-to`.
+10. **Rules added:** `duplicate-row`.
 
 ### References
 

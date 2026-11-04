@@ -66,3 +66,4 @@
 
 - Orchestrator: added the rank-gap checkbox under **Capacity**. Ticket 02 found that no ticket covered the lanes half of Layout step 6 ("Each gap between two ranks leaves room for the labels and lanes of the Edges that span it"); ticket 10 covers the labels half.
 - Orchestrator: added the lane offset and jog checkbox under **Nudging**. Ticket 03 left the jog unticked, because nothing is offset into lanes before this ticket (see ticket 03's Comments).
+- Orchestrator: ticket 08's Comments end with a note for this ticket ("For ticket 09"). Read it before you start.
