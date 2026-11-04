@@ -50,7 +50,7 @@
 
 ## Comments
 
-**Implementation, 5 November 2026** (branch `t3/7c0155c8`). Choices the spec left open are recorded in its "Decisions made during implementation".
+**Implementation, 5 November 2026** (branch `t3/diagram-png-json-export`). Choices the spec left open are recorded in its "Decisions made during implementation".
 
 - **Manual check, by eye.** I exported the example Diagram and both golden fixtures at 2×, in both themes, and compared each PNG with Chrome 156's rendering of the same SVG as an `<img>`, with the color scheme forced each way. The PNG's text is Inter, and it matches the SVG: each of the example's 18 texts has its ink in the same box in both, within one pixel at 2×, and side by side the drawings look the same. Between 0.16% and 0.25% of pixels differ by more than a quarter of their range, all along anti-aliased edges.
 - **Found by that check, and fixed.** At first the text differed in two ways, and each now has a test.
