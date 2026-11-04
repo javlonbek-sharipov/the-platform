@@ -10,7 +10,7 @@
 
 **Blocked by:** 01 A Diagram from source to committed SVG.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Spec:**
 
@@ -79,3 +79,5 @@
 - **The outer lines** are built, but no route needs them yet: the lines beside the outermost Nodes already pass everything. Groups (ticket 06) can make them matter.
 - **Merged with ticket 02.** Its arithmetic plugin replaced the one I'd written, which allowed the same functions. Its Port tests now ignore the stub, which my tests cover. The corridor test now crosses a fan of three Nodes, which its layout packs one clearance apart. A long Edge's placeholder had moved my first corridor route out of the narrow gap.
 - **For ticket 09.** The search runs backward, from the target's stub to the source's. A later Edge of a bundle can start its search anywhere on the trunk, rather than end it there.
+
+Merged into diagram-engine in 81a4439.
