@@ -1153,8 +1153,8 @@ describe("text that an SVG can't hold", () => {
 			["Shop\u0000API", "a control character, U+0000,"],
 			["Shop \ud83d", "an unpaired surrogate, U+D83D,"],
 			["\udc00Shop", "an unpaired surrogate, U+DC00,"],
-			["Shop￾", "a noncharacter, U+FFFE,"],
-			["Shop￿", "a noncharacter, U+FFFF,"],
+			["Shop\ufffe", "a noncharacter, U+FFFE,"],
+			["Shop\uffff", "a noncharacter, U+FFFF,"],
 		];
 		for (const [title, found] of cases) {
 			const diagram = textJson();

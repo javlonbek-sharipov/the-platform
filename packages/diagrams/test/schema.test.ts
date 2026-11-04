@@ -143,6 +143,40 @@ const brokenModels: [what: string, pointer: string, value: unknown, rule: string
 ];
 
 describe("the JSON Schema", () => {
+	test("passes every core test fixture's model", async () => {
+		const fixtures = await everyFixture();
+		expect(fixtures.map(([name]) => name)).toContain("every-field.json: default");
+		for (const [name, model] of fixtures) {
+			expect(schemaErrors(model), name).toEqual([]);
+		}
+	});
+
+	test("passes a generated model with every field the engine reads, which the core draws", () => {
+		expect(schemaErrors(everyField)).toEqual([]);
+		const { diagnostics, svg } = render(everyField);
+		expect(diagnostics).toEqual([]);
+		expect(svg).toContain('<g data-edge="charges"');
+	});
+
+	test("requires `version` to be 1, as the core does", () => {
+		for (const version of [2, 0, 1.5, "1", null, undefined]) {
+			const model = { ...everyKind, version };
+
+			expect(schemaPointers(model), String(version)).toContain("/version");
+			expect(render(model).diagnostics, String(version)).toMatchObject([
+				{ severity: "error", rule: "model-version", pointer: "/version" },
+			]);
+		}
+	});
+
+	test("has the Notation's Kinds and statuses, no more and no fewer", () => {
+		const { $defs } = schema;
+		expect($defs.node.properties.kind.enum).toEqual(architectureNodeKinds);
+		expect($defs.group.properties.kind.enum).toEqual(architectureGroupKinds);
+		expect($defs.edge.properties.kind.enum).toEqual(architectureEdgeKinds);
+		expect($defs.node.properties.status.enum).toEqual(architectureStatuses);
+	});
+
 	test("allows each object the fields that the core does, and no others", () => {
 		const { $defs } = schema;
 		const objects: [what: string, pointer: string, properties: object[]][] = [
@@ -167,6 +201,17 @@ describe("the JSON Schema", () => {
 		}
 	});
 
+	test("rejects each broken model where the core does", () => {
+		for (const [what, pointer, value, rule] of brokenModels) {
+			const model = broken([pointer, value]);
+
+			expect.soft(schemaPointers(model), what).toContain(pointer);
+			expect
+				.soft(render(model).diagnostics, what)
+				.toContainEqual(expect.objectContaining({ severity: "error", rule, pointer }));
+		}
+	});
+
 	test("rejects text that an SVG can't hold in every field that holds text, where the core does", () => {
 		const texts = [
 			"/id",
@@ -186,7 +231,7 @@ describe("the JSON Schema", () => {
 			"/edges/2/from/row",
 		];
 		// A control character, half a surrogate pair, and a noncharacter.
-		for (const text of ["Sh\u0007op", "Shop \ud83d", "Shop￿"]) {
+		for (const text of ["Sh\u0007op", "Shop \ud83d", "Shop\uffff"]) {
 			for (const pointer of texts) {
 				const model = broken([pointer, text]);
 				const what = `${JSON.stringify(text)} at ${pointer}`;
@@ -256,51 +301,6 @@ describe("the JSON Schema", () => {
 		// Lint checks these across the Atlas, where one model alone can't break them.
 		for (const rule of ["kind-conflict", "title-conflict", "broken-link"]) {
 			expect(schema.description, rule).toContain(`\`${rule}\``);
-		}
-	});
-
-	test("rejects each broken model where the core does", () => {
-		for (const [what, pointer, value, rule] of brokenModels) {
-			const model = broken([pointer, value]);
-
-			expect.soft(schemaPointers(model), what).toContain(pointer);
-			expect
-				.soft(render(model).diagnostics, what)
-				.toContainEqual(expect.objectContaining({ severity: "error", rule, pointer }));
-		}
-	});
-
-	test("passes every core test fixture's model", async () => {
-		const fixtures = await everyFixture();
-		expect(fixtures.map(([name]) => name)).toContain("every-field.json: default");
-		for (const [name, model] of fixtures) {
-			expect(schemaErrors(model), name).toEqual([]);
-		}
-	});
-
-	test("passes a generated model with every field the engine reads, which the core draws", () => {
-		expect(schemaErrors(everyField)).toEqual([]);
-		const { diagnostics, svg } = render(everyField);
-		expect(diagnostics).toEqual([]);
-		expect(svg).toContain('<g data-edge="charges"');
-	});
-
-	test("has the Notation's Kinds and statuses, no more and no fewer", () => {
-		const { $defs } = schema;
-		expect($defs.node.properties.kind.enum).toEqual(architectureNodeKinds);
-		expect($defs.group.properties.kind.enum).toEqual(architectureGroupKinds);
-		expect($defs.edge.properties.kind.enum).toEqual(architectureEdgeKinds);
-		expect($defs.node.properties.status.enum).toEqual(architectureStatuses);
-	});
-
-	test("requires `version` to be 1, as the core does", () => {
-		for (const version of [2, 0, 1.5, "1", null, undefined]) {
-			const model = { ...everyKind, version };
-
-			expect(schemaPointers(model), String(version)).toContain("/version");
-			expect(render(model).diagnostics, String(version)).toMatchObject([
-				{ severity: "error", rule: "model-version", pointer: "/version" },
-			]);
 		}
 	});
 });

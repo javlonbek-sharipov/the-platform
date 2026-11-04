@@ -615,7 +615,8 @@ function checkCycles(diagram: Diagram, parents: Map<string, string | undefined>)
 
 /**
  * Checks that the input is a version-1 model of the architecture Notation,
- * with every field of the right type, so the rules after it can read it.
+ * with every field of the right type and no field that the model doesn't
+ * have, so the rules after it can read it.
  */
 function checkShape(input: unknown): Diagnostic[] {
 	if (!isObject(input)) {
@@ -833,7 +834,7 @@ function checkShape(input: unknown): Diagnostic[] {
 			check(rate === undefined || typeof rate === "string", `${at}/rate`, "a string");
 		}
 	});
-	// Walkthroughs come with the web component. Until then, one would be dropped unseen.
+	// Walkthroughs come in slice 4. Until then, one would be dropped unseen.
 	if (Array.isArray(input.walkthroughs)) {
 		check(
 			input.walkthroughs.length === 0,
