@@ -1,6 +1,12 @@
 import { describe, expect, test } from "vitest";
 import { architecture, type FontRequest, render } from "../src/index.ts";
-import { embeddedFaces, renderWithFont } from "./support/fonts.ts";
+import {
+	declarationsFor,
+	embeddedFaces,
+	renderWithFont,
+	selectorsOf,
+	styleOf,
+} from "./support/fonts.ts";
 import {
 	advanceOf,
 	bundledFont,
@@ -156,5 +162,74 @@ describe("the embedded subset", () => {
 				"post",
 			]);
 		}
+	});
+});
+
+/** The shop, with one more Edge: the same text, laid out and routed differently. */
+const busierShop = architecture({ title: "Shop" }, (d) => {
+	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+	const api = d.node({ id: "shop-api", kind: "service", title: "Shop API" });
+	const db = d.node({ id: "shop-db", kind: "database", title: "Shop database" });
+	const events = d.node({ id: "shop-events", kind: "queue", title: "Shop events" });
+	d.edge(web, api, { kind: "call" });
+	d.edge(api, db, { kind: "call" });
+	d.edge(api, events, { kind: "message" });
+	d.edge(db, events, { kind: "message" });
+});
+
+/** The shop, with one title changed. */
+const renamedShop = architecture({ title: "Shop" }, (d) => {
+	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+	const api = d.node({ id: "shop-api", kind: "service", title: "Shop API" });
+	const db = d.node({ id: "shop-db", kind: "database", title: "Shop database" });
+	const events = d.node({ id: "shop-events", kind: "queue", title: "Shop orders" });
+	d.edge(web, api, { kind: "call" });
+	d.edge(api, db, { kind: "call" });
+	d.edge(api, events, { kind: "message" });
+});
+
+function familyOf(diagram: unknown): string {
+	const families = new Set(
+		embeddedFaces(renderWithFont(diagram).svg ?? "").map((face) => face.family),
+	);
+	expect(families.size).toBe(1);
+	return [...families][0] ?? "";
+}
+
+function rootClassOf(svg: string): string {
+	return svg.match(/^<svg [^>]*class="([^"]+)"/)?.[1] ?? "";
+}
+
+describe("the embedded font's family", () => {
+	test("is named after the SVG's contents, so it changes whenever they do", () => {
+		const family = familyOf(shop);
+		expect(family).toMatch(/^diagram-[0-9a-f]+$/);
+		expect(familyOf(shop)).toBe(family);
+		expect(familyOf(JSON.parse(JSON.stringify(shop)))).toBe(family);
+		expect(familyOf(renamedShop)).not.toBe(family);
+		expect(familyOf(busierShop)).not.toBe(family);
+	});
+});
+
+describe("the SVG's style", () => {
+	test("scopes every selector to its SVG, by a class on the root that's named like its font", () => {
+		for (const diagram of [shop, busierShop, latin]) {
+			const svg = renderWithFont(diagram).svg ?? "";
+			const scope = rootClassOf(svg);
+			expect(scope).toBe(familyOf(diagram));
+			const selectors = selectorsOf(styleOf(svg));
+			expect(selectors.length).toBeGreaterThan(0);
+			for (const selector of selectors) {
+				expect(selector.split(/\s+/)[0]).toBe(`.${scope}`);
+			}
+		}
+	});
+
+	test("sets the embedded family first in the SVG's font stack", () => {
+		const svg = renderWithFont(shop).svg ?? "";
+		const scope = rootClassOf(svg);
+		const fontFamily = declarationsFor(styleOf(svg), `.${scope}`).get("font-family") ?? "";
+		expect(fontFamily.split(",")[0]).toBe(`"${familyOf(shop)}"`);
+		expect(svg).not.toMatch(/ font-family="/);
 	});
 });

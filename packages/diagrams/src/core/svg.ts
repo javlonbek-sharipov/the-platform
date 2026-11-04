@@ -14,20 +14,17 @@ type Attribute = readonly [name: string, value: string | number];
 const ink = "#1f2328";
 const line = "#57606a";
 const surface = "#ffffff";
-const fontFamily = "Inter, Helvetica, Arial, sans-serif";
+const fallbackFonts = "Helvetica, Arial, sans-serif";
 const fontWeights: Record<FontWeight, number> = { regular: 400, semibold: 600 };
 
 export function writeSvg(scene: Scene, fontData?: FontData): string {
 	const { bounds } = scene;
-	const fonts = fontData === undefined ? [] : embeddedFonts(scene, fontData);
-	const lines = [
-		start("svg", [
-			["xmlns", "http://www.w3.org/2000/svg"],
-			["viewBox", [bounds.x, bounds.y, bounds.width, bounds.height].map(number).join(" ")],
-			["width", bounds.width],
-			["height", bounds.height],
-		]),
-		...(fonts.length === 0 ? [] : style(fonts).map((text) => indent(1, text))),
+	const size: Attribute[] = [
+		["viewBox", [bounds.x, bounds.y, bounds.width, bounds.height].map(number).join(" ")],
+		["width", bounds.width],
+		["height", bounds.height],
+	];
+	const body = [
 		indent(
 			1,
 			start("g", [
@@ -41,13 +38,22 @@ export function writeSvg(scene: Scene, fontData?: FontData): string {
 		indent(
 			1,
 			start("g", [
-				["font-family", fontFamily],
 				["text-anchor", "middle"],
 				["dominant-baseline", "central"],
 			]),
 		),
 		...scene.nodes.flatMap((node) => writeNode(node).map((text) => indent(2, text))),
 		indent(1, "</g>"),
+	];
+	const fonts = fontData === undefined ? [] : embeddedFonts(scene, fontData);
+	// Inlined into a page, an SVG's style applies to the whole page, so the font's
+	// family and every selector carry a name made from everything else in the SVG.
+	const contents = [attributesText(size), ...fonts.map((font) => font.data), ...body];
+	const scope = `diagram-${hash(contents.join("\n"))}`;
+	const lines = [
+		start("svg", [["xmlns", "http://www.w3.org/2000/svg"], ["class", scope], ...size]),
+		...style(scope, fonts).map((text) => indent(1, text)),
+		...body,
 		"</svg>",
 	];
 	return `${lines.join("\n")}\n`;
@@ -74,15 +80,17 @@ function embeddedFonts(scene: Scene, fontData: FontData): EmbeddedFont[] {
 	});
 }
 
-function style(fonts: EmbeddedFont[]): string[] {
+/** The font's faces, and one rule for the SVG's root, which every text inherits from. */
+function style(scope: string, fonts: EmbeddedFont[]): string[] {
 	return [
 		"<style>",
 		...fonts.map((font) =>
 			indent(
 				1,
-				`@font-face { font-family: "Inter"; font-weight: ${fontWeights[font.weight]}; src: url("data:font/ttf;base64,${font.data}") format("truetype"); }`,
+				`@font-face { font-family: "${scope}"; font-weight: ${fontWeights[font.weight]}; src: url("data:font/ttf;base64,${font.data}") format("truetype"); }`,
 			),
 		),
+		indent(1, `.${scope} { font-family: "${scope}", ${fallbackFonts}; }`),
 		"</style>",
 	];
 }
@@ -172,6 +180,18 @@ function indent(depth: number, text: string): string {
 function number(value: number): string {
 	const rounded = Math.round(value * 100) / 100;
 	return String(rounded === 0 ? 0 : rounded);
+}
+
+const hashSize = 2n ** 64n;
+
+/** A 64-bit FNV-1a hash of the text's UTF-16 code units, in hex. */
+function hash(text: string): string {
+	let value = 0xcbf29ce484222325n;
+	for (let index = 0; index < text.length; index++) {
+		value ^= BigInt(text.charCodeAt(index));
+		value = (value * 0x100000001b3n) % hashSize;
+	}
+	return value.toString(16).padStart(16, "0");
 }
 
 const base64Digits = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
