@@ -53,6 +53,13 @@ export interface SceneNode {
 	/** Whether the Node stands for something we don't own or run, drawn with a dashed outline. */
 	external: boolean;
 	status?: SceneStatus;
+	callout?: SceneCallout;
+}
+
+/** A Node's callout: a tag just above the Node, holding the callout's text. */
+export interface SceneCallout {
+	tag: Box;
+	text: SceneText;
 }
 
 /** A Node's status, and where its mark is drawn, at the end of the header. */

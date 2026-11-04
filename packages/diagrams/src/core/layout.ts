@@ -26,14 +26,19 @@ export function layOut(diagram: Diagram): SceneNode[] {
 		down ? { x: margin + across, y: margin + along } : { x: margin + along, y: margin + across };
 
 	// Header Ports sit on a Node's sides along the rank axis: for `right`, level
-	// with its header, and for `down`, halfway across it.
+	// with its header, and for `down`, halfway across it. Above the Node, a
+	// callout's tag needs room, which is across the rank for `right` and along
+	// it for `down`.
 	const frames = diagram.nodes.map(frameOf);
-	const members: Member[] = frames.map(({ width, height, headerTop, headerHeight }) => {
-		if (down) {
-			return { depth: height, before: width / 2, after: width / 2 };
-		}
-		const middle = headerTop + headerHeight / 2;
-		return { depth: width, before: middle, after: height - middle };
+	/** From a Node's leading side across the rank to its Ports' line. */
+	const toPorts = frames.map(({ width, headerTop, headerHeight }) =>
+		down ? width / 2 : headerTop + headerHeight / 2,
+	);
+	const members: Member[] = frames.map(({ width, height, tagRoom }, at) => {
+		const ports = toPorts[at] ?? 0;
+		return down
+			? { depth: height, lead: tagRoom, before: ports, after: width - ports }
+			: { depth: width, before: tagRoom + ports, after: height - ports };
 	});
 	const index = new Map(diagram.nodes.map((node, at) => [node.id, at]));
 	const connections = diagram.edges.map((edge) => ({
@@ -44,11 +49,11 @@ export function layOut(diagram: Diagram): SceneNode[] {
 
 	return diagram.nodes.map((node, at) => {
 		const { x: line, y: ports } = placements[at] ?? { x: 0, y: 0 };
-		const { depth, before } = members[at] ?? { depth: 0, before: 0 };
-		const corner = turn(line - depth / 2, ports - before);
+		const { depth } = members[at] ?? { depth: 0 };
+		const corner = turn(line - depth / 2, ports - (toPorts[at] ?? 0));
 		const { width, height } = frames[at] ?? { width: 0, height: 0 };
 		const box = { ...corner, width, height };
-		const { header, badge, title, status } = partsOf(node, box);
+		const { header, badge, title, status, callout } = partsOf(node, box, diagram.direction);
 		return {
 			id: node.id,
 			kind: node.kind,
@@ -60,6 +65,7 @@ export function layOut(diagram: Diagram): SceneNode[] {
 			title,
 			external: node.external === true,
 			...(status === undefined ? {} : { status }),
+			...(callout === undefined ? {} : { callout }),
 		};
 	});
 }

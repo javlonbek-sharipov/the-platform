@@ -1,10 +1,18 @@
 import { describe, expect, test } from "vitest";
-import { architecture, architectureNodeKinds, architectureStatuses } from "../src/index.ts";
+import {
+	architecture,
+	architectureNodeKinds,
+	architectureStatuses,
+	type Box,
+	type Direction,
+	render,
+	type Scene,
+} from "../src/index.ts";
 import { type Drawn, draw, nodeOf, paintsWithin, shapesOf, withoutColor } from "./support/drawn.ts";
 import { computedStyle, type Element } from "./support/svg.ts";
 
 /** One Node of each architecture Kind, with ids named after their Kinds. */
-function oneOfEach(details: { external?: boolean } = {}) {
+function oneOfEach(details: { external?: boolean; callout?: string } = {}) {
 	return architecture({ title: "Kinds" }, (d) => {
 		for (const kind of architectureNodeKinds) {
 			d.node({ id: kind, kind, title: "Shop", ...details });
@@ -174,6 +182,183 @@ describe("a Node's status", () => {
 		const { scene } = draw(oneOfEach());
 		for (const node of scene.nodes) {
 			expect(node.status, node.id).toBeUndefined();
+		}
+	});
+});
+
+const directions: Direction[] = ["right", "down"];
+
+/**
+ * The orders API calls its database and its cache, which share a rank, and
+ * the cache has a callout. So its tag sits between it and the database, laid
+ * out right, and between it and the API, laid out down.
+ */
+function calledOut(direction: Direction, callout = "single point of failure") {
+	return architecture({ title: "Orders", direction }, (d) => {
+		const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+		const api = d.node({ id: "orders-api", kind: "service", title: "Orders API" });
+		const db = d.node({ id: "orders-db", kind: "database", title: "Orders database" });
+		const cache = d.node({ id: "orders-cache", kind: "cache", title: "Orders cache", callout });
+		d.edge(web, api, { kind: "call" });
+		d.edge(api, db, { kind: "call" });
+		d.edge(api, cache, { kind: "call" });
+	});
+}
+
+/** How far apart two boxes are: the larger of their gaps along x and along y. */
+function gap(a: Box, b: Box): number {
+	return Math.max(
+		b.x - (a.x + a.width),
+		a.x - (b.x + b.width),
+		b.y - (a.y + a.height),
+		a.y - (b.y + b.height),
+	);
+}
+
+function tagOf(scene: Scene, id: string): Box {
+	const tag = nodeOf(scene, id).callout?.tag;
+	if (tag === undefined) {
+		throw new Error(`Node ${id} has no callout`);
+	}
+	return tag;
+}
+
+describe("a Node's callout", () => {
+	test("is a short text in the model", () => {
+		const diagram = architecture({ title: "Payments" }, (d) => {
+			d.node({
+				id: "ledger",
+				kind: "database",
+				title: "Ledger",
+				callout: "single point of failure",
+			});
+		});
+
+		expect(diagram.nodes).toEqual([
+			{ id: "ledger", kind: "database", title: "Ledger", callout: "single point of failure" },
+		]);
+	});
+
+	test.each([
+		["right", "single point of failure"],
+		["down", "SPOF"],
+	] as const)(
+		"puts a tag just above its Node, holding its text, laid out %s",
+		(direction, written) => {
+			const { scene } = draw(calledOut(direction, written));
+			const { box, callout } = nodeOf(scene, "orders-cache");
+			expect(callout).toBeDefined();
+			if (callout === undefined) {
+				return;
+			}
+			const { tag, text } = callout;
+			expect(tag.y + tag.height).toBeLessThanOrEqual(box.y);
+			expect(box.y - (tag.y + tag.height)).toBeLessThan(scene.grid);
+			expect(tag.x).toBe(box.x);
+			expect(tag.x + tag.width).toBeLessThanOrEqual(box.x + box.width);
+			expect(text.text).toBe(written);
+			expect(text.point.y).toBe(tag.y + tag.height / 2);
+			expect(text.point.x - text.width / 2).toBeGreaterThan(tag.x);
+			expect(text.point.x + text.width / 2).toBeLessThan(tag.x + tag.width);
+		},
+	);
+
+	test.each(directions)(
+		"gets room from layout, so that no other Node comes near its tag, laid out %s",
+		(direction) => {
+			const { scene } = draw(calledOut(direction));
+			const tag = tagOf(scene, "orders-cache");
+			for (const node of scene.nodes.filter(({ id }) => id !== "orders-cache")) {
+				expect(gap(tag, node.box), node.id).toBeGreaterThanOrEqual(scene.clearance);
+			}
+			const { bounds } = scene;
+			expect(tag.x).toBeGreaterThanOrEqual(bounds.x);
+			expect(tag.y).toBeGreaterThanOrEqual(bounds.y);
+		},
+	);
+
+	test("keeps its tag beside the input Port, laid out down, where Edges come in from above", () => {
+		const { scene, diagnostics } = render(calledOut("down"));
+		const cache = scene?.nodes.find((node) => node.id === "orders-cache");
+		const tag = cache?.callout?.tag ?? { x: 0, y: 0, width: 0, height: 0 };
+		expect(cache?.input.side).toBe("top");
+		expect(tag.x + tag.width).toBeLessThan(cache?.input.point.x ?? 0);
+		// So a callout as long as this one is shortened there, though it fits laid out right.
+		expect(cache?.callout?.text.shortened).toBe(true);
+		expect(diagnostics.map((diagnostic) => diagnostic.rule)).toEqual(["text-shortened"]);
+		expect(render(calledOut("right")).diagnostics).toEqual([]);
+	});
+
+	test("shortens a callout too wide for its tag, and warns, naming the Node", () => {
+		const long = "this cache is the only copy of every order placed today";
+		const { scene, diagnostics } = render(calledOut("right", long));
+		const text = scene?.nodes.find((node) => node.id === "orders-cache")?.callout?.text;
+		expect(text?.shortened).toBe(true);
+		expect(text?.text).toMatch(/^this cache .*\S…$/);
+		expect(diagnostics).toEqual([
+			{
+				severity: "warning",
+				rule: "text-shortened",
+				message: `Node \`orders-cache\`'s callout is too wide for its tag, so it's shortened to \`${text?.text}\`. Choose a shorter callout to show it in full.`,
+				pointer: "/nodes/3/callout",
+			},
+		]);
+	});
+
+	test("warns about characters the bundled font lacks", () => {
+		const { diagnostics } = render(calledOut("right", "東京 only"));
+		expect(diagnostics).toEqual([
+			{
+				severity: "warning",
+				rule: "glyph-missing",
+				message:
+					"Node `orders-cache`'s callout has characters that the bundled font lacks: 東 (U+6771) and 京 (U+4EAC). They're measured at an average width, and drawn in a fallback font.",
+				pointer: "/nodes/3/callout",
+			},
+		]);
+	});
+
+	test("highlights every Kind's outline in one color of its own, more strongly than its hue", () => {
+		const drawn = draw(oneOfEach({ callout: "SPOF" }));
+		const plain = draw(oneOfEach());
+		for (const theme of ["light", "dark"] as const) {
+			const highlights = new Set<string>();
+			for (const kind of architectureNodeKinds) {
+				const stroke = (from: Drawn) => {
+					const [outline] = strokedParts(from, kind).outline.filter(
+						(shape) => computedStyle(shape, from.rules, theme).get("fill") !== "none",
+					);
+					const style =
+						outline === undefined ? undefined : computedStyle(outline, from.rules, theme);
+					return { color: style?.get("stroke") ?? "", width: Number(style?.get("stroke-width")) };
+				};
+				const highlighted = stroke(drawn);
+				const usual = stroke(plain);
+				expect(highlighted.color, `${kind}, ${theme}`).not.toBe(usual.color);
+				expect(highlighted.width, kind).toBeGreaterThan(usual.width);
+				highlights.add(highlighted.color);
+			}
+			expect([...highlights], theme).toHaveLength(1);
+		}
+	});
+
+	test("draws the tag above the Node, and the rest of the Node inside its rectangle", () => {
+		const drawn = draw(oneOfEach({ callout: "single point of failure" }));
+		for (const node of drawn.scene.nodes) {
+			const tag = tagOf(drawn.scene, node.id);
+			const shapes = shapesOf(drawn, node.id);
+			const inTag = shapes.filter((shape) => paintsWithin(drawn, shape, tag));
+			expect(inTag.length, node.id).toBeGreaterThan(0);
+			for (const shape of shapes.filter((each) => !inTag.includes(each))) {
+				expect(paintsWithin(drawn, shape, node.box), `${node.id}: <${shape.name}>`).toBe(true);
+			}
+		}
+	});
+
+	test("isn't drawn for a Node without one", () => {
+		const { scene } = draw(oneOfEach());
+		for (const node of scene.nodes) {
+			expect(node.callout, node.id).toBeUndefined();
 		}
 	});
 });

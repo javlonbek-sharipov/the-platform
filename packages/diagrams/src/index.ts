@@ -18,6 +18,7 @@ export type {
 	Box,
 	Point,
 	Scene,
+	SceneCallout,
 	SceneEdge,
 	SceneNode,
 	ScenePort,

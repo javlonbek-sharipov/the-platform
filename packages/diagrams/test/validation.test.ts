@@ -284,6 +284,25 @@ describe("validation", () => {
 		]);
 	});
 
+	test("reports a callout with no text", () => {
+		for (const callout of ["", " \n\t", 7]) {
+			const diagram = shopJson();
+			diagram.nodes[1] = {
+				...diagram.nodes[1],
+				callout,
+			} as unknown as (typeof diagram.nodes)[number];
+
+			expect(render(diagram).diagnostics, JSON.stringify(callout)).toEqual([
+				{
+					severity: "error",
+					rule: "model-shape",
+					message: "`/nodes/1/callout` must be a string with some text in it.",
+					pointer: "/nodes/1/callout",
+				},
+			]);
+		}
+	});
+
 	test("accepts ids with digits, and context namespaces", () => {
 		const diagram = shopJson();
 		diagram.nodes[2] = { id: "billing/s3-archive", kind: "storage", title: "Archive" };

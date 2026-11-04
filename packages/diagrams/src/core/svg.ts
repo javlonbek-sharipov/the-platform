@@ -42,6 +42,8 @@ const fontWeights: Record<FontWeight, number> = { regular: 400, semibold: 600 };
 /** How opaque the hue is in the solid parts of an outline, such as a window's title bar. */
 const solidOpacity = 0.5;
 const badgeStroke = 1.5;
+/** How much wider a callout makes its Node's outline. */
+const highlightGain = 1;
 
 /**
  * Each status's mark, drawn in a box 12 px square: a shape of its own, in a
@@ -125,7 +127,9 @@ interface EmbeddedFont {
 /** The font data for each weight that the scene draws text in, in a fixed order. */
 function embeddedFonts(scene: Scene, fontData: FontData): EmbeddedFont[] {
 	// Every piece of text the scene draws.
-	const texts = scene.nodes.map((node) => node.title);
+	const texts = scene.nodes.flatMap((node) =>
+		node.callout === undefined ? [node.title] : [node.title, node.callout.text],
+	);
 	return (["regular", "semibold"] as const).flatMap((weight) => {
 		const drawn = new Set(
 			texts.filter((text) => text.weight === weight).flatMap((text) => [...text.text]),
@@ -202,6 +206,13 @@ function colorUses(scene: Scene): ColorUse[] {
 		...(scene.nodes.length === 0
 			? []
 			: [{ selector: ".diagram-title", property: "fill", color: "ink" } as const]),
+		...(scene.nodes.every((node) => node.callout === undefined)
+			? []
+			: ([
+					{ selector: ".diagram-highlight", property: "stroke", color: "accent" },
+					{ selector: ".diagram-tag", property: "fill", color: "accent" },
+					{ selector: ".diagram-tag-text", property: "fill", color: "surface" },
+				] as const)),
 	];
 }
 
@@ -231,10 +242,12 @@ function themeRules(scope: string, uses: ColorUse[]): string[] {
  * tinted and stroked in the Kind's hue; its badge; and its title.
  */
 function writeNode(node: SceneNode): string[] {
-	const { box, badge, title } = node;
+	const { box, badge, title, callout } = node;
 	const look = lookOf(node.kind);
 	const outline = outlines[look.outline];
-	const { shapes, solids, details } = outline.draw(box, outline.stroke);
+	// A callout highlights the outline: wider, and in the accent color.
+	const width = callout === undefined ? outline.stroke : outline.stroke + highlightGain;
+	const { shapes, solids, details } = outline.draw(box, width);
 	// An External Node's outline is dashed, in a rhythm that grows with its stroke.
 	const stroke = (width: number): Attribute[] => [
 		["stroke", "currentColor"],
@@ -260,10 +273,11 @@ function writeNode(node: SceneNode): string[] {
 						]),
 					)),
 			empty("path", [
+				...(callout === undefined ? [] : [["class", "diagram-highlight"] as const]),
 				["d", pathText(shape)],
 				["fill", "currentColor"],
 				["fill-opacity", outline.tint],
-				...stroke(outline.stroke),
+				...stroke(width),
 				["stroke-linejoin", "round"],
 			]),
 		]),
@@ -291,6 +305,29 @@ function writeNode(node: SceneNode): string[] {
 			title.text,
 		),
 		...(node.status === undefined ? [] : [writeStatus(node.status)]),
+		...(callout === undefined
+			? []
+			: [
+					empty("rect", [
+						["class", "diagram-tag"],
+						["x", callout.tag.x],
+						["y", callout.tag.y],
+						["width", callout.tag.width],
+						["height", callout.tag.height],
+						["rx", callout.tag.height / 2],
+					]),
+					element(
+						"text",
+						[
+							["class", "diagram-tag-text"],
+							["x", callout.text.point.x],
+							["y", callout.text.point.y],
+							["font-size", callout.text.size],
+							["font-weight", fontWeights[callout.text.weight]],
+						],
+						callout.text.text,
+					),
+				]),
 	];
 	return [
 		start("g", [

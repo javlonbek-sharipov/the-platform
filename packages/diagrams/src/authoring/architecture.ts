@@ -23,6 +23,8 @@ export interface ArchitectureNode {
 	external?: boolean;
 	/** How the Node is doing, shown as a mark at the end of its header. */
 	status?: ArchitectureStatus;
+	/** A short tag above the Node that draws attention to it, such as `single point of failure`. */
+	callout?: string;
 }
 
 /** What a Node declaration returns. Later calls accept it in place of the id. */
@@ -57,13 +59,14 @@ export function architecture(
 	const members: string[] = [];
 
 	build({
-		node({ id, kind, title, external, status }) {
+		node({ id, kind, title, external, status, callout }) {
 			nodes.push({
 				id,
 				kind,
 				title,
 				...(external === undefined ? {} : { external }),
 				...(status === undefined ? {} : { status }),
+				...(callout === undefined ? {} : { callout }),
 			});
 			members.push(id);
 			return Object.freeze({ id });

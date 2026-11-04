@@ -43,6 +43,7 @@ const metrics: Record<FontWeight, Metrics> = {
 };
 
 const titleSize = 14;
+const calloutSize = 11;
 const ellipsis = "…";
 
 /**
@@ -58,36 +59,82 @@ export function nodeTitle(title: string, room: Box): SceneText {
 	};
 }
 
-/** A warning for each title with characters that the font lacks, and for each one shortened. */
-export function titleDiagnostics(diagram: Diagram, nodes: SceneNode[]): Diagnostic[] {
-	const titles = new Map(nodes.map((node) => [node.id, node.title]));
+/**
+ * A callout's text, for the tag above its Node: it starts at `left`, centered
+ * on `middle` from top to bottom, and is shortened if it's wider than
+ * `maxWidth`, so that the tag can be as wide as its text.
+ */
+export function calloutText(
+	callout: string,
+	left: number,
+	middle: number,
+	maxWidth: number,
+): SceneText {
+	const fitted = fit(collapseSpaces(callout), "semibold", calloutSize, maxWidth);
+	return {
+		...fitted,
+		point: { x: left + fitted.width / 2, y: middle },
+		weight: "semibold",
+		size: calloutSize,
+	};
+}
+
+/**
+ * A warning for each title or callout with characters that the font lacks,
+ * and for each one shortened, Node by Node.
+ */
+export function textDiagnostics(diagram: Diagram, nodes: SceneNode[]): Diagnostic[] {
+	const drawn = new Map(nodes.map((node) => [node.id, node]));
 	return diagram.nodes.flatMap((node, index) => {
-		const diagnostics: Diagnostic[] = [];
-		const pointer = `/nodes/${index}/title`;
-		const missing = missingCharacters(collapseSpaces(node.title), "semibold");
-		if (missing.length > 0) {
-			const listed = list(missing.map((character) => `${character} (${codePointOf(character)})`));
-			diagnostics.push({
-				severity: "warning",
-				rule: "glyph-missing",
-				message:
-					missing.length === 1
-						? `Node \`${node.id}\`'s title has a character that the bundled font lacks: ${listed}. It's measured at an average width, and drawn in a fallback font.`
-						: `Node \`${node.id}\`'s title has characters that the bundled font lacks: ${listed}. They're measured at an average width, and drawn in a fallback font.`,
-				pointer,
-			});
-		}
-		const title = titles.get(node.id);
-		if (title?.shortened === true) {
-			diagnostics.push({
-				severity: "warning",
-				rule: "text-shortened",
-				message: `Node \`${node.id}\`'s title is too wide for its Node, so it's shortened to \`${title.text}\`. Choose a shorter title to show it in full.`,
-				pointer,
-			});
-		}
-		return diagnostics;
+		const scene = drawn.get(node.id);
+		return [
+			...warnings(node.id, "title", node.title, scene?.title, `/nodes/${index}/title`, "its Node"),
+			...(node.callout === undefined
+				? []
+				: warnings(
+						node.id,
+						"callout",
+						node.callout,
+						scene?.callout?.text,
+						`/nodes/${index}/callout`,
+						"its tag",
+					)),
+		];
 	});
+}
+
+/** The warnings about one of a Node's texts: the characters the font lacks, and shortening. */
+function warnings(
+	id: string,
+	what: "title" | "callout",
+	written: string,
+	drawn: SceneText | undefined,
+	pointer: string,
+	room: string,
+): Diagnostic[] {
+	const diagnostics: Diagnostic[] = [];
+	const missing = missingCharacters(collapseSpaces(written), "semibold");
+	if (missing.length > 0) {
+		const listed = list(missing.map((character) => `${character} (${codePointOf(character)})`));
+		diagnostics.push({
+			severity: "warning",
+			rule: "glyph-missing",
+			message:
+				missing.length === 1
+					? `Node \`${id}\`'s ${what} has a character that the bundled font lacks: ${listed}. It's measured at an average width, and drawn in a fallback font.`
+					: `Node \`${id}\`'s ${what} has characters that the bundled font lacks: ${listed}. They're measured at an average width, and drawn in a fallback font.`,
+			pointer,
+		});
+	}
+	if (drawn?.shortened === true) {
+		diagnostics.push({
+			severity: "warning",
+			rule: "text-shortened",
+			message: `Node \`${id}\`'s ${what} is too wide for ${room}, so it's shortened to \`${drawn.text}\`. Choose a shorter ${what} to show it in full.`,
+			pointer,
+		});
+	}
+	return diagnostics;
 }
 
 /** Each character in the text that the font lacks, once, in order. */

@@ -201,13 +201,18 @@ function checkShape(input: unknown): Diagnostic[] {
 	checkList(input.nodes, "/nodes", (node, at) => {
 		checkStrings(node, at, ["id", "kind", "title"]);
 		if (isObject(node)) {
-			const { external, status } = node;
+			const { external, status, callout } = node;
 			check(
 				external === undefined || typeof external === "boolean",
 				`${at}/external`,
 				"`true` or `false`",
 			);
 			check(status === undefined || typeof status === "string", `${at}/status`, "a string");
+			check(
+				callout === undefined || (typeof callout === "string" && /[^ \t\n\r]/.test(callout)),
+				`${at}/callout`,
+				"a string with some text in it",
+			);
 		}
 	});
 	checkList(input.groups, "/groups", () => {});

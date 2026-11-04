@@ -38,6 +38,8 @@ export interface Node {
 	/** Whether the Node stands for something we don't own or run, such as a third-party API. */
 	external?: boolean;
 	status?: ArchitectureStatus;
+	/** A short tag that draws attention to the Node, such as `single point of failure`. */
+	callout?: string;
 }
 
 export interface Edge {
