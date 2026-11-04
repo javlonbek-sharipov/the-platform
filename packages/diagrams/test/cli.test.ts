@@ -3,6 +3,8 @@ import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { runCli, sampleAtlas, shopModule } from "./support/atlas.ts";
+import { embeddedFaces } from "./support/fonts.ts";
+import { characterMap, openFont } from "./support/truetype.ts";
 
 describe("diagrams render and lint", () => {
 	test("render writes each SVG next to its source, and lint passes afterwards", async () => {
@@ -132,5 +134,42 @@ describe("diagrams render and lint", () => {
 		expect((await runCli(["lint"], atlas)).stdout).toContain(
 			"docs/billing/billing.diagram.svg: error:",
 		);
+	});
+});
+
+describe("diagrams render and lint, with text", () => {
+	test("render embeds in each SVG the bundled font's glyphs for exactly the characters it draws", async () => {
+		const atlas = await sampleAtlas({ "docs/shop.diagram.ts": shopModule("Shop") });
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+
+		const svg = await readFile(join(atlas, "docs/shop.diagram.svg"), "utf8");
+		const faces = embeddedFaces(svg);
+		expect(faces.map((face) => face.weight)).toEqual([600]);
+		const codes = [...characterMap(openFont(faces[0]?.data ?? new Uint8Array())).keys()];
+		// The characters of "Web app" and "Shop API".
+		expect(String.fromCodePoint(...codes.sort((a, b) => a - b))).toBe(" AIPSWabehop");
+	});
+
+	test("lint warns about a shortened title and about characters the font lacks, and still passes", async () => {
+		const atlas = await sampleAtlas({
+			"docs/offices.diagram.ts": `import { architecture } from "@the-platform/diagrams";
+
+export default architecture({ title: "Offices" }, (d) => {
+	d.node({ id: "translations", kind: "service", title: "Internationalization service" });
+	d.node({ id: "tokyo", kind: "service", title: "Tokyo 東京" });
+});
+`,
+		});
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+
+		const lint = await runCli(["lint"], atlas);
+		expect(lint.code).toBe(0);
+		expect(lint.stdout).toMatch(
+			/^docs\/offices\.diagram\.ts(:\d+:\d+)?: warning: Node `translations`'s title is too wide for its Node, so it's shortened to `Internationaliz.*…`\. .* \(text-shortened\)$/m,
+		);
+		expect(lint.stdout).toMatch(
+			/^docs\/offices\.diagram\.ts(:\d+:\d+)?: warning: Node `tokyo`'s title has characters that the bundled font lacks: 東 \(U\+6771\) and 京 \(U\+4EAC\)\. .* \(glyph-missing\)$/m,
+		);
+		expect(lint.stdout).toMatch(/\nChecked 1 Diagram: no errors, 2 warnings\.\n$/);
 	});
 });

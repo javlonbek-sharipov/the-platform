@@ -7,6 +7,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import type { Diagnostic } from "../core/diagnostics.ts";
 import { render } from "../core/render.ts";
+import { bundledFontData } from "../fonts/bundled.ts";
 import { load } from "./load.ts";
 
 /** The engine's cache folder, at the repo root. Git ignores it. */
@@ -79,7 +80,7 @@ export function svgFileOf(module: string): string {
 	return `${module.slice(0, -".ts".length)}.svg`;
 }
 
-/** Loads each module, and renders its Diagram. */
+/** Loads each module, and renders its Diagram, embedding a subset of the bundled font. */
 export async function renderDiagrams(modules: string[]): Promise<RenderedDiagram[]> {
 	return (await load(modules)).map((loaded) => {
 		const svgFile = svgFileOf(loaded.module);
@@ -92,7 +93,7 @@ export async function renderDiagrams(modules: string[]): Promise<RenderedDiagram
 				],
 			};
 		}
-		const { diagnostics, svg } = render(loaded.diagram);
+		const { diagnostics, svg } = render(loaded.diagram, { fontData: bundledFontData });
 		const messages = diagnostics.map((diagnostic) => ({ file: loaded.module, ...diagnostic }));
 		return svg === undefined
 			? { module: loaded.module, svgFile, messages }
