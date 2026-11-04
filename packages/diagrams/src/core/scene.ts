@@ -62,6 +62,22 @@ export interface SceneNode {
 	title: SceneText;
 }
 
+/** A Group's box, with its label band along the top. */
+export interface SceneGroup {
+	id: string;
+	kind: string;
+	box: Box;
+	/**
+	 * The label box: the part of the label band, along the top of the box,
+	 * that holds the title. No route passes through it, and no Node comes
+	 * within a clearance of it.
+	 */
+	label: Box;
+	/** How deep the Group is nested: 0 on the Diagram itself, 1 inside a Group on it, and so on. */
+	depth: number;
+	title: SceneText;
+}
+
 export interface SceneEdge {
 	id: string;
 	kind: string;
@@ -90,13 +106,15 @@ export interface Scene {
 	/** The bounds of the whole drawing, margin included. */
 	bounds: Box;
 	/**
-	 * The margin every Node keeps around it, which no other Node may enter, so
-	 * that Edges always have a corridor between two Nodes.
+	 * The margin every Node keeps around it, which no other Node and no Group
+	 * label may enter, so that Edges always have a corridor between two Nodes.
 	 */
 	clearance: number;
 	/** The step of the grid that layout snaps every position to. */
 	grid: number;
 	nodes: SceneNode[];
+	/** The Groups, in model order. */
+	groups: SceneGroup[];
 	edges: SceneEdge[];
 	/** The diagnostics that layout and routing raised. */
 	diagnostics: Diagnostic[];

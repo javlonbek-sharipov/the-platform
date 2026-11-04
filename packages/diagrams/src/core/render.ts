@@ -7,7 +7,7 @@
 import type { Diagnostic } from "./diagnostics.ts";
 import { clearance, grid, layOut, margin } from "./layout.ts";
 import { route } from "./route.ts";
-import type { Box, Scene, SceneEdge, SceneNode } from "./scene.ts";
+import type { Box, Scene, SceneEdge } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
 import { type FontData, titleDiagnostics } from "./text.ts";
 import { validate } from "./validate.ts";
@@ -38,13 +38,17 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		return { diagnostics: validation.diagnostics };
 	}
 	const model = validation.diagram;
-	const nodes = layOut(model);
+	const { nodes, groups } = layOut(model);
 	const { edges, diagnostics } = route(model, nodes, options);
 	const scene: Scene = {
-		bounds: boundsOf(nodes, edges),
+		bounds: boundsOf(
+			[...nodes, ...groups].map(({ box }) => box),
+			edges,
+		),
 		clearance,
 		grid,
 		nodes,
+		groups,
 		edges,
 		diagnostics: [...titleDiagnostics(model, nodes), ...diagnostics],
 	};
@@ -55,13 +59,14 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 	};
 }
 
-function boundsOf(nodes: SceneNode[], edges: SceneEdge[]): Box {
+/** The bounds of the drawing: every Node's and Group's box, and every route, with a margin. */
+function boundsOf(boxes: Box[], edges: SceneEdge[]): Box {
 	const xs = [
-		...nodes.flatMap((node) => [node.box.x, node.box.x + node.box.width]),
+		...boxes.flatMap((box) => [box.x, box.x + box.width]),
 		...edges.flatMap((edge) => edge.route.map((point) => point.x)),
 	];
 	const ys = [
-		...nodes.flatMap((node) => [node.box.y, node.box.y + node.box.height]),
+		...boxes.flatMap((box) => [box.y, box.y + box.height]),
 		...edges.flatMap((edge) => edge.route.map((point) => point.y)),
 	];
 	const left = Math.min(margin, ...xs) - margin;

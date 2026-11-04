@@ -33,6 +33,7 @@ export type {
 	RoutePoint,
 	Scene,
 	SceneEdge,
+	SceneGroup,
 	SceneNode,
 	ScenePort,
 	SceneText,

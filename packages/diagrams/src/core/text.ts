@@ -43,8 +43,9 @@ const metrics: Record<FontWeight, Metrics> = {
 };
 
 const titleSize = 14;
-/** The room a title leaves on each side, between it and the edge of its Node. */
-const titlePadding = 12;
+const groupTitleSize = 13;
+/** The room a title leaves on each side, between it and the edge of its Node or label box. */
+export const titlePadding = 12;
 const ellipsis = "…";
 
 /** A Node's title, centered in its header, and shortened if it's too wide for the header. */
@@ -54,6 +55,25 @@ export function nodeTitle(title: string, header: Box): SceneText {
 		point: { x: header.x + header.width / 2, y: header.y + header.height / 2 },
 		weight: "semibold",
 		size: titleSize,
+	};
+}
+
+/**
+ * A Group's title, at the start of its label band, and shortened if it's too
+ * wide for the band.
+ */
+export function groupTitle(title: string, band: Box): SceneText {
+	const fitted = fit(
+		collapseSpaces(title),
+		"semibold",
+		groupTitleSize,
+		band.width - 2 * titlePadding,
+	);
+	return {
+		...fitted,
+		point: { x: band.x + titlePadding + fitted.width / 2, y: band.y + band.height / 2 },
+		weight: "semibold",
+		size: groupTitleSize,
 	};
 }
 
