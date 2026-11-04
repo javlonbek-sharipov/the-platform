@@ -38,6 +38,13 @@ export interface Routing {
 /** A bend costs as much as this much length, which favors routes with few bends. */
 const bendCost = 40;
 
+/**
+ * Crossing a Group's border costs as much as this much length, so that a
+ * route passes beside a Group rather than through it when that costs little
+ * more.
+ */
+const crossingCost = 16;
+
 /** The radius of a rounded corner, where both runs that meet there are long enough. */
 const cornerRadius = 8;
 
@@ -124,7 +131,7 @@ function searchRoute(
 	const path = search(
 		{ vertex: start, heading: outOf[toPort.side] },
 		{ vertex: goal, heading: opposite[outOf[fromPort.side]] },
-		{ bend: bendCost, budget },
+		{ bend: bendCost, crossing: crossingCost, budget },
 	);
 	return (
 		path && [fromPort.point, ...path.reverse().map((vertex) => pointOf(grid, vertex)), toPort.point]
