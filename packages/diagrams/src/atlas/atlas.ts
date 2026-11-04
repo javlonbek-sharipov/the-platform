@@ -7,7 +7,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import type { Diagnostic } from "../core/diagnostics.ts";
 import { render } from "../core/render.ts";
-import { load } from "./load.ts";
+import { type Loaded, load } from "./load.ts";
 
 /** The engine's cache folder, at the repo root. Git ignores it. */
 export const cacheFolder = ".diagrams-cache";
@@ -27,18 +27,26 @@ export interface RenderedDiagram {
 	messages: AtlasMessage[];
 }
 
+/** The config file, at the repo root. It marks the Atlas. */
+export const configFile = "diagrams.config.ts";
+
+/** A problem that stops a command before it checks any Diagram, such as a missing config. */
+export class AtlasError extends Error {}
+
 /**
- * The repo root: the nearest folder at or above `cwd` that holds `.git`.
- * Outside a git repo, it's `cwd` itself.
+ * The repo root: the nearest folder at or above `cwd` that holds the config.
  */
 export function findRoot(cwd: string): string {
-	const start = resolve(cwd);
-	for (let folder = start; ; folder = dirname(folder)) {
-		if (existsSync(join(folder, ".git"))) {
+	for (let folder = resolve(cwd); ; folder = dirname(folder)) {
+		if (existsSync(join(folder, configFile))) {
 			return folder;
 		}
 		if (dirname(folder) === folder) {
-			return start;
+			throw new AtlasError(
+				`There's no ${configFile} in this folder or any folder above it. It marks the Atlas, so create it at the repo root:\n\n` +
+					'  import { atlas } from "@the-platform/diagrams";\n\n' +
+					"  export default atlas({});",
+			);
 		}
 	}
 }
@@ -81,35 +89,65 @@ export function svgFileOf(module: string): string {
 
 /** Loads each module, and renders its Diagram. */
 export async function renderDiagrams(modules: string[]): Promise<RenderedDiagram[]> {
-	return (await load(modules)).map((loaded) => {
-		const svgFile = svgFileOf(loaded.module);
-		if ("error" in loaded) {
-			return {
-				module: loaded.module,
-				svgFile,
-				messages: [
-					{ file: loaded.module, severity: "error", rule: "module-load", message: loaded.error },
-				],
-			};
-		}
-		const { diagnostics, svg } = render(loaded.diagram);
-		const messages = diagnostics.map((diagnostic) => ({ file: loaded.module, ...diagnostic }));
-		return svg === undefined
-			? { module: loaded.module, svgFile, messages }
-			: { module: loaded.module, svgFile, svg, messages };
-	});
+	return (await load(modules)).map(renderLoaded);
 }
 
-/** Renders every Diagram in the Atlas, and checks each SVG on disk against it. */
+/**
+ * Loads the config and every Diagram in the Atlas, renders each Diagram, and
+ * checks each SVG on disk against its fresh render.
+ */
 export async function lintAtlas(
 	root: string,
 ): Promise<{ diagrams: number; messages: AtlasMessage[] }> {
-	const rendered = await renderDiagrams(discover(root));
-	const messages = rendered.flatMap((diagram) => {
-		const stale = diagram.svg === undefined ? undefined : checkSvg(diagram.svgFile, diagram.svg);
-		return stale === undefined ? diagram.messages : [...diagram.messages, stale];
-	});
+	const [config, ...modules] = await load([join(root, configFile), ...discover(root)]);
+	const rendered = modules.map(renderLoaded);
+	const messages = [
+		...(config === undefined ? [] : checkConfig(config)),
+		...rendered.flatMap((diagram) => {
+			const stale = diagram.svg === undefined ? undefined : checkSvg(diagram.svgFile, diagram.svg);
+			return stale === undefined ? diagram.messages : [...diagram.messages, stale];
+		}),
+	];
 	return { diagrams: rendered.length, messages };
+}
+
+function renderLoaded(loaded: Loaded): RenderedDiagram {
+	const { module } = loaded;
+	const svgFile = svgFileOf(module);
+	if ("error" in loaded) {
+		return { module, svgFile, messages: [loadError(module, loaded.error)] };
+	}
+	if (loaded.exported === undefined) {
+		return {
+			module,
+			svgFile,
+			messages: [loadError(module, "The module doesn't default-export a Diagram.")],
+		};
+	}
+	const { diagnostics, svg } = render(loaded.exported);
+	const messages = diagnostics.map((diagnostic) => ({ file: module, ...diagnostic }));
+	return svg === undefined ? { module, svgFile, messages } : { module, svgFile, svg, messages };
+}
+
+/** The config must load, and default-export what `atlas()` returns. */
+function checkConfig(config: Loaded): AtlasMessage[] {
+	if ("error" in config) {
+		return [loadError(config.module, config.error)];
+	}
+	const { exported } = config;
+	if (typeof exported !== "object" || exported === null || Array.isArray(exported)) {
+		return [
+			loadError(
+				config.module,
+				"The config doesn't default-export an Atlas config. Write `export default atlas({});`.",
+			),
+		];
+	}
+	return [];
+}
+
+function loadError(file: string, message: string): AtlasMessage {
+	return { file, severity: "error", rule: "module-load", message };
 }
 
 function checkSvg(svgFile: string, svg: string): AtlasMessage | undefined {

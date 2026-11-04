@@ -6,6 +6,7 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
 import {
+	AtlasError,
 	type AtlasMessage,
 	discover,
 	findRoot,
@@ -32,6 +33,18 @@ Commands:
 
 /** Runs one command, and returns its exit code. */
 export async function cli(args: string[], context: CliContext): Promise<number> {
+	try {
+		return await run(args, context);
+	} catch (error) {
+		if (error instanceof AtlasError) {
+			context.stderr.write(`${error.message}\n`);
+			return 2;
+		}
+		throw error;
+	}
+}
+
+async function run(args: string[], context: CliContext): Promise<number> {
 	const [command, ...rest] = args;
 	switch (command) {
 		case "render":

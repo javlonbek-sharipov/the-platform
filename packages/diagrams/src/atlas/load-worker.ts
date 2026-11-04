@@ -1,7 +1,7 @@
 /**
  * Runs in a worker thread, so that each load starts from a fresh module
- * graph and picks up every edit. Imports each diagram module through Node's
- * type stripping, and posts back its default export as JSON.
+ * graph and picks up every edit. Imports each module through Node's type
+ * stripping, and posts back its default export as JSON.
  */
 
 import { pathToFileURL } from "node:url";
@@ -20,10 +20,7 @@ async function loadModule(module: string): Promise<LoadResult> {
 		return { module, error: `The module failed to load: ${messageOf(error)}` };
 	}
 	try {
-		const json = JSON.stringify(exports.default);
-		return json === undefined
-			? { module, error: "The module doesn't default-export a Diagram." }
-			: { module, json };
+		return { module, json: JSON.stringify(exports.default) };
 	} catch (error) {
 		return { module, error: `The module's default export isn't JSON: ${messageOf(error)}` };
 	}

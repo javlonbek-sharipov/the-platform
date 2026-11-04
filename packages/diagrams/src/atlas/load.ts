@@ -1,13 +1,16 @@
 import { Worker } from "node:worker_threads";
 
-/** What loading one diagram module gave: its default export as JSON, or why there's none. */
-export type LoadResult = { module: string; json: string } | { module: string; error: string };
+/** What the worker posts for one module: its default export as JSON, or why it failed to load. */
+export type LoadResult =
+	| { module: string; json: string | undefined }
+	| { module: string; error: string };
 
-export type Loaded = { module: string; diagram: unknown } | { module: string; error: string };
+/** What loading one module gave: its default export, or why it failed to load. */
+export type Loaded = { module: string; exported: unknown } | { module: string; error: string };
 
 /**
- * Loads diagram modules in a fresh worker thread, so that edits to them and
- * to the modules they import are always picked up.
+ * Loads modules in a fresh worker thread, so that edits to them and to the
+ * modules they import are always picked up.
  */
 export function load(modules: string[]): Promise<Loaded[]> {
 	if (modules.length === 0) {
@@ -25,7 +28,12 @@ export function load(modules: string[]): Promise<Loaded[]> {
 		worker.on("message", (result: LoadResult) => {
 			results.set(
 				result.module,
-				"json" in result ? { module: result.module, diagram: JSON.parse(result.json) } : result,
+				"error" in result
+					? result
+					: {
+							module: result.module,
+							exported: result.json === undefined ? undefined : JSON.parse(result.json),
+						},
 			);
 			if (results.size === modules.length) {
 				// A module may have left timers running; its results are all in.

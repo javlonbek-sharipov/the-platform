@@ -7,10 +7,17 @@ import { cli } from "../../src/cli/cli.ts";
 
 const packageFolder = fileURLToPath(new URL("../../", import.meta.url));
 
+/** The config that marks a sample Atlas, unless a test writes its own. */
+export const sampleConfig = `import { atlas } from "@the-platform/diagrams";
+
+export default atlas({});
+`;
+
 /**
  * Writes a sample Atlas into a fresh temporary folder, laid out like the repo:
- * an ES-module package that depends on @the-platform/diagrams. The folder is
- * removed when the test finishes.
+ * an ES-module package that depends on @the-platform/diagrams, with a
+ * `diagrams.config.ts` at its root. The folder is removed when the test
+ * finishes.
  */
 export async function sampleAtlas(files: Record<string, string>): Promise<string> {
 	const root = await realpath(await mkdtemp(join(tmpdir(), "diagrams-atlas-")));
@@ -18,7 +25,7 @@ export async function sampleAtlas(files: Record<string, string>): Promise<string
 	await writeFile(join(root, "package.json"), '{ "private": true, "type": "module" }\n');
 	await mkdir(join(root, "node_modules", "@the-platform"), { recursive: true });
 	await symlink(packageFolder, join(root, "node_modules", "@the-platform", "diagrams"), "junction");
-	for (const [path, content] of Object.entries(files)) {
+	for (const [path, content] of Object.entries({ "diagrams.config.ts": sampleConfig, ...files })) {
 		await mkdir(dirname(join(root, path)), { recursive: true });
 		await writeFile(join(root, path), content);
 	}
