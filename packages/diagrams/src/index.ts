@@ -4,6 +4,7 @@ export type {
 	ArchitectureBuilder,
 	ArchitectureNode,
 	ArchitectureOptions,
+	ArchitectureRow,
 	EdgeEnd,
 	EdgeHandle,
 	EdgeOptions,

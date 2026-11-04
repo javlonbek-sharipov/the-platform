@@ -9,7 +9,6 @@ import {
 	endNode,
 	type Link,
 	type Node,
-	type Row,
 	type RowEnd,
 } from "./model.ts";
 
@@ -24,22 +23,36 @@ export interface ArchitectureOptions {
 /**
  * A Node to declare. It's a plain object, so a Node can be defined once in a
  * shared module, with `satisfies ArchitectureNode`, and declared on several
- * Diagrams.
+ * Diagrams. Written `as const satisfies ArchitectureNode`, it keeps its Rows'
+ * names for the handle that each declaration returns.
+ *
+ * `R` is the names of its Rows.
  */
-export interface ArchitectureNode {
+export interface ArchitectureNode<R extends string = string> {
 	id: string;
 	kind: ArchitectureNodeKind;
 	title: string;
 	/** Shown below the header, each with its name on the left and its value on the right. */
-	rows?: readonly Row[];
+	rows?: readonly ArchitectureRow<R>[];
 	links?: readonly Link[];
 }
 
-/** What a Node declaration returns. Later calls accept it in place of the id. */
-export interface NodeHandle {
+/** A Row to declare on a Node, such as `{ name: "replicas", value: "3" }`. */
+export interface ArchitectureRow<R extends string = string> {
+	/** It names the Row for the Edge ends that attach to it, so each Row of a Node needs its own. */
+	name: R;
+	value?: string;
+}
+
+/**
+ * What a Node declaration returns. Later calls accept it in place of the id.
+ * It carries the names of the Node's Rows, `R`, so that naming a Row the Node
+ * doesn't have is a type error.
+ */
+export interface NodeHandle<R extends string = never> {
 	readonly id: string;
 	/** An Edge end at one of the Node's Rows, by its name. */
-	row(name: string): RowEnd;
+	row(name: R): RowEnd;
 }
 
 export interface EdgeHandle {
@@ -60,7 +73,7 @@ export interface EdgeOptions {
 }
 
 export interface ArchitectureBuilder {
-	node(node: ArchitectureNode): NodeHandle;
+	node<R extends string = never>(node: ArchitectureNode<R>): NodeHandle<R>;
 	edge(from: EdgeEnd, to: EdgeEnd, options: EdgeOptions): EdgeHandle;
 }
 
