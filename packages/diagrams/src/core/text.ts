@@ -13,6 +13,20 @@ import type { Box, SceneNode, SceneText } from "./scene.ts";
 /** The weights that text is drawn in: regular for Rows and labels, and semibold for titles. */
 export type FontWeight = "regular" | "semibold";
 
+/** What an SVG needs of the bundled font in one weight. */
+export interface FontRequest {
+	weight: FontWeight;
+	/** Every character that the SVG draws in this weight and that the font has, once each, in code point order. */
+	characters: string;
+}
+
+/**
+ * Gives the core the font data for an SVG: a TrueType font with the glyphs of
+ * the characters asked for. The caller passes it in, so the core never reads
+ * a file.
+ */
+export type FontData = (request: FontRequest) => Uint8Array;
+
 interface Metrics {
 	unitsPerEm: number;
 	averageWidth: number;
@@ -74,8 +88,7 @@ export function titleDiagnostics(diagram: Diagram, nodes: SceneNode[]): Diagnost
 
 /** Each character in the text that the font lacks, once, in order. */
 function missingCharacters(text: string, weight: FontWeight): string[] {
-	const { widths } = metrics[weight];
-	return [...new Set(text)].filter((character) => !widths.has(character.codePointAt(0) ?? 0));
+	return [...new Set(text)].filter((character) => !hasCharacter(character, weight));
 }
 
 /** `U+6771` */
@@ -144,6 +157,11 @@ function fit(
 		width: ((keptUnits + ellipsisUnits) * size) / unitsPerEm,
 		shortened: true,
 	};
+}
+
+/** Whether the bundled font has a glyph for the character, in the given weight. */
+export function hasCharacter(character: string, weight: FontWeight): boolean {
+	return metrics[weight].widths.has(character.codePointAt(0) ?? 0);
 }
 
 /** One character's advance width, in font units. Kerning and ligatures never change it. */

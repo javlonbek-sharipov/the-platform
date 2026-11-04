@@ -7,7 +7,7 @@
  */
 
 import type { Point, Scene, SceneEdge, SceneNode } from "./scene.ts";
-import type { FontWeight } from "./text.ts";
+import { type FontData, type FontWeight, hasCharacter } from "./text.ts";
 
 type Attribute = readonly [name: string, value: string | number];
 
@@ -17,8 +17,9 @@ const surface = "#ffffff";
 const fontFamily = "Inter, Helvetica, Arial, sans-serif";
 const fontWeights: Record<FontWeight, number> = { regular: 400, semibold: 600 };
 
-export function writeSvg(scene: Scene): string {
+export function writeSvg(scene: Scene, fontData?: FontData): string {
 	const { bounds } = scene;
+	const fonts = fontData === undefined ? [] : embeddedFonts(scene, fontData);
 	const lines = [
 		start("svg", [
 			["xmlns", "http://www.w3.org/2000/svg"],
@@ -26,6 +27,7 @@ export function writeSvg(scene: Scene): string {
 			["width", bounds.width],
 			["height", bounds.height],
 		]),
+		...(fonts.length === 0 ? [] : style(fonts).map((text) => indent(1, text))),
 		indent(
 			1,
 			start("g", [
@@ -49,6 +51,40 @@ export function writeSvg(scene: Scene): string {
 		"</svg>",
 	];
 	return `${lines.join("\n")}\n`;
+}
+
+interface EmbeddedFont {
+	weight: FontWeight;
+	/** The font data, in base64. */
+	data: string;
+}
+
+/** The font data for each weight that the scene draws text in, in a fixed order. */
+function embeddedFonts(scene: Scene, fontData: FontData): EmbeddedFont[] {
+	const texts = scene.nodes.map((node) => node.title);
+	return (["regular", "semibold"] as const).flatMap((weight) => {
+		const drawn = new Set(
+			texts.filter((text) => text.weight === weight).flatMap((text) => [...text.text]),
+		);
+		const characters = [...drawn]
+			.filter((character) => hasCharacter(character, weight))
+			.sort((a, b) => (a.codePointAt(0) ?? 0) - (b.codePointAt(0) ?? 0))
+			.join("");
+		return characters === "" ? [] : [{ weight, data: base64(fontData({ weight, characters })) }];
+	});
+}
+
+function style(fonts: EmbeddedFont[]): string[] {
+	return [
+		"<style>",
+		...fonts.map((font) =>
+			indent(
+				1,
+				`@font-face { font-family: "Inter"; font-weight: ${fontWeights[font.weight]}; src: url("data:font/ttf;base64,${font.data}") format("truetype"); }`,
+			),
+		),
+		"</style>",
+	];
 }
 
 function writeNode(node: SceneNode): string[] {
@@ -136,6 +172,21 @@ function indent(depth: number, text: string): string {
 function number(value: number): string {
 	const rounded = Math.round(value * 100) / 100;
 	return String(rounded === 0 ? 0 : rounded);
+}
+
+const base64Digits = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+function base64(bytes: Uint8Array): string {
+	let text = "";
+	for (let index = 0; index < bytes.length; index += 3) {
+		const group =
+			((bytes[index] ?? 0) << 16) | ((bytes[index + 1] ?? 0) << 8) | (bytes[index + 2] ?? 0);
+		text += base64Digits[(group >> 18) & 63];
+		text += base64Digits[(group >> 12) & 63];
+		text += index + 1 < bytes.length ? base64Digits[(group >> 6) & 63] : "=";
+		text += index + 2 < bytes.length ? base64Digits[group & 63] : "=";
+	}
+	return text;
 }
 
 function escapeText(text: string): string {
