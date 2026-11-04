@@ -5,7 +5,10 @@ import {
 	architectureEdgeLooks,
 	render,
 } from "../src/index.ts";
+import { everyFixture } from "./support/fixtures.ts";
 import { descendants, parseSvg } from "./support/svg.ts";
+
+const fixtures = await everyFixture();
 
 /**
  * A checkout: an API that calls another, which calls a card network we
@@ -101,5 +104,48 @@ describe("an SVG, for screen readers,", () => {
 		expect(root.children.find((child) => child.name === "desc")?.text).toBe(
 			"Nodes: Billing & <tax> (system). Edges: none.",
 		);
+	});
+});
+
+/** A copy of a JSON value with every object's fields in the reverse order. */
+function reversedFields(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return value.map(reversedFields);
+	}
+	if (typeof value === "object" && value !== null) {
+		return Object.fromEntries(
+			Object.entries(value)
+				.reverse()
+				.map(([key, field]) => [key, reversedFields(field)]),
+		);
+	}
+	return value;
+}
+
+describe("an SVG's metadata", () => {
+	test("holds the Diagram's JSON model, which parses back to the model, for every fixture", () => {
+		for (const [name, diagram] of fixtures) {
+			const metadata = parseSvg(render(diagram).svg ?? "").children.filter(
+				(child) => child.name === "metadata",
+			);
+			expect(metadata, name).toHaveLength(1);
+			expect(JSON.parse(metadata[0]?.text ?? ""), name).toEqual(diagram);
+		}
+	});
+
+	test("holds text that would break the markup, escaped, and gives it back as it was", () => {
+		const escapes = architecture({ id: "escapes", title: 'R&D <"Ops"> ]]>' }, (d) => {
+			d.node({ id: "billing", kind: "system", title: "Billing & <tax> --" });
+		});
+		const { svg } = render(escapes);
+		const metadata = parseSvg(svg ?? "").children.find((child) => child.name === "metadata");
+		expect(JSON.parse(metadata?.text ?? "")).toEqual(escapes);
+		expect(svg).not.toContain("<tax>");
+	});
+
+	test("is the same, byte for byte, whatever order the model's fields are written in", () => {
+		const reordered = reversedFields(JSON.parse(JSON.stringify(checkout)));
+		expect(Object.keys(reordered as object)[0]).toBe("walkthroughs");
+		expect(render(reordered).svg).toBe(render(checkout).svg);
 	});
 });

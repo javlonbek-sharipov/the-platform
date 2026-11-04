@@ -45,8 +45,8 @@
 
 **Model**
 
-- [ ] The SVG carries its JSON model in a `<metadata>` element, so the SVG alone is enough for the web component in slice 3.
-- [ ] A Seam 1 test parses the metadata back and gets the model.
+- [x] The SVG carries its JSON model in a `<metadata>` element, so the SVG alone is enough for the web component in slice 3.
+- [x] A Seam 1 test parses the metadata back and gets the model.
 
 **Checks**
 

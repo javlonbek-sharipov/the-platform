@@ -17,6 +17,7 @@ import {
 	architectureNodeLooks,
 	architectureStatuses,
 } from "../notations/architecture.ts";
+import { compareText } from "./bundles.ts";
 import { descriptionOf } from "./description.ts";
 import { outlines, type PathData } from "./outlines.ts";
 import type {
@@ -77,11 +78,13 @@ export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): s
 		["width", bounds.width],
 		["height", bounds.height],
 	];
-	// What the SVG says about itself, for screen readers. No style reaches it,
+	// What the SVG says about itself: to screen readers, and to the web
+	// component, which needs nothing but the SVG. No style reaches any of it,
 	// so it stays out of the scope's name, and editing it changes only these lines.
 	const about = [
 		indent(1, element("title", [], collapseSpaces(diagram.title))),
 		indent(1, element("desc", [], descriptionOf(diagram))),
+		indent(1, element("metadata", [], modelText(diagram))),
 	];
 	const body = [
 		indent(
@@ -476,6 +479,22 @@ function lookOf(kind: string): ArchitectureNodeLook {
 		throw new Error(`Node Kind ${kind} has no look, so validation should have rejected it`);
 	}
 	return look;
+}
+
+/**
+ * The JSON model, on one line, with every object's fields in code unit order,
+ * so that equal models give the same text however they were built.
+ */
+function modelText(diagram: Diagram): string {
+	return JSON.stringify(diagram, (_, value: unknown) =>
+		typeof value === "object" && value !== null && !Array.isArray(value)
+			? Object.fromEntries(
+					Object.keys(value)
+						.sort(compareText)
+						.map((key) => [key, (value as Record<string, unknown>)[key]]),
+				)
+			: value,
+	);
 }
 
 /** Path data, with its numbers written as every number in the SVG is. */
