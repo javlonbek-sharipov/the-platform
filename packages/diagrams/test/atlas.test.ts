@@ -320,6 +320,24 @@ export default architecture({ title: "Shop" }, (d) => {
 		});
 	});
 
+	test("lint points at the line inside a Group's callback that declared a Node", async () => {
+		const atlas = await sampleAtlas({
+			"docs/shop.diagram.ts": `import { architecture } from "@the-platform/diagrams";
+
+export default architecture({ title: "Shop" }, (d) => {
+	d.group({ id: "shop", kind: "system", title: "Shop" }, (shop) => {
+		shop.node({ id: "shop-api", kind: "service", title: "Shop API" });
+		shop.node({ id: "shop-db", kind: "databse", title: "Shop database" });
+	});
+});
+`,
+		});
+
+		expect((await runCli(["lint", "--json"], atlas)).stdout).toContain(
+			'"file": "docs/shop.diagram.ts",\n      "line": 6,\n      "column": 8,',
+		);
+	});
+
 	test("lint resolves a Group's Links as it resolves a Node's, and a Link to an id drawn only as a Group", async () => {
 		const atlas = await sampleAtlas({
 			"docs/shop.md": "# The shop\n\n## Checkout\n",
