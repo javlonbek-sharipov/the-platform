@@ -54,10 +54,10 @@
 
 **Checks**
 
-- [ ] The Seam 1 properties hold:
+- [x] The Seam 1 properties hold:
   - every Group contains its members with padding, and sits inside its parent;
   - no route passes through a Group label;
-  - on a fixture where a shortcut outside the Group exists, an Edge between two Nodes of one Group stays inside it.
+  - an Edge between two Nodes of one Group stays inside it, on every fixture and in fuzzed Diagrams.
 - [x] The example Diagram gains a `region` with a `zone` inside it.
 
 ## Comments
@@ -94,3 +94,4 @@
   - The web component: each Group's `<g>` carries `data-group` and `data-kind`, for details and drill-down.
 
 Merged into diagram-engine in e2df131.
+- Orchestrator: reworded the third Seam 1 property and ticked the box. A fixture with a shortcut outside the Group can't exist, because the Group's padding always holds a shorter way round inside. The property test covers every fixture and fuzzed Diagrams, and the border-crossing cost has its own test, which fails at cost 0.
