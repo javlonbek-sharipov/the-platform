@@ -4,6 +4,9 @@
  * of the CLI.
  */
 
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Resvg } from "@resvg/resvg-js";
 
 export const themes = ["light", "dark"] as const;
@@ -15,14 +18,35 @@ export interface PngOptions {
 	scale: number;
 }
 
-/** Draws an engine-made SVG as a PNG, in one theme. */
+/**
+ * Draws an engine-made SVG as a PNG, in one theme.
+ *
+ * resvg takes fonts only as files, and reads no `@font-face`, so the SVG's
+ * own font faces, the subset of the bundled font that it embeds, are written
+ * to a temporary folder and handed to resvg. Not the bundled files: resvg
+ * would apply their contextual alternates, which it can't be told to skip,
+ * and which the subset leaves out. Inter's turn `->` into an arrow, so the
+ * PNG's text would no longer match the SVG's. With system fonts off, the
+ * faces are all that resvg has, so every text falls back to their family.
+ */
 export function drawPng(svg: string, { theme, scale }: PngOptions): Uint8Array {
-	return new Resvg(themed(svg, theme), {
-		fitTo: { mode: "zoom", value: scale },
-		font: { loadSystemFonts: false },
-	})
-		.render()
-		.asPng();
+	const { drawn, faces } = forResvg(svg, theme);
+	const folder = mkdtempSync(join(tmpdir(), "diagrams-fonts-"));
+	try {
+		const fontFiles = faces.map((face, index) => {
+			const file = join(folder, `${index}.ttf`);
+			writeFileSync(file, face);
+			return file;
+		});
+		return new Resvg(drawn, {
+			fitTo: { mode: "zoom", value: scale },
+			font: { loadSystemFonts: false, fontFiles },
+		})
+			.render()
+			.asPng();
+	} finally {
+		rmSync(folder, { recursive: true, force: true });
+	}
 }
 
 /** A rule of the SVG's style: its selectors, as written, and its declarations. */
@@ -32,27 +56,35 @@ interface Rule {
 }
 
 /**
- * The SVG with its style in a form resvg draws. resvg reads neither `var()`
- * nor `@media`, so each `var(--diagram-…, fallback)` becomes its fallback,
- * and for the dark theme, the rules in the `prefers-color-scheme: dark` block
- * take the place of the rules with the same selectors before it. Every other
- * at-rule, such as `@font-face`, goes: resvg would skip it anyway.
+ * The SVG in a form resvg draws, and the font faces it embeds. resvg reads
+ * neither `var()` nor `@media`, so each `var(--diagram-…, fallback)` becomes
+ * its fallback, and for the dark theme, the rules in the
+ * `prefers-color-scheme: dark` block take the place of the rules with the
+ * same selectors before it. Every at-rule goes, `@font-face` included, since
+ * resvg would skip it anyway.
  */
-function themed(svg: string, theme: Theme): string {
+function forResvg(svg: string, theme: Theme): { drawn: string; faces: Uint8Array[] } {
 	const open = "<style>";
 	const close = "</style>";
 	const start = svg.indexOf(open);
 	const end = svg.indexOf(close, start);
 	if (start < 0 || end < 0) {
-		return svg;
+		return { drawn: svg, faces: [] };
 	}
 	const rules: Rule[] = [];
 	const dark = new Map<string, Rule>();
+	const faces: Uint8Array[] = [];
 	for (const { prelude, body } of blocks(svg.slice(start + open.length, end))) {
 		if (/^@media\s*\(\s*prefers-color-scheme\s*:\s*dark\s*\)$/.test(prelude)) {
 			for (const block of blocks(body)) {
 				dark.set(block.prelude, rule(block));
 			}
+		} else if (prelude === "@font-face") {
+			const data = /url\(\s*"data:font\/ttf;base64,([A-Za-z0-9+/=]+)"\s*\)/.exec(body)?.[1];
+			if (data === undefined) {
+				throw new Error(`The SVG has a font face that isn't TrueType data: ${body.slice(0, 80)}`);
+			}
+			faces.push(new Uint8Array(Buffer.from(data, "base64")));
 		} else if (!prelude.startsWith("@")) {
 			rules.push(rule({ prelude, body }));
 		}
@@ -62,7 +94,10 @@ function themed(svg: string, theme: Theme): string {
 		({ selectors, declarations }) =>
 			`${selectors} { ${declarations.map(([property, value]) => `${property}: ${resolved(value)};`).join(" ")} }`,
 	);
-	return `${svg.slice(0, start)}${open}\n${style.join("\n")}\n${close}${svg.slice(end + close.length)}`;
+	return {
+		drawn: `${svg.slice(0, start)}${open}\n${style.join("\n")}\n${close}${svg.slice(end + close.length)}`,
+		faces,
+	};
 }
 
 /** The top-level blocks of a style sheet, each with what comes before its brace. */
