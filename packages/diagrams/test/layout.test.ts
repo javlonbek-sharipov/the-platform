@@ -458,8 +458,11 @@ describe.each(directions)("a Diagram laid out %s", (direction) => {
 describe("Ports", () => {
 	test("sit on the left and right sides for right, level with the header", () => {
 		for (const { box, input, output } of sceneOf(chain("right")).nodes) {
-			expect(input).toEqual({ side: "left", point: { x: box.x, y: input.point.y } });
-			expect(output).toEqual({ side: "right", point: { x: box.x + box.width, y: input.point.y } });
+			expect(input).toMatchObject({ side: "left", point: { x: box.x, y: input.point.y } });
+			expect(output).toMatchObject({
+				side: "right",
+				point: { x: box.x + box.width, y: input.point.y },
+			});
 			expect(input.point.y).toBeGreaterThan(box.y);
 			expect(input.point.y).toBeLessThan(box.y + box.height);
 		}
@@ -468,8 +471,8 @@ describe("Ports", () => {
 	test("sit on top for input and at the bottom for output, for down", () => {
 		for (const { box, input, output } of sceneOf(chain("down")).nodes) {
 			const center = box.x + box.width / 2;
-			expect(input).toEqual({ side: "top", point: { x: center, y: box.y } });
-			expect(output).toEqual({ side: "bottom", point: { x: center, y: box.y + box.height } });
+			expect(input).toMatchObject({ side: "top", point: { x: center, y: box.y } });
+			expect(output).toMatchObject({ side: "bottom", point: { x: center, y: box.y + box.height } });
 		}
 	});
 });

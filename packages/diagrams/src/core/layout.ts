@@ -10,7 +10,7 @@
 
 import type { Diagram } from "../authoring/model.ts";
 import { arrange, type Member } from "./layers.ts";
-import type { Point, SceneNode } from "./scene.ts";
+import type { Point, SceneNode, ScenePort, Side } from "./scene.ts";
 import { nodeTitle } from "./text.ts";
 
 const nodeWidth = 160;
@@ -20,6 +20,12 @@ export const clearance = 32;
 /** Node sizes are multiples of twice the grid, so that their corners land on it too. */
 export const grid = 8;
 export const margin = 24;
+
+/**
+ * A Port's stub is half a clearance long, so it ends on the routing grid's
+ * line beside its side.
+ */
+const stubLength = clearance / 2;
 
 export function layOut(diagram: Diagram): SceneNode[] {
 	const down = diagram.direction === "down";
@@ -48,9 +54,26 @@ export function layOut(diagram: Diagram): SceneNode[] {
 			id: node.id,
 			kind: node.kind,
 			box,
-			input: { side: down ? "top" : "left", point: turn(line - depth / 2, ports) },
-			output: { side: down ? "bottom" : "right", point: turn(line + depth / 2, ports) },
+			input: port(down ? "top" : "left", turn(line - depth / 2, ports)),
+			output: port(down ? "bottom" : "right", turn(line + depth / 2, ports)),
 			title: nodeTitle(node.title, box),
 		};
 	});
+}
+
+const outward: Record<Side, Point> = {
+	left: { x: -1, y: 0 },
+	right: { x: 1, y: 0 },
+	top: { x: 0, y: -1 },
+	bottom: { x: 0, y: 1 },
+};
+
+/** A Port on a Node's side, with its stub: a short, straight run out of the side. */
+function port(side: Side, point: Point): ScenePort {
+	const normal = outward[side];
+	return {
+		side,
+		point,
+		stub: { x: point.x + normal.x * stubLength, y: point.y + normal.y * stubLength },
+	};
 }

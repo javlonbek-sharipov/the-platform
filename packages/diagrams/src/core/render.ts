@@ -24,6 +24,12 @@ export interface RenderOptions {
 	 * SVG embeds no font, which suits callers that only look at the scene.
 	 */
 	fontData?: FontData;
+	/**
+	 * How many states each Edge's route search may visit. An Edge whose search
+	 * runs out falls back to a simple route, with a warning. The default is well
+	 * above what routes on Diagrams of a few hundred Nodes need.
+	 */
+	searchBudget?: number;
 }
 
 export function render(diagram: unknown, options: RenderOptions = {}): RenderResult {
@@ -33,14 +39,14 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 	}
 	const model = validation.diagram;
 	const nodes = layOut(model);
-	const edges = route(model, nodes);
+	const { edges, diagnostics } = route(model, nodes, options);
 	const scene: Scene = {
 		bounds: boundsOf(nodes, edges),
 		clearance,
 		grid,
 		nodes,
 		edges,
-		diagnostics: titleDiagnostics(model, nodes),
+		diagnostics: [...titleDiagnostics(model, nodes), ...diagnostics],
 	};
 	return {
 		diagnostics: [...validation.diagnostics, ...scene.diagnostics],

@@ -1321,6 +1321,30 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
     - A Biome GritQL plugin, `packages/diagrams/biome/exact-arithmetic.grit`, allows only Math's `abs`, `ceil`, `floor`, `max`, `min`, `round`, `sign`, `sqrt` and `trunc` in the core. It rejects `**`, `**=` and destructuring Math.
     - It covers the whole core, routing included.
 
+**Ticket 03**
+
+1. **Stubs.** A stub is half a clearance long, 16 px, so it ends on the grid line beside its side. Of the two lines through a stub's end, the one across the stub is that line, and the one along the stub is new.
+2. **The grid.**
+   - The outer lines run one clearance outside the Nodes' bounds.
+   - A segment is open only if it misses every Node, border included, so no route runs along a Node's side. A crossing inside a Node, or on its border, has no open segment, so no route can reach it.
+3. **The search.**
+   - A bend costs 40. A corner's radius is at most 8.
+   - A search may visit 1,000,000 states. `render(diagram, { searchBudget })` changes that, which is how tests force the fallback.
+   - A search keeps its working memory in typed arrays sized to the grid, allocated once per Diagram.
+   - On a synthetic Diagram of 300 Nodes and 750 random Edges, rendering took about 3 s. The longest search visited about 200,000 states, in 45 ms. Most of the time goes to Edges that run against the direction and go around long columns of Nodes.
+   - The search runs backward, from the target's stub to the source's. When two states have the same estimate, it takes the one whose path has come further, and then the one queued first, with steps queued east, south, west, north.
+   - Together, those choices find, among routes that cost the same, the one that bends nearest its source. So Edges from one Port fork just past its stub, and Edges into one Port merge into a trunk before it. For bundling (ticket 09), a later Edge can start its search anywhere on the trunk, instead of ending it there.
+   - Edges are routed in order of id. Ticket 09 sorts by bundle key first.
+4. **The fallback.**
+   - The target lies ahead when its stub ends at or beyond the source's stub, along the direction.
+   - Otherwise, the lane runs half a clearance beyond both Nodes, on whichever side needs less travel across the direction. On a tie, it runs below them for `right`, and to their right for `down`.
+   - The rule is `fallback-route`. It's a warning, and points at the Edge.
+5. **The scene.**
+   - A Port has a `stub`: the far end of its stub.
+   - An Edge has `fromPort`, `toPort` and `fellBack`. Its route is a list of points, each with the `radius` of its corner, which is zero at both ends.
+6. **The SVG** draws each corner as an `A` command, from where its arc meets the run before it to where it meets the run after. The sign of the turn's cross product gives the sweep flag, so no trigonometry is needed.
+7. **The jog** in step 7 waits for ticket 09. Until runs are offset into lanes, a stub always meets its first run at its own height.
+
 **Ticket 04**
 
 1. **The bundled font.** `packages/diagrams/fonts/` holds `Inter-Regular.ttf` and `Inter-SemiBold.ttf` from `extras/ttf/` in Inter 4.1's release zip, with Inter's `LICENSE.txt` beside them as `OFL.txt`. A test pins their SHA-256s.
