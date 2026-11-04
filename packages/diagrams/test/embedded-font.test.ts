@@ -1,6 +1,17 @@
 import { describe, expect, test } from "vitest";
 import { architecture, type FontRequest, render } from "../src/index.ts";
-import { bundledFont, characterMap } from "./support/truetype.ts";
+import { embeddedFaces, renderWithFont } from "./support/fonts.ts";
+import {
+	advanceOf,
+	bundledFont,
+	characterMap,
+	componentsOf,
+	type FontFile,
+	fontProblems,
+	glyphCount,
+	glyphHeader,
+	openFont,
+} from "./support/truetype.ts";
 
 const shop = architecture({ title: "Shop" }, (d) => {
 	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
@@ -12,7 +23,37 @@ const shop = architecture({ title: "Shop" }, (d) => {
 	d.edge(api, events, { kind: "message" });
 });
 
-const interSemiBold = characterMap(bundledFont("Inter-SemiBold.ttf"));
+const interSemiBoldFile = bundledFont("Inter-SemiBold.ttf");
+const interSemiBold = characterMap(interSemiBoldFile);
+
+/**
+ * Every printable character of Basic Latin and Latin-1. Several are composite
+ * glyphs, and Inter lacks one of them, the soft hyphen.
+ */
+const latin = architecture({ title: "Latin" }, (d) => {
+	const characters = [];
+	for (let code = 0x21; code <= 0xff; code++) {
+		if (code < 0x7f || code > 0xa0) {
+			characters.push(String.fromCodePoint(code));
+		}
+	}
+	for (let start = 0; start < characters.length; start += 8) {
+		d.node({
+			id: `latin-${start}`,
+			kind: "service",
+			title: characters.slice(start, start + 8).join(" "),
+		});
+	}
+});
+
+/** The SVG's one embedded font, and the characters its titles draw. */
+function subsetOf(diagram: unknown): { font: FontFile; drawn: Set<string> } {
+	const { svg, scene } = renderWithFont(diagram);
+	const faces = embeddedFaces(svg ?? "");
+	expect(faces.map((face) => face.weight)).toEqual([600]);
+	const drawn = new Set((scene?.nodes ?? []).flatMap((node) => [...node.title.text]));
+	return { font: openFont(faces[0]?.data ?? new Uint8Array()), drawn };
+}
 
 /** Renders a Diagram, and records what the core asks its font data function for. */
 function renderRecording(diagram: unknown): { svg: string; requests: FontRequest[] } {
@@ -58,5 +99,62 @@ describe("the font data an SVG embeds", () => {
 		expect(requests).toEqual([]);
 		expect(svg).not.toContain("@font-face");
 		expect(render(shop).svg).not.toContain("@font-face");
+	});
+});
+
+describe("the embedded subset", () => {
+	test("maps exactly the characters the SVG draws in the bundled font, each to its glyph there", () => {
+		for (const diagram of [shop, latin]) {
+			const { font, drawn } = subsetOf(diagram);
+			const mapped = characterMap(font);
+			const inInter = [...drawn].filter((character) =>
+				interSemiBold.has(character.codePointAt(0) ?? 0),
+			);
+			expect(inInter.length).toBeGreaterThan(diagram === latin ? 150 : 10);
+			expect(new Set([...mapped.keys()].map((code) => String.fromCodePoint(code)))).toEqual(
+				new Set(inInter),
+			);
+			for (const [code, glyph] of mapped) {
+				const original = interSemiBold.get(code) ?? 0;
+				expect(advanceOf(font, glyph)).toBe(advanceOf(interSemiBoldFile, original));
+				expect(glyphHeader(font, glyph)).toEqual(glyphHeader(interSemiBoldFile, original));
+			}
+		}
+	});
+
+	test("holds no glyphs but those of the drawn characters, their components, and .notdef", () => {
+		for (const diagram of [shop, latin]) {
+			const { font } = subsetOf(diagram);
+			const needed = new Set([0, ...characterMap(font).values()]);
+			for (const glyph of needed) {
+				for (const component of componentsOf(font, glyph)) {
+					needed.add(component);
+				}
+			}
+			expect(glyphCount(font)).toBe(needed.size);
+		}
+		expect(
+			componentsOf(subsetOf(latin).font, characterMap(subsetOf(latin).font).get(0xe9) ?? 0),
+		).not.toEqual([]);
+	});
+
+	test("is a well-formed TrueType font, with no tables for kerning or ligatures", () => {
+		expect(fontProblems(interSemiBoldFile)).toEqual([]);
+		for (const diagram of [shop, latin]) {
+			const { font } = subsetOf(diagram);
+			expect(fontProblems(font)).toEqual([]);
+			expect(font.tables.map((table) => table.tag)).toEqual([
+				"OS/2",
+				"cmap",
+				"glyf",
+				"head",
+				"hhea",
+				"hmtx",
+				"loca",
+				"maxp",
+				"name",
+				"post",
+			]);
+		}
 	});
 });
