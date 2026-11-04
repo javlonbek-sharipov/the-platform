@@ -17,7 +17,7 @@ import {
 	shapesOf,
 	strokesOf,
 } from "./support/drawn.ts";
-import { computedStyle, contrast } from "./support/svg.ts";
+import { computedStyle, contrast, type Point, runsOf } from "./support/svg.ts";
 
 const directions: Direction[] = ["right", "down"];
 
@@ -182,6 +182,75 @@ describe("each Kind's drawing", () => {
 				return contrast(fill, background);
 			};
 			expect(standsOut("system"), theme).toBeGreaterThan(standsOut("service"));
+		}
+	});
+});
+
+/** One Node of each Kind with each number of Rows, with ids like `queue-3`. */
+function withRows(direction: Direction) {
+	return architecture({ title: "Rows", direction }, (d) => {
+		for (const count of [0, 1, 3]) {
+			for (const kind of architectureNodeKinds) {
+				const rows = Array.from({ length: count }, (_, at) => ({ name: `row ${at}`, value: "1" }));
+				d.node({ id: `${kind}-${count}`, kind, title: "Shop", rows });
+			}
+		}
+	});
+}
+
+/** How far a point is from the nearest stretch of any of the shapes' outlines. */
+function distanceToShapes(point: Point, runs: Point[][]): number {
+	let nearest = Number.POSITIVE_INFINITY;
+	for (const run of runs) {
+		run.forEach((a, index) => {
+			const b = run[(index + 1) % run.length] ?? a;
+			const [dx, dy] = [b.x - a.x, b.y - a.y];
+			const length = dx * dx + dy * dy;
+			const t =
+				length === 0
+					? 0
+					: Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / length));
+			nearest = Math.min(nearest, Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy)));
+		});
+	}
+	return nearest;
+}
+
+describe("each Kind's outline, with Rows or without", () => {
+	test.each(directions)("meets its Node's sides at each of its Ports, laid out %s", (direction) => {
+		const drawn = draw(withRows(direction));
+		for (const node of drawn.scene.nodes) {
+			const outline = shapesOf(drawn, node.id).filter((shape) => {
+				const style = computedStyle(shape, drawn.rules, "light");
+				return style.get("stroke") !== "none" && !paintsWithin(drawn, shape, node.badge);
+			});
+			const runs = outline.flatMap(runsOf);
+			const widest = Math.max(
+				...outline.map((shape) =>
+					Number(computedStyle(shape, drawn.rules, "light").get("stroke-width")),
+				),
+			);
+			const ports = [
+				node.input,
+				node.output,
+				...node.rows.flatMap((row) => [row.input, row.output]),
+			];
+			for (const { side, point } of ports) {
+				// The stroke's outer edge reaches the Port, give or take half a pixel.
+				expect(
+					distanceToShapes(point, runs),
+					`${node.id}, ${side} Port at ${point.y}`,
+				).toBeLessThanOrEqual(widest / 2 + 0.5);
+			}
+		}
+	});
+
+	test.each(directions)("lies inside its Node's rectangle, laid out %s", (direction) => {
+		const drawn = draw(withRows(direction));
+		for (const node of drawn.scene.nodes) {
+			for (const shape of shapesOf(drawn, node.id)) {
+				expect(paintsWithin(drawn, shape, node.box), `${node.id}: <${shape.name}>`).toBe(true);
+			}
 		}
 	});
 });

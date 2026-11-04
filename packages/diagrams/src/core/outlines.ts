@@ -286,32 +286,34 @@ export const outlines: Record<Outline, OutlineLook> = {
 		},
 	},
 	// Lying on its side, open toward the right. Each end is half an ellipse as
-	// tall as the header, stretched straight in the middle when Rows make the
-	// Node taller.
+	// tall as the header. When Rows make the Node taller, the ends run straight
+	// down the Rows, and round off at the bottom over half a Row's band.
 	pipe: {
 		...plain,
 		inset: { left: 0, right: 2 * pipeEnd },
 		draw(box, stroke, header) {
 			const { x, y, width, height } = shrink(box, stroke / 2);
 			const [right, bottom] = [x + width, y + height];
-			const curve = (header.height - stroke) / 2;
+			const top = (header.height - stroke) / 2;
+			const rows = header.y + header.height < box.y + box.height;
+			const lower = rows ? rowCorner - stroke / 2 : top;
 			const body: PathData = [
 				...["M", x + pipeEnd, y],
 				...["H", right - pipeEnd],
-				...["A", pipeEnd, curve, 0, 0, 1, right, y + curve],
-				...["V", bottom - curve],
-				...["A", pipeEnd, curve, 0, 0, 1, right - pipeEnd, bottom],
+				...["A", pipeEnd, top, 0, 0, 1, right, y + top],
+				...["V", bottom - lower],
+				...["A", pipeEnd, lower, 0, 0, 1, right - pipeEnd, bottom],
 				...["H", x + pipeEnd],
-				...["A", pipeEnd, curve, 0, 0, 1, x, bottom - curve],
-				...["V", y + curve],
-				...["A", pipeEnd, curve, 0, 0, 1, x + pipeEnd, y],
+				...["A", pipeEnd, lower, 0, 0, 1, x, bottom - lower],
+				...["V", y + top],
+				...["A", pipeEnd, top, 0, 0, 1, x + pipeEnd, y],
 				"Z",
 			];
 			const opening: PathData = [
 				...["M", right - pipeEnd, y],
-				...["A", pipeEnd, curve, 0, 0, 0, right - 2 * pipeEnd, y + curve],
-				...["V", bottom - curve],
-				...["A", pipeEnd, curve, 0, 0, 0, right - pipeEnd, bottom],
+				...["A", pipeEnd, top, 0, 0, 0, right - 2 * pipeEnd, y + top],
+				...["V", bottom - lower],
+				...["A", pipeEnd, lower, 0, 0, 0, right - pipeEnd, bottom],
 			];
 			return { ...none, shapes: [body], details: [opening] };
 		},
