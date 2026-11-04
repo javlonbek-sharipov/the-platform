@@ -258,7 +258,8 @@ function colorUses(scene: Scene): ColorUse[] {
 			? []
 			: [{ selector: ".diagram-technology", property: "fill", color: "muted" } as const]),
 		// Every logo is drawn in one color of the theme, never in its brand's.
-		...(scene.nodes.every((node) => node.logo === undefined)
+		...(scene.nodes.every((node) => node.logo === undefined) &&
+		labels.every((label) => label.logo === undefined)
 			? []
 			: [{ selector: ".diagram-logo", property: "fill", color: "muted" } as const]),
 		...(scene.nodes.every((node) => node.callout === undefined)
@@ -556,10 +557,10 @@ const separatorRadius = 1.25;
 /**
  * An Edge's label: a box in the background's color, which hides whatever
  * passes behind it, its text, and its Technology and rate below it, muted,
- * with a dot between them.
+ * with a dot between them, and the Technology's logo before its name.
  */
 function writeLabel(id: string, label: SceneLabel): string[] {
-	const { box, text, technology, rate } = label;
+	const { box, text, technology, logo, rate } = label;
 	return [
 		start("g", [["data-edge-label", id]]),
 		indent(
@@ -574,6 +575,7 @@ function writeLabel(id: string, label: SceneLabel): string[] {
 			]),
 		),
 		...(text === undefined ? [] : [indent(1, writeText(text, "diagram-label-text"))]),
+		...(logo === undefined ? [] : writeLogo(logo).map((line) => indent(1, line))),
 		...(technology === undefined ? [] : [indent(1, writeText(technology, "diagram-label-detail"))]),
 		...(technology === undefined || rate === undefined
 			? []

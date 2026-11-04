@@ -321,3 +321,90 @@ describe("a Node with a Technology", () => {
 		}
 	});
 });
+
+describe("an Edge's label with a Technology", () => {
+	const orders = architecture({ title: "Orders" }, (d) => {
+		const api = d.node({ id: "orders-api", kind: "service", title: "Orders API" });
+		const db = d.node({ id: "orders-db", kind: "database", title: "Orders DB" });
+		d.edge(api, db, { kind: "call", label: "Stores orders", technology: "postgres", rate: "30/s" });
+	});
+
+	test("shows the Technology's logo just before its name, on the line below the label's text", () => {
+		const drawn = draw(orders);
+		const label = drawn.scene.edges[0]?.label;
+		const { text, technology, rate, logo } = label ?? {};
+		if (
+			label === undefined ||
+			text === undefined ||
+			technology === undefined ||
+			rate === undefined ||
+			logo === undefined
+		) {
+			throw new Error("expected a label with its text, Technology, rate and logo");
+		}
+		expect(logo.technology).toBe("postgres");
+		expect([text.text, technology.text, rate.text]).toEqual([
+			"Stores orders",
+			"PostgreSQL",
+			"30/s",
+		]);
+
+		// The logo is a square, level with the Technology's name, just before it.
+		expect(logo.box.width).toBe(logo.box.height);
+		expect(logo.box.y + logo.box.height / 2).toBe(technology.point.y);
+		expect(logo.box.y).toBeGreaterThanOrEqual(text.point.y + text.size / 2);
+		const gap = technology.point.x - technology.width / 2 - (logo.box.x + logo.box.width);
+		expect(gap).toBeGreaterThan(0);
+		expect(gap).toBeLessThanOrEqual(8);
+		// The line, from the logo to the rate, is centered in the box, which holds it all.
+		const left = logo.box.x - label.box.x;
+		const right = label.box.x + label.box.width - (rate.point.x + rate.width / 2);
+		expect(left).toBeCloseTo(right, 9);
+		for (const box of [logo.box, textBox(text), textBox(technology), textBox(rate)]) {
+			expect(within(box, label.box), JSON.stringify(box)).toBe(true);
+		}
+
+		// The SVG draws Simple Icons' own PostgreSQL logo in that box, in the label's group.
+		const group = descendants(drawn.root).find(
+			(element) => element.attributes.get("data-edge-label") === "orders-api->orders-db",
+		);
+		const drawnLogos = descendants(group ?? drawn.root).filter(
+			(element) =>
+				element.name === "path" && element.attributes.get("d") === simpleIcons.siPostgresql.path,
+		);
+		expect(drawnLogos).toHaveLength(1);
+		const painted = paintedBounds(drawnLogos[0] ?? drawn.root, drawn.rules, "light");
+		const rounding = 0.01;
+		expect(painted.left).toBeGreaterThanOrEqual(logo.box.x - rounding);
+		expect(painted.top).toBeGreaterThanOrEqual(logo.box.y - rounding);
+		expect(painted.right).toBeLessThanOrEqual(logo.box.x + logo.box.width + rounding);
+		expect(painted.bottom).toBeLessThanOrEqual(logo.box.y + logo.box.height + rounding);
+	});
+
+	test("shortens the Technology's name before the rate, keeping the logo, with a warning", () => {
+		const { scene, diagnostics } = render(
+			architecture({ title: "Pricing" }, (d) => {
+				const api = d.node({ id: "orders-api", kind: "service", title: "Orders API" });
+				const prices = d.node({ id: "prices", kind: "function", title: "Prices" });
+				d.edge(api, prices, {
+					kind: "call",
+					technology: "cloudflare-workers",
+					rate: "250000.5k/min",
+				});
+			}),
+		);
+		const { technology, rate, logo } = scene?.edges[0]?.label ?? {};
+		expect(logo?.technology).toBe("cloudflare-workers");
+		expect(technology?.shortened).toBe(true);
+		expect(technology?.text).toMatch(/^Cloudflare.*…$/);
+		expect(rate).toMatchObject({ text: "250000.5k/min", shortened: false });
+		expect(diagnostics).toEqual([
+			{
+				severity: "warning",
+				rule: "text-shortened",
+				message: `Edge \`orders-api->prices\`'s Technology is too long for its run, so its name is shortened to \`${technology?.text}\`. Its logo still shows which Technology it is.`,
+				pointer: "/edges/0/technology",
+			},
+		]);
+	});
+});

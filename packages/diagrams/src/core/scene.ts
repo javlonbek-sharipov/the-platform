@@ -182,8 +182,10 @@ export interface SceneLabel {
 	box: Box;
 	/** The label's own text, if the Edge has one. */
 	text?: SceneText;
-	/** The Edge's Technology, shown as its name. */
+	/** The Edge's Technology, shown as its name: its display name, or its slug when it has no logo. */
 	technology?: SceneText;
+	/** The Technology's logo, just before its name, when the logo table has it. */
+	logo?: SceneLogo;
 	/** The Edge's rate, after its Technology. */
 	rate?: SceneText;
 }

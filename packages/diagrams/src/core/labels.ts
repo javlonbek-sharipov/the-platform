@@ -18,6 +18,7 @@
  */
 
 import type { Direction, Edge } from "../authoring/model.ts";
+import { technologyOf } from "../notations/architecture.ts";
 import { compareText } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import type {
@@ -50,15 +51,21 @@ const narrowest = 48;
 /** Two lines closer than this are one, as two routes in one lane are. */
 const sameLine = 0.5;
 
-/** What an Edge's label shows, if it shows anything. */
+/**
+ * What an Edge's label shows, if it shows anything. Its Technology shows by
+ * its display name, after its logo, or by its slug when it has no logo.
+ */
 export function labelContent(edge: Edge): LabelContent | undefined {
 	const { label, technology, rate } = edge;
 	if (label === undefined && technology === undefined && rate === undefined) {
 		return undefined;
 	}
+	const known = technology === undefined ? undefined : technologyOf(technology);
 	return {
 		...(label === undefined ? {} : { text: label }),
-		...(technology === undefined ? {} : { technology }),
+		...(technology === undefined || known === undefined
+			? {}
+			: { technology: { slug: technology, name: known.name, logo: known.logo !== undefined } }),
 		...(rate === undefined ? {} : { rate }),
 	};
 }

@@ -9,7 +9,7 @@ import type { Diagram, Row } from "../authoring/model.ts";
 import { technologyOf } from "../notations/architecture.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { fontMetrics } from "./font-metrics.ts";
-import type { Box, SceneEdge, SceneGroup, SceneNode, SceneText } from "./scene.ts";
+import type { Box, SceneEdge, SceneGroup, SceneLogo, SceneNode, SceneText } from "./scene.ts";
 
 /** The weights that text is drawn in: regular for Rows and labels, and semibold for titles. */
 export type FontWeight = "regular" | "semibold";
@@ -202,11 +202,22 @@ function widthOf(text: string, weight: FontWeight, size: number): number {
 	return (units * size) / metrics[weight].unitsPerEm;
 }
 
-/** What an Edge's label shows: its own text, and its Technology and rate below it. */
+/**
+ * What an Edge's label shows: its own text, and its Technology and rate below
+ * it. The Technology shows as its name, after its logo if it has one.
+ */
 export interface LabelContent {
 	text?: string;
-	technology?: string;
+	technology?: LabelTechnology;
 	rate?: string;
+}
+
+/** A Technology as a label shows it: by its name, after its logo when the logo table has one. */
+export interface LabelTechnology {
+	slug: string;
+	/** Its display name, or its slug when it has no logo. */
+	name: string;
+	logo: boolean;
 }
 
 /** The size of a label's own text, and of the Technology and rate below it. */
@@ -220,6 +231,9 @@ const labelPaddingX = 4;
 const labelPaddingY = 2;
 /** The room between the Technology and the rate. */
 const labelSeparation = 12;
+/** A logo in a label: a square that fits the Technology's line, and the room after it. */
+const labelLogoSize = 12;
+const labelLogoGap = 4;
 /**
  * The widest a label's texts are drawn. A gap between ranks leaves no more
  * room for a label than this, so a longer label is too long for any run.
@@ -243,8 +257,8 @@ export function labelBoxSize(
 
 /**
  * How wide a label's texts are drawn, where there's room: as wide as its own
- * text, or its Technology and rate side by side, but no wider than the widest
- * a label is drawn.
+ * text, or its Technology, with its logo, and its rate side by side, but no
+ * wider than the widest a label is drawn.
  */
 export function labelWidth(content: LabelContent): number {
 	const text =
@@ -252,23 +266,31 @@ export function labelWidth(content: LabelContent): number {
 			? 0
 			: widthOf(collapseSpaces(content.text), "regular", labelTextSize);
 	const technology =
-		content.technology === undefined ? 0 : widthOf(content.technology, "regular", labelDetailSize);
+		content.technology === undefined
+			? 0
+			: logoRoom(content.technology) + widthOf(content.technology.name, "regular", labelDetailSize);
 	const rate = content.rate === undefined ? 0 : widthOf(content.rate, "regular", labelDetailSize);
 	const separation = technology > 0 && rate > 0 ? labelSeparation : 0;
 	return Math.min(widestLabel, Math.max(text, technology + separation + rate));
 }
 
+/** The room a label's logo takes before the Technology's name, with the gap after it. */
+function logoRoom(technology: LabelTechnology | undefined): number {
+	return technology?.logo === true ? labelLogoSize + labelLogoGap : 0;
+}
+
 /**
  * A label's texts, laid out in its box: its own text centered on the first
- * line, and its Technology and rate centered together on the line below. A
- * text too wide for the box is shortened. When the Technology and the rate
- * don't fit side by side, the Technology is shortened first, as a Row's name
- * is before its value.
+ * line, and its Technology and rate centered together on the line below, with
+ * the Technology's logo before its name. A text too wide for the box is
+ * shortened. When the Technology and the rate don't fit side by side, the
+ * Technology is shortened first, as a Row's name is before its value, and its
+ * logo stays.
  */
 export function labelTexts(
 	content: LabelContent,
 	box: Box,
-): { text?: SceneText; technology?: SceneText; rate?: SceneText } {
+): { text?: SceneText; technology?: SceneText; logo?: SceneLogo; rate?: SceneText } {
 	const room = box.width - 2 * labelPaddingX;
 	const middle = box.x + box.width / 2;
 	const top = box.y + labelPaddingY;
@@ -288,30 +310,57 @@ export function labelTexts(
 					labelTextSize,
 				);
 	const detailY = top + (text === undefined ? 0 : labelTextLine) + labelDetailLine / 2;
+	const logo = logoRoom(content.technology);
 	const [technology, rate] =
 		content.technology !== undefined && content.rate !== undefined
-			? sideBySide(content.technology, content.rate, labelDetailSize, room, labelSeparation)
+			? sideBySide(
+					content.technology.name,
+					content.rate,
+					labelDetailSize,
+					room - logo,
+					labelSeparation,
+				)
 			: [
 					content.technology === undefined
 						? undefined
-						: fit(content.technology, "regular", labelDetailSize, room),
+						: fit(content.technology.name, "regular", labelDetailSize, room - logo),
 					content.rate === undefined
 						? undefined
 						: fit(content.rate, "regular", labelDetailSize, room),
 				];
 	const separation = technology !== undefined && rate !== undefined ? labelSeparation : 0;
-	const left = middle - ((technology?.width ?? 0) + separation + (rate?.width ?? 0)) / 2;
+	const left = middle - (logo + (technology?.width ?? 0) + separation + (rate?.width ?? 0)) / 2;
 	return {
 		...(text === undefined ? {} : { text }),
 		...(technology === undefined
 			? {}
-			: { technology: placed(technology, left + technology.width / 2, detailY, labelDetailSize) }),
+			: {
+					technology: placed(
+						technology,
+						left + logo + technology.width / 2,
+						detailY,
+						labelDetailSize,
+					),
+				}),
+		...(content.technology?.logo === true
+			? {
+					logo: {
+						technology: content.technology.slug,
+						box: {
+							x: left,
+							y: detailY - labelLogoSize / 2,
+							width: labelLogoSize,
+							height: labelLogoSize,
+						},
+					},
+				}
+			: {}),
 		...(rate === undefined
 			? {}
 			: {
 					rate: placed(
 						rate,
-						left + (technology?.width ?? 0) + separation + rate.width / 2,
+						left + logo + (technology?.width ?? 0) + separation + rate.width / 2,
 						detailY,
 						labelDetailSize,
 					),
@@ -362,7 +411,7 @@ export function textDiagnostics(
 				? []
 				: [
 						{
-							...technologyText(named, technologyOf(node.technology), "its Node"),
+							...technologyText(named, technologyOf(node.technology), "too wide for its Node"),
 							drawn: scene?.technology,
 							pointer: `/nodes/${index}/technology`,
 						},
@@ -407,12 +456,11 @@ export function textDiagnostics(
 	const edgeTexts = diagram.edges.flatMap((edge, index) => {
 		const named = `Edge \`${edge.id}\``;
 		const label = labels.get(edge.id);
-		const fields = [
-			["label", "label", label?.text, "Choose a shorter label to show it in full."],
-			["technology", "Technology", label?.technology, "Choose a shorter slug to show it in full."],
-			["rate", "rate", label?.rate, "Write it with `k` or `M` to show it in full."],
-		] as const;
-		return fields.flatMap(([field, name, drawn, advice]): CheckedText[] => {
+		const own = (
+			field: "label" | "rate",
+			drawn: SceneText | undefined,
+			advice: string,
+		): CheckedText[] => {
 			const source = edge[field];
 			return source === undefined
 				? []
@@ -422,12 +470,27 @@ export function textDiagnostics(
 							drawn,
 							weight: "regular",
 							pointer: `/edges/${index}/${field}`,
-							lacking: (some) => `${named}'s ${name} has ${some} that the bundled font lacks`,
+							lacking: (some) => `${named}'s ${field} has ${some} that the bundled font lacks`,
 							shortened: (text) =>
-								`${named}'s ${name} is too long for its run, so it's shortened to \`${text}\`. ${advice}`,
+								`${named}'s ${field} is too long for its run, so it's shortened to \`${text}\`. ${advice}`,
 						},
 					];
-		});
+		};
+		const technology: CheckedText[] =
+			edge.technology === undefined
+				? []
+				: [
+						{
+							...technologyText(named, technologyOf(edge.technology), "too long for its run"),
+							drawn: label?.technology,
+							pointer: `/edges/${index}/technology`,
+						},
+					];
+		return [
+			...own("label", label?.text, "Choose a shorter label to show it in full."),
+			...technology,
+			...own("rate", label?.rate, "Write it with `k` or `M` to show it in full."),
+		];
 	});
 	return [...nodeTexts, ...groupTitles.flatMap(warningsAbout), ...edgeTexts.flatMap(warningsAbout)];
 }
@@ -439,7 +502,7 @@ export function textDiagnostics(
 function technologyText(
 	named: string,
 	technology: { name: string; logo?: string },
-	place: string,
+	tooWide: string,
 ): Pick<CheckedText, "source" | "weight" | "lacking" | "shortened"> {
 	return {
 		source: technology.name,
@@ -447,8 +510,8 @@ function technologyText(
 		lacking: (some) => `${named}'s Technology has ${some} that the bundled font lacks`,
 		shortened: (text) =>
 			technology.logo === undefined
-				? `${named}'s Technology is too wide for ${place}, so it's shortened to \`${text}\`. Choose a shorter slug to show it in full.`
-				: `${named}'s Technology is too wide for ${place}, so its name is shortened to \`${text}\`. Its logo still shows which Technology it is.`,
+				? `${named}'s Technology is ${tooWide}, so it's shortened to \`${text}\`. Choose a shorter slug to show it in full.`
+				: `${named}'s Technology is ${tooWide}, so its name is shortened to \`${text}\`. Its logo still shows which Technology it is.`,
 	};
 }
 
