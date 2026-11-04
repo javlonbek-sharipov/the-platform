@@ -75,3 +75,26 @@ export function declarationsFor(css: string, selector: string): Map<string, stri
 	}
 	return declarations;
 }
+
+/**
+ * Everything in an SVG that would make a viewer fetch something: an `href`,
+ * a `src` or a CSS `url()` that isn't a `#` fragment or a `data:` URL, an
+ * `@import`, or any other URL outside a namespace declaration.
+ */
+export function externalReferences(svg: string): string[] {
+	const found: string[] = [];
+	for (const [reference, target = ""] of svg.matchAll(/\b(?:xlink:)?(?:href|src)="([^"]*)"/g)) {
+		if (!target.startsWith("#")) {
+			found.push(reference);
+		}
+	}
+	for (const [reference, target = ""] of svg.matchAll(/url\(\s*["']?([^"')]*)/g)) {
+		if (!target.startsWith("#") && !target.startsWith("data:")) {
+			found.push(reference);
+		}
+	}
+	found.push(...(svg.match(/@import[^;]*/g) ?? []));
+	const withoutNamespaces = svg.replace(/\sxmlns(?::\w+)?="[^"]*"/g, "");
+	found.push(...(withoutNamespaces.match(/\b(?:https?|ftp|file):[^\s"')]*/g) ?? []));
+	return found;
+}

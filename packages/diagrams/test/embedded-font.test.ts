@@ -1,8 +1,12 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
+import example from "../docs/example-system.diagram.ts";
 import { architecture, type FontRequest, render } from "../src/index.ts";
+import everyKind from "./fixtures/every-kind.ts";
 import {
 	declarationsFor,
 	embeddedFaces,
+	externalReferences,
 	renderWithFont,
 	selectorsOf,
 	styleOf,
@@ -237,5 +241,39 @@ describe("the SVG's style", () => {
 		const root = declarationsFor(styleOf(svg), `.${rootClassOf(svg)}`);
 		expect(root.get("font-kerning")).toBe("none");
 		expect(root.get("font-variant-ligatures")).toBe("none");
+	});
+});
+
+describe("an SVG", () => {
+	test("has no external references", () => {
+		for (const diagram of [shop, latin, everyKind, example]) {
+			expect(externalReferences(renderWithFont(diagram).svg ?? "")).toEqual([]);
+		}
+		const committed = new URL("../docs/example-system.diagram.svg", import.meta.url);
+		expect(externalReferences(readFileSync(committed, "utf8"))).toEqual([]);
+
+		// The check finds the references it looks for.
+		const referring = `<svg xmlns="http://www.w3.org/2000/svg"><image href="https://example.com/a.png"/>
+<use href="#local"/><style>@import "b.css"; .x { background: url(c.png) } .y { fill: url(#d) }</style></svg>`;
+		expect(externalReferences(referring)).toEqual([
+			'href="https://example.com/a.png"',
+			"url(c.png",
+			'@import "b.css"',
+			"https://example.com/a.png",
+		]);
+	});
+
+	test("embeds a small subset for the example Diagram, well under the 30 KB budget", () => {
+		const committed = readFileSync(
+			new URL("../docs/example-system.diagram.svg", import.meta.url),
+			"utf8",
+		);
+		const embedded = [...committed.matchAll(/base64,([A-Za-z0-9+/=]+)/g)].map(
+			([, data]) => data ?? "",
+		);
+		expect(embedded).toHaveLength(1);
+		const size = embedded.reduce((total, data) => total + data.length, 0);
+		expect(size).toBeGreaterThan(1024);
+		expect(size).toBeLessThanOrEqual(30 * 1024);
 	});
 });
