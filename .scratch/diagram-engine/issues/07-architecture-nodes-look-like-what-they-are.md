@@ -10,7 +10,7 @@
 
 **Blocked by:** 04 Text that fits everywhere.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Spec:**
 
@@ -62,3 +62,5 @@
   - Ticket 13: resvg reads neither `var()` nor `@media`, so export has to resolve the theme first. Spec decision 15 under ticket 07 says how.
   - Beside a status mark, a title has 108 px on most Kinds, so `Orders database` (113 px) is shortened when it has a status, and lint warns.
   - The spec's words status, callout, badge, outline and hue have no glossary entries yet.
+
+Merged into diagram-engine in e068700.
