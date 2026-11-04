@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import example from "../docs/example-system.diagram.ts";
 import type { Point, SceneEdge, Side } from "../src/index.ts";
+import { crowded } from "./fixtures/crowded.ts";
 import orderFlow from "./fixtures/edges.ts";
 import { draw, edgeGroupOf, linesOf, sceneOf, strokeOf } from "./support/drawn.ts";
 import { everyFixture } from "./support/fixtures.ts";
@@ -9,8 +10,10 @@ import {
 	computedStyle,
 	contrast,
 	descendants,
+	fillContains,
 	isShape,
 	luminance,
+	paintedBounds,
 	runsOf,
 	type Theme,
 } from "./support/svg.ts";
@@ -284,6 +287,170 @@ describe("an Edge's chevrons", () => {
 		for (const diagram of [example, orderFlow]) {
 			for (const edge of sceneOf(diagram).edges) {
 				expect(edge.chevrons.length, edge.id).toBeGreaterThan(0);
+			}
+		}
+	});
+});
+
+/** The point a distance along a route from its source, if the route is that long. */
+function pointAlong(route: Point[], distance: number): Point | undefined {
+	let start = 0;
+	for (let index = 1; index < route.length; index += 1) {
+		const from = route[index - 1];
+		const to = route[index];
+		if (from === undefined || to === undefined) {
+			break;
+		}
+		const length = Math.abs(to.x - from.x) + Math.abs(to.y - from.y);
+		if (distance <= start + length) {
+			const along = distance - start;
+			return {
+				x: from.x + Math.sign(to.x - from.x) * along,
+				y: from.y + Math.sign(to.y - from.y) * along,
+			};
+		}
+		start += length;
+	}
+	return undefined;
+}
+
+/** How far along a route from its source a point on it lies, the first time the route reaches it. */
+function distanceAlong(route: Point[], point: Point): number | undefined {
+	let start = 0;
+	for (let index = 1; index < route.length; index += 1) {
+		const from = route[index - 1];
+		const to = route[index];
+		if (from === undefined || to === undefined) {
+			break;
+		}
+		const length = Math.abs(to.x - from.x) + Math.abs(to.y - from.y);
+		const along = Math.abs(point.x - from.x) + Math.abs(point.y - from.y);
+		const onRun =
+			Math.min(from.x, to.x) <= point.x &&
+			point.x <= Math.max(from.x, to.x) &&
+			Math.min(from.y, to.y) <= point.y &&
+			point.y <= Math.max(from.y, to.y);
+		if (onRun) {
+			return start + along;
+		}
+		start += length;
+	}
+	return undefined;
+}
+
+/**
+ * Whether two routes from one Port part at a point: walking both from the
+ * Port, half a pixel at a time, they stay together as far as the point, and
+ * a step past it they're apart.
+ */
+function partAt(a: Point[], b: Point[], point: Point): boolean {
+	const distance = distanceAlong(a, point);
+	if (distance === undefined || distanceAlong(b, point) !== distance) {
+		return false;
+	}
+	const apart = (t: number) => {
+		const [onA, onB] = [pointAlong(a, t), pointAlong(b, t)];
+		return (
+			onA === undefined || onB === undefined || Math.hypot(onA.x - onB.x, onA.y - onB.y) > 0.01
+		);
+	};
+	for (let t = 0; t < distance; t += 0.5) {
+		if (apart(t)) {
+			return false;
+		}
+	}
+	return !apart(distance) && apart(distance + 0.5);
+}
+
+describe("a Port that feeds two or more Edges", () => {
+	test("has a junction wherever their routes part, and there's no junction anywhere else", () => {
+		let seen = 0;
+		for (const [name, diagram] of fixtures) {
+			const scene = sceneOf(diagram);
+			const feeding = new Map<string, SceneEdge[]>();
+			for (const edge of scene.edges) {
+				const port = JSON.stringify([edge.from, edge.fromRow ?? null]);
+				feeding.set(port, [...(feeding.get(port) ?? []), edge]);
+			}
+			const portOf = (junction: (typeof scene.junctions)[number]) =>
+				JSON.stringify([junction.node, junction.row ?? null]);
+			for (const junction of scene.junctions) {
+				expect(
+					feeding.get(portOf(junction))?.length ?? 0,
+					`${name}: ${portOf(junction)}`,
+				).toBeGreaterThan(1);
+			}
+			for (const [port, edges] of feeding) {
+				const junctions = scene.junctions.filter((junction) => portOf(junction) === port);
+				const pairs = edges.flatMap((a, index) =>
+					edges.slice(index + 1).map((b) => [a, b] as const),
+				);
+				for (const [a, b] of pairs) {
+					expect(
+						junctions.filter((junction) => partAt(a.route, b.route, junction.point)),
+						`${name}: ${a.id} and ${b.id}`,
+					).toHaveLength(1);
+					seen += 1;
+				}
+				for (const junction of junctions) {
+					expect(
+						pairs.some(([a, b]) => partAt(a.route, b.route, junction.point)),
+						`${name}: ${port} at (${junction.point.x}, ${junction.point.y})`,
+					).toBe(true);
+				}
+			}
+		}
+		expect(seen).toBeGreaterThan(20);
+	});
+
+	test("draws a mark over each junction, above every Edge, in their color, wider than their lines", () => {
+		for (const diagram of [example, orderFlow, crowded()]) {
+			const drawn = draw(diagram);
+			const all = descendants(drawn.root);
+			const lastEdge = Math.max(
+				...all.map((element, index) => (element.attributes.has("data-edge") ? index : -1)),
+			);
+			const marks = all.filter(
+				(element) => isShape(element) && element.attributes.has("data-from"),
+			);
+			expect(marks).toHaveLength(drawn.scene.junctions.length);
+			expect(drawn.scene.junctions.length).toBeGreaterThan(0);
+			for (const junction of drawn.scene.junctions) {
+				const mark = marks.find(
+					(candidate) =>
+						candidate.attributes.get("data-from") === junction.node &&
+						candidate.attributes.get("data-from-row") === junction.row &&
+						fillContains(candidate, junction.point),
+				);
+				expect(
+					mark,
+					`${junction.node} at (${junction.point.x}, ${junction.point.y})`,
+				).toBeDefined();
+				if (mark === undefined) {
+					continue;
+				}
+				expect(all.indexOf(mark)).toBeGreaterThan(lastEdge);
+				const painted = paintedBounds(mark, drawn.rules, "light");
+				const middle = {
+					x: (painted.left + painted.right) / 2,
+					y: (painted.top + painted.bottom) / 2,
+				};
+				expect(Math.hypot(middle.x - junction.point.x, middle.y - junction.point.y)).toBeLessThan(
+					0.01,
+				);
+				const edges = drawn.scene.edges.filter(
+					(edge) => edge.from === junction.node && edge.fromRow === junction.row,
+				);
+				const [casing] = linesOf(drawn, edges[0] ?? drawn.scene.edges[0]!);
+				expect(painted.right - painted.left).toBeGreaterThan(
+					strokeOf(drawn, casing ?? mark, "light").width,
+				);
+				for (const theme of themes) {
+					const bodies = edges.map((edge) =>
+						computedStyle(linesOf(drawn, edge, theme)[1] ?? mark, drawn.rules, theme).get("stroke"),
+					);
+					expect(bodies).toContain(computedStyle(mark, drawn.rules, theme).get("fill"));
+				}
 			}
 		}
 	});

@@ -1,13 +1,14 @@
 /**
  * The marks along each routed Edge (spec: Static SVG, Look): the chevrons
- * that show which way it runs. They're plain geometry in the scene, so that
- * any renderer draws them alike.
+ * that show which way it runs, and the junctions where Edges that leave one
+ * Port part. They're plain geometry in the scene, so that any renderer draws
+ * them alike.
  *
  * Every distance here is measured along a route's runs, from corner point to
  * corner point, ignoring the arcs that round the corners.
  */
 
-import type { Point, RoutePoint, SceneChevron, SceneEdge } from "./scene.ts";
+import type { Point, RoutePoint, SceneChevron, SceneEdge, SceneJunction } from "./scene.ts";
 
 /** An Edge as the router leaves it, before its marks are added. */
 export type RoutedEdge = Omit<SceneEdge, "chevrons">;
@@ -54,13 +55,13 @@ export function markEdges(edges: RoutedEdge[]): SceneEdge[] {
 		const fromSource =
 			Math.max(
 				lengthOf([edge.fromPort.point, edge.fromPort.stub]),
-				...others(fromPort, "fromPort").map((other) => sharedLength(edge.route, other.route)),
+				...others(fromPort, "fromPort").map((other) => parting(edge.route, other.route).length),
 			) + sharedClearance;
 		const intoTarget = Math.max(
 			arrowRoom,
 			...others(toPort, "toPort").map(
 				(other) =>
-					sharedLength([...edge.route].reverse(), [...other.route].reverse()) + sharedClearance,
+					parting([...edge.route].reverse(), [...other.route].reverse()).length + sharedClearance,
 			),
 		);
 		const chevrons = chevronsOf(edge.route, fromSource, clear);
@@ -69,6 +70,32 @@ export function markEdges(edges: RoutedEdge[]): SceneEdge[] {
 			chevrons:
 				chevrons.length > 0 ? chevrons : middleChevron(edge.route, fromSource, intoTarget, clear),
 		};
+	});
+}
+
+/**
+ * Where the Edges that leave one Port part: for each Port that feeds two or
+ * more Edges, each point where two of their routes stop running together.
+ * The Ports come in the order of their first Edges, and each one's junctions
+ * from the nearest to it.
+ */
+export function junctionsOf(edges: RoutedEdge[]): SceneJunction[] {
+	return [...byPort(edges, "fromPort").values()].flatMap((feeding) => {
+		const parts = new Map<string, { point: Point; length: number }>();
+		feeding.forEach((a, index) => {
+			for (const b of feeding.slice(index + 1)) {
+				const part = parting(a.route, b.route);
+				parts.set(pointKey(part.point), part);
+			}
+		});
+		const [{ from, fromRow } = { from: "" }] = feeding;
+		return [...parts.values()]
+			.sort((a, b) => a.length - b.length || a.point.x - b.point.x || a.point.y - b.point.y)
+			.map(({ point }) => ({
+				point: { x: point.x, y: point.y },
+				node: from,
+				...(fromRow === undefined ? {} : { row: fromRow }),
+			}));
 	});
 }
 
@@ -168,15 +195,16 @@ function chevronAt(route: RoutePoint[], back: number): SceneChevron | undefined 
 }
 
 /**
- * How far two routes from one point run together before they part: along
- * the same runs, in the same direction.
+ * Where two routes from one point part: how far they run together, along the
+ * same runs in the same direction, and the point where they stop, which is a
+ * corner of one of them.
  */
-export function sharedLength(a: Point[], b: Point[]): number {
-	let at = a[0];
+function parting(a: Point[], b: Point[]): { point: Point; length: number } {
+	let at = a[0] ?? { x: 0, y: 0 };
 	let length = 0;
 	let i = 1;
 	let j = 1;
-	while (at !== undefined) {
+	for (;;) {
 		const nextA = a[i];
 		const nextB = b[j];
 		if (nextA === undefined || nextB === undefined) {
@@ -194,7 +222,7 @@ export function sharedLength(a: Point[], b: Point[]): number {
 		i += toA <= toB ? 1 : 0;
 		j += toB <= toA ? 1 : 0;
 	}
-	return length;
+	return { point: at, length };
 }
 
 /** The length of a polyline whose runs are horizontal or vertical. */

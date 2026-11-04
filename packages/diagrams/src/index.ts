@@ -40,6 +40,7 @@ export type {
 	SceneChevron,
 	SceneEdge,
 	SceneGroup,
+	SceneJunction,
 	SceneNode,
 	ScenePort,
 	SceneRow,

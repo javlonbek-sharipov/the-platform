@@ -29,6 +29,7 @@ import type {
 	SceneChevron,
 	SceneEdge,
 	SceneGroup,
+	SceneJunction,
 	SceneNode,
 	ScenePort,
 	SceneText,
@@ -116,6 +117,13 @@ export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): s
 			]),
 		),
 		...scene.edges.flatMap((edge) => writeEdge(edge).map((text) => indent(2, text))),
+		...(scene.junctions.length === 0
+			? []
+			: [
+					indent(2, start("g", [["class", "diagram-junctions"]])),
+					...scene.junctions.map((junction) => indent(3, writeJunction(junction))),
+					indent(2, "</g>"),
+				]),
 		indent(1, "</g>"),
 		indent(1, start("g", [["class", "diagram-nodes"]])),
 		...scene.nodes.flatMap((node) => writeNode(node).map((text) => indent(2, text))),
@@ -603,6 +611,27 @@ function writeEdge(edge: SceneEdge): string[] {
 		),
 		"</g>",
 	];
+}
+
+/** A junction's mark: a dot in the Edges' color, cased like them. */
+const junctionRadius = 3;
+const junctionOutline = 1.5;
+
+/**
+ * The mark over a junction, where the Edges from one Port part. It carries
+ * the Port, as the Edges' groups carry their sources.
+ */
+function writeJunction(junction: SceneJunction): string {
+	return empty("circle", [
+		["class", "diagram-casing"],
+		["data-from", junction.node],
+		...(junction.row === undefined ? [] : [["data-from-row", junction.row] as const]),
+		["cx", junction.point.x],
+		["cy", junction.point.y],
+		["r", junctionRadius],
+		["fill", "currentColor"],
+		["stroke-width", junctionOutline],
+	]);
 }
 
 /** A chevron's path data: its two arms, which meet at its tip. */

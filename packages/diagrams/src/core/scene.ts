@@ -158,6 +158,18 @@ export interface SceneEdge {
 	chevrons: SceneChevron[];
 }
 
+/**
+ * Where the Edges that leave one Port part, so that a mark there shows that
+ * they split rather than cross.
+ */
+export interface SceneJunction {
+	point: Point;
+	/** The Node whose Port feeds the Edges. */
+	node: string;
+	/** The Row whose Port it is, when it isn't the Node's header Port. */
+	row?: string;
+}
+
 /** A direction mark on an Edge's route. */
 export interface SceneChevron {
 	point: Point;
@@ -186,6 +198,8 @@ export interface Scene {
 	/** The Groups, in model order. */
 	groups: SceneGroup[];
 	edges: SceneEdge[];
+	/** Where the Edges that leave one Port part, Port by Port. */
+	junctions: SceneJunction[];
 	/** The diagnostics that layout and routing raised. */
 	diagnostics: Diagnostic[];
 }

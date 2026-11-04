@@ -7,7 +7,7 @@
 import type { Bundling } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { clearance, grid, layOut, margin } from "./layout.ts";
-import { markEdges } from "./marks.ts";
+import { junctionsOf, markEdges } from "./marks.ts";
 import { lanes, route } from "./route.ts";
 import type { Box, Scene, SceneEdge } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
@@ -66,6 +66,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		nodes,
 		groups,
 		edges,
+		junctions: junctionsOf(routing.edges),
 		diagnostics: [...textDiagnostics(model, nodes, groups), ...routing.diagnostics],
 	};
 	return {
