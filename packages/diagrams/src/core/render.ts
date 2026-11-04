@@ -9,7 +9,7 @@ import { clearance, grid, layOut, margin } from "./layout.ts";
 import { route } from "./route.ts";
 import type { Box, Scene, SceneEdge, SceneNode } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
-import { type FontData, titleDiagnostics } from "./text.ts";
+import { type FontData, textDiagnostics } from "./text.ts";
 import { validate } from "./validate.ts";
 
 export interface RenderResult {
@@ -46,7 +46,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		grid,
 		nodes,
 		edges,
-		diagnostics: [...titleDiagnostics(model, nodes), ...diagnostics],
+		diagnostics: [...textDiagnostics(model, nodes), ...diagnostics],
 	};
 	return {
 		diagnostics: [...validation.diagnostics, ...scene.diagnostics],

@@ -3,11 +3,29 @@ import {
 	architecture,
 	type Diagram,
 	type Direction,
+	type Row,
 	render,
 	type Scene,
 	type SceneNode,
 	type SceneText,
 } from "../src/index.ts";
+import { advanceOf, bundledFont, characterMap, unitsPerEm } from "./support/truetype.ts";
+
+const interRegular = bundledFont("Inter-Regular.ttf");
+const regularCharacters = characterMap(interRegular);
+
+/** A text's width in Inter Regular, read from the font file: its characters' advance widths, summed. */
+function widthInInterRegular(text: string, size: number): number {
+	let units = 0;
+	for (const character of text) {
+		const glyph = regularCharacters.get(character.codePointAt(0) ?? 0);
+		if (glyph === undefined) {
+			throw new Error(`Inter Regular has no ${character}`);
+		}
+		units += advanceOf(interRegular, glyph);
+	}
+	return (units * size) / unitsPerEm(interRegular);
+}
 
 const directions: Direction[] = ["right", "down"];
 
@@ -176,5 +194,127 @@ describe("the SVG", () => {
 		expect(weights.regular).toBe(" -137Pacegilnoprstuw");
 		// Every character of "Orders database".
 		expect(weights.semibold).toBe(" Oabderst");
+	});
+});
+
+/** The Orders database with the given Rows, rendered, and the diagnostics of the render. */
+function withRows(rows: Row[]): { node: SceneNode; diagnostics: unknown[] } {
+	const { scene, diagnostics } = render(
+		architecture({ title: "Rows" }, (d) => {
+			d.node({ id: "orders-db", kind: "database", title: "Orders database", rows });
+		}),
+	);
+	return { node: nodeOf(scene ?? sceneOf(null), "orders-db"), diagnostics };
+}
+
+/** The first Row's name and value, as drawn. */
+function firstRow(rows: Row[]): { name: SceneText; value?: SceneText } {
+	const row = withRows(rows).node.rows[0];
+	if (row === undefined) {
+		throw new Error("expected a Row");
+	}
+	return row;
+}
+
+describe("a Row too wide for its Node", () => {
+	const tooWide = [
+		{ name: "maximum connections per replica", value: "4000" },
+		{ name: "Shipping address validation rules", value: "value object" },
+		{ name: "read replicas in each availability zone", value: "2" },
+	];
+
+	test("has its name shortened, keeping as much of it as fits beside the full value", () => {
+		for (const { name: full, value } of tooWide) {
+			const { name, value: drawnValue } = firstRow([{ name: full, value }]);
+			expect(drawnValue?.text, full).toBe(value);
+			expect(drawnValue?.shortened, full).toBe(false);
+			expect(name.shortened, full).toBe(true);
+			expect(name.text, full).toMatch(/\S…$/);
+			const kept = name.text.slice(0, -1);
+			expect(full.startsWith(kept), `${kept} starts ${full}`).toBe(true);
+			expect(extent(name).right).toBeLessThan(extent(drawnValue ?? name).left);
+
+			// One more word character, with any space before it, no longer fits beside the value.
+			const longer = kept + (full.slice(kept.length).match(/^\s*\S/)?.[0] ?? "");
+			expect(firstRow([{ name: `${kept}…`, value }]).name.shortened, `${kept}… fits`).toBe(false);
+			expect(firstRow([{ name: `${longer}…`, value }]).name.shortened, `${longer}…`).toBe(true);
+		}
+	});
+
+	test("has its value shortened too when the value doesn't fit beside the name's first character", () => {
+		const full = "eu-west-1, eu-central-1, us-east-1 and ap-south-1";
+		const { name, value } = firstRow([{ name: "regions", value: full }]);
+		expect(name).toMatchObject({ text: "r…", shortened: true });
+		expect(value?.shortened).toBe(true);
+		expect(value?.text).toMatch(/\S…$/);
+		const kept = value?.text.slice(0, -1) ?? "";
+		expect(full.startsWith(kept), `${kept} starts ${full}`).toBe(true);
+		expect(extent(name).right).toBeLessThan(extent(value ?? name).left);
+
+		// One more word character of the value no longer fits beside `r…`.
+		const longer = kept + (full.slice(kept.length).match(/^\s*\S/)?.[0] ?? "");
+		expect(firstRow([{ name: "r…", value: `${kept}…` }]).value?.shortened).toBe(false);
+		expect(firstRow([{ name: "r…", value: `${longer}…` }]).value?.shortened).toBe(true);
+	});
+
+	test("without a value, has its name shortened to the Node's whole width", () => {
+		const full = "Every order line belongs to exactly one order";
+		const { name, value } = firstRow([{ name: full }]);
+		expect(value).toBeUndefined();
+		expect(name.shortened).toBe(true);
+		const kept = name.text.slice(0, -1);
+		const longer = kept + (full.slice(kept.length).match(/^\s*\S/)?.[0] ?? "");
+		expect(firstRow([{ name: `${kept}…` }]).name.shortened).toBe(false);
+		expect(firstRow([{ name: `${longer}…` }]).name.shortened).toBe(true);
+	});
+
+	test("is drawn inside its Node, each text measured at its drawn width", () => {
+		const { node } = withRows([
+			...tooWide,
+			{ name: "regions", value: "eu-west-1, eu-central-1, us-east-1 and ap-south-1" },
+			{ name: "Every order line belongs to exactly one order" },
+			{ name: "W".repeat(30), value: "W".repeat(30) },
+			{ name: "replicas", value: "3" },
+		]);
+		for (const { name, value } of node.rows) {
+			for (const text of value === undefined ? [name] : [name, value]) {
+				expect(text.width, text.text).toBeCloseTo(widthInInterRegular(text.text, text.size), 9);
+				expect(extent(text).left, text.text).toBeGreaterThan(node.box.x);
+				expect(extent(text).right, text.text).toBeLessThan(node.box.x + node.box.width);
+			}
+		}
+	});
+
+	test("stays whole in the model, and lint warns about each shortened text, naming the Node and its Row", () => {
+		const diagram = architecture({ title: "Rows" }, (d) => {
+			d.node({ id: "orders-api", kind: "service", title: "Orders API", rows: [{ name: "port" }] });
+			d.node({
+				id: "orders-db",
+				kind: "database",
+				title: "Orders database",
+				rows: [
+					{ name: "replicas", value: "3" },
+					{ name: "maximum connections per replica", value: "4000" },
+					{ name: "regions", value: "eu-west-1, eu-central-1, us-east-1 and ap-south-1" },
+				],
+			});
+		});
+		const before = structuredClone(diagram);
+
+		const { scene, diagnostics } = render(diagram);
+
+		expect(diagram).toEqual(before);
+		const rows = nodeOf(scene ?? sceneOf(null), "orders-db").rows;
+		const shortened = (at: number, field: "name" | "value", row: string) => ({
+			severity: "warning",
+			rule: "text-shortened",
+			message: `Node \`orders-db\`'s Row \`${row}\` is too wide for its Node, so its ${field} is shortened to \`${rows[at]?.[field]?.text}\`. Choose a shorter name or value to show it in full.`,
+			pointer: `/nodes/1/rows/${at}/${field}`,
+		});
+		expect(diagnostics).toEqual([
+			shortened(1, "name", "maximum connections per replica"),
+			shortened(2, "name", "regions"),
+			shortened(2, "value", "regions"),
+		]);
 	});
 });

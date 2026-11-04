@@ -64,34 +64,53 @@ export function nodeTitle(title: string, header: Box): SceneText {
 
 /**
  * A Row's text, level in the middle of its band: its name on the left, and
- * its value, if it has one, on the right.
+ * its value, if it has one, on the right. When the two don't fit side by
+ * side, the name is shortened first, as far as its first character and an
+ * ellipsis, and only then the value.
  */
 export function rowTexts(row: Row, band: Box): { name: SceneText; value?: SceneText } {
 	const y = band.y + band.height / 2;
 	const left = band.x + rowPadding;
 	const right = band.x + band.width - rowPadding;
-	const value = row.value === undefined ? "" : collapseSpaces(row.value);
-	const fittedValue = value === "" ? undefined : fit(value, "regular", rowSize, right - left);
-	const room = right - left - (fittedValue === undefined ? 0 : fittedValue.width + rowGap);
-	const name = fit(collapseSpaces(row.name), "regular", rowSize, room);
+	const room = right - left;
 	const text = (fitted: Fitted, x: number): SceneText => ({
 		...fitted,
 		point: { x, y },
 		weight: "regular",
 		size: rowSize,
 	});
+	const name = collapseSpaces(row.name);
+	const value = row.value === undefined ? "" : collapseSpaces(row.value);
+	if (value === "") {
+		const alone = fit(name, "regular", rowSize, room);
+		return { name: text(alone, left + alone.width / 2) };
+	}
+	const shortest = fit(name, "regular", rowSize, widthOf(`${[...name][0] ?? ""}${ellipsis}`));
+	const fittedValue = fit(value, "regular", rowSize, room - rowGap - shortest.width);
+	const fittedName = fittedValue.shortened
+		? shortest
+		: fit(name, "regular", rowSize, room - rowGap - fittedValue.width);
 	return {
-		name: text(name, left + name.width / 2),
-		...(fittedValue === undefined
-			? {}
-			: { value: text(fittedValue, right - fittedValue.width / 2) }),
+		name: text(fittedName, left + fittedName.width / 2),
+		value: text(fittedValue, right - fittedValue.width / 2),
 	};
 }
 
-/** A warning for each title with characters that the font lacks, and for each one shortened. */
-export function titleDiagnostics(diagram: Diagram, nodes: SceneNode[]): Diagnostic[] {
-	const titles = new Map(nodes.map((node) => [node.id, node.title]));
+/** A text's width in a Row: its characters' advance widths, summed. */
+function widthOf(text: string): number {
+	const units = [...text].reduce((sum, character) => sum + unitsOf(character, "regular"), 0);
+	return (units * rowSize) / metrics.regular.unitsPerEm;
+}
+
+/**
+ * A warning for each piece of text that was shortened, and for each title
+ * with characters that the font lacks.
+ */
+export function textDiagnostics(diagram: Diagram, nodes: SceneNode[]): Diagnostic[] {
+	const drawn = new Map(nodes.map((node) => [node.id, node]));
 	return diagram.nodes.flatMap((node, index) => {
+		const scene = drawn.get(node.id);
+		const named = `Node \`${node.id}\``;
 		const diagnostics: Diagnostic[] = [];
 		const pointer = `/nodes/${index}/title`;
 		const missing = missingCharacters(collapseSpaces(node.title), "semibold");
@@ -102,20 +121,33 @@ export function titleDiagnostics(diagram: Diagram, nodes: SceneNode[]): Diagnost
 				rule: "glyph-missing",
 				message:
 					missing.length === 1
-						? `Node \`${node.id}\`'s title has a character that the bundled font lacks: ${listed}. It's measured at an average width, and drawn in a fallback font.`
-						: `Node \`${node.id}\`'s title has characters that the bundled font lacks: ${listed}. They're measured at an average width, and drawn in a fallback font.`,
+						? `${named}'s title has a character that the bundled font lacks: ${listed}. It's measured at an average width, and drawn in a fallback font.`
+						: `${named}'s title has characters that the bundled font lacks: ${listed}. They're measured at an average width, and drawn in a fallback font.`,
 				pointer,
 			});
 		}
-		const title = titles.get(node.id);
-		if (title?.shortened === true) {
+		if (scene?.title.shortened === true) {
 			diagnostics.push({
 				severity: "warning",
 				rule: "text-shortened",
-				message: `Node \`${node.id}\`'s title is too wide for its Node, so it's shortened to \`${title.text}\`. Choose a shorter title to show it in full.`,
+				message: `${named}'s title is too wide for its Node, so it's shortened to \`${scene.title.text}\`. Choose a shorter title to show it in full.`,
 				pointer,
 			});
 		}
+		(node.rows ?? []).forEach((row, at) => {
+			const drawnRow = scene?.rows[at];
+			for (const field of ["name", "value"] as const) {
+				const text = drawnRow?.[field];
+				if (text?.shortened === true) {
+					diagnostics.push({
+						severity: "warning",
+						rule: "text-shortened",
+						message: `${named}'s Row \`${collapseSpaces(row.name)}\` is too wide for its Node, so its ${field} is shortened to \`${text.text}\`. Choose a shorter name or value to show it in full.`,
+						pointer: `/nodes/${index}/rows/${at}/${field}`,
+					});
+				}
+			}
+		});
 		return diagnostics;
 	});
 }
