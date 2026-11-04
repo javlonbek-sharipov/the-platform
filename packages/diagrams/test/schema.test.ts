@@ -1,6 +1,12 @@
 import { readdirSync } from "node:fs";
 import { describe, expect, test } from "vitest";
-import { render } from "../src/index.ts";
+import {
+	architectureEdgeKinds,
+	architectureGroupKinds,
+	architectureNodeKinds,
+	architectureStatuses,
+	render,
+} from "../src/index.ts";
 import everyField from "./fixtures/every-field.json" with { type: "json" };
 import everyKind from "./fixtures/every-kind.ts";
 import { schema, schemaErrors, schemaPointers } from "./support/schema.ts";
@@ -304,6 +310,14 @@ describe("the JSON Schema", () => {
 		const { diagnostics, svg } = render(everyField);
 		expect(diagnostics).toEqual([]);
 		expect(svg).toContain('<g data-edge="charges"');
+	});
+
+	test("has the Notation's Kinds and statuses, no more and no fewer", () => {
+		const { $defs } = schema;
+		expect($defs.node.properties.kind.enum).toEqual(architectureNodeKinds);
+		expect($defs.group.properties.kind.enum).toEqual(architectureGroupKinds);
+		expect($defs.edge.properties.kind.enum).toEqual(architectureEdgeKinds);
+		expect($defs.node.properties.status.enum).toEqual(architectureStatuses);
 	});
 
 	test("requires `version` to be 1, as the core does", () => {
