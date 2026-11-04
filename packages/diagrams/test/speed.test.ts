@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { render } from "../src/index.ts";
 import { crowded } from "./fixtures/crowded.ts";
+import { labeled } from "./fixtures/labeled.ts";
 
 /**
  * A limit generous enough for any machine that runs the suite, which still
@@ -49,6 +50,20 @@ describe("the crowded fixture", () => {
 			const { scene, diagnostics } = render(crowded(direction));
 			const took = performance.now() - started;
 			expect(diagnostics).toEqual([]);
+			expect(scene?.edges.filter(({ fellBack }) => fellBack)).toEqual([]);
+			expect(took).toBeLessThan(generousLimit);
+		},
+	);
+
+	test.each(["right", "down"] as const)(
+		"lays out, routes and labels every Edge, drawn %s, within the same limit",
+		(direction) => {
+			// Labeled Edges that trunks would crowd out keep lanes of their own, so
+			// layout and routing run more than once.
+			const started = performance.now();
+			const { scene } = render(labeled(crowded(direction)));
+			const took = performance.now() - started;
+			expect(scene?.edges.filter(({ label }) => label === undefined)).toEqual([]);
 			expect(scene?.edges.filter(({ fellBack }) => fellBack)).toEqual([]);
 			expect(took).toBeLessThan(generousLimit);
 		},
