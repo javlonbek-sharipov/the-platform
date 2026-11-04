@@ -1587,7 +1587,7 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
    - System fonts are off, so the faces are all that resvg has, and every text falls back to their family. The SVG's `font-family` stays as written.
 7. **The SVG as resvg gets it,** on top of ticket 07's decision 15:
    - Every at-rule goes. That takes out `@font-face` now, and `@keyframes` in slice 4, so the PNG has no animation.
-   - resvg takes `dominant-baseline` only from an element's parent, but the SVG sets it on the group around all Nodes, two levels above each text. So a rule sets it on each text inside an element that has it. Without that rule, every text sat 5 px high.
+   - resvg takes `dominant-baseline` only from an element's parent, but the SVG sets it on the group around all Nodes, and on the one around all Groups (since ticket 06), two levels above each text. So a rule sets it on each text inside an element that has it, Group titles included. Without that rule, every text sat 5 px high.
 8. **Tests read PNGs with their own decoder,** `test/support/png.ts`, written from the PNG specification. They check sizes from the header, the theme from the background's pixels, and where each text's ink lies: across, the span that Inter's advance widths give, and up and down, capitals centered on their point, as browsers draw them.
 
 **Ticket 09**
