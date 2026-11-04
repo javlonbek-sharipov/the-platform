@@ -3,8 +3,12 @@
  * generated JSON has no types, so everything they prevent is checked here.
  */
 
-import type { Diagram } from "../authoring/model.ts";
-import { architectureEdgeKinds, architectureNodeKinds } from "../notations/architecture.ts";
+import type { Diagram, Link } from "../authoring/model.ts";
+import {
+	architectureEdgeKinds,
+	architectureGroupKinds,
+	architectureNodeKinds,
+} from "../notations/architecture.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 
 export interface Validation {
@@ -14,6 +18,7 @@ export interface Validation {
 }
 
 const nodeKinds: readonly string[] = architectureNodeKinds;
+const groupKinds: readonly string[] = architectureGroupKinds;
 const edgeKinds: readonly string[] = architectureEdgeKinds;
 
 const kebabCase = "[a-z0-9]+(?:-[a-z0-9]+)*";
@@ -63,17 +68,45 @@ export function validate(input: unknown): Validation {
 				),
 			);
 		}
-		node.links?.forEach((link, linkIndex) => {
-			if (link.id !== undefined && !idPattern.test(link.id)) {
-				diagnostics.push(
-					error(
-						"id-format",
-						`Node \`${node.id}\` has a Link to \`${link.id}\`, which isn't a lowercase kebab-case id. Write ids like \`payments-api\`.`,
-						`/nodes/${index}/links/${linkIndex}/id`,
-					),
-				);
-			}
-		});
+		diagnostics.push(...checkLinkIds(`Node \`${node.id}\``, node.links, `/nodes/${index}`));
+	});
+
+	const groupIds = new Set<string>();
+	diagram.groups.forEach((group, index) => {
+		if (!idPattern.test(group.id)) {
+			diagnostics.push(
+				error(
+					"id-format",
+					`Group \`${group.id}\` has an id that isn't lowercase kebab-case. Write ids like \`eu-west\`.`,
+					`/groups/${index}/id`,
+				),
+			);
+		}
+		const taken = groupIds.has(group.id)
+			? "Two Groups"
+			: nodeIds.has(group.id)
+				? "A Node and a Group"
+				: undefined;
+		if (taken !== undefined) {
+			diagnostics.push(
+				error(
+					"duplicate-id",
+					`${taken} have the id \`${group.id}\`. Node and Group ids must be unique within a Diagram.`,
+					`/groups/${index}/id`,
+				),
+			);
+		}
+		groupIds.add(group.id);
+		diagnostics.push(...checkLinkIds(`Group \`${group.id}\``, group.links, `/groups/${index}`));
+		if (!groupKinds.includes(group.kind)) {
+			diagnostics.push(
+				error(
+					"unknown-kind",
+					`Group \`${group.id}\` has the Kind \`${group.kind}\`, which the architecture Notation doesn't have. Its Group Kinds are ${list(groupKinds)}.`,
+					`/groups/${index}/kind`,
+				),
+			);
+		}
 	});
 
 	const edgeIds = new Set<string>();
@@ -97,23 +130,22 @@ export function validate(input: unknown): Validation {
 			);
 		}
 		edgeIds.add(edge.id);
-		if (!nodeIds.has(edge.from)) {
-			diagnostics.push(
-				error(
-					"edge-end",
-					`Edge \`${edge.id}\` starts at \`${edge.from}\`, which isn't a Node on this Diagram.`,
-					`/edges/${index}/from`,
-				),
-			);
-		}
-		if (!nodeIds.has(edge.to)) {
-			diagnostics.push(
-				error(
-					"edge-end",
-					`Edge \`${edge.id}\` ends at \`${edge.to}\`, which isn't a Node on this Diagram.`,
-					`/edges/${index}/to`,
-				),
-			);
+		for (const [end, verb] of [
+			["from", "starts"],
+			["to", "ends"],
+		] as const) {
+			const at = edge[end];
+			if (!nodeIds.has(at)) {
+				diagnostics.push(
+					error(
+						"edge-end",
+						groupIds.has(at)
+							? `Edge \`${edge.id}\` ${verb} at \`${at}\`, which is a Group. An Edge starts and ends at Nodes, never at Groups.`
+							: `Edge \`${edge.id}\` ${verb} at \`${at}\`, which isn't a Node on this Diagram.`,
+						`/edges/${index}/${end}`,
+					),
+				);
+			}
 		}
 		if (!edgeKinds.includes(edge.kind)) {
 			diagnostics.push(
@@ -131,6 +163,21 @@ export function validate(input: unknown): Validation {
 	return diagnostics.some((diagnostic) => diagnostic.severity === "error")
 		? { diagnostics }
 		: { diagnostics, diagram };
+}
+
+/** A Link to an id must name it as the model writes ids. `owner` is the Node or Group that has the Links. */
+function checkLinkIds(owner: string, links: Link[] | undefined, pointer: string): Diagnostic[] {
+	return (links ?? []).flatMap((link, index) =>
+		link.id === undefined || idPattern.test(link.id)
+			? []
+			: [
+					error(
+						"id-format",
+						`${owner} has a Link to \`${link.id}\`, which isn't a lowercase kebab-case id. Write ids like \`payments-api\`.`,
+						`${pointer}/links/${index}/id`,
+					),
+				],
+	);
 }
 
 const oneParent = "Every Node and Group has exactly one parent: the Diagram, or one Group.";
@@ -368,9 +415,17 @@ function checkShape(input: unknown): Diagnostic[] {
 	checkList(input.groups, "/groups", (group, at) => {
 		checkStrings(group, at, ["id", "kind", "title"]);
 		if (isObject(group)) {
+			check(
+				group.description === undefined || typeof group.description === "string",
+				`${at}/description`,
+				"a string",
+			);
 			checkList(group.members, `${at}/members`, (member, memberAt) => {
 				check(typeof member === "string", memberAt, "an id");
 			});
+			if (group.links !== undefined) {
+				checkList(group.links, `${at}/links`, checkLink);
+			}
 		}
 	});
 	checkList(input.edges, "/edges", (edge, at) => {

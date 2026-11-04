@@ -253,6 +253,29 @@ describe("validation", () => {
 		});
 	});
 
+	test("reports a Group Kind that the Notation doesn't have", () => {
+		const diagram = regionJson();
+		diagram.groups[0] = { ...diagram.groups[0], id: "eu-west", kind: "continent" } as never;
+		diagram.groups[1] = { ...diagram.groups[1], id: "eu-west-a", kind: "service" } as never;
+
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "unknown-kind",
+				message:
+					"Group `eu-west` has the Kind `continent`, which the architecture Notation doesn't have. Its Group Kinds are system, region and zone.",
+				pointer: "/groups/0/kind",
+			},
+			{
+				severity: "error",
+				rule: "unknown-kind",
+				message:
+					"Group `eu-west-a` has the Kind `service`, which the architecture Notation doesn't have. Its Group Kinds are system, region and zone.",
+				pointer: "/groups/1/kind",
+			},
+		]);
+	});
+
 	test("reports an Edge Kind that the Notation doesn't have", () => {
 		const diagram = shopJson();
 		diagram.edges[0] = { id: "web-app->shop-api", kind: "rest", from: "web-app", to: "shop-api" };
@@ -281,6 +304,47 @@ describe("validation", () => {
 				rule: "duplicate-id",
 				message: "Two Nodes have the id `shop-api`. Node ids must be unique within a Diagram.",
 				pointer: "/nodes/2/id",
+			},
+		]);
+	});
+
+	test("reports a Group with a Node's id or another Group's, and nothing more about it", () => {
+		const diagram = regionJson();
+		diagram.nodes[1] = { id: "eu-west", kind: "service", title: "Shop API" };
+		diagram.groups[1] = { id: "eu-west", kind: "zone", title: "Zone A", members: ["shop-db"] };
+		diagram.groups[0] = { ...diagram.groups[0], members: ["eu-west", "eu-west"] } as never;
+		diagram.edges = [];
+
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "duplicate-id",
+				message:
+					"A Node and a Group have the id `eu-west`. Node and Group ids must be unique within a Diagram.",
+				pointer: "/groups/0/id",
+			},
+			{
+				severity: "error",
+				rule: "duplicate-id",
+				message:
+					"Two Groups have the id `eu-west`. Node and Group ids must be unique within a Diagram.",
+				pointer: "/groups/1/id",
+			},
+		]);
+	});
+
+	test("reports a Group id that isn't lowercase kebab-case", () => {
+		const diagram = regionJson();
+		diagram.members[1] = "EU West";
+		diagram.groups[0] = { ...diagram.groups[0], id: "EU West" } as never;
+
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "id-format",
+				message:
+					"Group `EU West` has an id that isn't lowercase kebab-case. Write ids like `eu-west`.",
+				pointer: "/groups/0/id",
 			},
 		]);
 	});
@@ -362,6 +426,31 @@ describe("validation", () => {
 		]);
 	});
 
+	test("reports an Edge end that is a Group, since Edges end only at Nodes", () => {
+		const diagram = regionJson();
+		diagram.edges = [
+			{ id: "web-app->eu-west", kind: "call", from: "web-app", to: "eu-west" },
+			{ id: "eu-west-a->web-app", kind: "message", from: "eu-west-a", to: "web-app" },
+		];
+
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "edge-end",
+				message:
+					"Edge `web-app->eu-west` ends at `eu-west`, which is a Group. An Edge starts and ends at Nodes, never at Groups.",
+				pointer: "/edges/0/to",
+			},
+			{
+				severity: "error",
+				rule: "edge-end",
+				message:
+					"Edge `eu-west-a->web-app` starts at `eu-west-a`, which is a Group. An Edge starts and ends at Nodes, never at Groups.",
+				pointer: "/edges/1/from",
+			},
+		]);
+	});
+
 	test("accepts Links to ids and to documents, with sections and labels", () => {
 		const diagram = shopJson();
 		diagram.nodes[1] = {
@@ -410,6 +499,54 @@ describe("validation", () => {
 				["/nodes/1/links/8", "`/nodes/1/links/8` must have exactly one of `id` and `doc`."],
 			].map(([pointer, message]) => ({ severity: "error", rule: "model-shape", message, pointer })),
 		);
+	});
+
+	test("accepts a Group's description, and its Links to ids and to documents", () => {
+		const diagram = regionJson();
+		diagram.groups[0] = {
+			...diagram.groups[0],
+			description: "Where the shop runs in Europe.",
+			links: [{ id: "us-east" }, { doc: "docs/regions.md", section: "EU West", label: "Why" }],
+		} as never;
+
+		expect(render(diagram).diagnostics).toEqual([]);
+	});
+
+	test("reports Groups that aren't shaped like Groups", () => {
+		const diagram = regionJson();
+		diagram.groups = [
+			{ ...diagram.groups[0], title: 7, description: ["Europe"], links: [{ term: "Region" }] },
+			{ ...diagram.groups[1], members: "shop-db" },
+			{ id: "us-east", kind: "region", title: "US East", members: [7], links: { id: "eu-west" } },
+			"eu-west-b",
+		] as never;
+
+		expect(render(diagram).diagnostics).toEqual(
+			[
+				["/groups/0/title", "`/groups/0/title` must be a string."],
+				["/groups/0/description", "`/groups/0/description` must be a string."],
+				["/groups/0/links/0", "`/groups/0/links/0` must have exactly one of `id` and `doc`."],
+				["/groups/1/members", "`/groups/1/members` must be a list."],
+				["/groups/2/members/0", "`/groups/2/members/0` must be an id."],
+				["/groups/2/links", "`/groups/2/links` must be a list."],
+				["/groups/3", "`/groups/3` must be an object."],
+			].map(([pointer, message]) => ({ severity: "error", rule: "model-shape", message, pointer })),
+		);
+	});
+
+	test("reports a Group's Link to an id that isn't lowercase kebab-case", () => {
+		const diagram = regionJson();
+		diagram.groups[0] = { ...diagram.groups[0], links: [{ id: "US East" }] } as never;
+
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "id-format",
+				message:
+					"Group `eu-west` has a Link to `US East`, which isn't a lowercase kebab-case id. Write ids like `payments-api`.",
+				pointer: "/groups/0/links/0/id",
+			},
+		]);
 	});
 
 	test("reports a Link to an id that isn't lowercase kebab-case", () => {
