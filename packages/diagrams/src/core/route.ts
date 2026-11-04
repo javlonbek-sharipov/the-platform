@@ -9,6 +9,7 @@ import { type Diagram, endNode, type RowEnd } from "../authoring/model.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { buildGrid, type Grid, pointOf, vertexAt } from "./grid.ts";
 import { clearance } from "./layout.ts";
+import { type NudgeRoute, nudge } from "./nudge.ts";
 import type {
 	Box,
 	Point,
@@ -54,6 +55,34 @@ const cornerRadius = 8;
  */
 const defaultSearchBudget = 1_000_000;
 
+/**
+ * Lanes keep the preferred spacing where there's room, squeeze down to the
+ * minimum in a narrow corridor, and keep the padding from the corridor's
+ * sides. The narrowest corridor, a clearance wide, holds four lanes.
+ */
+const laneSpacing = { preferred: 8, minimum: 4, padding: 8 };
+
+/**
+ * Each Edge's lane group: the Edges that may share a lane, which is a bundle
+ * (spec: Edge routing, step 4). A bundle is the Edges of one Kind that go into
+ * one Port. Parallel Edges, which join the same pair of Ports, never share
+ * one: the second Edge from one source Port in a bundle goes into a second
+ * group, and so on.
+ */
+function laneGroups(diagram: Diagram): Map<string, string> {
+	const groups = new Map<string, string>();
+	const taken = new Map<string, number>();
+	const port = (end: string | RowEnd) => (typeof end === "string" ? [end] : [end.node, end.row]);
+	for (const edge of [...diagram.edges].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
+		const bundle = JSON.stringify([edge.kind, ...port(edge.to)]);
+		const source = JSON.stringify([bundle, ...port(edge.from)]);
+		const index = taken.get(source) ?? 0;
+		taken.set(source, index + 1);
+		groups.set(edge.id, JSON.stringify([bundle, index]));
+	}
+	return groups;
+}
+
 /** The heading of a stub, out of its side. */
 const outOf: Record<Side, Heading> = {
 	left: "west",
@@ -86,9 +115,11 @@ export function route(
 	const grid = buildGrid(nodes, groups, clearance);
 	const search = searchOn(grid);
 	const budget = options.searchBudget ?? defaultSearchBudget;
+	const groupOf = laneGroups(diagram);
 	// Edges are routed in a stable order, by id, so that no route depends on
 	// the order the Diagram declares its Edges in.
 	const routed = new Map<string, SceneEdge>();
+	const found = new Map<string, NudgeRoute>();
 	for (const edge of [...diagram.edges].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
 		const from = byId.get(endNode(edge.from));
 		const to = byId.get(endNode(edge.to));
@@ -97,7 +128,15 @@ export function route(
 		if (from === undefined || to === undefined || fromPort === undefined || toPort === undefined) {
 			throw new Error(`Edge ${edge.id} ends at a Port that validation should have rejected`);
 		}
-		const found = searchRoute(grid, search, fromPort, toPort, budget);
+		const path = searchRoute(grid, search, fromPort, toPort, budget);
+		if (path !== undefined) {
+			found.set(edge.id, {
+				points: polyline(path),
+				fromPort,
+				toPort,
+				group: groupOf.get(edge.id) ?? edge.id,
+			});
+		}
 		routed.set(edge.id, {
 			id: edge.id,
 			kind: edge.kind,
@@ -107,10 +146,33 @@ export function route(
 			...(typeof edge.to === "string" ? {} : { toRow: edge.to.row }),
 			fromPort,
 			toPort,
-			route: roundCorners(polyline(found ?? fallbackRoute(fromPort, toPort, [from.box, to.box]))),
-			fellBack: found === undefined,
+			route: roundCorners(polyline(path ?? fallbackRoute(fromPort, toPort, [from.box, to.box]))),
+			fellBack: path === undefined,
 		});
 	}
+	// Routes that share a grid line spread apart into lanes. Fallback routes
+	// keep to their simple shapes.
+	const searched = [...found.entries()];
+	const nudged = nudge(
+		searched.map(([, route]) => route),
+		{
+			obstacles: [
+				...nodes.flatMap(({ box, callout }) =>
+					callout === undefined ? [box] : [box, callout.tag],
+				),
+				...groups.map(({ label }) => label),
+			],
+			borders: groups.map(({ box }) => box),
+		},
+		laneSpacing,
+	);
+	searched.forEach(([id], index) => {
+		const edge = routed.get(id);
+		const points = nudged[index];
+		if (edge !== undefined && points !== undefined) {
+			edge.route = roundCorners(polyline(points));
+		}
+	});
 	const edges = diagram.edges.flatMap((edge) => routed.get(edge.id) ?? []);
 	const diagnostics = edges.flatMap(({ id, fellBack }, index): Diagnostic[] =>
 		fellBack

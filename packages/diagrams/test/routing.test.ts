@@ -8,6 +8,7 @@ import {
 	type Point,
 	render,
 	type Scene,
+	type SceneEdge,
 	type SceneNode,
 	type ScenePort,
 	type Side,
@@ -254,6 +255,76 @@ function groupsHolding(diagram: Diagram, id: string): string[] {
 	return parent === undefined ? [] : [parent.id, ...groupsHolding(diagram, parent.id)];
 }
 
+/** Two lanes closer than this look like one. */
+const sameLane = 0.5;
+
+/** A Port, named by its Node and its Row, if any. */
+function portKey(node: string, row: string | undefined): string {
+	return row === undefined ? node : `${node}/${row}`;
+}
+
+/** Whether two Edges join the same pair of Ports. */
+function parallel(a: SceneEdge, b: SceneEdge): boolean {
+	return (
+		portKey(a.from, a.fromRow) === portKey(b.from, b.fromRow) &&
+		portKey(a.to, a.toRow) === portKey(b.to, b.toRow)
+	);
+}
+
+/**
+ * Whether two Edges share a bundle, read from the spec rather than the code:
+ * the same Kind into the same Port, unless they're parallel.
+ */
+function sameBundle(a: SceneEdge, b: SceneEdge): boolean {
+	return a.kind === b.kind && portKey(a.to, a.toRow) === portKey(b.to, b.toRow) && !parallel(a, b);
+}
+
+/**
+ * The stretches where two routes run along the same lane: collinear
+ * segments, within `sameLane` of each other, that overlap by more than that.
+ * Each comes with the indices of the two segments.
+ */
+function sharedStretches(a: Point[], b: Point[]): [Point, Point, number, number][] {
+	const shared: [Point, Point, number, number][] = [];
+	segmentsOf(a).forEach(([a1, a2], i) => {
+		segmentsOf(b).forEach(([b1, b2], j) => {
+			const horizontal = a1.y === a2.y && b1.y === b2.y;
+			const vertical = a1.x === a2.x && b1.x === b2.x;
+			if (!horizontal && !vertical) {
+				return;
+			}
+			const [across, otherAcross] = horizontal ? [a1.y, b1.y] : [a1.x, b1.x];
+			const along = (p: Point) => (horizontal ? p.x : p.y);
+			const low = Math.max(Math.min(along(a1), along(a2)), Math.min(along(b1), along(b2)));
+			const high = Math.min(Math.max(along(a1), along(a2)), Math.max(along(b1), along(b2)));
+			if (Math.abs(across - otherAcross) < sameLane && high - low > sameLane) {
+				shared.push(
+					horizontal
+						? [{ x: low, y: across }, { x: high, y: across }, i, j]
+						: [{ x: across, y: low }, { x: across, y: high }, i, j],
+				);
+			}
+		});
+	});
+	return shared;
+}
+
+/**
+ * The stretches that two Edges of different bundles share, other than where
+ * both still run along the stub's line of a Port they share: out of it on
+ * their first runs, or into it on their last runs.
+ */
+function lanesShared(a: SceneEdge, b: SceneEdge): string[] {
+	const lastA = a.route.length - 2;
+	const lastB = b.route.length - 2;
+	const sameSource = portKey(a.from, a.fromRow) === portKey(b.from, b.fromRow);
+	const sameTarget = portKey(a.to, a.toRow) === portKey(b.to, b.toRow);
+	return sharedStretches(a.route, b.route)
+		.filter(([, , i, j]) => !(sameSource && i === 0 && j === 0))
+		.filter(([, , i, j]) => !(sameTarget && i === lastA && j === lastB))
+		.map(([from, to]) => `${a.id} and ${b.id} share (${from.x}, ${from.y})–(${to.x}, ${to.y})`);
+}
+
 /** Whether `point` lies on the horizontal or vertical segment from `a` to `b`. */
 function onSegment(point: Point, a: Point | undefined, b: Point | undefined): boolean {
 	if (a === undefined || b === undefined) {
@@ -413,6 +484,14 @@ describe.each(fixtures)("every route in %s", (_, diagram) => {
 		}
 	});
 
+	test("shares no stretch of lane with an Edge of another bundle, beyond the stub of a Port they share", () => {
+		const { edges } = sceneOf(diagram);
+		const shared = edges.flatMap((a, index) =>
+			edges.slice(index + 1).flatMap((b) => (sameBundle(a, b) ? [] : lanesShared(a, b))),
+		);
+		expect(shared).toEqual([]);
+	});
+
 	test("never passes through a Group label, nor touches one", () => {
 		const scene = sceneOf(diagram);
 		for (const { id, route } of scene.edges) {
@@ -464,6 +543,59 @@ describe.each(fixtures)("every route in %s", (_, diagram) => {
 					expect(touchesPort, `${id} passes through ${node.id}`).toBe(true);
 				}
 			}
+		}
+	});
+});
+
+/** How many times two routes cross: a horizontal run of one passing through a vertical run of the other. */
+function crossingsBetween(a: Point[], b: Point[]): number {
+	let count = 0;
+	for (const [a1, a2] of segmentsOf(a)) {
+		for (const [b1, b2] of segmentsOf(b)) {
+			const [h1, h2, v1, v2] =
+				a1.y === a2.y && b1.x === b2.x
+					? [a1, a2, b1, b2]
+					: b1.y === b2.y && a1.x === a2.x
+						? [b1, b2, a1, a2]
+						: [];
+			if (h1 === undefined || h2 === undefined || v1 === undefined || v2 === undefined) {
+				continue;
+			}
+			const inside = (value: number, end1: number, end2: number) =>
+				Math.min(end1, end2) < value && value < Math.max(end1, end2);
+			if (inside(v1.x, h1.x, h2.x) && inside(h1.y, v1.y, v2.y)) {
+				count += 1;
+			}
+		}
+	}
+	return count;
+}
+
+describe("Edges that share a corridor", () => {
+	test("spread into lanes that don't cross, when they fan out from one Port", () => {
+		for (const direction of ["right", "down"] as const) {
+			const scene = sceneOf(
+				architecture({ title: "Fan-out", direction }, (d) => {
+					const api = d.node({ id: "orders-api", kind: "service", title: "Orders API" });
+					for (const [id, kind] of [
+						["orders-db", "database"],
+						["orders-cache", "cache"],
+						["order-events", "queue"],
+						["orders-search", "search"],
+						["invoices", "storage"],
+					] as const) {
+						d.node({ id, kind, title: id });
+						d.edge(api, id, { kind: kind === "queue" ? "message" : "call" });
+					}
+				}),
+			);
+			const crossings = scene.edges.flatMap((a, index) =>
+				scene.edges
+					.slice(index + 1)
+					.filter((b) => crossingsBetween(a.route, b.route) > 0)
+					.map((b) => `${a.id} crosses ${b.id}`),
+			);
+			expect(crossings, direction).toEqual([]);
 		}
 	});
 });
