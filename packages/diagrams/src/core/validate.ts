@@ -130,10 +130,16 @@ export function validate(input: unknown): Validation {
 			} else if (typeof end !== "string") {
 				const names = (rowsOf.get(node) ?? []).map((row) => row.name);
 				if (!names.includes(end.row)) {
+					// Row names may hold spaces, so each one is quoted.
+					const quoted = names.map((name) => `\`${name}\``);
+					const which =
+						quoted.length === 0
+							? "which has no Rows."
+							: `which has no such Row. ${quoted.length === 1 ? `Its only Row is ${quoted[0]}` : `Its Rows are ${list(quoted)}`}.`;
 					diagnostics.push(
 						error(
 							"edge-end",
-							`Edge \`${edge.id}\` ${verb} at the Row \`${end.row}\` of \`${node}\`, ${names.length === 0 ? "which has no Rows." : `which has no such Row. Its Rows are ${list(names)}.`}`,
+							`Edge \`${edge.id}\` ${verb} at the Row \`${end.row}\` of \`${node}\`, ${which}`,
 							`${at}/row`,
 						),
 					);

@@ -320,6 +320,7 @@ describe("validation", () => {
 
 	test("reports an Edge end at a Row that its Node doesn't have", () => {
 		const diagram = shopJson();
+		diagram.nodes[1] = { ...diagram.nodes[1], rows: [{ name: "read replicas" }] } as never;
 		diagram.nodes[2] = {
 			...diagram.nodes[2],
 			rows: [{ name: "orders" }, { name: "stock" }],
@@ -329,7 +330,7 @@ describe("validation", () => {
 				id: "web-app->shop-api",
 				kind: "call",
 				from: { node: "web-app", row: "session" },
-				to: "shop-api",
+				to: { node: "shop-api", row: "replicas" },
 			},
 			{
 				id: "shop-api->shop-db",
@@ -351,7 +352,14 @@ describe("validation", () => {
 				severity: "error",
 				rule: "edge-end",
 				message:
-					"Edge `shop-api->shop-db` ends at the Row `order` of `shop-db`, which has no such Row. Its Rows are orders and stock.",
+					"Edge `web-app->shop-api` ends at the Row `replicas` of `shop-api`, which has no such Row. Its only Row is `read replicas`.",
+				pointer: "/edges/0/to/row",
+			},
+			{
+				severity: "error",
+				rule: "edge-end",
+				message:
+					"Edge `shop-api->shop-db` ends at the Row `order` of `shop-db`, which has no such Row. Its Rows are `orders` and `stock`.",
 				pointer: "/edges/1/to/row",
 			},
 		]);
