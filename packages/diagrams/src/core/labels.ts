@@ -154,21 +154,21 @@ export function placeLabels(
 	// The first pass places labels in full where they hide nothing, the second
 	// in full wherever they cover nothing else, and the third shortened if need be.
 	const passes = [
-		{ hiding: false, shortened: false },
-		{ hiding: true, shortened: false },
-		{ hiding: true, shortened: true },
+		{ mayHide: false, mayShorten: false },
+		{ mayHide: true, mayShorten: false },
+		{ mayHide: true, mayShorten: true },
 	];
 	const boxes = new Map<string, Box>();
-	for (const { hiding, shortened } of passes) {
+	for (const { mayHide, mayShorten } of passes) {
 		for (const { edge, candidates, width } of wanted) {
 			if (boxes.has(edge.id)) {
 				continue;
 			}
 			const box = candidates.find(
 				(candidate) =>
-					(shortened || candidate.width >= width) &&
+					(mayShorten || candidate.width >= width) &&
 					!covers(candidate) &&
-					(hiding || !hides(candidate)),
+					(mayHide || !hides(candidate)),
 			);
 			if (box !== undefined) {
 				boxes.set(edge.id, box);
