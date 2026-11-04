@@ -1,8 +1,8 @@
 /**
  * The route search (spec: Edge routing, step 3): A* over states of (vertex,
  * heading) on the routing grid. A step costs its length, plus a fixed cost
- * when it bends. U-turns aren't allowed, and the heuristic is the Manhattan
- * distance to the goal.
+ * when it bends, and a small cost for each Group border it crosses. U-turns
+ * aren't allowed, and the heuristic is the Manhattan distance to the goal.
  */
 
 import type { Grid } from "./grid.ts";
@@ -32,6 +32,8 @@ export interface SearchEnd {
 
 export interface SearchCosts {
 	bend: number;
+	/** The cost of crossing one Group border. */
+	crossing: number;
 	/** The most states the search may visit before it gives up. */
 	budget: number;
 }
@@ -115,7 +117,8 @@ export function searchOn(grid: Grid): Search {
 					cost +
 					Math.abs(xOf(neighbor) - xOf(vertex)) +
 					Math.abs(yOf(neighbor) - yOf(vertex)) +
-					(next === heading ? 0 : costs.bend);
+					(next === heading ? 0 : costs.bend) +
+					costs.crossing * crossingsOf(grid, vertex, next);
 				if (neighbor === goal.vertex) {
 					if (next === (goalHeading + 2) % 4) {
 						continue;
@@ -135,6 +138,21 @@ function pathTo(end: number, parents: Int32Array): number[] {
 		vertices.push((state - (state % 4)) / 4);
 	}
 	return vertices.reverse();
+}
+
+/** How many Group borders the segment from a vertex in a heading's index crosses. */
+function crossingsOf(grid: Grid, vertex: number, heading: number): number {
+	const columns = grid.xs.length;
+	switch (heading) {
+		case 0:
+			return grid.crossEast[vertex] ?? 0;
+		case 1:
+			return grid.crossSouth[vertex] ?? 0;
+		case 2:
+			return grid.crossEast[vertex - 1] ?? 0;
+		default:
+			return grid.crossSouth[vertex - columns] ?? 0;
+	}
 }
 
 /** The neighbor of a vertex in a heading's index, if the segment to it is open. */

@@ -9,7 +9,16 @@ import { type Diagram, endNode, type RowEnd } from "../authoring/model.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { buildGrid, type Grid, pointOf, vertexAt } from "./grid.ts";
 import { clearance } from "./layout.ts";
-import type { Box, Point, RoutePoint, SceneEdge, SceneNode, ScenePort, Side } from "./scene.ts";
+import type {
+	Box,
+	Point,
+	RoutePoint,
+	SceneEdge,
+	SceneGroup,
+	SceneNode,
+	ScenePort,
+	Side,
+} from "./scene.ts";
 import { type Heading, opposite, type Search, searchOn } from "./search.ts";
 
 export interface RouteOptions {
@@ -29,6 +38,13 @@ export interface Routing {
 /** A bend costs as much as this much length, which favors routes with few bends. */
 const bendCost = 40;
 
+/**
+ * Crossing a Group's border costs as much as this much length, so that a
+ * route passes beside a Group rather than through it when that costs little
+ * more.
+ */
+const crossingCost = 16;
+
 /** The radius of a rounded corner, where both runs that meet there are long enough. */
 const cornerRadius = 8;
 
@@ -46,7 +62,12 @@ const outOf: Record<Side, Heading> = {
 	bottom: "south",
 };
 
-export function route(diagram: Diagram, nodes: SceneNode[], options: RouteOptions = {}): Routing {
+export function route(
+	diagram: Diagram,
+	nodes: SceneNode[],
+	groups: SceneGroup[],
+	options: RouteOptions = {},
+): Routing {
 	const byId = new Map(nodes.map((node) => [node.id, node]));
 	const rowNames = new Map(
 		diagram.nodes.map((node) => [node.id, (node.rows ?? []).map((row) => row.name)]),
@@ -62,7 +83,7 @@ export function route(diagram: Diagram, nodes: SceneNode[], options: RouteOption
 		}
 		return node?.rows[rowNames.get(end.node)?.indexOf(end.row) ?? -1]?.[side];
 	};
-	const grid = buildGrid(nodes, clearance);
+	const grid = buildGrid(nodes, groups, clearance);
 	const search = searchOn(grid);
 	const budget = options.searchBudget ?? defaultSearchBudget;
 	// Edges are routed in a stable order, by id, so that no route depends on
@@ -128,7 +149,7 @@ function searchRoute(
 	const path = search(
 		{ vertex: start, heading: outOf[toPort.side] },
 		{ vertex: goal, heading: opposite[outOf[fromPort.side]] },
-		{ bend: bendCost, budget },
+		{ bend: bendCost, crossing: crossingCost, budget },
 	);
 	return (
 		path && [fromPort.point, ...path.reverse().map((vertex) => pointOf(grid, vertex)), toPort.point]

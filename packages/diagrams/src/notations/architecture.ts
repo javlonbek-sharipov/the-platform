@@ -23,6 +23,10 @@ export const architectureEdgeKinds = ["call", "message"] as const;
 
 export type ArchitectureEdgeKind = (typeof architectureEdgeKinds)[number];
 
+export const architectureGroupKinds = ["system", "region", "zone"] as const;
+
+export type ArchitectureGroupKind = (typeof architectureGroupKinds)[number];
+
 /** How a Node is doing. Each status shows as a mark with a shape and a color of its own. */
 export const architectureStatuses = ["ok", "degraded", "down", "unknown"] as const;
 

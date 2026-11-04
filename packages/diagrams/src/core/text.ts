@@ -8,7 +8,7 @@
 import type { Diagram, Row } from "../authoring/model.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { fontMetrics } from "./font-metrics.ts";
-import type { Box, SceneNode, SceneText } from "./scene.ts";
+import type { Box, SceneGroup, SceneNode, SceneText } from "./scene.ts";
 
 /** The weights that text is drawn in: regular for Rows and labels, and semibold for titles. */
 export type FontWeight = "regular" | "semibold";
@@ -43,6 +43,9 @@ const metrics: Record<FontWeight, Metrics> = {
 };
 
 const titleSize = 14;
+const groupTitleSize = 13;
+/** The room a Group's title leaves on each side, between it and the edge of its label box. */
+export const labelPadding = 12;
 const calloutSize = 11;
 const rowSize = 12;
 /** The room a Row leaves on each side, between its text and the edge of its Node. */
@@ -61,6 +64,25 @@ export function nodeTitle(title: string, room: Box): SceneText {
 		point: { x: room.x + room.width / 2, y: room.y + room.height / 2 },
 		weight: "semibold",
 		size: titleSize,
+	};
+}
+
+/**
+ * A Group's title, at the start of its label band, and shortened if it's too
+ * wide for the band.
+ */
+export function groupTitle(title: string, band: Box): SceneText {
+	const fitted = fit(
+		collapseSpaces(title),
+		"semibold",
+		groupTitleSize,
+		band.width - 2 * labelPadding,
+	);
+	return {
+		...fitted,
+		point: { x: band.x + labelPadding + fitted.width / 2, y: band.y + band.height / 2 },
+		weight: "semibold",
+		size: groupTitleSize,
 	};
 }
 
@@ -127,11 +149,28 @@ function rowWidthOf(text: string): number {
 /**
  * A warning for each piece of text with characters that the font lacks, and
  * for each one shortened: every Node's title, its Rows' names and values, and
- * its callout.
+ * its callout, then every Group's title.
  */
-export function textDiagnostics(diagram: Diagram, nodes: SceneNode[]): Diagnostic[] {
+export function textDiagnostics(
+	diagram: Diagram,
+	nodes: SceneNode[],
+	groups: SceneGroup[],
+): Diagnostic[] {
 	const drawn = new Map(nodes.map((node) => [node.id, node]));
-	return diagram.nodes.flatMap((node, index) => {
+	const groupTitles = diagram.groups.map((group, index): CheckedText => {
+		const named = `Group \`${group.id}\``;
+		return {
+			source: group.title,
+			// The scene keeps the model's order.
+			drawn: groups[index]?.title,
+			weight: "semibold",
+			pointer: `/groups/${index}/title`,
+			lacking: (some) => `${named}'s title has ${some} that the bundled font lacks`,
+			shortened: (text) =>
+				`${named}'s title is too wide for its Group, so it's shortened to \`${text}\`. Choose a shorter title to show it in full.`,
+		};
+	});
+	const nodeTexts = diagram.nodes.flatMap((node, index) => {
 		const scene = drawn.get(node.id);
 		const named = `Node \`${node.id}\``;
 		const title: CheckedText = {
@@ -179,6 +218,7 @@ export function textDiagnostics(diagram: Diagram, nodes: SceneNode[]): Diagnosti
 					];
 		return [title, ...rows, ...callout].flatMap(warningsAbout);
 	});
+	return [...nodeTexts, ...groupTitles.flatMap(warningsAbout)];
 }
 
 /** A piece of text that a Node draws, and how warnings about it read. */

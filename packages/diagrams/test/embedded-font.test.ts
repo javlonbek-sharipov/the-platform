@@ -87,6 +87,19 @@ describe("the font data an SVG embeds", () => {
 		expect(svg).toContain("data:font/ttf;base64,AQID+g==");
 	});
 
+	test("covers the characters of Group titles too", () => {
+		const { requests } = renderRecording(
+			architecture({ title: "Regions" }, (d) => {
+				d.group({ id: "eu-west", kind: "region", title: "EU Zürich" }, (eu) => {
+					eu.node({ id: "shop-api", kind: "service", title: "Shop API" });
+				});
+			}),
+		);
+
+		// Every character of "EU Zürich" and "Shop API", once, in order.
+		expect(requests).toEqual([{ weight: "semibold", characters: " AEIPSUZchioprü" }]);
+	});
+
 	test("holds only the characters that are drawn, and that the font has", () => {
 		const offices = architecture({ title: "Offices" }, (d) => {
 			d.node({ id: "tokyo", kind: "service", title: "Tokyo 東京" });

@@ -12,6 +12,7 @@ import {
 	type ScenePort,
 	type Side,
 } from "../src/index.ts";
+import { groupFixtures, labelInTheWay } from "./fixtures/groups.ts";
 
 const shop = architecture({ title: "Shop" }, (d) => {
 	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
@@ -98,6 +99,10 @@ const fixtures: [string, Diagram][] = [
 	["shop, drawn down", down(shop)],
 	["orders, drawn down", down(orders)],
 	["rows, drawn down", down(rows)],
+	...groupFixtures.flatMap(([name, fixture]): [string, Diagram][] => [
+		[name, fixture("right")],
+		[`${name}, drawn down`, fixture("down")],
+	]),
 ];
 
 function sceneOf(diagram: unknown): Scene {
@@ -200,6 +205,53 @@ function goesAround(route: Point[], box: Box): boolean {
 			? (a.y < box.y || a.y > box.y + box.height) && low <= box.x && high >= box.x + box.width
 			: (a.x < box.x || a.x > box.x + box.width) && low <= box.y && high >= box.y + box.height;
 	});
+}
+
+/** How long a stretch of the horizontal or vertical segment from `a` to `b` runs along a side of a box. */
+function alongSides(a: Point, b: Point, box: Box): number {
+	const [low, high, at, sides, from, to] =
+		a.y === b.y
+			? [
+					Math.min(a.x, b.x),
+					Math.max(a.x, b.x),
+					a.y,
+					[box.y, box.y + box.height],
+					box.x,
+					box.x + box.width,
+				]
+			: [
+					Math.min(a.y, b.y),
+					Math.max(a.y, b.y),
+					a.x,
+					[box.x, box.x + box.width],
+					box.y,
+					box.y + box.height,
+				];
+	return sides.includes(at) ? Math.max(0, Math.min(high, to) - Math.max(low, from)) : 0;
+}
+
+/** Whether any part of a route lies inside a box, beyond its border. */
+function entersBox(route: Point[], box: Box): boolean {
+	return segmentsOf(route).some(
+		([a, b]) =>
+			Math.max(a.x, b.x) > box.x &&
+			Math.min(a.x, b.x) < box.x + box.width &&
+			Math.max(a.y, b.y) > box.y &&
+			Math.min(a.y, b.y) < box.y + box.height,
+	);
+}
+
+/** Whether a route ever leaves a box: some point of it lies outside, beyond the border. */
+function leavesBox(route: Point[], box: Box): boolean {
+	return route.some(
+		({ x, y }) => x < box.x || x > box.x + box.width || y < box.y || y > box.y + box.height,
+	);
+}
+
+/** The ids of the Groups that hold a Node, innermost first, read from the model. */
+function groupsHolding(diagram: Diagram, id: string): string[] {
+	const parent = diagram.groups.find((group) => group.members.includes(id));
+	return parent === undefined ? [] : [parent.id, ...groupsHolding(diagram, parent.id)];
 }
 
 /** Whether `point` lies on the horizontal or vertical segment from `a` to `b`. */
@@ -361,6 +413,39 @@ describe.each(fixtures)("every route in %s", (_, diagram) => {
 		}
 	});
 
+	test("never passes through a Group label, nor touches one", () => {
+		const scene = sceneOf(diagram);
+		for (const { id, route } of scene.edges) {
+			for (const [a, b] of segmentsOf(route)) {
+				for (const group of scene.groups) {
+					expect(overlap(a, b, group.label), `${id} passes ${group.id}'s label`).toBeUndefined();
+				}
+			}
+		}
+	});
+
+	test("between two Nodes of one Group stays inside that Group", () => {
+		const scene = sceneOf(diagram);
+		for (const { id, from, to, route } of scene.edges) {
+			const holding = groupsHolding(diagram, to);
+			for (const group of groupsHolding(diagram, from).filter((g) => holding.includes(g))) {
+				const box = scene.groups.find((candidate) => candidate.id === group)?.box ?? scene.bounds;
+				expect(leavesBox(route, box), `${id} leaves ${group}`).toBe(false);
+			}
+		}
+	});
+
+	test("never runs along a Group's border", () => {
+		const scene = sceneOf(diagram);
+		for (const { id, route } of scene.edges) {
+			for (const [a, b] of segmentsOf(route)) {
+				for (const group of scene.groups) {
+					expect(alongSides(a, b, group.box), `${id} runs along ${group.id}`).toBe(0);
+				}
+			}
+		}
+	});
+
 	test("stays out of every Node, touching only its own two Ports", () => {
 		const scene = sceneOf(diagram);
 		for (const { id, route, fromPort, toPort } of scene.edges) {
@@ -380,6 +465,77 @@ describe.each(fixtures)("every route in %s", (_, diagram) => {
 				}
 			}
 		}
+	});
+});
+
+describe("a Group's border", () => {
+	test("keeps an Edge between two of its Nodes inside it, though open space lies just outside it", () => {
+		// The Ledger calls back to the Cart API, against the direction, so the route
+		// goes around the Payments API between them. The system sits at the top
+		// left of the drawing, so the way around outside it is open as well.
+		const checkout = architecture({ title: "Checkout" }, (d) => {
+			d.group({ id: "checkout", kind: "system", title: "Checkout" }, (system) => {
+				const cart = system.node({ id: "cart-api", kind: "service", title: "Cart API" });
+				const payments = system.node({
+					id: "payments-api",
+					kind: "service",
+					title: "Payments API",
+				});
+				const ledger = system.node({ id: "ledger", kind: "worker", title: "Ledger" });
+				d.edge(cart, payments, { kind: "call" });
+				d.edge(payments, ledger, { kind: "message" });
+				d.edge(ledger, cart, { kind: "call" });
+			});
+			d.node({ id: "web-app", kind: "client", title: "Web app" });
+		});
+		for (const scene of [sceneOf(checkout), sceneOf(down(checkout))]) {
+			const back = scene.edges.find(({ id }) => id === "ledger->cart-api");
+			const system = scene.groups[0]?.box ?? scene.bounds;
+			expect(back && goesAround(back.route, nodeOf(scene, "payments-api").box)).toBe(true);
+			expect(back && leavesBox(back.route, system)).toBe(false);
+		}
+	});
+
+	test("costs a little to cross, so an Edge passes beside a Group it doesn't start or end in, where that's no longer", () => {
+		// The Mailer sits below the zone, and the Ledger level with the Shop API in
+		// it. The Mailer's Edge can turn up toward the Ledger beside the zone or
+		// through its padding, at the same length.
+		const region = architecture({ title: "Region" }, (d) => {
+			d.group({ id: "eu-west", kind: "region", title: "EU West" }, (eu) => {
+				eu.group({ id: "eu-west-a", kind: "zone", title: "Zone A" }, (zone) => {
+					zone.node({ id: "shop-api", kind: "service", title: "Shop API" });
+				});
+				eu.node({ id: "ledger", kind: "worker", title: "Ledger" });
+				eu.node({ id: "mailer", kind: "worker", title: "Mailer" });
+			});
+			d.edge("shop-api", "ledger", { kind: "call" });
+			d.edge("mailer", "ledger", { kind: "call" });
+		});
+		const scene = sceneOf(region);
+		const zone = scene.groups.find(({ id }) => id === "eu-west-a")?.box ?? scene.bounds;
+		const mail = scene.edges.find(({ id }) => id === "mailer->ledger")?.route ?? [];
+
+		expect(nodeOf(scene, "ledger").input.point.y).toBe(nodeOf(scene, "shop-api").output.point.y);
+		expect(nodeOf(scene, "mailer").box.y).toBeGreaterThan(zone.y + zone.height);
+		expect(entersBox(mail, zone)).toBe(false);
+	});
+});
+
+describe("a Group label in an Edge's way", () => {
+	test("makes the Edge go around it, half a clearance clear of it", () => {
+		const scene = sceneOf(labelInTheWay("down"));
+		const { label } = scene.groups[0] ?? { label: scene.bounds };
+		const route = scene.edges[0]?.route ?? [];
+		const half = scene.clearance / 2;
+		// A run beside the label passes it from top to bottom, half a clearance from one side.
+		const beside = segmentsOf(route).filter(
+			([a, b]) =>
+				a.x === b.x &&
+				(a.x === label.x - half || a.x === label.x + label.width + half) &&
+				Math.min(a.y, b.y) <= label.y &&
+				Math.max(a.y, b.y) >= label.y + label.height,
+		);
+		expect(beside).toHaveLength(1);
 	});
 });
 

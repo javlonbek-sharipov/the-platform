@@ -2,6 +2,7 @@
 
 import type {
 	ArchitectureEdgeKind,
+	ArchitectureGroupKind,
 	ArchitectureNodeKind,
 	ArchitectureStatus,
 } from "../notations/architecture.ts";
@@ -11,6 +12,7 @@ import {
 	type Direction,
 	type Edge,
 	endNode,
+	type Group,
 	type Link,
 	type Node,
 	type RowEnd,
@@ -55,6 +57,19 @@ export interface ArchitectureRow<R extends string = string> {
 }
 
 /**
+ * A Group to declare. Like a Node, it's a plain object, so one definition can
+ * serve several Diagrams: a `system` can be a Node on one and a Group on
+ * another.
+ */
+export interface ArchitectureGroup {
+	id: string;
+	kind: ArchitectureGroupKind;
+	title: string;
+	description?: string;
+	links?: readonly Link[];
+}
+
+/**
  * What a Node declaration returns. Later calls accept it in place of the id.
  * It carries the names of the Node's Rows, `R`, so that naming a Row the Node
  * doesn't have is a type error.
@@ -63,6 +78,11 @@ export interface NodeHandle<R extends string = never> {
 	readonly id: string;
 	/** An Edge end at one of the Node's Rows, by its name. */
 	row(name: R): RowEnd;
+}
+
+/** What a Group declaration returns. */
+export interface GroupHandle {
+	readonly id: string;
 }
 
 export interface EdgeHandle {
@@ -82,8 +102,15 @@ export interface EdgeOptions {
 	id?: string;
 }
 
+/**
+ * Declares the members of one parent: the Diagram, or a Group. Each Node and
+ * Group it declares joins that parent, so each one has exactly one parent by
+ * construction. Edges belong to the Diagram, whichever builder declares them.
+ */
 export interface ArchitectureBuilder {
 	node<R extends string = never>(node: ArchitectureNode<R>): NodeHandle<R>;
+	/** Declares a Group, whose members `build` declares with the builder it's given. */
+	group(group: ArchitectureGroup, build: (group: ArchitectureBuilder) => void): GroupHandle;
 	edge(from: EdgeEnd, to: EdgeEnd, options: EdgeOptions): EdgeHandle;
 }
 
@@ -97,6 +124,7 @@ export function architecture(
 	build: (diagram: ArchitectureBuilder) => void,
 ): Diagram {
 	const nodes: Node[] = [];
+	const groups: Group[] = [];
 	const edges: Edge[] = [];
 	const members: string[] = [];
 	const declarations: Declarations = {};
@@ -108,44 +136,63 @@ export function architecture(
 	};
 	declare("", architecture);
 
-	const builder: ArchitectureBuilder = {
-		node({ id, kind, title, external, status, rows, links, callout }) {
-			declare(`/nodes/${nodes.length}`, builder.node);
-			nodes.push({
-				id,
-				kind,
-				title,
-				...(external === undefined ? {} : { external }),
-				...(status === undefined ? {} : { status }),
-				...(rows === undefined
-					? {}
-					: {
-							rows: rows.map(({ name, value }) =>
-								value === undefined ? { name } : { name, value },
-							),
-						}),
-				...(links === undefined ? {} : { links: links.map((link) => ({ ...link })) }),
-				...(callout === undefined ? {} : { callout }),
-			});
-			members.push(id);
-			return Object.freeze({ id, row: (name: string) => Object.freeze({ node: id, row: name }) });
-		},
-		edge(from, to, { kind, id }) {
-			declare(`/edges/${edges.length}`, builder.edge);
-			const fromEnd = modelEnd(from);
-			const toEnd = modelEnd(to);
-			// A default id names the two Nodes, whatever their Rows.
-			const edge: Edge = {
-				id: id ?? `${endNode(fromEnd)}->${endNode(toEnd)}`,
-				kind,
-				from: fromEnd,
-				to: toEnd,
-			};
-			edges.push(edge);
-			return Object.freeze({ id: edge.id });
-		},
+	/** A builder whose Nodes and Groups join `parent`, the members list of the Diagram or of one Group. */
+	const builderFor = (parent: string[]): ArchitectureBuilder => {
+		const builder: ArchitectureBuilder = {
+			node({ id, kind, title, external, status, rows, links, callout }) {
+				declare(`/nodes/${nodes.length}`, builder.node);
+				nodes.push({
+					id,
+					kind,
+					title,
+					...(external === undefined ? {} : { external }),
+					...(status === undefined ? {} : { status }),
+					...(rows === undefined
+						? {}
+						: {
+								rows: rows.map(({ name, value }) =>
+									value === undefined ? { name } : { name, value },
+								),
+							}),
+					...copyLinks(links),
+					...(callout === undefined ? {} : { callout }),
+				});
+				parent.push(id);
+				return Object.freeze({ id, row: (name: string) => Object.freeze({ node: id, row: name }) });
+			},
+			group({ id, kind, title, description, links }, buildGroup) {
+				declare(`/groups/${groups.length}`, builder.group);
+				const group: Group = {
+					id,
+					kind,
+					title,
+					members: [],
+					...(description === undefined ? {} : { description }),
+					...copyLinks(links),
+				};
+				groups.push(group);
+				parent.push(id);
+				buildGroup(builderFor(group.members));
+				return Object.freeze({ id });
+			},
+			edge(from, to, { kind, id }) {
+				declare(`/edges/${edges.length}`, builder.edge);
+				const fromEnd = modelEnd(from);
+				const toEnd = modelEnd(to);
+				// A default id names the two Nodes, whatever their Rows.
+				const edge: Edge = {
+					id: id ?? `${endNode(fromEnd)}->${endNode(toEnd)}`,
+					kind,
+					from: fromEnd,
+					to: toEnd,
+				};
+				edges.push(edge);
+				return Object.freeze({ id: edge.id });
+			},
+		};
+		return builder;
 	};
-	build(builder);
+	build(builderFor(members));
 
 	const diagram: Diagram = {
 		version: 1,
@@ -155,7 +202,7 @@ export function architecture(
 		direction: options.direction ?? "right",
 		members,
 		nodes,
-		groups: [],
+		groups,
 		edges,
 		walkthroughs: [],
 	};
@@ -168,4 +215,9 @@ function modelEnd(end: EdgeEnd): Edge["from"] {
 		return end;
 	}
 	return "node" in end ? { node: end.node, row: end.row } : end.id;
+}
+
+/** The model's own copy of each Link, so that a shared definition never changes with it. */
+function copyLinks(links: readonly Link[] | undefined): { links?: Link[] } {
+	return links === undefined ? {} : { links: links.map((link) => ({ ...link })) };
 }

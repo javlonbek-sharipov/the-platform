@@ -7,7 +7,7 @@
 import type { Diagnostic } from "./diagnostics.ts";
 import { clearance, grid, layOut, margin } from "./layout.ts";
 import { route } from "./route.ts";
-import type { Box, Scene, SceneEdge, SceneNode } from "./scene.ts";
+import type { Box, Scene, SceneEdge } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
 import { type FontData, textDiagnostics } from "./text.ts";
 import { validate } from "./validate.ts";
@@ -38,15 +38,24 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		return { diagnostics: validation.diagnostics };
 	}
 	const model = validation.diagram;
-	const nodes = layOut(model);
-	const { edges, diagnostics } = route(model, nodes, options);
+	const { nodes, groups } = layOut(model);
+	const { edges, diagnostics } = route(model, nodes, groups, options);
 	const scene: Scene = {
-		bounds: boundsOf(nodes, edges),
+		bounds: boundsOf(
+			[
+				...nodes.flatMap(({ box, callout }) =>
+					callout === undefined ? [box] : [box, callout.tag],
+				),
+				...groups.map(({ box }) => box),
+			],
+			edges,
+		),
 		clearance,
 		grid,
 		nodes,
+		groups,
 		edges,
-		diagnostics: [...textDiagnostics(model, nodes), ...diagnostics],
+		diagnostics: [...textDiagnostics(model, nodes, groups), ...diagnostics],
 	};
 	return {
 		diagnostics: [...validation.diagnostics, ...scene.diagnostics],
@@ -55,16 +64,17 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 	};
 }
 
-function boundsOf(nodes: SceneNode[], edges: SceneEdge[]): Box {
-	// A callout's tag sits above its Node, within the Node's width.
-	const tops = nodes.flatMap((node) => (node.callout === undefined ? [] : [node.callout.tag.y]));
+/**
+ * The bounds of the drawing, with a margin: every Node's and Group's box,
+ * every callout's tag, which sits above its Node, and every route.
+ */
+function boundsOf(boxes: Box[], edges: SceneEdge[]): Box {
 	const xs = [
-		...nodes.flatMap((node) => [node.box.x, node.box.x + node.box.width]),
+		...boxes.flatMap((box) => [box.x, box.x + box.width]),
 		...edges.flatMap((edge) => edge.route.map((point) => point.x)),
 	];
 	const ys = [
-		...tops,
-		...nodes.flatMap((node) => [node.box.y, node.box.y + node.box.height]),
+		...boxes.flatMap((box) => [box.y, box.y + box.height]),
 		...edges.flatMap((edge) => edge.route.map((point) => point.y)),
 	];
 	const left = Math.min(margin, ...xs) - margin;

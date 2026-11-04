@@ -3,9 +3,10 @@
  * generated JSON has no types, so everything they prevent is checked here.
  */
 
-import { type Diagram, endNode } from "../authoring/model.ts";
+import { type Diagram, endNode, type Link } from "../authoring/model.ts";
 import {
 	architectureEdgeKinds,
+	architectureGroupKinds,
 	architectureNodeKinds,
 	architectureStatuses,
 } from "../notations/architecture.ts";
@@ -18,6 +19,7 @@ export interface Validation {
 }
 
 const nodeKinds: readonly string[] = architectureNodeKinds;
+const groupKinds: readonly string[] = architectureGroupKinds;
 const edgeKinds: readonly string[] = architectureEdgeKinds;
 const statuses: readonly string[] = architectureStatuses;
 
@@ -90,17 +92,45 @@ export function validate(input: unknown): Validation {
 			}
 			rowNames.add(row.name);
 		});
-		node.links?.forEach((link, linkIndex) => {
-			if (link.id !== undefined && !idPattern.test(link.id)) {
-				diagnostics.push(
-					error(
-						"id-format",
-						`Node \`${node.id}\` has a Link to \`${link.id}\`, which isn't a lowercase kebab-case id. Write ids like \`payments-api\`.`,
-						`/nodes/${index}/links/${linkIndex}/id`,
-					),
-				);
-			}
-		});
+		diagnostics.push(...checkLinkIds(`Node \`${node.id}\``, node.links, `/nodes/${index}`));
+	});
+
+	const groupIds = new Set<string>();
+	diagram.groups.forEach((group, index) => {
+		if (!idPattern.test(group.id)) {
+			diagnostics.push(
+				error(
+					"id-format",
+					`Group \`${group.id}\` has an id that isn't lowercase kebab-case. Write ids like \`eu-west\`.`,
+					`/groups/${index}/id`,
+				),
+			);
+		}
+		const taken = groupIds.has(group.id)
+			? "Two Groups"
+			: nodeIds.has(group.id)
+				? "A Node and a Group"
+				: undefined;
+		if (taken !== undefined) {
+			diagnostics.push(
+				error(
+					"duplicate-id",
+					`${taken} have the id \`${group.id}\`. Node and Group ids must be unique within a Diagram.`,
+					`/groups/${index}/id`,
+				),
+			);
+		}
+		groupIds.add(group.id);
+		diagnostics.push(...checkLinkIds(`Group \`${group.id}\``, group.links, `/groups/${index}`));
+		if (!groupKinds.includes(group.kind)) {
+			diagnostics.push(
+				error(
+					"unknown-kind",
+					`Group \`${group.id}\` has the Kind \`${group.kind}\`, which the architecture Notation doesn't have. Its Group Kinds are ${list(groupKinds)}.`,
+					`/groups/${index}/kind`,
+				),
+			);
+		}
 	});
 
 	// An Edge end names a Row by its name, among its Node's Rows.
@@ -137,7 +167,9 @@ export function validate(input: unknown): Validation {
 				diagnostics.push(
 					error(
 						"edge-end",
-						`Edge \`${edge.id}\` ${verb} at \`${node}\`, which isn't a Node on this Diagram.`,
+						groupIds.has(node)
+							? `Edge \`${edge.id}\` ${verb} at \`${node}\`, which is a Group. An Edge starts and ends at Nodes, never at Groups.`
+							: `Edge \`${edge.id}\` ${verb} at \`${node}\`, which isn't a Node on this Diagram.`,
 						typeof end === "string" ? at : `${at}/node`,
 					),
 				);
@@ -171,9 +203,145 @@ export function validate(input: unknown): Validation {
 		}
 	});
 
+	diagnostics.push(...checkNesting(diagram));
+
 	return diagnostics.some((diagnostic) => diagnostic.severity === "error")
 		? { diagnostics }
 		: { diagnostics, diagram };
+}
+
+/** A Link to an id must name it as the model writes ids. `owner` is the Node or Group that has the Links. */
+function checkLinkIds(owner: string, links: Link[] | undefined, pointer: string): Diagnostic[] {
+	return (links ?? []).flatMap((link, index) =>
+		link.id === undefined || idPattern.test(link.id)
+			? []
+			: [
+					error(
+						"id-format",
+						`${owner} has a Link to \`${link.id}\`, which isn't a lowercase kebab-case id. Write ids like \`payments-api\`.`,
+						`${pointer}/links/${index}/id`,
+					),
+				],
+	);
+}
+
+const oneParent = "Every Node and Group has exactly one parent: the Diagram, or one Group.";
+
+/** A parent as messages name it: the Diagram, or one Group. */
+function parentName(parent: string | undefined): string {
+	return parent === undefined ? "the Diagram" : `Group \`${parent}\``;
+}
+
+/**
+ * Every Node and Group is a member of exactly one parent: the Diagram itself,
+ * or one Group. So Groups nest as a tree, rooted at the Diagram.
+ */
+function checkNesting(diagram: Diagram): Diagnostic[] {
+	const diagnostics: Diagnostic[] = [];
+	const things = new Map<string, string>([
+		...diagram.groups.map((group) => [group.id, "Group"] as const),
+		...diagram.nodes.map((node) => [node.id, "Node"] as const),
+	]);
+	// An id that names two things is listed once for each, and `duplicate-id` covers it.
+	const named = [...diagram.nodes, ...diagram.groups].map(({ id }) => id);
+	const duplicated = new Set(named.filter((id, index) => named.indexOf(id) !== index));
+	/** Each member's first parent: a Group's id, or undefined for the Diagram itself. */
+	const parents = new Map<string, string | undefined>();
+	const lists: [parent: string | undefined, pointer: string, members: string[]][] = [
+		[undefined, "/members", diagram.members],
+		...diagram.groups.map((group, index): [string, string, string[]] => [
+			group.id,
+			`/groups/${index}/members`,
+			group.members,
+		]),
+	];
+	for (const [parent, pointer, members] of lists) {
+		members.forEach((member, index) => {
+			const thing = things.get(member);
+			if (thing === undefined) {
+				const owner = parentName(parent);
+				diagnostics.push(
+					error(
+						"nesting",
+						`${owner.charAt(0).toUpperCase()}${owner.slice(1)} has the member \`${member}\`, which isn't a Node or a Group on this Diagram.`,
+						`${pointer}/${index}`,
+					),
+				);
+			} else if (!parents.has(member)) {
+				parents.set(member, parent);
+			} else if (!duplicated.has(member)) {
+				const first = parents.get(member);
+				diagnostics.push(
+					error(
+						"nesting",
+						first === parent
+							? `${thing} \`${member}\` is listed twice among the members of ${parentName(parent)}. ${oneParent}`
+							: `${thing} \`${member}\` is a member of both ${parentName(first)} and ${parentName(parent)}. ${oneParent}`,
+						`${pointer}/${index}`,
+					),
+				);
+			}
+		});
+	}
+	const orphans = [
+		...diagram.nodes.map(({ id }, index) => ["Node", id, `/nodes/${index}`] as const),
+		...diagram.groups.map(({ id }, index) => ["Group", id, `/groups/${index}`] as const),
+	].filter(([, id]) => !parents.has(id));
+	for (const [thing, id, pointer] of orphans) {
+		diagnostics.push(
+			error(
+				"nesting",
+				`${thing} \`${id}\` isn't a member of the Diagram or of any Group. List it among the members of the Diagram, or of one Group.`,
+				pointer,
+			),
+		);
+	}
+	return [...diagnostics, ...checkCycles(diagram, parents)];
+}
+
+/**
+ * Groups that contain each other, so that none of them sits on the Diagram.
+ * Climbing from each Group to its parent, and on, reaches the Diagram unless
+ * it comes back round. Each cycle is reported once, at the first of its
+ * Groups in model order, where that Group lists the next one.
+ */
+function checkCycles(diagram: Diagram, parents: Map<string, string | undefined>): Diagnostic[] {
+	const index = new Map(diagram.groups.map((group, at) => [group.id, at]));
+	const seen = new Set<string>();
+	const diagnostics: Diagnostic[] = [];
+	for (const group of diagram.groups) {
+		const path: string[] = [];
+		let at: string | undefined = group.id;
+		while (at !== undefined && !seen.has(at)) {
+			seen.add(at);
+			path.push(at);
+			at = parents.get(at);
+		}
+		if (at === undefined || !path.includes(at)) {
+			continue;
+		}
+		// The path climbs from member to parent; the cycle reads from parent to member.
+		const cycle = path.slice(path.indexOf(at)).reverse();
+		const first = Math.min(...cycle.map((id) => index.get(id) ?? 0));
+		const start = cycle.findIndex((id) => index.get(id) === first);
+		const ordered = [...cycle.slice(start), ...cycle.slice(0, start)];
+		// The first Group lists the next one, or itself when it contains itself.
+		const next = ordered[1 % ordered.length];
+		const names = list(ordered.map((id) => `\`${id}\``));
+		const members = diagram.groups[first]?.members ?? [];
+		diagnostics.push(
+			error(
+				"nesting",
+				`${
+					cycle.length === 1
+						? `Group ${names} contains itself`
+						: `Groups ${names} contain each other${cycle.length > 2 ? " in a cycle" : ""}`
+				}. Groups nest as a tree, rooted at the Diagram.`,
+				`/groups/${first}/members/${members.indexOf(next ?? "")}`,
+			),
+		);
+	}
+	return diagnostics;
 }
 
 /**
@@ -315,7 +483,22 @@ function checkShape(input: unknown): Diagnostic[] {
 			checkList(node.links, `${at}/links`, checkLink);
 		}
 	});
-	checkList(input.groups, "/groups", () => {});
+	checkList(input.groups, "/groups", (group, at) => {
+		checkStrings(group, at, ["id", "kind", "title"]);
+		if (isObject(group)) {
+			check(
+				group.description === undefined || typeof group.description === "string",
+				`${at}/description`,
+				"a string",
+			);
+			checkList(group.members, `${at}/members`, (member, memberAt) => {
+				check(typeof member === "string", memberAt, "an id");
+			});
+			if (group.links !== undefined) {
+				checkList(group.links, `${at}/links`, checkLink);
+			}
+		}
+	});
 	checkList(input.edges, "/edges", (edge, at) => {
 		checkStrings(edge, at, ["id", "kind"]);
 		if (isObject(edge)) {

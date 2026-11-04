@@ -78,15 +78,17 @@ export async function lintAtlas(
 	return { diagrams: rendered.length, messages: messages.sort(byPlace) };
 }
 
-/** The ids of the Nodes that a module's Diagram draws, as far as its model can be read. */
+/** The ids of the Nodes and Groups that a module's Diagram draws, as far as its model can be read. */
 function idsDrawnBy(loaded: Loaded): string[] {
-	const nodes = "exported" in loaded ? (loaded.exported as { nodes?: unknown })?.nodes : undefined;
-	return Array.isArray(nodes)
-		? nodes.flatMap((node) => {
-				const id = (node as { id?: unknown } | null)?.id;
-				return typeof id === "string" ? [id] : [];
-			})
-		: [];
+	const model = "exported" in loaded ? (loaded.exported as Record<string, unknown> | null) : null;
+	return [model?.nodes, model?.groups].flatMap((things) =>
+		Array.isArray(things)
+			? things.flatMap((thing) => {
+					const id = (thing as { id?: unknown } | null)?.id;
+					return typeof id === "string" ? [id] : [];
+				})
+			: [],
+	);
 }
 
 /** File by file, and top to bottom in each file. A message about a whole file comes first. */

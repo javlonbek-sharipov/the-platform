@@ -254,6 +254,120 @@ describe("ids across the Atlas", () => {
 	});
 });
 
+describe("Groups across the Atlas", () => {
+	/**
+	 * A Diagram that draws `shop` as a Group around the Shop API: the Group on
+	 * line 4, at column 4.
+	 */
+	const shopGroup = (group: object) => `import { architecture } from "@the-platform/diagrams";
+
+export default architecture({ title: "Shop" }, (d) => {
+	d.group(${JSON.stringify({ id: "shop", kind: "system", title: "Shop", ...group })}, (shop) => {
+		shop.node({ id: "shop-api", kind: "service", title: "Shop API" });
+	});
+});
+`;
+	const overview = diagramModule("Overview", [{ id: "shop", kind: "system", title: "Shop" }]);
+
+	test("lint passes when an id is a system Node on one Diagram and a system Group on another", async () => {
+		const atlas = await sampleAtlas({
+			"docs/overview.diagram.ts": overview,
+			"docs/shop.diagram.ts": shopGroup({}),
+		});
+		expect(await runCli(["render"], atlas)).toMatchObject({ code: 0, stderr: "" });
+
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 0,
+			stdout: "Checked 2 Diagrams: no errors.\n",
+			stderr: "",
+		});
+	});
+
+	test("lint reports a Kind conflict when an id is a system Node in one place and a region Group in another", async () => {
+		const atlas = await sampleAtlas({
+			"docs/overview.diagram.ts": overview,
+			"docs/shop.diagram.ts": shopGroup({ kind: "region" }),
+		});
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+
+		const rule =
+			"An id names one thing across the Atlas, so give it one Kind, or give one of them another id. (kind-conflict)";
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 1,
+			stdout:
+				`docs/overview.diagram.ts:4:4: error: Node \`shop\` has the Kind \`system\` here, but \`region\` on the Diagram \`docs/shop\`. ${rule}\n` +
+				`docs/shop.diagram.ts:4:4: error: Group \`shop\` has the Kind \`region\` here, but \`system\` on the Diagram \`docs/overview\`. ${rule}\n` +
+				"Checked 2 Diagrams: 2 errors.\n",
+			stderr: "",
+		});
+	});
+
+	test("lint reports a title conflict between a Node and a Group, naming each place's fix", async () => {
+		const atlas = await sampleAtlas({
+			"docs/overview.diagram.ts": overview,
+			"docs/shop.diagram.ts": shopGroup({ title: "Shop system" }),
+		});
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+
+		const rule = "An id names one thing across the Atlas, so give it one title:";
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 1,
+			stdout:
+				`docs/overview.diagram.ts:4:4: error: Node \`shop\` has the title \`Shop\` here, but \`Shop system\` on the Diagram \`docs/shop\`. ${rule} define the Node once, in a shared module. (title-conflict)\n` +
+				`docs/shop.diagram.ts:4:4: error: Group \`shop\` has the title \`Shop system\` here, but \`Shop\` on the Diagram \`docs/overview\`. ${rule} define the Group once, in a shared module. (title-conflict)\n` +
+				"Checked 2 Diagrams: 2 errors.\n",
+			stderr: "",
+		});
+	});
+
+	test("lint points at the line inside a Group's callback that declared a Node", async () => {
+		const atlas = await sampleAtlas({
+			"docs/shop.diagram.ts": `import { architecture } from "@the-platform/diagrams";
+
+export default architecture({ title: "Shop" }, (d) => {
+	d.group({ id: "shop", kind: "system", title: "Shop" }, (shop) => {
+		shop.node({ id: "shop-api", kind: "service", title: "Shop API" });
+		shop.node({ id: "shop-db", kind: "databse", title: "Shop database" });
+	});
+});
+`,
+		});
+
+		expect((await runCli(["lint", "--json"], atlas)).stdout).toContain(
+			'"file": "docs/shop.diagram.ts",\n      "line": 6,\n      "column": 8,',
+		);
+	});
+
+	test("lint resolves a Group's Links as it resolves a Node's, and a Link to an id drawn only as a Group", async () => {
+		const atlas = await sampleAtlas({
+			"docs/shop.md": "# The shop\n\n## Checkout\n",
+			"docs/overview.diagram.ts": diagramModule("Overview", [
+				{ id: "web-app", kind: "client", title: "Web app", links: [{ id: "shop" }] },
+			]),
+			"docs/shop.diagram.ts": shopGroup({
+				description: "Everything that sells to shoppers.",
+				links: [
+					{ id: "web-app" },
+					{ doc: "docs/shop.md", section: "Checkout" },
+					{ id: "payments" },
+					{ doc: "docs/shop.md", section: "Refunds" },
+				],
+			}),
+		});
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+
+		const at = "docs/shop.diagram.ts:4:4: error: Group `shop` has a Link to";
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 1,
+			stdout:
+				`${at} \`payments\`, which no Diagram in the Atlas draws. (broken-link)\n` +
+				`${at} \`docs/shop.md\`, which has no heading \`Refunds\`. (broken-link)\n` +
+				"Checked 2 Diagrams: 2 errors.\n",
+			stderr: "",
+		});
+	});
+});
+
 describe("a clean Atlas", () => {
 	test("passes when ids agree across Diagrams and every Link resolves, in text and in JSON", async () => {
 		const atlas = await sampleAtlas({

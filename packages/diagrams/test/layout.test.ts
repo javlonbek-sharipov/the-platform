@@ -8,7 +8,15 @@ import {
 	type Point,
 	render,
 	type Scene,
+	type SceneGroup,
 } from "../src/index.ts";
+import {
+	deepNesting,
+	groupFixtures,
+	region,
+	rowsAndCallouts,
+	twoRegions,
+} from "./fixtures/groups.ts";
 
 const directions: Direction[] = ["right", "down"];
 
@@ -288,6 +296,10 @@ const fixtures: [string, (direction: Direction) => Diagram, string[]][] = [
 	["a cycle", cycle, ["ledger->orders-api", "ledger->ledger"]],
 	["two disconnected parts", twoParts, []],
 	["crossing Edges beside an unconnected Node", crossingBesideUnconnected, []],
+	["a region with a zone", region, []],
+	["two regions", twoRegions, []],
+	["deeply nested Groups", deepNesting, ["ledger->billing-api"]],
+	["Rows and callouts in Groups", rowsAndCallouts, ["order-events->orders-api"]],
 	["Nodes with Rows", withRows, []],
 ];
 
@@ -488,6 +500,219 @@ describe.each(directions)("a Diagram laid out %s", (direction) => {
 			}
 			for (const id of closing) {
 				expect(scene.edges.map((edge) => edge.id)).toContain(id);
+			}
+		});
+	});
+});
+
+function groupOf(scene: Scene, id: string): SceneGroup {
+	const group = scene.groups.find((candidate) => candidate.id === id);
+	if (group === undefined) {
+		throw new Error(`no Group ${id} in the scene`);
+	}
+	return group;
+}
+
+/** The box of a Node or a Group. */
+function boxOfAny(scene: Scene, id: string): Box {
+	return scene.groups.find((group) => group.id === id)?.box ?? boxOf(scene, id);
+}
+
+/** What a Node or a Group covers: its box, and for a Node with a callout, the tag above it too. */
+function extentOf(scene: Scene, id: string): Box {
+	const tag = scene.nodes.find((node) => node.id === id)?.callout?.tag;
+	const box = boxOfAny(scene, id);
+	if (tag === undefined) {
+		return box;
+	}
+	const x = Math.min(box.x, tag.x);
+	const y = Math.min(box.y, tag.y);
+	return {
+		x,
+		y,
+		width: Math.max(end(box, "x"), end(tag, "x")) - x,
+		height: Math.max(end(box, "y"), end(tag, "y")) - y,
+	};
+}
+
+/** How far apart two boxes are, on the axis where they're furthest apart. It's negative where they overlap. */
+function gapBetween(a: Box, b: Box): number {
+	return Math.max(
+		...(["x", "y"] as const).map((axis) =>
+			Math.max(start(b, axis) - end(a, axis), start(a, axis) - end(b, axis)),
+		),
+	);
+}
+
+/** The ids of every Node and Group inside a Group, at any depth, read from the model. */
+function inside(diagram: Diagram, id: string): Set<string> {
+	const found = new Set<string>();
+	const visit = (groupId: string) => {
+		for (const member of diagram.groups.find((group) => group.id === groupId)?.members ?? []) {
+			found.add(member);
+			visit(member);
+		}
+	};
+	visit(id);
+	return found;
+}
+
+describe.each(directions)("Groups laid out %s", (direction) => {
+	const { rank, order } = axes[direction];
+
+	test("rank a Group after another when an Edge joins Nodes inside them, at any depth", () => {
+		const scene = sceneOf(
+			diagram("Two systems", direction, (d) => {
+				d.group({ id: "intake", kind: "system", title: "Intake" }, (intake) => {
+					intake.group({ id: "intake-zone", kind: "zone", title: "Zone A" }, (zone) => {
+						zone.node({ id: "web-app", kind: "client", title: "Web app" });
+					});
+				});
+				d.group({ id: "shop", kind: "system", title: "Shop" }, (shop) => {
+					shop.node({ id: "shop-api", kind: "service", title: "Shop API" });
+				});
+				d.edge("web-app", "shop-api", { kind: "call" });
+			}),
+		);
+
+		expect(start(groupOf(scene, "shop").box, rank)).toBeGreaterThan(
+			end(groupOf(scene, "intake").box, rank),
+		);
+	});
+
+	test("lay a Group's members out without the Edges that leave the Group", () => {
+		// The two APIs meet only through the queue, outside their Group.
+		const scene = sceneOf(
+			diagram("Leaving", direction, (d) => {
+				d.group({ id: "shop", kind: "system", title: "Shop" }, (shop) => {
+					shop.node({ id: "orders-api", kind: "service", title: "Orders API" });
+					shop.node({ id: "stock-api", kind: "service", title: "Stock API" });
+				});
+				d.node({ id: "order-events", kind: "queue", title: "Order events" });
+				d.edge("orders-api", "order-events", { kind: "message" });
+				d.edge("order-events", "stock-api", { kind: "message" });
+			}),
+		);
+
+		expect(middle(boxOf(scene, "stock-api"), rank)).toBe(middle(boxOf(scene, "orders-api"), rank));
+		expect(start(boxOf(scene, "order-events"), rank)).toBeGreaterThan(
+			end(groupOf(scene, "shop").box, rank),
+		);
+	});
+
+	test("let declaration order settle ties on every level", () => {
+		const regions = (ids: string[], members: string[]) =>
+			sceneOf(
+				diagram("Regions", direction, (d) => {
+					for (const id of ids) {
+						d.group({ id, kind: "region", title: id }, (region) => {
+							for (const member of members) {
+								region.node({ id: `${id}-${member}`, kind: "service", title: member });
+							}
+						});
+					}
+				}),
+			);
+		const across = (scene: Scene, id: string) => start(boxOfAny(scene, id), order);
+
+		const declared = regions(["eu-west", "us-east"], ["api", "db"]);
+		const swapped = regions(["us-east", "eu-west"], ["db", "api"]);
+		expect(across(declared, "eu-west")).toBeLessThan(across(declared, "us-east"));
+		expect(across(declared, "eu-west-api")).toBeLessThan(across(declared, "eu-west-db"));
+		expect(groupOf(swapped, "us-east").box).toEqual(groupOf(declared, "eu-west").box);
+		expect(across(swapped, "us-east-db")).toBe(across(declared, "eu-west-api"));
+		expect(across(swapped, "eu-west-api")).toBe(across(declared, "us-east-db"));
+	});
+
+	test("line a Node up with the Node it joins inside a Group, whichever the Group declares first", () => {
+		const scene = sceneOf(
+			diagram("Anchor", direction, (d) => {
+				const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+				d.group({ id: "shop", kind: "system", title: "Shop" }, (shop) => {
+					shop.node({ id: "shop-cache", kind: "cache", title: "Shop cache" });
+					const api = shop.node({ id: "shop-api", kind: "service", title: "Shop API" });
+					d.edge(web, api, { kind: "call" });
+				});
+			}),
+		);
+
+		expect(straight(scene, "web-app", "shop-api")).toBe(true);
+	});
+
+	describe.each(groupFixtures)("on %s", (_, fixture) => {
+		test("every Group contains its members, with more than half a clearance to spare on each side, below its label band", () => {
+			const model = fixture(direction);
+			const scene = sceneOf(model);
+			const half = scene.clearance / 2;
+			expect(scene.groups.map(({ id, kind }) => [id, kind])).toEqual(
+				model.groups.map(({ id, kind }) => [id, kind]),
+			);
+			for (const group of model.groups) {
+				const { box, label } = groupOf(scene, group.id);
+				for (const member of group.members) {
+					const inner = extentOf(scene, member);
+					const where = `${member} in ${group.id}`;
+					expect(start(inner, "x") - start(box, "x"), where).toBeGreaterThan(half);
+					expect(end(box, "x") - end(inner, "x"), where).toBeGreaterThan(half);
+					expect(end(box, "y") - end(inner, "y"), where).toBeGreaterThan(half);
+					expect(start(inner, "y") - end(label, "y"), where).toBeGreaterThan(half);
+				}
+			}
+		});
+
+		test("every Group's label box runs along its top from its left side, and holds its title", () => {
+			for (const { id, box, label, title } of sceneOf(fixture(direction)).groups) {
+				expect([label.x, label.y], id).toEqual([box.x, box.y]);
+				expect(label.height, id).toBeGreaterThan(0);
+				expect(label.width, id).toBeLessThanOrEqual(box.width);
+				expect(end(label, "y"), id).toBeLessThan(end(box, "y"));
+				expect(title.width, id).toBeLessThanOrEqual(label.width);
+				expect(title.point.x - title.width / 2, id).toBeGreaterThanOrEqual(label.x);
+				expect(title.point.x + title.width / 2, id).toBeLessThanOrEqual(end(label, "x"));
+				expect(title.point.y, id).toBe(middle(label, "y"));
+			}
+		});
+
+		test("keeps every Node a clearance away from every Group label, and from every Group it isn't in", () => {
+			const model = fixture(direction);
+			const scene = sceneOf(model);
+			for (const group of scene.groups) {
+				const members = inside(model, group.id);
+				for (const node of scene.nodes) {
+					const where = `${node.id} and ${group.id}`;
+					expect(gapBetween(node.box, group.label), where).toBeGreaterThanOrEqual(scene.clearance);
+					if (!members.has(node.id)) {
+						expect(gapBetween(extentOf(scene, node.id), group.box), where).toBeGreaterThanOrEqual(
+							scene.clearance,
+						);
+					}
+				}
+			}
+		});
+
+		test("keeps Groups that don't nest a clearance apart", () => {
+			const model = fixture(direction);
+			const scene = sceneOf(model);
+			for (const [index, a] of scene.groups.entries()) {
+				for (const b of scene.groups.slice(index + 1)) {
+					if (!inside(model, a.id).has(b.id) && !inside(model, b.id).has(a.id)) {
+						expect(gapBetween(a.box, b.box), `${a.id} and ${b.id}`).toBeGreaterThanOrEqual(
+							scene.clearance,
+						);
+					}
+				}
+			}
+		});
+
+		test("snaps every Group's box and label box to the grid", () => {
+			const scene = sceneOf(fixture(direction));
+			for (const { id, box, label } of scene.groups) {
+				for (const { x, y } of [box, label].flatMap((b) => [
+					{ x: start(b, "x"), y: start(b, "y") },
+					{ x: end(b, "x"), y: end(b, "y") },
+				])) {
+					expect([x % scene.grid, y % scene.grid], id).toEqual([0, 0]);
+				}
 			}
 		});
 	});

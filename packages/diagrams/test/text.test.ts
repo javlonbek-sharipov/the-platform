@@ -107,6 +107,60 @@ describe("characters the font lacks", () => {
 	});
 });
 
+describe("Group titles", () => {
+	test("are shortened to fit their Group, with a warning that names the Group", () => {
+		const { scene, diagnostics } = render(
+			architecture({ title: "Shop" }, (d) => {
+				d.group({ id: "eu-west", kind: "region", title: "EU West" }, (eu) => {
+					eu.node({ id: "shop-api", kind: "service", title: "Shop API" });
+				});
+				d.group(
+					{ id: "translations", kind: "system", title: "Internationalization and translation" },
+					(system) => {
+						system.node({ id: "translator", kind: "worker", title: "Translator" });
+					},
+				);
+			}),
+		);
+
+		const [short, long] = scene?.groups ?? [];
+		expect(short?.title).toMatchObject({ text: "EU West", shortened: false, weight: "semibold" });
+		expect(long?.title.shortened).toBe(true);
+		expect(long?.title.text).toMatch(/^Internationalization.*\S…$/);
+		expect(long?.title.width).toBeCloseTo(
+			widthInInterSemiBold(long?.title.text ?? "", long?.title.size ?? 0),
+			9,
+		);
+		expect(diagnostics).toEqual([
+			{
+				severity: "warning",
+				rule: "text-shortened",
+				message: `Group \`translations\`'s title is too wide for its Group, so it's shortened to \`${long?.title.text}\`. Choose a shorter title to show it in full.`,
+				pointer: "/groups/1/title",
+			},
+		]);
+	});
+
+	test("with characters the font lacks make lint warn, naming the Group", () => {
+		const { diagnostics } = render(
+			architecture({ title: "Offices" }, (d) => {
+				d.group({ id: "tokyo", kind: "region", title: "東京" }, (tokyo) => {
+					tokyo.node({ id: "tokyo-api", kind: "service", title: "Tokyo API" });
+				});
+			}),
+		);
+		expect(diagnostics).toEqual([
+			{
+				severity: "warning",
+				rule: "glyph-missing",
+				message:
+					"Group `tokyo`'s title has characters that the bundled font lacks: 東 (U+6771) and 京 (U+4EAC). They're measured at an average width, and drawn in a fallback font.",
+				pointer: "/groups/0/title",
+			},
+		]);
+	});
+});
+
 describe("shortening titles", () => {
 	const tooWide = [
 		"Internationalization service",

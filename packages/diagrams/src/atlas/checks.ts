@@ -1,12 +1,13 @@
 /**
  * The checks that span Diagrams: each id has one Kind and one title across
- * the Atlas, and every Link resolves.
+ * the Atlas, whether it's drawn as a Node or as a Group, and every Link
+ * resolves.
  */
 
 import { readFileSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { Declarations } from "../authoring/declarations.ts";
-import type { Diagram, Link, Node } from "../authoring/model.ts";
+import type { Diagram, Link } from "../authoring/model.ts";
 import { anchorOf, headingAnchors } from "./markdown.ts";
 import { type AtlasMessage, list, located } from "./messages.ts";
 
@@ -19,42 +20,68 @@ export interface CheckedDiagram {
 	declarations: Declarations;
 }
 
+/** Something a Diagram draws under an id, as a Node or as a Group, and where the model holds it. */
+interface Thing {
+	/** `Node` or `Group`, as messages name it. */
+	thing: string;
+	id: string;
+	kind: string;
+	title: string;
+	links?: Link[];
+	/** Its JSON Pointer, such as `/groups/0`. */
+	pointer: string;
+}
+
 /** One place where a Diagram draws an id. */
 interface Drawing {
 	diagram: CheckedDiagram;
-	node: Node;
-	index: number;
+	drawn: Thing;
+}
+
+/** Every Node and Group a Diagram draws, Nodes first, each in model order. */
+function thingsOf(model: Diagram): Thing[] {
+	return [
+		...model.nodes.map((node, index) => ({ thing: "Node", ...node, pointer: `/nodes/${index}` })),
+		...model.groups.map((group, index) => ({
+			thing: "Group",
+			...group,
+			pointer: `/groups/${index}`,
+		})),
+	];
 }
 
 /** How each field that an id keeps across the Atlas is named, and what to do when it differs. */
 const sameEverywhere = {
-	kind: { name: "Kind", fix: "give it one Kind, or give one of them another id" },
-	title: { name: "title", fix: "give it one title: define the Node once, in a shared module" },
+	kind: { name: "Kind", fix: () => "give it one Kind, or give one of them another id" },
+	title: {
+		name: "title",
+		fix: (thing: string) => `give it one title: define the ${thing} once, in a shared module`,
+	},
 } as const;
 
 /**
- * An id names one thing across the Atlas, so it has one Kind and one title.
- * Each place that disagrees is reported, with the values that the other
- * Diagrams give it.
+ * An id names one thing across the Atlas, so it has one Kind and one title,
+ * whether a Diagram draws it as a Node or as a Group. Each place that
+ * disagrees is reported, with the values that the other Diagrams give it.
  */
 export function checkIds(diagrams: CheckedDiagram[]): AtlasMessage[] {
 	const drawings = new Map<string, Drawing[]>();
 	for (const diagram of diagrams) {
-		diagram.model.nodes.forEach((node, index) => {
-			drawings.set(node.id, [...(drawings.get(node.id) ?? []), { diagram, node, index }]);
-		});
+		for (const drawn of thingsOf(diagram.model)) {
+			drawings.set(drawn.id, [...(drawings.get(drawn.id) ?? []), { diagram, drawn }]);
+		}
 	}
 	return [...drawings].flatMap(([id, places]) =>
 		(["kind", "title"] as const).flatMap((field) => {
-			if (new Set(places.map(({ node }) => node[field])).size < 2) {
+			if (new Set(places.map(({ drawn }) => drawn[field])).size < 2) {
 				return [];
 			}
 			const { name, fix } = sameEverywhere[field];
-			return places.map(({ diagram, node, index }) => {
+			return places.map(({ diagram, drawn }) => {
 				const elsewhere = new Map<string, string[]>();
 				for (const other of places) {
-					const value = other.node[field];
-					if (value !== node[field]) {
+					const value = other.drawn[field];
+					if (value !== drawn[field]) {
 						elsewhere.set(value, [...(elsewhere.get(value) ?? []), other.diagram.id]);
 					}
 				}
@@ -65,8 +92,8 @@ export function checkIds(diagrams: CheckedDiagram[]): AtlasMessage[] {
 				return located(diagram.module, diagram.declarations, {
 					severity: "error",
 					rule: `${field}-conflict`,
-					message: `Node \`${id}\` has the ${name} \`${node[field]}\` here, but ${list(others)}. An id names one thing across the Atlas, so ${fix}.`,
-					pointer: `/nodes/${index}/${field}`,
+					message: `${drawn.thing} \`${id}\` has the ${name} \`${drawn[field]}\` here, but ${list(others)}. An id names one thing across the Atlas, so ${fix(drawn.thing)}.`,
+					pointer: `${drawn.pointer}/${field}`,
 				});
 			});
 		}),
@@ -109,8 +136,8 @@ export function checkLinks(
 		return undefined;
 	};
 	return diagrams.flatMap(({ module, model, declarations }) =>
-		model.nodes.flatMap((node, index) =>
-			(node.links ?? []).flatMap((link, linkIndex) => {
+		thingsOf(model).flatMap(({ thing, id, links, pointer }) =>
+			(links ?? []).flatMap((link, linkIndex) => {
 				const problem = problemWith(link);
 				return problem === undefined
 					? []
@@ -118,8 +145,8 @@ export function checkLinks(
 							located(module, declarations, {
 								severity: "error",
 								rule: "broken-link",
-								message: `Node \`${node.id}\` has a Link to ${problem}.`,
-								pointer: `/nodes/${index}/links/${linkIndex}`,
+								message: `${thing} \`${id}\` has a Link to ${problem}.`,
+								pointer: `${pointer}/links/${linkIndex}`,
 							}),
 						];
 			}),
