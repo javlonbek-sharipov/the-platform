@@ -640,6 +640,17 @@ function tooClose(scene: Scene): string[] {
 	for (const { id, route } of scene.edges) {
 		for (const segment of segmentsOf(route)) {
 			const horizontal = segment[0].y === segment[1].y;
+			// A Group's border beside a lane, running the same way, keeps the padding from it too.
+			for (const { id: group, box } of scene.groups) {
+				const sides = horizontal ? [box.y, box.y + box.height] : [box.x, box.x + box.width];
+				const along = horizontal ? [box.x, box.x + box.width] : [box.y, box.y + box.height];
+				const distance = Math.min(
+					...sides.map((side) => Math.abs(side - across(segment, horizontal))),
+				);
+				if (overlap(span(segment, horizontal), along) > sameLane && distance < padding) {
+					found.push(`${id} runs ${distance} from ${group}'s border`);
+				}
+			}
 			for (const box of boxes) {
 				const sides = horizontal ? [box.y, box.y + box.height] : [box.x, box.x + box.width];
 				const along = horizontal ? [box.x, box.x + box.width] : [box.y, box.y + box.height];
@@ -1001,6 +1012,83 @@ describe("a wide fan-out out of a Group", () => {
 			width / scene.lanes.spacing,
 		);
 		expect(overfullCorridors(scene)).toEqual([]);
+	});
+});
+
+describe("a narrow corridor", () => {
+	test("squeezes its lanes below the preferred spacing, but no closer than the minimum, and keeps each the padding from its sides", () => {
+		const scene = sceneOf(crossTalk);
+		const { spacing, minimum } = scene.lanes;
+		// Somewhere two lanes of different bundles run side by side closer than
+		// the preferred spacing: the squeeze.
+		const squeezed = scene.edges.some((a, index) =>
+			scene.edges.slice(index + 1).some((b) =>
+				segmentsOf(a.route).some(([a1, a2]) =>
+					segmentsOf(b.route).some(([b1, b2]) => {
+						const horizontal = a1.y === a2.y;
+						if (sameBundle(a, b) || horizontal !== (b1.y === b2.y)) {
+							return false;
+						}
+						const gap = horizontal ? Math.abs(a1.y - b1.y) : Math.abs(a1.x - b1.x);
+						const [p, q] = horizontal
+							? [
+									[a1.x, a2.x],
+									[b1.x, b2.x],
+								]
+							: [
+									[a1.y, a2.y],
+									[b1.y, b2.y],
+								];
+						const overlap =
+							Math.min(Math.max(...(p ?? [])), Math.max(...(q ?? []))) -
+							Math.max(Math.min(...(p ?? [])), Math.min(...(q ?? [])));
+						return gap >= minimum && gap < spacing && overlap > sameLane;
+					}),
+				),
+			),
+		);
+		expect(squeezed).toBe(true);
+		expect(tooClose(scene)).toEqual([]);
+	});
+});
+
+describe("parallel Edges", () => {
+	/** The Orders API calls the Payments API three ways, and messages it once: four Edges between one pair of Ports. */
+	const parallels = (direction: Direction) =>
+		architecture({ title: "Parallel", direction }, (d) => {
+			const orders = d.node({ id: "orders-api", kind: "service", title: "Orders API" });
+			const payments = d.node({ id: "payments-api", kind: "service", title: "Payments API" });
+			const db = d.node({ id: "payments-db", kind: "database", title: "Payments DB" });
+			for (const id of ["charge", "refund", "capture"]) {
+				d.edge(orders, payments, { kind: "call", id });
+			}
+			d.edge(orders, payments, { kind: "message", id: "payment-events" });
+			d.edge(payments, db, { kind: "call" });
+		});
+
+	test("never share a trunk or any stretch of lane, and run apart from one Port's junction to the other's", () => {
+		for (const direction of ["right", "down"] as const) {
+			const scene = sceneOf(parallels(direction));
+			const between = scene.edges.filter(({ to }) => to === "payments-api");
+			expect(between).toHaveLength(4);
+			for (const [index, a] of between.entries()) {
+				for (const b of between.slice(index + 1)) {
+					expect(parallel(a, b)).toBe(true);
+					expect(sharedBeyondJunctions(a, b), `${a.id} and ${b.id}`).toEqual([]);
+					// Beyond their junctions, each keeps a lane of its own, the minimum spacing apart.
+					const inner = (edge: SceneEdge) => edge.route.slice(1, -1);
+					expect(sharedStretches(inner(a), inner(b)), `${a.id} and ${b.id}`).toEqual([]);
+				}
+			}
+			expect(tooClose(scene)).toEqual([]);
+			// Each runs from its source's junction to its target's in a lane of its
+			// own, so no two of them are level along their middle runs.
+			const middles = between.map(({ route }) => {
+				const middle = route[Math.floor(route.length / 2)];
+				return direction === "right" ? middle?.y : middle?.x;
+			});
+			expect(new Set(middles).size).toBe(between.length);
+		}
 	});
 });
 
