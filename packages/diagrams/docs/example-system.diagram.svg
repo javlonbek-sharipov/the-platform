@@ -16,30 +16,30 @@
       <path d="M 952 128 L 1048 128 L 1048 48"/>
     </g>
   </g>
-  <g font-family="Inter, Helvetica, Arial, sans-serif" font-size="14" text-anchor="middle" dominant-baseline="central">
+  <g font-family="Inter, Helvetica, Arial, sans-serif" text-anchor="middle" dominant-baseline="central">
     <g data-node="shop-web" data-kind="client">
       <rect x="24" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
-      <text x="104" y="48" fill="#1f2328">Shop web app</text>
+      <text x="104" y="48" font-size="14" font-weight="600" fill="#1f2328">Shop web app</text>
     </g>
     <g data-node="shop-gateway" data-kind="gateway">
       <rect x="280" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
-      <text x="360" y="48" fill="#1f2328">Shop gateway</text>
+      <text x="360" y="48" font-size="14" font-weight="600" fill="#1f2328">Shop gateway</text>
     </g>
     <g data-node="orders-api" data-kind="service">
       <rect x="536" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
-      <text x="616" y="48" fill="#1f2328">Orders API</text>
+      <text x="616" y="48" font-size="14" font-weight="600" fill="#1f2328">Orders API</text>
     </g>
     <g data-node="payments-api" data-kind="service">
       <rect x="1048" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
-      <text x="1128" y="48" fill="#1f2328">Payments API</text>
+      <text x="1128" y="48" font-size="14" font-weight="600" fill="#1f2328">Payments API</text>
     </g>
     <g data-node="orders-db" data-kind="database">
       <rect x="792" y="24" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
-      <text x="872" y="48" fill="#1f2328">Orders database</text>
+      <text x="872" y="48" font-size="14" font-weight="600" fill="#1f2328">Orders database</text>
     </g>
     <g data-node="order-events" data-kind="queue">
       <rect x="792" y="104" width="160" height="48" rx="6" fill="#ffffff" stroke="#57606a"/>
-      <text x="872" y="128" fill="#1f2328">Order events</text>
+      <text x="872" y="128" font-size="14" font-weight="600" fill="#1f2328">Order events</text>
     </g>
   </g>
 </svg>

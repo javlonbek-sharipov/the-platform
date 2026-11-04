@@ -6,6 +6,7 @@
 
 import type { Diagram } from "../authoring/model.ts";
 import type { SceneNode } from "./scene.ts";
+import { nodeTitle } from "./text.ts";
 
 const nodeWidth = 160;
 const nodeHeight = 48;
@@ -23,13 +24,14 @@ export function layOut(diagram: Diagram): SceneNode[] {
 		const x = margin + rank * (nodeWidth + rankGap);
 		const y = margin + order * (nodeHeight + nodeGap);
 		const middle = y + nodeHeight / 2;
+		const box = { x, y, width: nodeWidth, height: nodeHeight };
 		return {
 			id: node.id,
 			kind: node.kind,
-			box: { x, y, width: nodeWidth, height: nodeHeight },
+			box,
 			input: { side: "left", point: { x, y: middle } },
 			output: { side: "right", point: { x: x + nodeWidth, y: middle } },
-			title: { text: node.title, point: { x: x + nodeWidth / 2, y: middle } },
+			title: nodeTitle(node.title, box),
 		};
 	});
 }

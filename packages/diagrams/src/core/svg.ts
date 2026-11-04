@@ -7,6 +7,7 @@
  */
 
 import type { Point, Scene, SceneEdge, SceneNode } from "./scene.ts";
+import type { FontWeight } from "./text.ts";
 
 type Attribute = readonly [name: string, value: string | number];
 
@@ -14,6 +15,7 @@ const ink = "#1f2328";
 const line = "#57606a";
 const surface = "#ffffff";
 const fontFamily = "Inter, Helvetica, Arial, sans-serif";
+const fontWeights: Record<FontWeight, number> = { regular: 400, semibold: 600 };
 
 export function writeSvg(scene: Scene): string {
 	const { bounds } = scene;
@@ -38,7 +40,6 @@ export function writeSvg(scene: Scene): string {
 			1,
 			start("g", [
 				["font-family", fontFamily],
-				["font-size", 14],
 				["text-anchor", "middle"],
 				["dominant-baseline", "central"],
 			]),
@@ -76,6 +77,8 @@ function writeNode(node: SceneNode): string[] {
 				[
 					["x", title.point.x],
 					["y", title.point.y],
+					["font-size", title.size],
+					["font-weight", fontWeights[title.weight]],
 					["fill", ink],
 				],
 				title.text,
