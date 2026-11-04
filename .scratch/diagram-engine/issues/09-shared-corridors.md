@@ -17,7 +17,7 @@
 
 **Spec:**
 
-- [Edge routing](../spec.md#edge-routing): steps 2, 4, 5 and 6
+- [Edge routing](../spec.md#edge-routing): steps 2, 4, 5, 6 and 7 (offsetting runs by lane, and the jog)
 - [Layout](../spec.md#layout): step 6, the gap between ranks
 - [The JSON model](../spec.md#the-json-model): Rules › Ids
 - [Seam 1](../spec.md#seam-1-the-core-in-memory): Speed
@@ -45,6 +45,7 @@
 
 - [ ] Each overlap set is sorted so that its lanes don't cross, then spaced around its line.
 - [ ] In a narrow corridor, the spacing shrinks to a minimum, and every lane stays inside the corridor with some padding.
+- [ ] Each run of a polyline is offset by its lane. Where a Port's stub meets a lane at a different height, a short jog joins them.
 
 **Parallel Edges**
 
@@ -64,3 +65,4 @@
 ## Comments
 
 - Orchestrator: added the rank-gap checkbox under **Capacity**. Ticket 02 found that no ticket covered the lanes half of Layout step 6 ("Each gap between two ranks leaves room for the labels and lanes of the Edges that span it"); ticket 10 covers the labels half.
+- Orchestrator: added the lane offset and jog checkbox under **Nudging**. Ticket 03 left the jog unticked, because nothing is offset into lanes before this ticket (see ticket 03's Comments).
