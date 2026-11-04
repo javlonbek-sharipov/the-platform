@@ -1,9 +1,10 @@
 /**
  * Every Diagram the tests keep as a fixture: each module in `test/fixtures/`
  * and the package's example. A fixture module default-exports a Diagram, or
- * exports functions that draw one in a direction. So a fixture that a later
- * ticket adds is checked by every test that uses this list, without the test
- * having to name it.
+ * exports functions that draw one in a direction. A JSON fixture is generated
+ * JSON, as a tool would write it. So a fixture that a later ticket adds is
+ * checked by every test that uses this list, without the test having to name
+ * it.
  */
 
 import { readdirSync } from "node:fs";
@@ -26,10 +27,13 @@ function isDiagram(value: unknown): value is Diagram {
 export async function everyFixture(): Promise<[name: string, diagram: Diagram][]> {
 	const found: [string, Diagram][] = [["the example", example]];
 	const modules = readdirSync(folder)
-		.filter((file) => file.endsWith(".ts"))
+		.filter((file) => file.endsWith(".ts") || file.endsWith(".json"))
 		.sort();
 	for (const file of modules) {
-		const exports: Record<string, unknown> = await import(new URL(file, folder).href);
+		const url = new URL(file, folder).href;
+		const exports: Record<string, unknown> = file.endsWith(".json")
+			? await import(url, { with: { type: "json" } })
+			: await import(url);
 		for (const [name, value] of Object.entries(exports)) {
 			if (isDiagram(value)) {
 				found.push([`${file}: ${name}`, value]);
