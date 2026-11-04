@@ -1,0 +1,16 @@
+{
+	"name": "@the-platform/diagrams",
+	"version": "0.0.0",
+	"private": true,
+	"license": "UNLICENSED",
+	"type": "module",
+	"engines": {
+		"node": ">=24"
+	},
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"bin": {
+		"diagrams": "./bin/diagrams.ts"
+	}
+}

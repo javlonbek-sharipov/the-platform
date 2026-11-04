@@ -1,0 +1,64 @@
+{
+	"$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"ignoreUnknown": true,
+		"includes": ["**", "!.scratch", "!**/*.diagram.svg", "!packages/diagrams/test/golden"]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"lineWidth": 100
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
+			"correctness": {
+				"useImportExtensions": "error"
+			},
+			"style": {
+				"useImportType": "error",
+				"noEnum": "error",
+				"noNamespace": "error",
+				"noParameterProperties": "error",
+				"noCommonJs": "error"
+			}
+		}
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "double"
+		}
+	},
+	"assist": {
+		"enabled": true,
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
+	},
+	"overrides": [
+		{
+			"includes": [
+				"packages/diagrams/src/index.ts",
+				"packages/diagrams/src/authoring/**",
+				"packages/diagrams/src/notations/**",
+				"packages/diagrams/src/core/**"
+			],
+			"linter": {
+				"rules": {
+					"correctness": {
+						"noNodejsModules": "error",
+						"noProcessGlobal": "error"
+					}
+				}
+			}
+		}
+	]
+}

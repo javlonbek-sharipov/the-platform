@@ -1248,7 +1248,48 @@ If a Diagram ever needs thousands of Nodes:
 
 ### Decisions made during implementation
 
-None yet. Implementers add decisions here as they make them.
+Implementers add decisions here as they make them. Change any that prove wrong, here and in the code.
+
+**Ticket 01**
+
+1. **Diagram ids come from the Atlas.**
+   - A diagram module leaves `id` out, so the model's `id` is optional. The Atlas sets it to the module's path.
+   - Ticket 05 does that, since nothing reads a Diagram's id before the Atlas index.
+   - The builder takes an `id` only for Diagrams built outside the Atlas, such as test fixtures.
+2. **The authoring API.**
+   - `architecture({ title }, (d) => { … })` builds a Diagram.
+   - `d.node({ id, kind, title })` takes a plain object, so a shared definition can be passed straight in. It returns a handle.
+   - `d.edge(from, to, { kind, id? })` takes handles or ids. An Edge's Kind has no default.
+   - The builder always writes `direction` and all five lists, even empty ones. Validation requires the lists.
+3. **Edge ends** are plain Node ids in the model. Ticket 08 adds a form that names a Row.
+4. **Ids.**
+   - A Node id is lowercase kebab-case words, digits allowed, optionally namespaced with `/`.
+   - An Edge id is the same, or two ids joined by `->`, which is the default form.
+   - Edge ids only need to be unique among Edges.
+5. **Diagnostics.**
+   - Each one has a severity, a rule, a message, and a JSON Pointer into the model.
+   - Rules so far: `model-shape`, `model-version`, `unknown-notation`, `unknown-kind`, `duplicate-id`, `id-format`, `edge-end`, `module-load`, `svg-missing` and `svg-out-of-date`.
+   - Until ticket 05 adds lines, the CLI prints `file: severity: message (rule)` on stdout, with paths relative to the working directory.
+6. **Loading modules.** Each CLI run imports the diagram modules in a fresh worker thread, through Node's type stripping. So edits to a module, or to anything it imports, are always picked up, even when a test runs the CLI in-process.
+7. **The repo root, until ticket 05.**
+   - It's the nearest folder at or above the working directory that holds `.git`, or else the working directory.
+   - Discovery skips `.git` and `node_modules` at any depth, and `repos/` only at the root.
+8. **The cache folder** is `.diagrams-cache/`, at the repo root.
+9. **CLI output.**
+   - `render` prints `Wrote <path>` for each SVG whose bytes changed, and leaves the others alone.
+   - `lint` ends with a summary line.
+   - An unknown command prints the usage and exits with 2.
+10. **Golden files.**
+    - They live in `packages/diagrams/test/golden/`, named `*.svg` rather than `*.diagram.svg`, so the Atlas never takes them for Diagram SVGs.
+    - A small helper compares them byte for byte. Only `pnpm golden:update` changes them.
+11. **SVG hooks.** A Node's `<g>` carries `data-node` and `data-kind`. An Edge's carries `data-edge`, `data-kind`, `data-from` and `data-to`. Edges are drawn beneath Nodes.
+12. **Tooling.**
+    - Biome keeps its defaults, with lines of 100. It also rejects syntax that isn't erasable, and rejects Node's modules in the authoring API, the Notations and the core.
+    - Biome skips generated SVGs, since it now lints SVG files.
+    - pnpm 12 blocks dependencies' build scripts. So lefthook's postinstall is denied, and the root `prepare` script installs the hook instead.
+13. **Licenses.**
+    - Every dependency is MIT, ISC, BSD or Apache-2.0, except lightningcss (MPL-2.0), which Vite pulls in for Vitest.
+    - It's dev-only, unmodified and never shipped, so it gets the same allowance as an MPL-2.0 dependency of the CLI.
 
 ### References
 

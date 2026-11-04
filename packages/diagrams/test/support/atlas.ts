@@ -1,0 +1,64 @@
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { onTestFinished } from "vitest";
+import { cli } from "../../src/cli/cli.ts";
+
+const packageFolder = fileURLToPath(new URL("../../", import.meta.url));
+
+/**
+ * Writes a sample Atlas into a fresh temporary folder, laid out like the repo:
+ * an ES-module package that depends on @the-platform/diagrams. The folder is
+ * removed when the test finishes.
+ */
+export async function sampleAtlas(files: Record<string, string>): Promise<string> {
+	const root = await realpath(await mkdtemp(join(tmpdir(), "diagrams-atlas-")));
+	onTestFinished(() => rm(root, { recursive: true, force: true }));
+	await writeFile(join(root, "package.json"), '{ "private": true, "type": "module" }\n');
+	await mkdir(join(root, "node_modules", "@the-platform"), { recursive: true });
+	await symlink(packageFolder, join(root, "node_modules", "@the-platform", "diagrams"), "junction");
+	for (const [path, content] of Object.entries(files)) {
+		await mkdir(dirname(join(root, path)), { recursive: true });
+		await writeFile(join(root, path), content);
+	}
+	return root;
+}
+
+export interface CliRun {
+	code: number;
+	stdout: string;
+	stderr: string;
+}
+
+/** Runs the CLI in-process, as the `diagrams` binary would. */
+export async function runCli(args: string[], cwd: string): Promise<CliRun> {
+	let stdout = "";
+	let stderr = "";
+	const code = await cli(args, {
+		cwd,
+		stdout: {
+			write: (text) => {
+				stdout += text;
+			},
+		},
+		stderr: {
+			write: (text) => {
+				stderr += text;
+			},
+		},
+	});
+	return { code, stdout, stderr };
+}
+
+/** A small architecture Diagram module, titled as given. */
+export function shopModule(title = "Shop"): string {
+	return `import { architecture } from "@the-platform/diagrams";
+
+export default architecture({ title: ${JSON.stringify(title)} }, (d) => {
+	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+	const api = d.node({ id: "shop-api", kind: "service", title: ${JSON.stringify(`${title} API`)} });
+	d.edge(web, api, { kind: "call" });
+});
+`;
+}

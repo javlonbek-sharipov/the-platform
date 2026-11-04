@@ -1,0 +1,4 @@
+# Generated Diagram SVGs are committed (ADR-0004). LF everywhere, so that a
+# checkout on any OS matches a fresh render byte for byte.
+*.diagram.svg text eol=lf
+packages/diagrams/test/golden/*.svg text eol=lf

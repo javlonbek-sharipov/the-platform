@@ -1,0 +1,11 @@
+# Biome first, then `diagrams lint`, so that broken or stale Diagrams never
+# reach a commit. Install with `pnpm install` (the root `prepare` script).
+pre-commit:
+  piped: true
+  commands:
+    biome:
+      priority: 1
+      run: pnpm exec biome check --staged --no-errors-on-unmatched
+    diagrams-lint:
+      priority: 2
+      run: pnpm exec diagrams lint
