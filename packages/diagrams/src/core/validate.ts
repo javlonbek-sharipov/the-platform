@@ -3,7 +3,7 @@
  * generated JSON has no types, so everything they prevent is checked here.
  */
 
-import type { Diagram } from "../authoring/model.ts";
+import { type Diagram, endNode } from "../authoring/model.ts";
 import { architectureEdgeKinds, architectureNodeKinds } from "../notations/architecture.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 
@@ -97,20 +97,23 @@ export function validate(input: unknown): Validation {
 			);
 		}
 		edgeIds.add(edge.id);
-		if (!nodeIds.has(edge.from)) {
+		// Until Row ends are checked, the model's shape lets only ids through.
+		const from = endNode(edge.from);
+		const to = endNode(edge.to);
+		if (!nodeIds.has(from)) {
 			diagnostics.push(
 				error(
 					"edge-end",
-					`Edge \`${edge.id}\` starts at \`${edge.from}\`, which isn't a Node on this Diagram.`,
+					`Edge \`${edge.id}\` starts at \`${from}\`, which isn't a Node on this Diagram.`,
 					`/edges/${index}/from`,
 				),
 			);
 		}
-		if (!nodeIds.has(edge.to)) {
+		if (!nodeIds.has(to)) {
 			diagnostics.push(
 				error(
 					"edge-end",
-					`Edge \`${edge.id}\` ends at \`${edge.to}\`, which isn't a Node on this Diagram.`,
+					`Edge \`${edge.id}\` ends at \`${to}\`, which isn't a Node on this Diagram.`,
 					`/edges/${index}/to`,
 				),
 			);

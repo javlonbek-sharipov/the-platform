@@ -2,7 +2,16 @@
 
 import type { ArchitectureEdgeKind, ArchitectureNodeKind } from "../notations/architecture.ts";
 import { callerOf, type Declarations, declarationsKey } from "./declarations.ts";
-import type { Diagram, Direction, Edge, Link, Node, Row } from "./model.ts";
+import {
+	type Diagram,
+	type Direction,
+	type Edge,
+	endNode,
+	type Link,
+	type Node,
+	type Row,
+	type RowEnd,
+} from "./model.ts";
 
 export interface ArchitectureOptions {
 	/** Only for Diagrams built outside the Atlas, which assigns ids from paths. */
@@ -29,14 +38,20 @@ export interface ArchitectureNode {
 /** What a Node declaration returns. Later calls accept it in place of the id. */
 export interface NodeHandle {
 	readonly id: string;
+	/** An Edge end at one of the Node's Rows, by its name. */
+	row(name: string): RowEnd;
 }
 
 export interface EdgeHandle {
 	readonly id: string;
 }
 
-/** An Edge end: a Node handle, or the id of a Node declared on the same Diagram. */
-export type EdgeEnd = NodeHandle | string;
+/**
+ * An Edge end: a Node handle, or the id of a Node declared on the same
+ * Diagram, or one of a Node's Rows, as `handle.row(name)` gives it or as
+ * `{ node: id, row: name }`.
+ */
+export type EdgeEnd = NodeHandle | RowEnd | string;
 
 export interface EdgeOptions {
 	kind: ArchitectureEdgeKind;
@@ -87,13 +102,19 @@ export function architecture(
 				...(links === undefined ? {} : { links: links.map((link) => ({ ...link })) }),
 			});
 			members.push(id);
-			return Object.freeze({ id });
+			return Object.freeze({ id, row: (name: string) => Object.freeze({ node: id, row: name }) });
 		},
 		edge(from, to, { kind, id }) {
 			declare(`/edges/${edges.length}`, builder.edge);
-			const fromId = endId(from);
-			const toId = endId(to);
-			const edge: Edge = { id: id ?? `${fromId}->${toId}`, kind, from: fromId, to: toId };
+			const fromEnd = modelEnd(from);
+			const toEnd = modelEnd(to);
+			// A default id names the two Nodes, whatever their Rows.
+			const edge: Edge = {
+				id: id ?? `${endNode(fromEnd)}->${endNode(toEnd)}`,
+				kind,
+				from: fromEnd,
+				to: toEnd,
+			};
 			edges.push(edge);
 			return Object.freeze({ id: edge.id });
 		},
@@ -115,6 +136,10 @@ export function architecture(
 	return Object.defineProperty(diagram, declarationsKey, { value: declarations });
 }
 
-function endId(end: EdgeEnd): string {
-	return typeof end === "string" ? end : end.id;
+/** An Edge end as the model writes it: a Node's id, or a Row end of its own. */
+function modelEnd(end: EdgeEnd): Edge["from"] {
+	if (typeof end === "string") {
+		return end;
+	}
+	return "node" in end ? { node: end.node, row: end.row } : end.id;
 }

@@ -21,6 +21,7 @@ export type {
 	Link,
 	Node,
 	Row,
+	RowEnd,
 } from "./authoring/model.ts";
 export type { Diagnostic, Severity } from "./core/diagnostics.ts";
 export type { RenderOptions, RenderResult } from "./core/render.ts";

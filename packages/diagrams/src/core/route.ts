@@ -5,7 +5,7 @@
  * the Edge falls back to a simple route, and the router warns about it.
  */
 
-import type { Diagram, Direction } from "../authoring/model.ts";
+import { type Diagram, type Direction, endNode } from "../authoring/model.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { buildGrid, type Grid, pointOf, vertexAt } from "./grid.ts";
 import { clearance } from "./layout.ts";
@@ -55,8 +55,8 @@ export function route(diagram: Diagram, nodes: SceneNode[], options: RouteOption
 	// the order the Diagram declares its Edges in.
 	const routed = new Map<string, SceneEdge>();
 	for (const edge of [...diagram.edges].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
-		const from = byId.get(edge.from);
-		const to = byId.get(edge.to);
+		const from = byId.get(endNode(edge.from));
+		const to = byId.get(endNode(edge.to));
 		if (from === undefined || to === undefined) {
 			throw new Error(`Edge ${edge.id} ends at a Node that validation should have rejected`);
 		}
@@ -64,8 +64,8 @@ export function route(diagram: Diagram, nodes: SceneNode[], options: RouteOption
 		routed.set(edge.id, {
 			id: edge.id,
 			kind: edge.kind,
-			from: edge.from,
-			to: edge.to,
+			from: from.id,
+			to: to.id,
 			fromPort: from.output,
 			toPort: to.input,
 			route: roundCorners(polyline(found ?? fallbackRoute(from, to, diagram.direction))),

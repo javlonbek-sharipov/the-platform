@@ -6,6 +6,7 @@ import {
 	architecture,
 	atlas,
 	type NodeHandle,
+	type RowEnd,
 } from "../src/index.ts";
 
 test("the architecture Notation has 12 Node Kinds and two Edge Kinds", () => {
@@ -46,7 +47,7 @@ test("declaring a Node returns a handle that an Edge accepts", () => {
 	architecture({ title: "Shop" }, (d) => {
 		const api = d.node({ id: "shop-api", kind: "service", title: "Shop API" });
 		expectTypeOf(api).toEqualTypeOf<NodeHandle>();
-		expectTypeOf(d.edge).parameter(0).toExtend<NodeHandle | string>();
+		expectTypeOf(d.edge).parameter(0).toExtend<NodeHandle | RowEnd | string>();
 		// @ts-expect-error: an Edge end is a handle or an id, not a number.
 		d.edge(api, 7, { kind: "call" });
 	});

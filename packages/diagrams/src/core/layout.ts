@@ -8,7 +8,7 @@
  * order axis runs across it.
  */
 
-import type { Diagram } from "../authoring/model.ts";
+import { type Diagram, endNode } from "../authoring/model.ts";
 import { arrange, type Member } from "./layers.ts";
 import type { Point, SceneNode, ScenePort, Side } from "./scene.ts";
 import { nodeTitle, rowTexts } from "./text.ts";
@@ -50,8 +50,8 @@ export function layOut(diagram: Diagram): SceneNode[] {
 	);
 	const index = new Map(diagram.nodes.map((node, at) => [node.id, at]));
 	const connections = diagram.edges.map((edge) => ({
-		from: index.get(edge.from) ?? 0,
-		to: index.get(edge.to) ?? 0,
+		from: index.get(endNode(edge.from)) ?? 0,
+		to: index.get(endNode(edge.to)) ?? 0,
 	}));
 	const placements = arrange(members, connections, { clearance, rankGap, grid });
 
