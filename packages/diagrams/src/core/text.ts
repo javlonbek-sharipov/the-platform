@@ -33,30 +33,70 @@ const ellipsis = "…";
 /** A Node's title, centered in its header, and shortened if it's too wide for the header. */
 export function nodeTitle(title: string, header: Box): SceneText {
 	return {
-		...fit(title, "semibold", titleSize, header.width - 2 * titlePadding),
+		...fit(collapseSpaces(title), "semibold", titleSize, header.width - 2 * titlePadding),
 		point: { x: header.x + header.width / 2, y: header.y + header.height / 2 },
 		weight: "semibold",
 		size: titleSize,
 	};
 }
 
-/** A warning for each title that had to be shortened. */
+/** A warning for each title with characters the font lacks, and for each that had to be shortened. */
 export function titleDiagnostics(diagram: Diagram, nodes: SceneNode[]): Diagnostic[] {
 	const titles = new Map(nodes.map((node) => [node.id, node.title]));
-	return diagram.nodes.flatMap((node, index): Diagnostic[] => {
-		const title = titles.get(node.id);
-		if (title?.shortened !== true) {
-			return [];
+	return diagram.nodes.flatMap((node, index) => {
+		const diagnostics: Diagnostic[] = [];
+		const pointer = `/nodes/${index}/title`;
+		const missing = missingCharacters(collapseSpaces(node.title), "semibold");
+		if (missing.length > 0) {
+			const listed = list(missing.map((character) => `${character} (${codePointOf(character)})`));
+			diagnostics.push({
+				severity: "warning",
+				rule: "glyph-missing",
+				message:
+					missing.length === 1
+						? `Node \`${node.id}\`'s title has a character that the bundled font lacks: ${listed}. It's measured at an average width, and drawn in a fallback font.`
+						: `Node \`${node.id}\`'s title has characters that the bundled font lacks: ${listed}. They're measured at an average width, and drawn in a fallback font.`,
+				pointer,
+			});
 		}
-		return [
-			{
+		const title = titles.get(node.id);
+		if (title?.shortened === true) {
+			diagnostics.push({
 				severity: "warning",
 				rule: "text-shortened",
 				message: `Node \`${node.id}\`'s title is too wide for its Node, so it's shortened to \`${title.text}\`. Choose a shorter title to show it in full.`,
-				pointer: `/nodes/${index}/title`,
-			},
-		];
+				pointer,
+			});
+		}
+		return diagnostics;
 	});
+}
+
+/** Each character in the text that the font lacks, once, in order. */
+function missingCharacters(text: string, weight: FontWeight): string[] {
+	const { widths } = metrics[weight];
+	return [...new Set(text)].filter((character) => !widths.has(character.codePointAt(0) ?? 0));
+}
+
+/** `U+6771` */
+function codePointOf(character: string): string {
+	return `U+${(character.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}`;
+}
+
+/** `a, b and c` */
+function list(words: string[]): string {
+	return words.length < 2
+		? words.join("")
+		: `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
+}
+
+/**
+ * Runs of spaces, tabs and line breaks as one space, with none at either end.
+ * SVG renderers collapse them that way, though not all alike, so the SVG gets
+ * text that's already collapsed.
+ */
+function collapseSpaces(text: string): string {
+	return text.replace(/[ \t\n\r]+/g, " ").replace(/^ | $/g, "");
 }
 
 /**

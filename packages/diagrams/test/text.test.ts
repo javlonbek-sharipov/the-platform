@@ -1,6 +1,12 @@
 import { describe, expect, test } from "vitest";
 import { architecture, render, type Scene, type SceneText } from "../src/index.ts";
-import { advanceOf, bundledFont, characterMap, unitsPerEm } from "./support/truetype.ts";
+import {
+	advanceOf,
+	bundledFont,
+	characterMap,
+	tableStart,
+	unitsPerEm,
+} from "./support/truetype.ts";
 
 const interSemiBold = bundledFont("Inter-SemiBold.ttf");
 const semiBoldCharacters = characterMap(interSemiBold);
@@ -51,6 +57,53 @@ describe("measuring text", () => {
 			expect(title.size).toBeGreaterThan(0);
 			expect(title.width).toBeCloseTo(widthInInterSemiBold(text, title.size), 9);
 		});
+	});
+});
+
+describe("white space", () => {
+	test("collapses in a title as SVG renderers collapse it, so drawn text is measured text", () => {
+		const { scene, diagnostics } = render(
+			architecture({ title: "Spaces" }, (d) => {
+				d.node({ id: "orders-api", kind: "service", title: "\n\t Orders  \r\n API " });
+			}),
+		);
+		const title = scene?.nodes[0]?.title;
+		expect(title?.text).toBe("Orders API");
+		expect(title?.width).toBeCloseTo(widthInInterSemiBold("Orders API", title?.size ?? 0), 9);
+		expect(diagnostics).toEqual([]);
+	});
+});
+
+describe("characters the font lacks", () => {
+	// Inter has none of 東, 京, ☃ and 🙂.
+	test("are measured at the font's average width", () => {
+		const [tokyo, east, snowman, smile, plain] = titlesOf("Tokyo東京", "東", "☃", "🙂", "Tokyo");
+		// The font's own average character width, from its OS/2 table.
+		const averageWidth = interSemiBold.data.getInt16(tableStart(interSemiBold, "OS/2") + 2);
+		const average = (averageWidth * (east?.size ?? 0)) / unitsPerEm(interSemiBold);
+		expect(average).toBeGreaterThan(0);
+		for (const title of [east, snowman, smile]) {
+			expect(title?.width).toBeCloseTo(average, 9);
+		}
+		expect(tokyo?.width).toBeCloseTo((plain?.width ?? 0) + 2 * average, 9);
+	});
+
+	test("make lint warn, naming the Node and the characters", () => {
+		const { diagnostics } = render(
+			architecture({ title: "Offices" }, (d) => {
+				d.node({ id: "london", kind: "service", title: "London" });
+				d.node({ id: "tokyo", kind: "service", title: "Tokyo 東京 ☃ 東" });
+			}),
+		);
+		expect(diagnostics).toEqual([
+			{
+				severity: "warning",
+				rule: "glyph-missing",
+				message:
+					"Node `tokyo`'s title has characters that the bundled font lacks: 東 (U+6771), 京 (U+4EAC) and ☃ (U+2603). They're measured at an average width, and drawn in a fallback font.",
+				pointer: "/nodes/1/title",
+			},
+		]);
 	});
 });
 
