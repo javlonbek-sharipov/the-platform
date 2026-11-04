@@ -1,14 +1,30 @@
 /**
  * Edge routing (spec: Edge routing). Each Edge runs from the end of its
  * source Port's stub to the end of its target Port's stub, along the routing
- * grid, by the cheapest path the search finds.
+ * grid, by the cheapest path the search finds. When the search finds none,
+ * the Edge falls back to a simple route, and the router warns about it.
  */
 
-import type { Diagram } from "../authoring/model.ts";
+import type { Diagram, Direction } from "../authoring/model.ts";
+import type { Diagnostic } from "./diagnostics.ts";
 import { buildGrid, type Grid, pointOf, vertexAt } from "./grid.ts";
 import { clearance } from "./layout.ts";
-import type { Point, RoutePoint, SceneEdge, SceneNode, ScenePort, Side } from "./scene.ts";
+import type { Box, Point, RoutePoint, SceneEdge, SceneNode, ScenePort, Side } from "./scene.ts";
 import { type Heading, opposite, search } from "./search.ts";
+
+export interface RouteOptions {
+	/**
+	 * How many states each Edge's search may visit. An Edge whose search runs
+	 * out falls back to the simple route.
+	 */
+	searchBudget?: number;
+}
+
+export interface Routing {
+	/** One per Edge, in model order. */
+	edges: SceneEdge[];
+	diagnostics: Diagnostic[];
+}
 
 /** A bend costs as much as this much length, which favors routes with few bends. */
 const bendCost = 40;
@@ -16,8 +32,8 @@ const bendCost = 40;
 /** The radius of a rounded corner, where both runs that meet there are long enough. */
 const cornerRadius = 8;
 
-/** How many states one Edge's search may visit. */
-const searchBudget = 200_000;
+/** Enough for any Diagram of a few hundred Nodes. */
+const defaultSearchBudget = 200_000;
 
 /** The heading of a stub, out of its side. */
 const outOf: Record<Side, Heading> = {
@@ -27,15 +43,17 @@ const outOf: Record<Side, Heading> = {
 	bottom: "south",
 };
 
-export function route(diagram: Diagram, nodes: SceneNode[]): SceneEdge[] {
+export function route(diagram: Diagram, nodes: SceneNode[], options: RouteOptions = {}): Routing {
 	const byId = new Map(nodes.map((node) => [node.id, node]));
 	const grid = buildGrid(nodes, clearance);
-	return diagram.edges.map((edge) => {
+	const budget = options.searchBudget ?? defaultSearchBudget;
+	const edges = diagram.edges.map((edge): SceneEdge => {
 		const from = byId.get(edge.from);
 		const to = byId.get(edge.to);
 		if (from === undefined || to === undefined) {
 			throw new Error(`Edge ${edge.id} ends at a Node that validation should have rejected`);
 		}
+		const found = searchRoute(grid, from.output, to.input, budget);
 		return {
 			id: edge.id,
 			kind: edge.kind,
@@ -43,11 +61,23 @@ export function route(diagram: Diagram, nodes: SceneNode[]): SceneEdge[] {
 			to: edge.to,
 			fromPort: from.output,
 			toPort: to.input,
-			route: roundCorners(
-				polyline(searchRoute(grid, from.output, to.input) ?? alongStubs(from.output, to.input)),
-			),
+			route: roundCorners(polyline(found ?? fallbackRoute(from, to, diagram.direction))),
+			fellBack: found === undefined,
 		};
 	});
+	const diagnostics = edges.flatMap(({ id, fellBack }, index): Diagnostic[] =>
+		fellBack
+			? [
+					{
+						severity: "warning",
+						rule: "fallback-route",
+						message: `Edge \`${id}\` couldn't be routed around the Nodes, so it's drawn along a simple route that may cross them.`,
+						pointer: `/edges/${index}`,
+					},
+				]
+			: [],
+	);
+	return { edges, diagnostics };
 }
 
 /**
@@ -57,7 +87,12 @@ export function route(diagram: Diagram, nodes: SceneNode[]): SceneEdge[] {
  * Edges from one Port fork just past its stub, and Edges into one Port merge
  * well before it.
  */
-function searchRoute(grid: Grid, fromPort: ScenePort, toPort: ScenePort): Point[] | undefined {
+function searchRoute(
+	grid: Grid,
+	fromPort: ScenePort,
+	toPort: ScenePort,
+	budget: number,
+): Point[] | undefined {
 	const start = vertexAt(grid, toPort.stub);
 	const goal = vertexAt(grid, fromPort.stub);
 	if (start === undefined || goal === undefined) {
@@ -67,21 +102,47 @@ function searchRoute(grid: Grid, fromPort: ScenePort, toPort: ScenePort): Point[
 		grid,
 		{ vertex: start, heading: outOf[toPort.side] },
 		{ vertex: goal, heading: opposite[outOf[fromPort.side]] },
-		{ bend: bendCost, budget: searchBudget },
+		{ bend: bendCost, budget },
 	);
 	return (
 		path && [fromPort.point, ...path.reverse().map((vertex) => pointOf(grid, vertex)), toPort.point]
 	);
 }
 
-function alongStubs(fromPort: ScenePort, toPort: ScenePort): Point[] {
-	return [
-		fromPort.point,
-		fromPort.stub,
-		{ x: toPort.stub.x, y: fromPort.stub.y },
-		toPort.stub,
-		toPort.point,
-	];
+/**
+ * The simple route an Edge falls back to when the search finds none (spec:
+ * Edge routing, step 11). If the target lies ahead of the source along the
+ * direction, the route runs straight, jogs once halfway between the Ports,
+ * and runs on. Otherwise it steps out of the source's Port, moves to a lane
+ * beyond both Nodes, travels back past them, and enters the target from its
+ * input side.
+ */
+function fallbackRoute(from: SceneNode, to: SceneNode, direction: Direction): Point[] {
+	// Worked out as if the direction were `right`: for `down`, x and y swap
+	// on the way in, and swap back on the way out.
+	const turn = direction === "down" ? transpose : (point: Point) => point;
+	const start = turn(from.output.point);
+	const out = turn(from.output.stub);
+	const end = turn(to.input.point);
+	const into = turn(to.input.stub);
+	if (into.x >= out.x) {
+		const middle = (start.x + end.x) / 2;
+		return [start, { x: middle, y: start.y }, { x: middle, y: end.y }, end].map(turn);
+	}
+	const boxes = [from.box, to.box].map((box) => (direction === "down" ? transposeBox(box) : box));
+	const above = Math.min(...boxes.map((box) => box.y)) - clearance / 2;
+	const below = Math.max(...boxes.map((box) => box.y + box.height)) + clearance / 2;
+	const lane =
+		start.y - above + (end.y - above) < below - start.y + (below - end.y) ? above : below;
+	return [start, out, { x: out.x, y: lane }, { x: into.x, y: lane }, into, end].map(turn);
+}
+
+function transpose({ x, y }: Point): Point {
+	return { x: y, y: x };
+}
+
+function transposeBox({ x, y, width, height }: Box): Box {
+	return { x: y, y: x, width: height, height: width };
 }
 
 /**

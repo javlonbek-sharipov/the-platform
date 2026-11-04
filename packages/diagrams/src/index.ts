@@ -12,7 +12,7 @@ export type {
 export { architecture } from "./authoring/architecture.ts";
 export type { Diagram, Direction, Edge, Node } from "./authoring/model.ts";
 export type { Diagnostic, Severity } from "./core/diagnostics.ts";
-export type { RenderResult } from "./core/render.ts";
+export type { RenderOptions, RenderResult } from "./core/render.ts";
 export { render } from "./core/render.ts";
 export type {
 	Box,

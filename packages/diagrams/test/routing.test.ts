@@ -3,6 +3,7 @@ import {
 	architecture,
 	type Box,
 	type Diagram,
+	type Direction,
 	type Point,
 	render,
 	type Scene,
@@ -241,22 +242,27 @@ describe("an Edge", () => {
 			}
 		}
 	});
-
-	test("leaves and enters its Nodes at right angles to their sides, along its Ports' stubs", () => {
-		for (const scene of [sceneOf(shop), sceneOf(down(shop))]) {
-			for (const { id, route, fromPort, toPort } of scene.edges) {
-				const [first, second] = route;
-				expect(first && at(first)).toEqual(fromPort.point);
-				expect(onSegment(fromPort.stub, first, second), `${id} leaves off its stub`).toBe(true);
-				const [beforeLast, last] = route.slice(-2);
-				expect(last && at(last)).toEqual(toPort.point);
-				expect(onSegment(toPort.stub, beforeLast, last), `${id} enters off its stub`).toBe(true);
-			}
-		}
-	});
 });
 
 describe.each(fixtures)("every route in %s", (_, diagram) => {
+	test("exists, one for each Edge, and none of them fell back", () => {
+		const scene = sceneOf(diagram);
+		expect(scene.edges.map(({ id, fellBack }) => [id, fellBack])).toEqual(
+			diagram.edges.map(({ id }) => [id, false]),
+		);
+	});
+
+	test("leaves and enters its Nodes at right angles to their sides, along its Ports' stubs", () => {
+		for (const { id, route, fromPort, toPort } of sceneOf(diagram).edges) {
+			const [first, second] = route;
+			expect(first && at(first)).toEqual(fromPort.point);
+			expect(onSegment(fromPort.stub, first, second), `${id} leaves off its stub`).toBe(true);
+			const [beforeLast, last] = route.slice(-2);
+			expect(last && at(last)).toEqual(toPort.point);
+			expect(onSegment(toPort.stub, beforeLast, last), `${id} enters off its stub`).toBe(true);
+		}
+	});
+
 	test("rounds every corner with an arc whose radius is at most half of either run that meets there", () => {
 		const length = (a: Point, b: Point) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 		for (const { id, route } of sceneOf(diagram).edges) {
@@ -308,3 +314,82 @@ describe.each(fixtures)("every route in %s", (_, diagram) => {
 		}
 	});
 });
+
+describe("an Edge that the search can't route", () => {
+	/** A budget so small that every search runs out. */
+	const tiny = { searchBudget: 1 };
+
+	test("still gets a route, and the core warns that it fell back", () => {
+		const { scene, diagnostics } = render(orders, tiny);
+		expect(scene?.edges.map(({ id, fellBack }) => [id, fellBack])).toEqual(
+			orders.edges.map(({ id }) => [id, true]),
+		);
+		expect(diagnostics).toEqual(
+			orders.edges.map(({ id }, index) => ({
+				severity: "warning",
+				rule: "fallback-route",
+				message: `Edge \`${id}\` couldn't be routed around the Nodes, so it's drawn along a simple route that may cross them.`,
+				pointer: `/edges/${index}`,
+			})),
+		);
+	});
+
+	test("runs straight, jogs once halfway between its Ports, and runs on, when its target lies ahead", () => {
+		const ahead = [
+			"web-app->gateway",
+			"gateway->orders-api",
+			"orders-api->orders-db",
+			"gateway->orders-db",
+			"orders-api->order-events",
+			"order-events->mailer",
+		];
+		const { scene } = render(orders, tiny);
+		for (const { id, route, fromPort, toPort } of scene?.edges ?? []) {
+			if (ahead.includes(id)) {
+				expect(route.map(at), id).toEqual(jogHalfway(fromPort.point, toPort.point, "right"));
+			}
+		}
+	});
+
+	test("otherwise steps out of its source, goes back past both Nodes in a lane beyond them, and enters its target from the input side", () => {
+		for (const diagram of [orders, down(orders)]) {
+			const { scene } = render(diagram, tiny);
+			for (const { id, route, from, to, fromPort, toPort } of scene?.edges ?? []) {
+				const back = ["order-events->orders-api", "mailer-retries"].includes(id);
+				if (!back || scene === undefined) {
+					continue;
+				}
+				expect(route, id).toHaveLength(6);
+				expect(at(route[1] ?? fromPort.point)).toEqual(fromPort.stub);
+				expect(at(route[4] ?? toPort.point)).toEqual(toPort.stub);
+				const boxes = [nodeOf(scene, from).box, nodeOf(scene, to).box];
+				for (const box of boxes) {
+					expect(goesAround(route, box), id).toBe(true);
+				}
+				// The lane between the two stubs passes both Nodes on the same side.
+				const [laneStart, laneEnd] = [route[2] ?? fromPort.point, route[3] ?? toPort.point];
+				const beyondBoth =
+					laneStart.y === laneEnd.y
+						? laneStart.y < Math.min(...boxes.map((box) => box.y)) ||
+							laneStart.y > Math.max(...boxes.map((box) => box.y + box.height))
+						: laneStart.x < Math.min(...boxes.map((box) => box.x)) ||
+							laneStart.x > Math.max(...boxes.map((box) => box.x + box.width));
+				expect(beyondBoth, `${id}'s lane runs between its Nodes`).toBe(true);
+			}
+		}
+	});
+});
+
+/** The spec's fallback for a target ahead: straight, one jog halfway between the Ports, straight on. */
+function jogHalfway(from: Point, to: Point, direction: Direction): Point[] {
+	if (direction === "down") {
+		const middle = (from.y + to.y) / 2;
+		return from.x === to.x
+			? [from, to]
+			: [from, { x: from.x, y: middle }, { x: to.x, y: middle }, to];
+	}
+	const middle = (from.x + to.x) / 2;
+	return from.y === to.y
+		? [from, to]
+		: [from, { x: middle, y: from.y }, { x: middle, y: to.y }, to];
+}

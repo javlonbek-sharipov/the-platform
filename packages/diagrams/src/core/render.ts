@@ -17,15 +17,24 @@ export interface RenderResult {
 	svg?: string;
 }
 
-export function render(diagram: unknown): RenderResult {
+export interface RenderOptions {
+	/**
+	 * How many states each Edge's route search may visit. An Edge whose search
+	 * runs out falls back to a simple route, with a warning. The default is
+	 * enough for any Diagram of a few hundred Nodes.
+	 */
+	searchBudget?: number;
+}
+
+export function render(diagram: unknown, options: RenderOptions = {}): RenderResult {
 	const validation = validate(diagram);
 	if (validation.diagram === undefined) {
 		return { diagnostics: validation.diagnostics };
 	}
 	const model = validation.diagram;
 	const nodes = layOut(model);
-	const edges = route(model, nodes);
-	const scene: Scene = { bounds: boundsOf(nodes, edges), nodes, edges, diagnostics: [] };
+	const { edges, diagnostics } = route(model, nodes, options);
+	const scene: Scene = { bounds: boundsOf(nodes, edges), nodes, edges, diagnostics };
 	return {
 		diagnostics: [...validation.diagnostics, ...scene.diagnostics],
 		scene,

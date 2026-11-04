@@ -71,6 +71,11 @@ export interface SceneEdge {
 	 * every corner rounded.
 	 */
 	route: RoutePoint[];
+	/**
+	 * Whether the search found no route, so that the Edge fell back to the
+	 * simple route, which may cross Nodes.
+	 */
+	fellBack: boolean;
 }
 
 export interface Scene {
