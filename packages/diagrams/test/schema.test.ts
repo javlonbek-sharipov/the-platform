@@ -1,6 +1,7 @@
 import { readdirSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { render } from "../src/index.ts";
+import everyField from "./fixtures/every-field.json" with { type: "json" };
 import everyKind from "./fixtures/every-kind.ts";
 import { schemaErrors, schemaPointers } from "./support/schema.ts";
 
@@ -38,6 +39,13 @@ describe("the JSON Schema", () => {
 		for (const [name, model] of models) {
 			expect(schemaErrors(model), name).toEqual([]);
 		}
+	});
+
+	test("passes a generated model with every field the engine reads, which the core draws", () => {
+		expect(schemaErrors(everyField)).toEqual([]);
+		const { diagnostics, svg } = render(everyField);
+		expect(diagnostics).toEqual([]);
+		expect(svg).toContain('<g data-edge="charges"');
 	});
 
 	test("requires `version` to be 1, as the core does", () => {
