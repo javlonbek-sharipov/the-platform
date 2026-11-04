@@ -5,7 +5,8 @@
 
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
-import { AtlasError, discover, findRoot, lintAtlas, renderDiagrams } from "../atlas/atlas.ts";
+import { lintAtlas, renderDiagrams } from "../atlas/atlas.ts";
+import { AtlasError, discover, findRoot } from "../atlas/discover.ts";
 import { type AtlasMessage, placeText } from "../atlas/messages.ts";
 
 export interface Output {
