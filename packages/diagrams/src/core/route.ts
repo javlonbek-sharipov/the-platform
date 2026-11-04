@@ -20,9 +20,25 @@ import type {
 	ScenePort,
 	Side,
 } from "./scene.ts";
-import { type Heading, opposite, type Search, searchOn } from "./search.ts";
+import {
+	type Heading,
+	opposite,
+	type Search,
+	type SearchEnd,
+	type SearchStart,
+	searchOn,
+} from "./search.ts";
+
+/**
+ * Which Edges share a trunk (spec: Edge routing, step 4): those of one Kind
+ * that go into one Port, those of one Kind that leave one Port, or none.
+ * Parallel Edges never share one.
+ */
+export type Bundling = "target" | "source" | "none";
 
 export interface RouteOptions {
+	/** Which Edges share a trunk. The architecture Notation bundles by target. */
+	bundle?: Bundling;
 	/**
 	 * How many states each Edge's search may visit. An Edge whose search runs
 	 * out falls back to the simple route.
@@ -65,20 +81,22 @@ const laneSpacing = { preferred: 8, minimum: 4, padding: 8 };
 /**
  * Each Edge's lane group: the Edges that may share a lane, which is a bundle
  * (spec: Edge routing, step 4). A bundle is the Edges of one Kind that go into
- * one Port. Parallel Edges, which join the same pair of Ports, never share
- * one: the second Edge from one source Port in a bundle goes into a second
- * group, and so on.
+ * one Port, or that leave one Port, or each Edge on its own. Parallel Edges,
+ * which join the same pair of Ports, never share one: the second Edge between
+ * two Ports in a bundle goes into a second group, and so on.
  */
-function laneGroups(diagram: Diagram): Map<string, string> {
+function laneGroups(diagram: Diagram, bundle: Bundling): Map<string, string> {
 	const groups = new Map<string, string>();
 	const taken = new Map<string, number>();
 	const port = (end: string | RowEnd) => (typeof end === "string" ? [end] : [end.node, end.row]);
 	for (const edge of [...diagram.edges].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
-		const bundle = JSON.stringify([edge.kind, ...port(edge.to)]);
-		const source = JSON.stringify([bundle, ...port(edge.from)]);
-		const index = taken.get(source) ?? 0;
-		taken.set(source, index + 1);
-		groups.set(edge.id, JSON.stringify([bundle, index]));
+		const [shared, other] =
+			bundle === "source" ? [port(edge.from), port(edge.to)] : [port(edge.to), port(edge.from)];
+		const key = bundle === "none" ? edge.id : JSON.stringify([edge.kind, ...shared]);
+		const pair = JSON.stringify([key, ...other]);
+		const index = taken.get(pair) ?? 0;
+		taken.set(pair, index + 1);
+		groups.set(edge.id, JSON.stringify([key, index]));
 	}
 	return groups;
 }
@@ -115,7 +133,9 @@ export function route(
 	const grid = buildGrid(nodes, groups, clearance);
 	const search = searchOn(grid);
 	const budget = options.searchBudget ?? defaultSearchBudget;
-	const groupOf = laneGroups(diagram);
+	const bundle = options.bundle ?? "target";
+	const groupOf = laneGroups(diagram, bundle);
+	const trunks = new Map<string, Trunk>();
 	// Edges are routed in a stable order, by id, so that no route depends on
 	// the order the Diagram declares its Edges in.
 	const routed = new Map<string, SceneEdge>();
@@ -128,14 +148,25 @@ export function route(
 		if (from === undefined || to === undefined || fromPort === undefined || toPort === undefined) {
 			throw new Error(`Edge ${edge.id} ends at a Port that validation should have rejected`);
 		}
-		const path = searchRoute(grid, search, fromPort, toPort, budget);
-		if (path !== undefined) {
-			found.set(edge.id, {
-				points: polyline(path),
-				fromPort,
-				toPort,
-				group: groupOf.get(edge.id) ?? edge.id,
+		const group = groupOf.get(edge.id) ?? edge.id;
+		const trunk = trunks.get(group) ?? new Map();
+		trunks.set(group, trunk);
+		const vertices = searchRoute(grid, search, fromPort, toPort, budget, {
+			trunk,
+			atSource: bundle === "source",
+		});
+		const path = vertices && [
+			fromPort.point,
+			...vertices.map((vertex) => pointOf(grid, vertex)),
+			toPort.point,
+		];
+		if (vertices !== undefined && path !== undefined) {
+			vertices.forEach((vertex, at) => {
+				if (!trunk.has(vertex)) {
+					trunk.set(vertex, { path: vertices, at });
+				}
 			});
+			found.set(edge.id, { points: polyline(path), fromPort, toPort, group });
 		}
 		routed.set(edge.id, {
 			id: edge.id,
@@ -190,11 +221,26 @@ export function route(
 }
 
 /**
- * The route the search finds between two Ports' stubs, if it finds one. The
- * search runs backward, from the target's stub to the source's. Among routes
- * that cost the same, it then finds the one that bends nearest the source, so
- * Edges from one Port fork just past its stub, and Edges into one Port merge
- * well before it.
+ * For each vertex that a lane group's routes pass, the route that passed it
+ * first, as its vertices from its source's stub to its target's, and where
+ * the vertex lies on it. The routes of a bundle make a tree, its trunk, that
+ * grows toward the sources from the Port they share.
+ */
+type Trunk = Map<number, { path: number[]; at: number }>;
+
+/**
+ * The route the search finds between two Ports' stubs, if it finds one, as
+ * its vertices from the source's stub to the target's. The search runs
+ * backward, from the target's stub to the source's. Among routes that cost
+ * the same, it then finds the one that bends nearest the source, so Edges
+ * from one Port fork just past its stub, and Edges into one Port merge well
+ * before it.
+ *
+ * An Edge whose bundle already has routes starts its search anywhere on their
+ * trunk instead (spec: Edge routing, step 4), so it ends where it joins the
+ * trunk, and follows the trunk from there into the Port. It may join from the
+ * side, with a bend, or from behind, but never head-on. A bundle that shares
+ * its source Port has its trunk there, so the search runs forward from it.
  */
 function searchRoute(
 	grid: Grid,
@@ -202,20 +248,67 @@ function searchRoute(
 	fromPort: ScenePort,
 	toPort: ScenePort,
 	budget: number,
-): Point[] | undefined {
-	const start = vertexAt(grid, toPort.stub);
-	const goal = vertexAt(grid, fromPort.stub);
-	if (start === undefined || goal === undefined) {
+	{ trunk, atSource }: { trunk: Trunk; atSource: boolean },
+): number[] | undefined {
+	const target = vertexAt(grid, toPort.stub);
+	const source = vertexAt(grid, fromPort.stub);
+	if (target === undefined || source === undefined) {
 		return undefined;
 	}
-	const path = search(
-		{ vertex: start, heading: outOf[toPort.side] },
-		{ vertex: goal, heading: opposite[outOf[fromPort.side]] },
-		{ bend: bendCost, crossing: crossingCost, budget },
-	);
-	return (
-		path && [fromPort.point, ...path.reverse().map((vertex) => pointOf(grid, vertex)), toPort.point]
-	);
+	const costs = { bend: bendCost, crossing: crossingCost, budget };
+	const intoTarget: SearchEnd = { vertex: target, heading: opposite[outOf[toPort.side]] };
+	const intoSource: SearchEnd = { vertex: source, heading: opposite[outOf[fromPort.side]] };
+	if (trunk.size === 0) {
+		return search(
+			[{ vertex: target, heading: outOf[toPort.side], cost: 0 }],
+			intoSource,
+			costs,
+		)?.reverse();
+	}
+	// The way the trunk runs at each vertex, from its source end toward its
+	// target end. A trunk into a target runs on along the target's stub at its
+	// end, and a trunk out of a source ends at other Edges' targets.
+	const starts = [...trunk].flatMap(([vertex, { path, at }]): SearchStart[] => {
+		const next = path[at + 1];
+		const previous = path[at - 1];
+		const runs =
+			next !== undefined
+				? headingBetween(pointOf(grid, vertex), pointOf(grid, next))
+				: previous !== undefined && atSource
+					? headingBetween(pointOf(grid, previous), pointOf(grid, vertex))
+					: atSource
+						? outOf[fromPort.side]
+						: opposite[outOf[toPort.side]];
+		// Joining from behind costs nothing, from the side a bend, and head-on is
+		// a U-turn. Going backward, behind is the way the trunk came from.
+		const behind = atSource ? runs : opposite[runs];
+		return headings.flatMap((heading): SearchStart[] =>
+			heading === opposite[behind]
+				? []
+				: [{ vertex, heading, cost: heading === behind ? 0 : bendCost }],
+		);
+	});
+	const path = search(starts, atSource ? intoTarget : intoSource, costs);
+	if (path === undefined) {
+		return undefined;
+	}
+	if (atSource) {
+		const joined = trunk.get(path[0] ?? -1);
+		return joined === undefined ? path : [...joined.path.slice(0, joined.at), ...path];
+	}
+	const own = path.reverse();
+	const joined = trunk.get(own.at(-1) ?? -1);
+	return joined === undefined ? own : [...own, ...joined.path.slice(joined.at + 1)];
+}
+
+const headings: Heading[] = ["east", "south", "west", "north"];
+
+/** The heading from one grid vertex to a neighbor on the same line. */
+function headingBetween(from: Point, to: Point): Heading {
+	if (to.x !== from.x) {
+		return to.x > from.x ? "east" : "west";
+	}
+	return to.y > from.y ? "south" : "north";
 }
 
 /**

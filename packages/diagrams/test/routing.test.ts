@@ -310,19 +310,83 @@ function sharedStretches(a: Point[], b: Point[]): [Point, Point, number, number]
 }
 
 /**
- * The stretches that two Edges of different bundles share, other than where
- * both still run along the stub's line of a Port they share: out of it on
- * their first runs, or into it on their last runs.
+ * The junction of the Port that Edges `a` and `b` both leave, or both enter:
+ * the stretch of its stub's line that their first runs share, or their last
+ * runs, where Edges at one Port leave it together or converge on it. Its
+ * length is the stub's, and room for a lane, a grid step, for each Edge at
+ * the Port.
  */
-function lanesShared(a: SceneEdge, b: SceneEdge): string[] {
-	const lastA = a.route.length - 2;
-	const lastB = b.route.length - 2;
-	const sameSource = portKey(a.from, a.fromRow) === portKey(b.from, b.fromRow);
-	const sameTarget = portKey(a.to, a.toRow) === portKey(b.to, b.toRow);
+function inJunction(
+	scene: Scene,
+	a: SceneEdge,
+	b: SceneEdge,
+	[i, j]: [number, number],
+	[from, to]: [Point, Point],
+): boolean {
+	const length = (port: ScenePort) =>
+		Math.abs(port.stub.x - port.point.x) + Math.abs(port.stub.y - port.point.y);
+	const reaches = (port: ScenePort, count: number) =>
+		[from, to].every(
+			(point) =>
+				Math.abs(point.x - port.point.x) + Math.abs(point.y - port.point.y) <=
+				length(port) + count * scene.grid,
+		);
+	const leaving = scene.edges.filter(
+		(edge) => portKey(edge.from, edge.fromRow) === portKey(a.from, a.fromRow),
+	);
+	const entering = scene.edges.filter(
+		(edge) => portKey(edge.to, edge.toRow) === portKey(a.to, a.toRow),
+	);
+	return (
+		(portKey(a.from, a.fromRow) === portKey(b.from, b.fromRow) &&
+			i === 0 &&
+			j === 0 &&
+			reaches(a.fromPort, leaving.length)) ||
+		(portKey(a.to, a.toRow) === portKey(b.to, b.toRow) &&
+			i === a.route.length - 2 &&
+			j === b.route.length - 2 &&
+			reaches(a.toPort, entering.length))
+	);
+}
+
+/** The stretches two Edges share, other than in the junction of a Port they share. */
+function sharedBeyondJunctions(scene: Scene, a: SceneEdge, b: SceneEdge): [Point, Point][] {
 	return sharedStretches(a.route, b.route)
-		.filter(([, , i, j]) => !(sameSource && i === 0 && j === 0))
-		.filter(([, , i, j]) => !(sameTarget && i === lastA && j === lastB))
-		.map(([from, to]) => `${a.id} and ${b.id} share (${from.x}, ${from.y})–(${to.x}, ${to.y})`);
+		.filter(([from, to, i, j]) => !inJunction(scene, a, b, [i, j], [from, to]))
+		.map(([from, to]): [Point, Point] => [from, to]);
+}
+
+/** The stretches that two Edges of different bundles share beyond the junctions of their Ports, described. */
+function lanesShared(scene: Scene, a: SceneEdge, b: SceneEdge): string[] {
+	return sharedBeyondJunctions(scene, a, b).map(
+		([from, to]) => `${a.id} and ${b.id} share (${from.x}, ${from.y})–(${to.x}, ${to.y})`,
+	);
+}
+
+/**
+ * Where route `b` leaves route `a` after it has met it, if it ever does:
+ * walking `b` from its source a pixel at a time, the first point off `a`
+ * after one on it.
+ */
+function partsAfterMeeting(a: Point[], b: Point[]): Point | undefined {
+	const onA = (point: Point) => segmentsOf(a).some(([from, to]) => onSegment(point, from, to));
+	let met = false;
+	for (const [from, to] of segmentsOf(b)) {
+		const length = Math.abs(to.x - from.x) + Math.abs(to.y - from.y);
+		for (let step = 0; step <= length; step += 1) {
+			const t = Math.min(step, length);
+			const point = {
+				x: from.x + Math.sign(to.x - from.x) * t,
+				y: from.y + Math.sign(to.y - from.y) * t,
+			};
+			if (onA(point)) {
+				met = true;
+			} else if (met) {
+				return point;
+			}
+		}
+	}
+	return undefined;
 }
 
 /** Whether `point` lies on the horizontal or vertical segment from `a` to `b`. */
@@ -484,12 +548,26 @@ describe.each(fixtures)("every route in %s", (_, diagram) => {
 		}
 	});
 
-	test("shares no stretch of lane with an Edge of another bundle, beyond the stub of a Port they share", () => {
-		const { edges } = sceneOf(diagram);
+	test("shares no stretch of lane with an Edge of another bundle, beyond the junction of a Port they share", () => {
+		const scene = sceneOf(diagram);
+		const { edges } = scene;
 		const shared = edges.flatMap((a, index) =>
-			edges.slice(index + 1).flatMap((b) => (sameBundle(a, b) ? [] : lanesShared(a, b))),
+			edges.slice(index + 1).flatMap((b) => (sameBundle(a, b) ? [] : lanesShared(scene, a, b))),
 		);
 		expect(shared).toEqual([]);
+	});
+
+	test("runs together with the other Edges of its bundle into their Port, once it meets them", () => {
+		const { edges } = sceneOf(diagram);
+		const parted = edges.flatMap((a) =>
+			edges
+				.filter((b) => b !== a && sameBundle(a, b))
+				.flatMap((b) => {
+					const point = partsAfterMeeting(a.route, b.route);
+					return point === undefined ? [] : [`${b.id} leaves ${a.id} at (${point.x}, ${point.y})`];
+				}),
+		);
+		expect(parted).toEqual([]);
 	});
 
 	test("never passes through a Group label, nor touches one", () => {
@@ -570,6 +648,93 @@ function crossingsBetween(a: Point[], b: Point[]): number {
 	}
 	return count;
 }
+
+/**
+ * Three clients call the gateway, and the partner API also sends it
+ * messages. The gateway calls three APIs.
+ */
+const gateway = architecture({ title: "Gateway" }, (d) => {
+	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+	const mobile = d.node({ id: "mobile-app", kind: "client", title: "Mobile app" });
+	const partner = d.node({ id: "partner-api", kind: "system", title: "Partner API" });
+	const gate = d.node({ id: "gateway", kind: "gateway", title: "Gateway" });
+	d.edge(web, gate, { kind: "call" });
+	d.edge(mobile, gate, { kind: "call" });
+	d.edge(partner, gate, { kind: "call", id: "partner-calls" });
+	d.edge(partner, gate, { kind: "message", id: "partner-events" });
+	for (const id of ["orders-api", "stock-api", "users-api"]) {
+		d.node({ id, kind: "service", title: id });
+		d.edge(gate, id, { kind: "call" });
+	}
+});
+
+function edgeOf(scene: Scene, id: string): SceneEdge {
+	const edge = scene.edges.find((candidate) => candidate.id === id);
+	if (edge === undefined) {
+		throw new Error(`no Edge ${id} in the scene`);
+	}
+	return edge;
+}
+
+describe("bundling", () => {
+	const calls = ["web-app->gateway", "mobile-app->gateway", "partner-calls"];
+	const fanOut = ["gateway->orders-api", "gateway->stock-api", "gateway->users-api"];
+	const pairs = (ids: string[]) =>
+		ids.flatMap((a, index) => ids.slice(index + 1).map((b) => [a, b]));
+
+	test("merges Edges of one Kind into one Port into a trunk, and keeps an Edge of another Kind in its own lane", () => {
+		for (const diagram of [gateway, down(gateway)]) {
+			const scene = sceneOf(diagram);
+			for (const [a = "", b = ""] of pairs(calls)) {
+				expect(
+					sharedBeyondJunctions(scene, edgeOf(scene, a), edgeOf(scene, b)),
+					`${a} and ${b}`,
+				).not.toEqual([]);
+			}
+			for (const call of calls) {
+				expect(
+					sharedBeyondJunctions(scene, edgeOf(scene, "partner-events"), edgeOf(scene, call)),
+				).toEqual([]);
+			}
+		}
+	});
+
+	test("can bundle Edges of one Kind out of one Port instead, so that Edges into one Port keep apart", () => {
+		for (const diagram of [gateway, down(gateway)]) {
+			const { scene } = render(diagram, { bundle: "source" });
+			if (scene === undefined) {
+				throw new Error("expected a scene");
+			}
+			for (const [a = "", b = ""] of pairs(fanOut)) {
+				expect(
+					sharedBeyondJunctions(scene, edgeOf(scene, a), edgeOf(scene, b)),
+					`${a} and ${b}`,
+				).not.toEqual([]);
+			}
+			for (const [a = "", b = ""] of pairs(calls)) {
+				expect(
+					sharedBeyondJunctions(scene, edgeOf(scene, a), edgeOf(scene, b)),
+					`${a} and ${b}`,
+				).toEqual([]);
+			}
+		}
+	});
+
+	test("can bundle nothing, so that no two Edges share a lane beyond the junctions of their Ports", () => {
+		for (const diagram of [gateway, down(gateway)]) {
+			const { scene } = render(diagram, { bundle: "none" });
+			if (scene === undefined) {
+				throw new Error("expected a scene");
+			}
+			const edges = scene.edges;
+			const shared = edges.flatMap((a, index) =>
+				edges.slice(index + 1).flatMap((b) => lanesShared(scene, a, b)),
+			);
+			expect(edges).toHaveLength(diagram.edges.length);
+			expect(shared).toEqual([]);
+		}
+	});
+});
 
 describe("Edges that share a corridor", () => {
 	test("spread into lanes that don't cross, when they fan out from one Port", () => {

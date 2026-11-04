@@ -70,8 +70,12 @@ interface Stretch {
 	high: number;
 	group: string;
 	runs: Run[];
-	/** Whether it holds a first or last run that carries a stub straight on, so that it would rather not jog. */
-	pinned: boolean;
+	/**
+	 * How much it would rather keep its line: 2 when it holds a route that runs
+	 * straight from stub to stub, which would jog at both ends, 1 when it holds
+	 * a first or last run that carries a stub straight on, and 0 otherwise.
+	 */
+	pinned: number;
 	/** Whether its corners at its low and high ends stay put, being where it leaves a stub. */
 	fixedLow: boolean;
 	fixedHigh: boolean;
@@ -97,8 +101,16 @@ export function nudge(routes: NudgeRoute[], corridors: Corridors, spacing: LaneS
 			offsets.set(run, stretch.offset);
 		}
 	}
+	const offsetOf = (run: Run) => offsets.get(run) ?? 0;
+	const jogs = jogsOf(routes, runs, offsetOf);
+	placeJogs(jogs, routes, runs, offsetOf, spacing);
 	return routes.map((route, index) =>
-		offsetRoute(route, runs[index] ?? [], (run) => offsets.get(run) ?? 0),
+		offsetRoute(
+			route,
+			runs[index] ?? [],
+			offsetOf,
+			(end) => jogs.get(`${index} ${end}`)?.along ?? 0,
+		),
 	);
 }
 
@@ -164,7 +176,7 @@ function stretchesOf(runs: Run[], routes: NudgeRoute[]): Stretch[] {
 					high: run.high,
 					group,
 					runs: [run],
-					pinned: false,
+					pinned: 0,
 					fixedLow: false,
 					fixedHigh: false,
 					lowest: run.line,
@@ -176,18 +188,15 @@ function stretchesOf(runs: Run[], routes: NudgeRoute[]): Stretch[] {
 		}
 	}
 	for (const stretch of stretches) {
-		stretch.pinned = stretch.runs.some((run) => carriesStub(run, routes));
+		stretch.pinned = Math.max(0, ...stretch.runs.map((run) => stubsCarried(run, routes)));
 	}
 	return stretches;
 }
 
-/** Whether a run is a route's first or last, carrying its Port's stub straight on. */
-function carriesStub(run: Run, routes: NudgeRoute[]): boolean {
-	const route = routes[run.route];
-	if (route === undefined) {
-		return false;
-	}
-	return run.index === 0 || run.index === route.points.length - 2;
+/** How many of its Ports' stubs a run carries straight on: as a route's first run, its last, or both. */
+function stubsCarried(run: Run, routes: NudgeRoute[]): number {
+	const last = (routes[run.route]?.points.length ?? 0) - 2;
+	return (run.index === 0 ? 1 : 0) + (run.index === last ? 1 : 0);
 }
 
 /**
@@ -505,7 +514,8 @@ function place(sorted: Stretch[], spacing: LaneSpacing): void {
 		first = Math.max(first, stretch.lowest - index * gap);
 		last = Math.min(last, stretch.highest - index * gap);
 	});
-	const pinned = sorted.findIndex((stretch) => stretch.pinned);
+	const most = Math.max(...sorted.map((stretch) => stretch.pinned));
+	const pinned = most > 0 ? sorted.findIndex((stretch) => stretch.pinned === most) : -1;
 	const wanted = pinned >= 0 ? line - pinned * gap : line - ((count - 1) * gap) / 2;
 	const start = first <= last ? Math.min(Math.max(wanted, first), last) : wanted;
 	sorted.forEach((stretch, index) => {
@@ -513,12 +523,221 @@ function place(sorted: Stretch[], spacing: LaneSpacing): void {
 	});
 }
 
+/** Which end of a route: where it leaves its source's Port, or where it enters its target's. */
+type End = "first" | "last";
+
+/**
+ * A jog, where a stub carries straight on into a lane at a different height:
+ * a short run across the stub's line, joining it to the lane.
+ */
+interface Jog {
+	route: number;
+	end: End;
+	/** The Port's point, which names the Port that the jog's route shares with others. */
+	port: Point;
+	/** The stub's end, and a unit vector along the stub's line, out of its Node. */
+	stub: Point;
+	out: Point;
+	/** How far the lane lies from the stub's line, toward higher coordinates or lower ones. */
+	lane: number;
+	/** How far past the stub's end the jog is, out along the stub's line. */
+	along: number;
+	/** How far past it the jog may go, leaving the lane some length before its next corner. */
+	limit: number;
+}
+
+/** The jogs every route needs, keyed by route and end. */
+function jogsOf(
+	routes: NudgeRoute[],
+	runs: Run[][],
+	offsetOf: (run: Run) => number,
+): Map<string, Jog> {
+	const jogs = new Map<string, Jog>();
+	routes.forEach((route, index) => {
+		const routeRuns = runs[index] ?? [];
+		for (const end of ["first", "last"] as const) {
+			const run = end === "first" ? routeRuns[0] : routeRuns.at(-1);
+			if (run === undefined || run.stubOnly || offsetOf(run) === 0) {
+				continue;
+			}
+			const port = end === "first" ? route.fromPort : route.toPort;
+			const out = unit(port.point, port.stub);
+			// The lane reaches as far as the corner after it, which moves out by the
+			// next run's lane. A route of one run shares its length between its jogs.
+			const next = end === "first" ? routeRuns[1] : routeRuns.at(-2);
+			const corner = end === "first" ? run.to : run.from;
+			const reach =
+				next === undefined || routeRuns.length === 1
+					? along(port.stub, end === "first" ? route.toPort.stub : route.fromPort.stub, out) / 2
+					: along(port.stub, corner, out) + offsetOf(next) * (next.horizontal ? out.y : out.x);
+			jogs.set(`${index} ${end}`, {
+				route: index,
+				end,
+				port: port.point,
+				stub: port.stub,
+				out,
+				lane: offsetOf(run),
+				along: 0,
+				limit: reach,
+			});
+		}
+	});
+	return jogs;
+}
+
+function unit(from: Point, to: Point): Point {
+	return { x: Math.sign(to.x - from.x), y: Math.sign(to.y - from.y) };
+}
+
+/** How far `to` lies past `from`, along a unit vector. */
+function along(from: Point, to: Point, direction: Point): number {
+	return (to.x - from.x) * direction.x + (to.y - from.y) * direction.y;
+}
+
+/**
+ * Places each jog along its stub's line, out from the stub's end. At one Port,
+ * the jog to the farthest lane comes first, nearest the Port, and each jog
+ * keeps beyond the routes that turn off the stub's line to the same side, so
+ * that none of them cross. Each then moves out as far as it must to keep
+ * clear of every other route's runs across the line.
+ */
+function placeJogs(
+	jogs: Map<string, Jog>,
+	routes: NudgeRoute[],
+	runs: Run[][],
+	offsetOf: (run: Run) => number,
+	spacing: LaneSpacing,
+): void {
+	if (jogs.size === 0) {
+		return;
+	}
+	// Every route's runs as drawn, leaving out the jogs, which move.
+	const drawn = routes.map((route, index) =>
+		segmentsOf(offsetRoute(route, runs[index] ?? [], offsetOf, () => 0)).filter(
+			(segment) =>
+				!isJog(segment, jogs.get(`${index} first`)) && !isJog(segment, jogs.get(`${index} last`)),
+		),
+	);
+	const byPort = new Map<string, Jog[]>();
+	for (const jog of jogs.values()) {
+		const key = `${jog.end} ${jog.port.x} ${jog.port.y}`;
+		byPort.set(key, [...(byPort.get(key) ?? []), jog]);
+	}
+	for (const portJogs of byPort.values()) {
+		portJogs.sort((a, b) => Math.abs(b.lane) - Math.abs(a.lane) || a.route - b.route);
+		const placed: Jog[] = [];
+		for (const jog of portJogs) {
+			const side = Math.sign(jog.lane);
+			let start = 0;
+			for (const other of placed.filter((candidate) => Math.sign(candidate.lane) === side)) {
+				start = Math.max(start, other.along + spacing.minimum);
+			}
+			routes.forEach((route, index) => {
+				const turn = turnOff(route, runs[index] ?? [], jog, offsetOf);
+				if (turn !== undefined && turn.side === side) {
+					start = Math.max(start, turn.along + spacing.minimum);
+				}
+			});
+			jog.along = start <= jog.limit ? start : 0;
+			for (let at = jog.along; at <= jog.limit; at += spacing.minimum) {
+				const segment = jogSegment(jog, at);
+				const clear = drawn.every(
+					(segments, index) =>
+						index === jog.route ||
+						segments.every((other) => !alongside(segment, other, spacing.minimum)),
+				);
+				if (clear) {
+					jog.along = at;
+					break;
+				}
+			}
+			placed.push(jog);
+			drawn[jog.route]?.push(jogSegment(jog, jog.along));
+		}
+	}
+}
+
+/**
+ * Where a route that shares a jog's Port turns off the stub's line, if it
+ * does so right at the stub's end: how far out along the line, and to which
+ * side of it.
+ */
+function turnOff(
+	route: NudgeRoute,
+	routeRuns: Run[],
+	jog: Jog,
+	offsetOf: (run: Run) => number,
+): { along: number; side: number } | undefined {
+	const port = jog.end === "first" ? route.fromPort : route.toPort;
+	const stub = jog.end === "first" ? routeRuns[0] : routeRuns.at(-1);
+	const turn = jog.end === "first" ? routeRuns[1] : routeRuns.at(-2);
+	if (!same(port.point, jog.port) || stub?.stubOnly !== true || turn === undefined) {
+		return undefined;
+	}
+	const away = jog.end === "first" ? turn.to : turn.from;
+	const across = jog.out.x === 0 ? away.x - jog.stub.x : away.y - jog.stub.y;
+	return {
+		along: offsetOf(turn) * (turn.horizontal ? jog.out.y : jog.out.x),
+		side: Math.sign(across),
+	};
+}
+
+interface Segment {
+	from: Point;
+	to: Point;
+}
+
+function segmentsOf(points: Point[]): Segment[] {
+	return points.slice(1).map((to, index) => ({ from: points[index] ?? to, to }));
+}
+
+/** The jog's run across the stub's line, placed `at` past the stub's end. */
+function jogSegment(jog: Jog, at: number): Segment {
+	const from = { x: jog.stub.x + jog.out.x * at, y: jog.stub.y + jog.out.y * at };
+	const to =
+		jog.out.x === 0 ? { x: from.x + jog.lane, y: from.y } : { x: from.x, y: from.y + jog.lane };
+	return { from, to };
+}
+
+/** Whether a drawn segment is a jog's run at the stub's end. */
+function isJog(segment: Segment, jog: Jog | undefined): boolean {
+	if (jog === undefined) {
+		return false;
+	}
+	const { from, to } = jogSegment(jog, 0);
+	return (
+		(same(segment.from, from) && same(segment.to, to)) ||
+		(same(segment.from, to) && same(segment.to, from))
+	);
+}
+
+/** Whether two segments run side by side, closer than `distance`, along a shared stretch. */
+function alongside(a: Segment, b: Segment, distance: number): boolean {
+	const vertical = (segment: Segment) => segment.from.x === segment.to.x;
+	if (vertical(a) !== vertical(b)) {
+		return false;
+	}
+	const [acrossA, acrossB] = vertical(a) ? [a.from.x, b.from.x] : [a.from.y, b.from.y];
+	const span = (segment: Segment) =>
+		vertical(segment) ? [segment.from.y, segment.to.y] : [segment.from.x, segment.to.x];
+	const [a1 = 0, a2 = 0] = span(a);
+	const [b1 = 0, b2 = 0] = span(b);
+	const overlap =
+		Math.min(Math.max(a1, a2), Math.max(b1, b2)) - Math.max(Math.min(a1, a2), Math.min(b1, b2));
+	return Math.abs(acrossA - acrossB) < distance && overlap > 0;
+}
+
 /**
  * A route with every run offset by its lane. Where a stub carries straight on
- * into a lane at a different height, a short jog at the stub's end joins
- * them.
+ * into a lane at a different height, a short jog joins them, `jogAt` past the
+ * stub's end.
  */
-function offsetRoute(route: NudgeRoute, runs: Run[], offsetOf: (run: Run) => number): Point[] {
+function offsetRoute(
+	route: NudgeRoute,
+	runs: Run[],
+	offsetOf: (run: Run) => number,
+	jogAt: (end: End) => number,
+): Point[] {
 	const shift = (point: Point, run: Run | undefined): Point => {
 		if (run === undefined) {
 			return point;
@@ -527,6 +746,11 @@ function offsetRoute(route: NudgeRoute, runs: Run[], offsetOf: (run: Run) => num
 		return run.horizontal
 			? { x: point.x, y: point.y + offset }
 			: { x: point.x + offset, y: point.y };
+	};
+	const outFrom = (port: ScenePort, end: End): Point => {
+		const out = unit(port.point, port.stub);
+		const at = jogAt(end);
+		return { x: port.stub.x + out.x * at, y: port.stub.y + out.y * at };
 	};
 	const points: Point[] = [];
 	const first = runs[0];
@@ -537,7 +761,8 @@ function offsetRoute(route: NudgeRoute, runs: Run[], offsetOf: (run: Run) => num
 	}
 	points.push(start);
 	if (!first.stubOnly && offsetOf(first) !== 0) {
-		points.push(route.fromPort.stub, shift(route.fromPort.stub, first));
+		const at = outFrom(route.fromPort, "first");
+		points.push(at, shift(at, first));
 	}
 	for (let index = 1; index < runs.length; index += 1) {
 		const corner = route.points[index] ?? start;
@@ -545,7 +770,8 @@ function offsetRoute(route: NudgeRoute, runs: Run[], offsetOf: (run: Run) => num
 	}
 	const end = route.points.at(-1) ?? start;
 	if (!last.stubOnly && offsetOf(last) !== 0) {
-		points.push(shift(route.toPort.stub, last), route.toPort.stub);
+		const at = outFrom(route.toPort, "last");
+		points.push(shift(at, last), at);
 	}
 	points.push(end);
 	return points;

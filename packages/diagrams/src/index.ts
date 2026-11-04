@@ -30,6 +30,7 @@ export type {
 export type { Diagnostic, Severity } from "./core/diagnostics.ts";
 export type { RenderOptions, RenderResult } from "./core/render.ts";
 export { render } from "./core/render.ts";
+export type { Bundling } from "./core/route.ts";
 export type {
 	Box,
 	Point,

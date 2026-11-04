@@ -6,7 +6,7 @@
 
 import type { Diagnostic } from "./diagnostics.ts";
 import { clearance, grid, layOut, margin } from "./layout.ts";
-import { route } from "./route.ts";
+import { type Bundling, route } from "./route.ts";
 import type { Box, Scene, SceneEdge } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
 import { type FontData, textDiagnostics } from "./text.ts";
@@ -19,6 +19,13 @@ export interface RenderResult {
 }
 
 export interface RenderOptions {
+	/**
+	 * Which Edges share a trunk: those of one Kind into one Port (`target`,
+	 * which the architecture Notation uses and the default), those of one Kind
+	 * out of one Port (`source`), or none. A later Notation may bundle
+	 * differently, and tests compare the three.
+	 */
+	bundle?: Bundling;
 	/**
 	 * Gives the SVG the bundled font's glyphs that it draws. Without it, the
 	 * SVG embeds no font, which suits callers that only look at the scene.

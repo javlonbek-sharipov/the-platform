@@ -30,6 +30,11 @@ export interface SearchEnd {
 	heading: Heading;
 }
 
+/** A state the search may start from, and what starting there costs. */
+export interface SearchStart extends SearchEnd {
+	cost: number;
+}
+
 export interface SearchCosts {
 	bend: number;
 	/** The cost of crossing one Group border. */
@@ -39,11 +44,11 @@ export interface SearchCosts {
 }
 
 /**
- * The cheapest path from `start` to `goal`, as its vertices in order, or
- * undefined if there's none within the budget.
+ * The cheapest path from any of the `starts` to `goal`, as its vertices in
+ * order, or undefined if there's none within the budget.
  */
 export type Search = (
-	start: SearchEnd,
+	starts: SearchStart[],
 	goal: SearchEnd,
 	costs: SearchCosts,
 ) => number[] | undefined;
@@ -67,12 +72,8 @@ export function searchOn(grid: Grid): Search {
 	const reached = new Uint32Array(states);
 	let current = 0;
 
-	return (start, goal, costs) => {
-		const startHeading = headings.indexOf(start.heading);
+	return (starts, goal, costs) => {
 		const goalHeading = headings.indexOf(goal.heading);
-		if (start.vertex === goal.vertex && startHeading !== (goalHeading + 2) % 4) {
-			return [start.vertex];
-		}
 		current += 1;
 		const goalX = xOf(goal.vertex);
 		const goalY = yOf(goal.vertex);
@@ -88,8 +89,16 @@ export function searchOn(grid: Grid): Search {
 			queue.push(state, cost, cost + Math.abs(xOf(vertex) - goalX) + Math.abs(yOf(vertex) - goalY));
 		};
 
-		const first = 4 * start.vertex + startHeading;
-		reach(first, 0, -1);
+		// A start at the goal is a route already, unless it leaves the opposite
+		// way, and then the search goes on from it.
+		for (const start of starts) {
+			const heading = headings.indexOf(start.heading);
+			const arrival =
+				start.vertex === goal.vertex && heading !== goalHeading && heading !== (goalHeading + 2) % 4
+					? costs.bend
+					: 0;
+			reach(4 * start.vertex + heading, start.cost + arrival, -1);
+		}
 		let visits = 0;
 		for (let entry = queue.pop(); entry !== undefined; entry = queue.pop()) {
 			const { state, cost } = entry;
@@ -102,7 +111,7 @@ export function searchOn(grid: Grid): Search {
 			visits += 1;
 			const heading = state % 4;
 			const vertex = (state - heading) / 4;
-			if (vertex === goal.vertex && state !== first) {
+			if (vertex === goal.vertex && (parents[state] !== -1 || heading !== (goalHeading + 2) % 4)) {
 				return pathTo(state, parents);
 			}
 			for (let next = 0; next < 4; next++) {
