@@ -185,7 +185,7 @@ const labelDetailLine = 14;
 const labelPaddingX = 4;
 const labelPaddingY = 2;
 /** The room between the Technology and the rate. */
-export const labelSeparation = 12;
+const labelSeparation = 12;
 /**
  * The widest a label's texts are drawn. A gap between ranks leaves no more
  * room for a label than this, so a longer label is too long for any run.
@@ -360,7 +360,7 @@ export function textDiagnostics(
 		return [title, ...rows, ...callout].flatMap(warningsAbout);
 	});
 	const labels = new Map(edges.map((edge) => [edge.id, edge.label]));
-	const labelTexts = diagram.edges.flatMap((edge, index) => {
+	const edgeTexts = diagram.edges.flatMap((edge, index) => {
 		const named = `Edge \`${edge.id}\``;
 		const label = labels.get(edge.id);
 		const fields = [
@@ -385,11 +385,7 @@ export function textDiagnostics(
 					];
 		});
 	});
-	return [
-		...nodeTexts,
-		...groupTitles.flatMap(warningsAbout),
-		...labelTexts.flatMap(warningsAbout),
-	];
+	return [...nodeTexts, ...groupTitles.flatMap(warningsAbout), ...edgeTexts.flatMap(warningsAbout)];
 }
 
 /** A piece of text that a Node draws, and how warnings about it read. */
