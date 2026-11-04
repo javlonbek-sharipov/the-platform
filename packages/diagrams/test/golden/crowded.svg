@@ -1,33 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" class="diagram-de50c81f05231334" role="img" viewBox="0 0 7240 1920" width="7240" height="1920">
+<svg xmlns="http://www.w3.org/2000/svg" class="diagram-e52b6e60ce6cd214" role="img" viewBox="0 0 7240 1920" width="7240" height="1920">
   <title>Online shop</title>
   <desc>Nodes: Web app (client); Mobile app (client); Admin app (client); Partner portal (client); API gateway (gateway); Cdn (gateway); Auth service (service); Rate limiter (cache); Feature flags (service); Orders API (service); Cart API (service); Users API (service); Orders db (database); Cart cache (cache); Users db (database); Session cache (cache); Payments API (service); Payments db (database); Fraud worker (worker); Search API (service); Inventory API (service); Reviews API (service); Pricing API (service); Promotions API (service); Recs API (service); Search index (search); Inventory db (database); Reviews db (database); Recs cache (cache); Catalog API (service); Catalog db (database); Image resizer (function); Product images (storage); Order events (queue); Payment events (queue); Inventory events (queue); Notifications (queue); Shipping API (service); Picker (worker); Label printer (function); Shipping db (database); Email worker (worker); Sms worker (worker); Analytics worker (worker); Invoice worker (worker); Admin API (service); Report API (service); Audit log (storage); Orders replica (database); Search replica (search); Report worker (worker); Logs (storage); Metrics (storage); Tracing (service); Alerting (function); Payment provider (system, External); Email provider (system, External); Sms provider (system, External); Shipping carrier (system, External). Edges: Web app calls API gateway. Mobile app calls API gateway. Admin app calls API gateway. Partner portal calls API gateway. Web app calls Cdn. Mobile app calls Cdn. Cdn calls Product images. API gateway calls Auth service. API gateway calls Rate limiter. API gateway calls Feature flags. Auth service calls Users API. Auth service calls Session cache. Rate limiter calls Session cache. Feature flags calls Users db. API gateway calls Orders API. API gateway calls Cart API. API gateway calls Users API. API gateway calls Payments API. API gateway calls Catalog API. API gateway calls Search API. API gateway calls Inventory API. API gateway calls Reviews API. API gateway calls Pricing API. API gateway calls Promotions API. API gateway calls Recs API. API gateway calls Shipping API. API gateway calls Admin API. API gateway calls Report API. Orders API calls Orders db. Cart API calls Cart cache. Users API calls Users db. Payments API calls Payments db. Catalog API calls Catalog db. Search API calls Search index. Inventory API calls Inventory db. Reviews API calls Reviews db. Pricing API calls Catalog db. Promotions API calls Catalog db. Recs API calls Recs cache. Shipping API calls Shipping db. Admin API calls Audit log. Report API calls Orders replica. Orders API calls Payments API. Orders API calls Payments API. Orders API calls Inventory API. Orders API calls Cart API. Orders API calls Users API. Orders API calls Pricing API. Cart API calls Pricing API. Cart API calls Promotions API. Cart API calls Inventory API. Cart API calls Session cache. Users API calls Session cache. Payments API calls Payment provider. Search API calls Catalog API. Recs API calls Search API. Recs API calls Orders replica. Catalog API calls Product images. Catalog API calls Image resizer. Image resizer calls Product images. Pricing API calls Promotions API. Shipping API calls Shipping carrier. Admin API calls Orders API. Admin API calls Users API. Admin API calls Catalog API. Report API calls Search replica. Report API calls Report worker. Report worker calls Orders replica. Report worker calls Search replica. Invoice worker calls Payments db. Fraud worker calls Orders API. Picker calls Shipping db. Picker calls Label printer. Label printer calls Shipping carrier. Email worker calls Email provider. Sms worker calls Sms provider. Analytics worker calls Metrics. Analytics worker calls Recs API. Payment provider calls Payments API. Shipping carrier calls Shipping API. Tracing calls Metrics. Metrics calls Alerting. Alerting calls Email provider. Alerting calls Sms provider. Logs calls Alerting. Web app calls Auth service. Mobile app calls Auth service. Partner portal calls Cdn. Reviews API calls Users API. Reviews API calls Catalog API. Promotions API calls Users API. Inventory API calls Catalog API. Shipping API calls Orders API. Shipping API calls Inventory API. Invoice worker calls Orders API. Analytics worker calls Orders replica. Report worker calls Metrics. Feature flags calls Session cache. API gateway calls Tracing. Orders API calls Tracing. Cart API calls Tracing. Users API calls Tracing. Payments API calls Tracing. Catalog API calls Tracing. Search API calls Tracing. Inventory API calls Tracing. Shipping API calls Tracing. Admin API calls Tracing. Report API calls Tracing. Orders API sends messages to Order events. Payments API sends messages to Payment events. Inventory API sends messages to Inventory events. Orders API sends messages to Notifications. Payments API sends messages to Notifications. Shipping API sends messages to Notifications. Order events sends messages to Email worker. Order events sends messages to Analytics worker. Order events sends messages to Invoice worker. Order events sends messages to Shipping API. Payment events sends messages to Fraud worker. Payment events sends messages to Invoice worker. Payment events sends messages to Analytics worker. Inventory events sends messages to Search API. Inventory events sends messages to Analytics worker. Notifications sends messages to Email worker. Notifications sends messages to Sms worker. Shipping API sends messages to Picker. Orders db sends messages to Orders replica. Search index sends messages to Search replica. Admin API sends messages to Audit log. Email provider sends messages to Notifications. Catalog API sends messages to Inventory events. Reviews API sends messages to Notifications. Users API sends messages to Notifications. Fraud worker sends messages to Payment events. API gateway sends messages to Metrics. Orders API sends messages to Metrics. Payments API sends messages to Metrics. API gateway sends messages to Logs. Orders API sends messages to Logs. Cart API sends messages to Logs. Users API sends messages to Logs. Payments API sends messages to Logs. Catalog API sends messages to Logs. Search API sends messages to Logs. Inventory API sends messages to Logs. Shipping API sends messages to Logs. Admin API sends messages to Logs.</desc>
   <metadata>{"direction":"right","edges":[{"from":"web-app","id":"web-app-&gt;api-gateway","kind":"call","to":"api-gateway"},{"from":"mobile-app","id":"mobile-app-&gt;api-gateway","kind":"call","to":"api-gateway"},{"from":"admin-app","id":"admin-app-&gt;api-gateway","kind":"call","to":"api-gateway"},{"from":"partner-portal","id":"partner-portal-&gt;api-gateway","kind":"call","to":"api-gateway"},{"from":"web-app","id":"web-app-&gt;cdn","kind":"call","to":"cdn"},{"from":"mobile-app","id":"mobile-app-&gt;cdn","kind":"call","to":"cdn"},{"from":"cdn","id":"cdn-&gt;product-images","kind":"call","to":"product-images"},{"from":"api-gateway","id":"api-gateway-&gt;auth-service","kind":"call","to":"auth-service"},{"from":"api-gateway","id":"api-gateway-&gt;rate-limiter","kind":"call","to":"rate-limiter"},{"from":"api-gateway","id":"api-gateway-&gt;feature-flags","kind":"call","to":"feature-flags"},{"from":"auth-service","id":"auth-service-&gt;users-api","kind":"call","to":"users-api"},{"from":"auth-service","id":"auth-service-&gt;session-cache","kind":"call","to":"session-cache"},{"from":"rate-limiter","id":"rate-limiter-&gt;session-cache","kind":"call","to":"session-cache"},{"from":"feature-flags","id":"feature-flags-&gt;users-db","kind":"call","to":"users-db"},{"from":"api-gateway","id":"api-gateway-&gt;orders-api","kind":"call","to":"orders-api"},{"from":"api-gateway","id":"api-gateway-&gt;cart-api","kind":"call","to":"cart-api"},{"from":"api-gateway","id":"api-gateway-&gt;users-api","kind":"call","to":"users-api"},{"from":"api-gateway","id":"api-gateway-&gt;payments-api","kind":"call","to":"payments-api"},{"from":"api-gateway","id":"api-gateway-&gt;catalog-api","kind":"call","to":"catalog-api"},{"from":"api-gateway","id":"api-gateway-&gt;search-api","kind":"call","to":"search-api"},{"from":"api-gateway","id":"api-gateway-&gt;inventory-api","kind":"call","to":"inventory-api"},{"from":"api-gateway","id":"api-gateway-&gt;reviews-api","kind":"call","to":"reviews-api"},{"from":"api-gateway","id":"api-gateway-&gt;pricing-api","kind":"call","to":"pricing-api"},{"from":"api-gateway","id":"api-gateway-&gt;promotions-api","kind":"call","to":"promotions-api"},{"from":"api-gateway","id":"api-gateway-&gt;recs-api","kind":"call","to":"recs-api"},{"from":"api-gateway","id":"api-gateway-&gt;shipping-api","kind":"call","to":"shipping-api"},{"from":"api-gateway","id":"api-gateway-&gt;admin-api","kind":"call","to":"admin-api"},{"from":"api-gateway","id":"api-gateway-&gt;report-api","kind":"call","to":"report-api"},{"from":"orders-api","id":"orders-api-&gt;orders-db","kind":"call","to":"orders-db"},{"from":"cart-api","id":"cart-api-&gt;cart-cache","kind":"call","to":"cart-cache"},{"from":"users-api","id":"users-api-&gt;users-db","kind":"call","to":"users-db"},{"from":"payments-api","id":"payments-api-&gt;payments-db","kind":"call","to":"payments-db"},{"from":"catalog-api","id":"catalog-api-&gt;catalog-db","kind":"call","to":"catalog-db"},{"from":"search-api","id":"search-api-&gt;search-index","kind":"call","to":"search-index"},{"from":"inventory-api","id":"inventory-api-&gt;inventory-db","kind":"call","to":"inventory-db"},{"from":"reviews-api","id":"reviews-api-&gt;reviews-db","kind":"call","to":"reviews-db"},{"from":"pricing-api","id":"pricing-api-&gt;catalog-db","kind":"call","to":"catalog-db"},{"from":"promotions-api","id":"promotions-api-&gt;catalog-db","kind":"call","to":"catalog-db"},{"from":"recs-api","id":"recs-api-&gt;recs-cache","kind":"call","to":"recs-cache"},{"from":"shipping-api","id":"shipping-api-&gt;shipping-db","kind":"call","to":"shipping-db"},{"from":"admin-api","id":"admin-writes","kind":"call","to":"audit-log"},{"from":"report-api","id":"report-api-&gt;orders-replica","kind":"call","to":"orders-replica"},{"from":"orders-api","id":"orders-charge","kind":"call","to":"payments-api"},{"from":"orders-api","id":"orders-refund","kind":"call","to":"payments-api"},{"from":"orders-api","id":"orders-api-&gt;inventory-api","kind":"call","to":"inventory-api"},{"from":"orders-api","id":"orders-api-&gt;cart-api","kind":"call","to":"cart-api"},{"from":"orders-api","id":"orders-api-&gt;users-api","kind":"call","to":"users-api"},{"from":"orders-api","id":"orders-api-&gt;pricing-api","kind":"call","to":"pricing-api"},{"from":"cart-api","id":"cart-api-&gt;pricing-api","kind":"call","to":"pricing-api"},{"from":"cart-api","id":"cart-api-&gt;promotions-api","kind":"call","to":"promotions-api"},{"from":"cart-api","id":"cart-api-&gt;inventory-api","kind":"call","to":"inventory-api"},{"from":"cart-api","id":"cart-api-&gt;session-cache","kind":"call","to":"session-cache"},{"from":"users-api","id":"users-api-&gt;session-cache","kind":"call","to":"session-cache"},{"from":"payments-api","id":"payments-api-&gt;payment-provider","kind":"call","to":"payment-provider"},{"from":"search-api","id":"search-api-&gt;catalog-api","kind":"call","to":"catalog-api"},{"from":"recs-api","id":"recs-api-&gt;search-api","kind":"call","to":"search-api"},{"from":"recs-api","id":"recs-api-&gt;orders-replica","kind":"call","to":"orders-replica"},{"from":"catalog-api","id":"catalog-api-&gt;product-images","kind":"call","to":"product-images"},{"from":"catalog-api","id":"catalog-api-&gt;image-resizer","kind":"call","to":"image-resizer"},{"from":"image-resizer","id":"image-resizer-&gt;product-images","kind":"call","to":"product-images"},{"from":"pricing-api","id":"pricing-api-&gt;promotions-api","kind":"call","to":"promotions-api"},{"from":"shipping-api","id":"shipping-api-&gt;shipping-carrier","kind":"call","to":"shipping-carrier"},{"from":"admin-api","id":"admin-api-&gt;orders-api","kind":"call","to":"orders-api"},{"from":"admin-api","id":"admin-api-&gt;users-api","kind":"call","to":"users-api"},{"from":"admin-api","id":"admin-api-&gt;catalog-api","kind":"call","to":"catalog-api"},{"from":"report-api","id":"report-api-&gt;search-replica","kind":"call","to":"search-replica"},{"from":"report-api","id":"report-api-&gt;report-worker","kind":"call","to":"report-worker"},{"from":"report-worker","id":"report-worker-&gt;orders-replica","kind":"call","to":"orders-replica"},{"from":"report-worker","id":"report-worker-&gt;search-replica","kind":"call","to":"search-replica"},{"from":"invoice-worker","id":"invoice-worker-&gt;payments-db","kind":"call","to":"payments-db"},{"from":"fraud-worker","id":"fraud-worker-&gt;orders-api","kind":"call","to":"orders-api"},{"from":"picker","id":"picker-&gt;shipping-db","kind":"call","to":"shipping-db"},{"from":"picker","id":"picker-&gt;label-printer","kind":"call","to":"label-printer"},{"from":"label-printer","id":"label-printer-&gt;shipping-carrier","kind":"call","to":"shipping-carrier"},{"from":"email-worker","id":"email-worker-&gt;email-provider","kind":"call","to":"email-provider"},{"from":"sms-worker","id":"sms-worker-&gt;sms-provider","kind":"call","to":"sms-provider"},{"from":"analytics-worker","id":"analytics-worker-&gt;metrics","kind":"call","to":"metrics"},{"from":"analytics-worker","id":"analytics-worker-&gt;recs-api","kind":"call","to":"recs-api"},{"from":"payment-provider","id":"payment-webhooks","kind":"call","to":"payments-api"},{"from":"shipping-carrier","id":"tracking-webhooks","kind":"call","to":"shipping-api"},{"from":"tracing","id":"tracing-&gt;metrics","kind":"call","to":"metrics"},{"from":"metrics","id":"metrics-&gt;alerting","kind":"call","to":"alerting"},{"from":"alerting","id":"alerting-&gt;email-provider","kind":"call","to":"email-provider"},{"from":"alerting","id":"alerting-&gt;sms-provider","kind":"call","to":"sms-provider"},{"from":"logs","id":"logs-&gt;alerting","kind":"call","to":"alerting"},{"from":"web-app","id":"web-app-&gt;auth-service","kind":"call","to":"auth-service"},{"from":"mobile-app","id":"mobile-app-&gt;auth-service","kind":"call","to":"auth-service"},{"from":"partner-portal","id":"partner-portal-&gt;cdn","kind":"call","to":"cdn"},{"from":"reviews-api","id":"reviews-api-&gt;users-api","kind":"call","to":"users-api"},{"from":"reviews-api","id":"reviews-api-&gt;catalog-api","kind":"call","to":"catalog-api"},{"from":"promotions-api","id":"promotions-api-&gt;users-api","kind":"call","to":"users-api"},{"from":"inventory-api","id":"inventory-api-&gt;catalog-api","kind":"call","to":"catalog-api"},{"from":"shipping-api","id":"shipping-api-&gt;orders-api","kind":"call","to":"orders-api"},{"from":"shipping-api","id":"shipping-api-&gt;inventory-api","kind":"call","to":"inventory-api"},{"from":"invoice-worker","id":"invoice-worker-&gt;orders-api","kind":"call","to":"orders-api"},{"from":"analytics-worker","id":"analytics-worker-&gt;orders-replica","kind":"call","to":"orders-replica"},{"from":"report-worker","id":"report-worker-&gt;metrics","kind":"call","to":"metrics"},{"from":"feature-flags","id":"feature-flags-&gt;session-cache","kind":"call","to":"session-cache"},{"from":"api-gateway","id":"api-gateway-&gt;tracing","kind":"call","to":"tracing"},{"from":"orders-api","id":"orders-api-&gt;tracing","kind":"call","to":"tracing"},{"from":"cart-api","id":"cart-api-&gt;tracing","kind":"call","to":"tracing"},{"from":"users-api","id":"users-api-&gt;tracing","kind":"call","to":"tracing"},{"from":"payments-api","id":"payments-api-&gt;tracing","kind":"call","to":"tracing"},{"from":"catalog-api","id":"catalog-api-&gt;tracing","kind":"call","to":"tracing"},{"from":"search-api","id":"search-api-&gt;tracing","kind":"call","to":"tracing"},{"from":"inventory-api","id":"inventory-api-&gt;tracing","kind":"call","to":"tracing"},{"from":"shipping-api","id":"shipping-api-&gt;tracing","kind":"call","to":"tracing"},{"from":"admin-api","id":"admin-api-&gt;tracing","kind":"call","to":"tracing"},{"from":"report-api","id":"report-api-&gt;tracing","kind":"call","to":"tracing"},{"from":"orders-api","id":"orders-api-&gt;order-events","kind":"message","to":"order-events"},{"from":"payments-api","id":"payments-api-&gt;payment-events","kind":"message","to":"payment-events"},{"from":"inventory-api","id":"inventory-api-&gt;inventory-events","kind":"message","to":"inventory-events"},{"from":"orders-api","id":"orders-api-&gt;notifications","kind":"message","to":"notifications"},{"from":"payments-api","id":"payments-api-&gt;notifications","kind":"message","to":"notifications"},{"from":"shipping-api","id":"shipping-api-&gt;notifications","kind":"message","to":"notifications"},{"from":"order-events","id":"order-events-&gt;email-worker","kind":"message","to":"email-worker"},{"from":"order-events","id":"order-events-&gt;analytics-worker","kind":"message","to":"analytics-worker"},{"from":"order-events","id":"order-events-&gt;invoice-worker","kind":"message","to":"invoice-worker"},{"from":"order-events","id":"order-events-&gt;shipping-api","kind":"message","to":"shipping-api"},{"from":"payment-events","id":"payment-events-&gt;fraud-worker","kind":"message","to":"fraud-worker"},{"from":"payment-events","id":"payment-events-&gt;invoice-worker","kind":"message","to":"invoice-worker"},{"from":"payment-events","id":"payment-events-&gt;analytics-worker","kind":"message","to":"analytics-worker"},{"from":"inventory-events","id":"inventory-events-&gt;search-api","kind":"message","to":"search-api"},{"from":"inventory-events","id":"inventory-events-&gt;analytics-worker","kind":"message","to":"analytics-worker"},{"from":"notifications","id":"notifications-&gt;email-worker","kind":"message","to":"email-worker"},{"from":"notifications","id":"notifications-&gt;sms-worker","kind":"message","to":"sms-worker"},{"from":"shipping-api","id":"shipping-api-&gt;picker","kind":"message","to":"picker"},{"from":"orders-db","id":"orders-db-&gt;orders-replica","kind":"message","to":"orders-replica"},{"from":"search-index","id":"search-index-&gt;search-replica","kind":"message","to":"search-replica"},{"from":"admin-api","id":"admin-audit","kind":"message","to":"audit-log"},{"from":"email-provider","id":"email-bounces","kind":"message","to":"notifications"},{"from":"catalog-api","id":"catalog-api-&gt;inventory-events","kind":"message","to":"inventory-events"},{"from":"reviews-api","id":"reviews-api-&gt;notifications","kind":"message","to":"notifications"},{"from":"users-api","id":"users-api-&gt;notifications","kind":"message","to":"notifications"},{"from":"fraud-worker","id":"fraud-worker-&gt;payment-events","kind":"message","to":"payment-events"},{"from":"api-gateway","id":"api-gateway-&gt;metrics","kind":"message","to":"metrics"},{"from":"orders-api","id":"orders-api-&gt;metrics","kind":"message","to":"metrics"},{"from":"payments-api","id":"payments-api-&gt;metrics","kind":"message","to":"metrics"},{"from":"api-gateway","id":"api-gateway-&gt;logs","kind":"message","to":"logs"},{"from":"orders-api","id":"orders-api-&gt;logs","kind":"message","to":"logs"},{"from":"cart-api","id":"cart-api-&gt;logs","kind":"message","to":"logs"},{"from":"users-api","id":"users-api-&gt;logs","kind":"message","to":"logs"},{"from":"payments-api","id":"payments-api-&gt;logs","kind":"message","to":"logs"},{"from":"catalog-api","id":"catalog-api-&gt;logs","kind":"message","to":"logs"},{"from":"search-api","id":"search-api-&gt;logs","kind":"message","to":"logs"},{"from":"inventory-api","id":"inventory-api-&gt;logs","kind":"message","to":"logs"},{"from":"shipping-api","id":"shipping-api-&gt;logs","kind":"message","to":"logs"},{"from":"admin-api","id":"admin-api-&gt;logs","kind":"message","to":"logs"}],"groups":[{"id":"eu-west","kind":"region","members":["eu-west-a","eu-west-b","messaging","fulfilment","email-worker","sms-worker","analytics-worker","invoice-worker","admin-api","report-api","audit-log"],"title":"EU West"},{"id":"eu-west-a","kind":"zone","members":["orders-api","cart-api","users-api","orders-db","cart-cache","users-db","session-cache","payments"],"title":"Zone A"},{"id":"payments","kind":"system","members":["payments-api","payments-db","fraud-worker"],"title":"Payments"},{"id":"eu-west-b","kind":"zone","members":["search-api","inventory-api","reviews-api","pricing-api","promotions-api","recs-api","search-index","inventory-db","reviews-db","recs-cache","catalog"],"title":"Zone B"},{"id":"catalog","kind":"system","members":["catalog-api","catalog-db","image-resizer","product-images"],"title":"Catalog"},{"id":"messaging","kind":"system","members":["order-events","payment-events","inventory-events","notifications"],"title":"Messaging"},{"id":"fulfilment","kind":"system","members":["shipping-api","picker","label-printer","shipping-db"],"title":"Fulfilment"},{"id":"us-east","kind":"region","members":["us-east-a"],"title":"US East"},{"id":"us-east-a","kind":"zone","members":["orders-replica","search-replica","report-worker"],"title":"Zone A"},{"id":"observability","kind":"system","members":["logs","metrics","tracing","alerting"],"title":"Observability"}],"id":"crowded","members":["web-app","mobile-app","admin-app","partner-portal","api-gateway","cdn","auth-service","rate-limiter","feature-flags","eu-west","us-east","observability","payment-provider","email-provider","sms-provider","shipping-carrier"],"nodes":[{"id":"web-app","kind":"client","title":"Web app"},{"id":"mobile-app","kind":"client","title":"Mobile app"},{"id":"admin-app","kind":"client","title":"Admin app"},{"id":"partner-portal","kind":"client","title":"Partner portal"},{"id":"api-gateway","kind":"gateway","title":"API gateway"},{"id":"cdn","kind":"gateway","title":"Cdn"},{"id":"auth-service","kind":"service","title":"Auth service"},{"id":"rate-limiter","kind":"cache","title":"Rate limiter"},{"id":"feature-flags","kind":"service","title":"Feature flags"},{"id":"orders-api","kind":"service","title":"Orders API"},{"id":"cart-api","kind":"service","title":"Cart API"},{"id":"users-api","kind":"service","title":"Users API"},{"id":"orders-db","kind":"database","title":"Orders db"},{"id":"cart-cache","kind":"cache","title":"Cart cache"},{"id":"users-db","kind":"database","title":"Users db"},{"id":"session-cache","kind":"cache","title":"Session cache"},{"id":"payments-api","kind":"service","title":"Payments API"},{"id":"payments-db","kind":"database","title":"Payments db"},{"id":"fraud-worker","kind":"worker","title":"Fraud worker"},{"id":"search-api","kind":"service","title":"Search API"},{"id":"inventory-api","kind":"service","title":"Inventory API"},{"id":"reviews-api","kind":"service","title":"Reviews API"},{"id":"pricing-api","kind":"service","title":"Pricing API"},{"id":"promotions-api","kind":"service","title":"Promotions API"},{"id":"recs-api","kind":"service","title":"Recs API"},{"id":"search-index","kind":"search","title":"Search index"},{"id":"inventory-db","kind":"database","title":"Inventory db"},{"id":"reviews-db","kind":"database","title":"Reviews db"},{"id":"recs-cache","kind":"cache","title":"Recs cache"},{"id":"catalog-api","kind":"service","title":"Catalog API"},{"id":"catalog-db","kind":"database","title":"Catalog db"},{"id":"image-resizer","kind":"function","title":"Image resizer"},{"id":"product-images","kind":"storage","title":"Product images"},{"id":"order-events","kind":"queue","title":"Order events"},{"id":"payment-events","kind":"queue","title":"Payment events"},{"id":"inventory-events","kind":"queue","title":"Inventory events"},{"id":"notifications","kind":"queue","title":"Notifications"},{"id":"shipping-api","kind":"service","title":"Shipping API"},{"id":"picker","kind":"worker","title":"Picker"},{"id":"label-printer","kind":"function","title":"Label printer"},{"id":"shipping-db","kind":"database","title":"Shipping db"},{"id":"email-worker","kind":"worker","title":"Email worker"},{"id":"sms-worker","kind":"worker","title":"Sms worker"},{"id":"analytics-worker","kind":"worker","title":"Analytics worker"},{"id":"invoice-worker","kind":"worker","title":"Invoice worker"},{"id":"admin-api","kind":"service","title":"Admin API"},{"id":"report-api","kind":"service","title":"Report API"},{"id":"audit-log","kind":"storage","title":"Audit log"},{"id":"orders-replica","kind":"database","title":"Orders replica"},{"id":"search-replica","kind":"search","title":"Search replica"},{"id":"report-worker","kind":"worker","title":"Report worker"},{"id":"logs","kind":"storage","title":"Logs"},{"id":"metrics","kind":"storage","title":"Metrics"},{"id":"tracing","kind":"service","title":"Tracing"},{"id":"alerting","kind":"function","title":"Alerting"},{"external":true,"id":"payment-provider","kind":"system","title":"Payment provider"},{"external":true,"id":"email-provider","kind":"system","title":"Email provider"},{"external":true,"id":"sms-provider","kind":"system","title":"Sms provider"},{"external":true,"id":"shipping-carrier","kind":"system","title":"Shipping carrier"}],"notation":"architecture","title":"Online shop","version":1,"walkthroughs":[]}</metadata>
   <style>
-    @font-face { font-family: "diagram-de50c81f05231334"; font-weight: 600; src: url("data:font/ttf;base64,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AAAJNAAACXgAAAmQAAAJrAAACegAAAoEAAAKaAAACqwAAAsUAAALgAAAC7wAAAwwAAAMgAAADMQAAA0AAAANdAAADdQAAA4wAAAOYAAADmAAAA6QAAEAAAAtAIQACgBoAAcAAgBSAJMAjQAAAQ4ODAAHAAEAAAASAN4AAwABBAkAAABQAAAAAwABBAkAAQAcAFAAAwABBAkAAgAOAGwAAwABBAkAAwBOAHoAAwABBAkABAAcAMgAAwABBAkABQA2AOQAAwABBAkABgAcARoAAwABBAkABwBUATYAAwABBAkACAAIAYoAAwABBAkACQAgAZIAAwABBAkACwAgAbIAAwABBAkADAAgAdIAAwABBAkADQEgAfIAAwABBAkADgA0AxIAAwABBAkAEAAKA0YAAwABBAkAEQAQA1AAAwABBAkAFQAKA2AAAwABBAkAFgAQA2oAQwBvAHAAeQByAGkAZwBoAHQAIAAyADAAMQA2ACAAVABoAGUAIABJAG4AdABlAHIAIABQAHIAbwBqAGUAYwB0ACAAQQB1AHQAaABvAHIAcwBJAG4AdABlAHIAIABTAGUAbQBpAEIAbwBsAGQAUgBlAGcAdQBsAGEAcgA0AC4AMAAwADEAOwBnAGkAdAAtADkAMgAyADEAYgBlAGUAZAAzADsAUgBTAE0AUwA7AEkAbgB0AGUAcgAtAFMAZQBtAGkAQgBvAGwAZABJAG4AdABlAHIAIABTAGUAbQBpAEIAbwBsAGQAVgBlAHIAcwBpAG8AbgAgADQALgAwADAAMQA7AGcAaQB0AC0AOQAyADIAMQBiAGUAZQBkADMASQBuAHQAZQByAC0AUwBlAG0AaQBCAG8AbABkAEkAbgB0AGUAcgAgAFUASQAgAGEAbgBkACAASQBuAHQAZQByACAAaQBzACAAYQAgAHQAcgBhAGQAZQBtAGEAcgBrACAAbwBmACAAcgBzAG0AcwAuAHIAcwBtAHMAUgBhAHMAbQB1AHMAIABBAG4AZABlAHIAcwBzAG8AbgBoAHQAdABwAHMAOgAvAC8AcgBzAG0AcwAuAG0AZQAvAGgAdAB0AHAAcwA6AC8ALwByAHMAbQBzAC4AbQBlAC8AVABoAGkAcwAgAEYAbwBuAHQAIABTAG8AZgB0AHcAYQByAGUAIABpAHMAIABsAGkAYwBlAG4AcwBlAGQAIAB1AG4AZABlAHIAIAB0AGgAZQAgAFMASQBMACAATwBwAGUAbgAgAEYAbwBuAHQAIABMAGkAYwBlAG4AcwBlACwAIABWAGUAcgBzAGkAbwBuACAAMQAuADEALgAgAFQAaABpAHMAIABsAGkAYwBlAG4AcwBlACAAaQBzACAAYQB2AGEAaQBsAGEAYgBsAGUAIAB3AGkAdABoACAAYQAgAEYAQQBRACAAYQB0ADoAIABoAHQAdABwADoALwAvAHMAYwByAGkAcAB0AHMALgBzAGkAbAAuAG8AcgBnAC8ATwBGAEwAaAB0AHQAcAA6AC8ALwBzAGMAcgBpAHAAdABzAC4AcwBpAGwALgBvAHIAZwAvAE8ARgBMAEkAbgB0AGUAcgBTAGUAbQBpAEIAbwBsAGQASQBuAHQAZQByAFMAZQBtAGkAQgBvAGwAZAADAAAAAAAA/rUArQAAAAAAAAAAAAAAAAAAAAAAAAAA") format("truetype"); }
-    .diagram-de50c81f05231334 { font-family: "diagram-de50c81f05231334", Helvetica, Arial; font-kerning: none; font-variant-ligatures: none; }
-    .diagram-de50c81f05231334 .diagram-background { fill: var(--diagram-background, #ffffff); }
-    .diagram-de50c81f05231334 .diagram-group { stroke: var(--diagram-border, #d1d9e0); }
-    .diagram-de50c81f05231334 .diagram-group-title { fill: var(--diagram-muted, #59636e); }
-    .diagram-de50c81f05231334 .diagram-edges { stroke: var(--diagram-muted, #59636e); }
-    .diagram-de50c81f05231334 .diagram-base { fill: var(--diagram-surface, #ffffff); }
-    .diagram-de50c81f05231334 [data-node][data-kind="client"] { color: var(--diagram-hue-users, #8250df); }
-    .diagram-de50c81f05231334 [data-node][data-kind="system"] { color: var(--diagram-hue-system, #424a53); }
-    .diagram-de50c81f05231334 [data-node][data-kind="gateway"], .diagram-de50c81f05231334 [data-node][data-kind="service"], .diagram-de50c81f05231334 [data-node][data-kind="worker"], .diagram-de50c81f05231334 [data-node][data-kind="function"] { color: var(--diagram-hue-compute, #0969da); }
-    .diagram-de50c81f05231334 [data-node][data-kind="database"], .diagram-de50c81f05231334 [data-node][data-kind="cache"], .diagram-de50c81f05231334 [data-node][data-kind="storage"], .diagram-de50c81f05231334 [data-node][data-kind="search"] { color: var(--diagram-hue-data, #1b7c83); }
-    .diagram-de50c81f05231334 [data-node][data-kind="queue"] { color: var(--diagram-hue-messaging, #bc4c00); }
-    .diagram-de50c81f05231334 .diagram-text { fill: var(--diagram-ink, #1f2328); }
+    @font-face { font-family: "diagram-e52b6e60ce6cd214"; font-weight: 600; src: url("data:font/ttf;base64,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AAAJNAAACXgAAAmQAAAJrAAACegAAAoEAAAKaAAACqwAAAsUAAALgAAAC7wAAAwwAAAMgAAADMQAAA0AAAANdAAADdQAAA4wAAAOYAAADmAAAA6QAAEAAAAtAIQACgBoAAcAAgBSAJMAjQAAAQ4ODAAHAAEAAAASAN4AAwABBAkAAABQAAAAAwABBAkAAQAcAFAAAwABBAkAAgAOAGwAAwABBAkAAwBOAHoAAwABBAkABAAcAMgAAwABBAkABQA2AOQAAwABBAkABgAcARoAAwABBAkABwBUATYAAwABBAkACAAIAYoAAwABBAkACQAgAZIAAwABBAkACwAgAbIAAwABBAkADAAgAdIAAwABBAkADQEgAfIAAwABBAkADgA0AxIAAwABBAkAEAAKA0YAAwABBAkAEQAQA1AAAwABBAkAFQAKA2AAAwABBAkAFgAQA2oAQwBvAHAAeQByAGkAZwBoAHQAIAAyADAAMQA2ACAAVABoAGUAIABJAG4AdABlAHIAIABQAHIAbwBqAGUAYwB0ACAAQQB1AHQAaABvAHIAcwBJAG4AdABlAHIAIABTAGUAbQBpAEIAbwBsAGQAUgBlAGcAdQBsAGEAcgA0AC4AMAAwADEAOwBnAGkAdAAtADkAMgAyADEAYgBlAGUAZAAzADsAUgBTAE0AUwA7AEkAbgB0AGUAcgAtAFMAZQBtAGkAQgBvAGwAZABJAG4AdABlAHIAIABTAGUAbQBpAEIAbwBsAGQAVgBlAHIAcwBpAG8AbgAgADQALgAwADAAMQA7AGcAaQB0AC0AOQAyADIAMQBiAGUAZQBkADMASQBuAHQAZQByAC0AUwBlAG0AaQBCAG8AbABkAEkAbgB0AGUAcgAgAFUASQAgAGEAbgBkACAASQBuAHQAZQByACAAaQBzACAAYQAgAHQAcgBhAGQAZQBtAGEAcgBrACAAbwBmACAAcgBzAG0AcwAuAHIAcwBtAHMAUgBhAHMAbQB1AHMAIABBAG4AZABlAHIAcwBzAG8AbgBoAHQAdABwAHMAOgAvAC8AcgBzAG0AcwAuAG0AZQAvAGgAdAB0AHAAcwA6AC8ALwByAHMAbQBzAC4AbQBlAC8AVABoAGkAcwAgAEYAbwBuAHQAIABTAG8AZgB0AHcAYQByAGUAIABpAHMAIABsAGkAYwBlAG4AcwBlAGQAIAB1AG4AZABlAHIAIAB0AGgAZQAgAFMASQBMACAATwBwAGUAbgAgAEYAbwBuAHQAIABMAGkAYwBlAG4AcwBlACwAIABWAGUAcgBzAGkAbwBuACAAMQAuADEALgAgAFQAaABpAHMAIABsAGkAYwBlAG4AcwBlACAAaQBzACAAYQB2AGEAaQBsAGEAYgBsAGUAIAB3AGkAdABoACAAYQAgAEYAQQBRACAAYQB0ADoAIABoAHQAdABwADoALwAvAHMAYwByAGkAcAB0AHMALgBzAGkAbAAuAG8AcgBnAC8ATwBGAEwAaAB0AHQAcAA6AC8ALwBzAGMAcgBpAHAAdABzAC4AcwBpAGwALgBvAHIAZwAvAE8ARgBMAEkAbgB0AGUAcgBTAGUAbQBpAEIAbwBsAGQASQBuAHQAZQByAFMAZQBtAGkAQgBvAGwAZAADAAAAAAAA/rUArQAAAAAAAAAAAAAAAAAAAAAAAAAA") format("truetype"); }
+    .diagram-e52b6e60ce6cd214 { font-family: "diagram-e52b6e60ce6cd214", Helvetica, Arial; font-kerning: none; font-variant-ligatures: none; }
+    .diagram-e52b6e60ce6cd214 .diagram-background { fill: var(--diagram-background, #ffffff); }
+    .diagram-e52b6e60ce6cd214 .diagram-group { stroke: var(--diagram-border, #d1d9e0); }
+    .diagram-e52b6e60ce6cd214 .diagram-group-title { fill: var(--diagram-muted, #59636e); }
+    .diagram-e52b6e60ce6cd214 .diagram-edges { color: var(--diagram-edge, #818b98); }
+    .diagram-e52b6e60ce6cd214 .diagram-casing { stroke: var(--diagram-edge-casing, #424a53); }
+    .diagram-e52b6e60ce6cd214 .diagram-base { fill: var(--diagram-surface, #ffffff); }
+    .diagram-e52b6e60ce6cd214 [data-node][data-kind="client"] { color: var(--diagram-hue-users, #8250df); }
+    .diagram-e52b6e60ce6cd214 [data-node][data-kind="system"] { color: var(--diagram-hue-system, #424a53); }
+    .diagram-e52b6e60ce6cd214 [data-node][data-kind="gateway"], .diagram-e52b6e60ce6cd214 [data-node][data-kind="service"], .diagram-e52b6e60ce6cd214 [data-node][data-kind="worker"], .diagram-e52b6e60ce6cd214 [data-node][data-kind="function"] { color: var(--diagram-hue-compute, #0969da); }
+    .diagram-e52b6e60ce6cd214 [data-node][data-kind="database"], .diagram-e52b6e60ce6cd214 [data-node][data-kind="cache"], .diagram-e52b6e60ce6cd214 [data-node][data-kind="storage"], .diagram-e52b6e60ce6cd214 [data-node][data-kind="search"] { color: var(--diagram-hue-data, #1b7c83); }
+    .diagram-e52b6e60ce6cd214 [data-node][data-kind="queue"] { color: var(--diagram-hue-messaging, #bc4c00); }
+    .diagram-e52b6e60ce6cd214 .diagram-text { fill: var(--diagram-ink, #1f2328); }
     @media (prefers-color-scheme: dark) {
-      .diagram-de50c81f05231334 .diagram-background { fill: var(--diagram-background, #0d1117); }
-      .diagram-de50c81f05231334 .diagram-group { stroke: var(--diagram-border, #3d444d); }
-      .diagram-de50c81f05231334 .diagram-group-title { fill: var(--diagram-muted, #9198a1); }
-      .diagram-de50c81f05231334 .diagram-edges { stroke: var(--diagram-muted, #9198a1); }
-      .diagram-de50c81f05231334 .diagram-base { fill: var(--diagram-surface, #161b22); }
-      .diagram-de50c81f05231334 [data-node][data-kind="client"] { color: var(--diagram-hue-users, #ab7df8); }
-      .diagram-de50c81f05231334 [data-node][data-kind="system"] { color: var(--diagram-hue-system, #b7bdc8); }
-      .diagram-de50c81f05231334 [data-node][data-kind="gateway"], .diagram-de50c81f05231334 [data-node][data-kind="service"], .diagram-de50c81f05231334 [data-node][data-kind="worker"], .diagram-de50c81f05231334 [data-node][data-kind="function"] { color: var(--diagram-hue-compute, #4493f8); }
-      .diagram-de50c81f05231334 [data-node][data-kind="database"], .diagram-de50c81f05231334 [data-node][data-kind="cache"], .diagram-de50c81f05231334 [data-node][data-kind="storage"], .diagram-de50c81f05231334 [data-node][data-kind="search"] { color: var(--diagram-hue-data, #39c5cf); }
-      .diagram-de50c81f05231334 [data-node][data-kind="queue"] { color: var(--diagram-hue-messaging, #f0883e); }
-      .diagram-de50c81f05231334 .diagram-text { fill: var(--diagram-ink, #f0f6fc); }
+      .diagram-e52b6e60ce6cd214 .diagram-background { fill: var(--diagram-background, #0d1117); }
+      .diagram-e52b6e60ce6cd214 .diagram-group { stroke: var(--diagram-border, #3d444d); }
+      .diagram-e52b6e60ce6cd214 .diagram-group-title { fill: var(--diagram-muted, #9198a1); }
+      .diagram-e52b6e60ce6cd214 .diagram-edges { color: var(--diagram-edge, #9198a1); }
+      .diagram-e52b6e60ce6cd214 .diagram-casing { stroke: var(--diagram-edge-casing, #262c36); }
+      .diagram-e52b6e60ce6cd214 .diagram-base { fill: var(--diagram-surface, #161b22); }
+      .diagram-e52b6e60ce6cd214 [data-node][data-kind="client"] { color: var(--diagram-hue-users, #ab7df8); }
+      .diagram-e52b6e60ce6cd214 [data-node][data-kind="system"] { color: var(--diagram-hue-system, #b7bdc8); }
+      .diagram-e52b6e60ce6cd214 [data-node][data-kind="gateway"], .diagram-e52b6e60ce6cd214 [data-node][data-kind="service"], .diagram-e52b6e60ce6cd214 [data-node][data-kind="worker"], .diagram-e52b6e60ce6cd214 [data-node][data-kind="function"] { color: var(--diagram-hue-compute, #4493f8); }
+      .diagram-e52b6e60ce6cd214 [data-node][data-kind="database"], .diagram-e52b6e60ce6cd214 [data-node][data-kind="cache"], .diagram-e52b6e60ce6cd214 [data-node][data-kind="storage"], .diagram-e52b6e60ce6cd214 [data-node][data-kind="search"] { color: var(--diagram-hue-data, #39c5cf); }
+      .diagram-e52b6e60ce6cd214 [data-node][data-kind="queue"] { color: var(--diagram-hue-messaging, #f0883e); }
+      .diagram-e52b6e60ce6cd214 .diagram-text { fill: var(--diagram-ink, #f0f6fc); }
     }
   </style>
   <rect class="diagram-background" x="0" y="0" width="7240" height="1920"/>
@@ -73,450 +75,598 @@
       <text class="diagram-group-title" x="6165.87" y="1684" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="central">Observability</text>
     </g>
   </g>
-  <g class="diagram-edges" fill="none" stroke-width="1.5">
+  <g class="diagram-edges" fill="none">
     <g data-edge="web-app-&gt;api-gateway" data-kind="call" data-from="web-app" data-to="api-gateway">
-      <path d="M 200 1040 L 208 1040 A 8 8 0 0 1 216 1048 L 216 1240 A 8 8 0 0 0 224 1248 L 276 1248 A 4 4 0 0 1 280 1252 A 4 4 0 0 0 284 1256 L 296 1256"/>
+      <path class="diagram-casing" d="M 296 1256 L 284 1256 A 4 4 0 0 1 280 1252 A 4 4 0 0 0 276 1248 L 224 1248 A 8 8 0 0 1 216 1240 L 216 1048 A 8 8 0 0 0 208 1040 L 200 1040" stroke-width="3.5"/>
+      <path d="M 296 1256 L 284 1256 A 4 4 0 0 1 280 1252 A 4 4 0 0 0 276 1248 L 224 1248 A 8 8 0 0 1 216 1240 L 216 1048 A 8 8 0 0 0 208 1040 L 200 1040" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="mobile-app-&gt;api-gateway" data-kind="call" data-from="mobile-app" data-to="api-gateway">
-      <path d="M 200 1120 L 208 1120 A 8 8 0 0 1 216 1128 L 216 1240 A 8 8 0 0 0 224 1248 L 276 1248 A 4 4 0 0 1 280 1252 A 4 4 0 0 0 284 1256 L 296 1256"/>
+      <path class="diagram-casing" d="M 296 1256 L 284 1256 A 4 4 0 0 1 280 1252 A 4 4 0 0 0 276 1248 L 224 1248 A 8 8 0 0 1 216 1240 L 216 1128 A 8 8 0 0 0 208 1120 L 200 1120" stroke-width="3.5"/>
+      <path d="M 296 1256 L 284 1256 A 4 4 0 0 1 280 1252 A 4 4 0 0 0 276 1248 L 224 1248 A 8 8 0 0 1 216 1240 L 216 1128 A 8 8 0 0 0 208 1120 L 200 1120" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="admin-app-&gt;api-gateway" data-kind="call" data-from="admin-app" data-to="api-gateway">
-      <path d="M 200 1336 L 208 1336 A 8 8 0 0 0 216 1328 L 216 1256 A 8 8 0 0 1 224 1248 L 276 1248 A 4 4 0 0 1 280 1252 A 4 4 0 0 0 284 1256 L 296 1256"/>
+      <path class="diagram-casing" d="M 296 1256 L 284 1256 A 4 4 0 0 1 280 1252 A 4 4 0 0 0 276 1248 L 224 1248 A 8 8 0 0 0 216 1256 L 216 1328 A 8 8 0 0 1 208 1336 L 200 1336" stroke-width="3.5"/>
+      <path d="M 296 1256 L 284 1256 A 4 4 0 0 1 280 1252 A 4 4 0 0 0 276 1248 L 224 1248 A 8 8 0 0 0 216 1256 L 216 1328 A 8 8 0 0 1 208 1336 L 200 1336" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="partner-portal-&gt;api-gateway" data-kind="call" data-from="partner-portal" data-to="api-gateway">
-      <path d="M 200 1256 L 224 1256 A 4 4 0 0 0 228 1252 A 4 4 0 0 1 232 1248 L 276 1248 A 4 4 0 0 1 280 1252 A 4 4 0 0 0 284 1256 L 296 1256"/>
+      <path class="diagram-casing" d="M 296 1256 L 284 1256 A 4 4 0 0 1 280 1252 A 4 4 0 0 0 276 1248 L 232 1248 A 4 4 0 0 0 228 1252 A 4 4 0 0 1 224 1256 L 200 1256" stroke-width="3.5"/>
+      <path d="M 296 1256 L 284 1256 A 4 4 0 0 1 280 1252 A 4 4 0 0 0 276 1248 L 232 1248 A 4 4 0 0 0 228 1252 A 4 4 0 0 1 224 1256 L 200 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="web-app-&gt;cdn" data-kind="call" data-from="web-app" data-to="cdn">
-      <path d="M 200 1040 L 216 1040 A 8 8 0 0 1 224 1048 L 224 1168 A 8 8 0 0 0 232 1176 L 296 1176"/>
+      <path class="diagram-casing" d="M 296 1176 L 232 1176 A 8 8 0 0 1 224 1168 L 224 1048 A 8 8 0 0 0 216 1040 L 200 1040" stroke-width="3.5"/>
+      <path d="M 296 1176 L 232 1176 A 8 8 0 0 1 224 1168 L 224 1048 A 8 8 0 0 0 216 1040 L 200 1040" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="mobile-app-&gt;cdn" data-kind="call" data-from="mobile-app" data-to="cdn">
-      <path d="M 200 1120 L 216 1120 A 8 8 0 0 1 224 1128 L 224 1168 A 8 8 0 0 0 232 1176 L 296 1176"/>
+      <path class="diagram-casing" d="M 296 1176 L 232 1176 A 8 8 0 0 1 224 1168 L 224 1128 A 8 8 0 0 0 216 1120 L 200 1120" stroke-width="3.5"/>
+      <path d="M 296 1176 L 232 1176 A 8 8 0 0 1 224 1168 L 224 1128 A 8 8 0 0 0 216 1120 L 200 1120" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="cdn-&gt;product-images" data-kind="call" data-from="cdn" data-to="product-images">
-      <path d="M 472 1176 L 512 1176 A 8 8 0 0 1 520 1184 L 520 1280 A 8 8 0 0 0 528 1288 L 3648 1288 A 8 8 0 0 0 3656 1280 L 3656 1264 A 8 8 0 0 1 3664 1256 L 3736 1256"/>
+      <path class="diagram-casing" d="M 3736 1256 L 3664 1256 A 8 8 0 0 0 3656 1264 L 3656 1280 A 8 8 0 0 1 3648 1288 L 528 1288 A 8 8 0 0 1 520 1280 L 520 1184 A 8 8 0 0 0 512 1176 L 472 1176" stroke-width="3.5"/>
+      <path d="M 3736 1256 L 3664 1256 A 8 8 0 0 0 3656 1264 L 3656 1280 A 8 8 0 0 1 3648 1288 L 528 1288 A 8 8 0 0 1 520 1280 L 520 1184 A 8 8 0 0 0 512 1176 L 472 1176" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="api-gateway-&gt;auth-service" data-kind="call" data-from="api-gateway" data-to="auth-service">
-      <path d="M 472 1256 L 568 1256 A 8 8 0 0 0 576 1248 L 576 1120 A 8 8 0 0 1 584 1112 L 652 1112 A 4 4 0 0 1 656 1116 A 4 4 0 0 0 660 1120 L 672 1120"/>
+      <path class="diagram-casing" d="M 672 1120 L 660 1120 A 4 4 0 0 1 656 1116 A 4 4 0 0 0 652 1112 L 584 1112 A 8 8 0 0 0 576 1120 L 576 1248 A 8 8 0 0 1 568 1256 L 472 1256" stroke-width="3.5"/>
+      <path d="M 672 1120 L 660 1120 A 4 4 0 0 1 656 1116 A 4 4 0 0 0 652 1112 L 584 1112 A 8 8 0 0 0 576 1120 L 576 1248 A 8 8 0 0 1 568 1256 L 472 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="api-gateway-&gt;rate-limiter" data-kind="call" data-from="api-gateway" data-to="rate-limiter">
-      <path d="M 472 1256 L 672 1256"/>
+      <path class="diagram-casing" d="M 672 1256 L 472 1256" stroke-width="3.5"/>
+      <path d="M 672 1256 L 472 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="api-gateway-&gt;feature-flags" data-kind="call" data-from="api-gateway" data-to="feature-flags">
-      <path d="M 472 1256 L 480 1256 A 8 8 0 0 1 488 1264 L 488 1328 A 8 8 0 0 0 496 1336 L 672 1336"/>
+      <path class="diagram-casing" d="M 672 1336 L 496 1336 A 8 8 0 0 1 488 1328 L 488 1264 A 8 8 0 0 0 480 1256 L 472 1256" stroke-width="3.5"/>
+      <path d="M 672 1336 L 496 1336 A 8 8 0 0 1 488 1328 L 488 1264 A 8 8 0 0 0 480 1256 L 472 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="auth-service-&gt;users-api" data-kind="call" data-from="auth-service" data-to="users-api">
-      <path d="M 848 1120 L 864 1120 A 8 8 0 0 1 872 1128 L 872 1179.33 A 8 8 0 0 0 880 1187.33 L 1264 1187.33 A 8 8 0 0 0 1272 1179.33 L 1272 896 A 8 8 0 0 1 1280 888 L 1608 888 A 8 8 0 0 0 1616 880 L 1616 440 A 8 8 0 0 1 1624 432 L 1796 432 A 4 4 0 0 1 1800 436 A 4 4 0 0 0 1804 440 L 1816 440"/>
+      <path class="diagram-casing" d="M 1816 440 L 1804 440 A 4 4 0 0 1 1800 436 A 4 4 0 0 0 1796 432 L 1624 432 A 8 8 0 0 0 1616 440 L 1616 880 A 8 8 0 0 1 1608 888 L 1280 888 A 8 8 0 0 0 1272 896 L 1272 1179.33 A 8 8 0 0 1 1264 1187.33 L 880 1187.33 A 8 8 0 0 1 872 1179.33 L 872 1128 A 8 8 0 0 0 864 1120 L 848 1120" stroke-width="3.5"/>
+      <path d="M 1816 440 L 1804 440 A 4 4 0 0 1 1800 436 A 4 4 0 0 0 1796 432 L 1624 432 A 8 8 0 0 0 1616 440 L 1616 880 A 8 8 0 0 1 1608 888 L 1280 888 A 8 8 0 0 0 1272 896 L 1272 1179.33 A 8 8 0 0 1 1264 1187.33 L 880 1187.33 A 8 8 0 0 1 872 1179.33 L 872 1128 A 8 8 0 0 0 864 1120 L 848 1120" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="auth-service-&gt;session-cache" data-kind="call" data-from="auth-service" data-to="session-cache">
-      <path d="M 848 1120 L 860 1120 A 4 4 0 0 0 864 1116 A 4 4 0 0 1 868 1112 L 2176 1112 A 8 8 0 0 0 2184 1104 L 2184 440 A 8 8 0 0 1 2192 432 L 2236 432 A 4 4 0 0 1 2240 436 A 4 4 0 0 0 2244 440 L 2256 440"/>
+      <path class="diagram-casing" d="M 2256 440 L 2244 440 A 4 4 0 0 1 2240 436 A 4 4 0 0 0 2236 432 L 2192 432 A 8 8 0 0 0 2184 440 L 2184 1104 A 8 8 0 0 1 2176 1112 L 868 1112 A 4 4 0 0 0 864 1116 A 4 4 0 0 1 860 1120 L 848 1120" stroke-width="3.5"/>
+      <path d="M 2256 440 L 2244 440 A 4 4 0 0 1 2240 436 A 4 4 0 0 0 2236 432 L 2192 432 A 8 8 0 0 0 2184 440 L 2184 1104 A 8 8 0 0 1 2176 1112 L 868 1112 A 4 4 0 0 0 864 1116 A 4 4 0 0 1 860 1120 L 848 1120" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="rate-limiter-&gt;session-cache" data-kind="call" data-from="rate-limiter" data-to="session-cache">
-      <path d="M 848 1256 L 856 1256 A 8 8 0 0 0 864 1248 L 864 1120 A 8 8 0 0 1 872 1112 L 2176 1112 A 8 8 0 0 0 2184 1104 L 2184 440 A 8 8 0 0 1 2192 432 L 2236 432 A 4 4 0 0 1 2240 436 A 4 4 0 0 0 2244 440 L 2256 440"/>
+      <path class="diagram-casing" d="M 2256 440 L 2244 440 A 4 4 0 0 1 2240 436 A 4 4 0 0 0 2236 432 L 2192 432 A 8 8 0 0 0 2184 440 L 2184 1104 A 8 8 0 0 1 2176 1112 L 872 1112 A 8 8 0 0 0 864 1120 L 864 1248 A 8 8 0 0 1 856 1256 L 848 1256" stroke-width="3.5"/>
+      <path d="M 2256 440 L 2244 440 A 4 4 0 0 1 2240 436 A 4 4 0 0 0 2236 432 L 2192 432 A 8 8 0 0 0 2184 440 L 2184 1104 A 8 8 0 0 1 2176 1112 L 872 1112 A 8 8 0 0 0 864 1120 L 864 1248 A 8 8 0 0 1 856 1256 L 848 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="feature-flags-&gt;users-db" data-kind="call" data-from="feature-flags" data-to="users-db">
-      <path d="M 848 1336 L 2184 1336 A 8 8 0 0 0 2192 1328 L 2192 528 A 8 8 0 0 1 2200 520 L 2256 520"/>
+      <path class="diagram-casing" d="M 2256 520 L 2200 520 A 8 8 0 0 0 2192 528 L 2192 1328 A 8 8 0 0 1 2184 1336 L 848 1336" stroke-width="3.5"/>
+      <path d="M 2256 520 L 2200 520 A 8 8 0 0 0 2192 528 L 2192 1328 A 8 8 0 0 1 2184 1336 L 848 1336" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="api-gateway-&gt;orders-api" data-kind="call" data-from="api-gateway" data-to="orders-api">
-      <path d="M 472 1256 L 576 1256 A 8 8 0 0 0 584 1248 L 584 1188 A 8 8 0 0 1 592 1180 L 1256 1180 A 8 8 0 0 0 1264 1172 L 1264 448 A 8 8 0 0 1 1272 440 L 1376 440"/>
+      <path class="diagram-casing" d="M 1376 440 L 1272 440 A 8 8 0 0 0 1264 448 L 1264 1172 A 8 8 0 0 1 1256 1180 L 592 1180 A 8 8 0 0 0 584 1188 L 584 1248 A 8 8 0 0 1 576 1256 L 472 1256" stroke-width="3.5"/>
+      <path d="M 1376 440 L 1272 440 A 8 8 0 0 0 1264 448 L 1264 1172 A 8 8 0 0 1 1256 1180 L 592 1180 A 8 8 0 0 0 584 1188 L 584 1248 A 8 8 0 0 1 576 1256 L 472 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="api-gateway-&gt;cart-api" data-kind="call" data-from="api-gateway" data-to="cart-api">
-      <path d="M 472 1256 L 528 1256 A 8 8 0 0 0 536 1248 L 536 368 A 8 8 0 0 1 544 360 L 1816 360"/>
+      <path class="diagram-casing" d="M 1816 360 L 544 360 A 8 8 0 0 0 536 368 L 536 1248 A 8 8 0 0 1 528 1256 L 472 1256" stroke-width="3.5"/>
+      <path d="M 1816 360 L 544 360 A 8 8 0 0 0 536 368 L 536 1248 A 8 8 0 0 1 528 1256 L 472 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="api-gateway-&gt;users-api" data-kind="call" data-from="api-gateway" data-to="users-api">
-      <path d="M 472 1256 L 584 1256 A 8 8 0 0 0 592 1248 L 592 1195.33 A 8 8 0 0 1 600 1187.33 L 1264 1187.33 A 8 8 0 0 0 1272 1179.33 L 1272 896 A 8 8 0 0 1 1280 888 L 1608 888 A 8 8 0 0 0 1616 880 L 1616 440 A 8 8 0 0 1 1624 432 L 1796 432 A 4 4 0 0 1 1800 436 A 4 4 0 0 0 1804 440 L 1816 440"/>
+      <path class="diagram-casing" d="M 1816 440 L 1804 440 A 4 4 0 0 1 1800 436 A 4 4 0 0 0 1796 432 L 1624 432 A 8 8 0 0 0 1616 440 L 1616 880 A 8 8 0 0 1 1608 888 L 1280 888 A 8 8 0 0 0 1272 896 L 1272 1179.33 A 8 8 0 0 1 1264 1187.33 L 600 1187.33 A 8 8 0 0 0 592 1195.33 L 592 1248 A 8 8 0 0 1 584 1256 L 472 1256" stroke-width="3.5"/>
+      <path d="M 1816 440 L 1804 440 A 4 4 0 0 1 1800 436 A 4 4 0 0 0 1796 432 L 1624 432 A 8 8 0 0 0 1616 440 L 1616 880 A 8 8 0 0 1 1608 888 L 1280 888 A 8 8 0 0 0 1272 896 L 1272 1179.33 A 8 8 0 0 1 1264 1187.33 L 600 1187.33 A 8 8 0 0 0 592 1195.33 L 592 1248 A 8 8 0 0 1 584 1256 L 472 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="api-gateway-&gt;payments-api" data-kind="call" data-from="api-gateway" data-to="payments-api">
-      <path d="M 472 1256 L 536 1256 A 8 8 0 0 0 544 1248 L 544 672 A 8 8 0 0 1 552 664 L 1660 664 A 4 4 0 0 0 1664 660 A 4 4 0 0 1 1668 656 L 1680 656"/>
+      <path class="diagram-casing" d="M 1680 656 L 1668 656 A 4 4 0 0 0 1664 660 A 4 4 0 0 1 1660 664 L 552 664 A 8 8 0 0 0 544 672 L 544 1248 A 8 8 0 0 1 536 1256 L 472 1256" stroke-width="3.5"/>
+      <path d="M 1680 656 L 1668 656 A 4 4 0 0 0 1664 660 A 4 4 0 0 1 1660 664 L 552 664 A 8 8 0 0 0 544 672 L 544 1248 A 8 8 0 0 1 536 1256 L 472 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="api-gateway-&gt;catalog-api" data-kind="call" data-from="api-gateway" data-to="catalog-api">
-      <path d="M 472 1256 L 616 1256 A 8 8 0 0 0 624 1248 L 624 1224.67 A 8 8 0 0 1 632 1216.67 L 1312 1216.67 A 8 8 0 0 1 1320 1224.67 L 1320 1248 A 8 8 0 0 0 1328 1256 L 3192 1256"/>
+      <path class="diagram-casing" d="M 3192 1256 L 1328 1256 A 8 8 0 0 1 1320 1248 L 1320 1224.67 A 8 8 0 0 0 1312 1216.67 L 632 1216.67 A 8 8 0 0 0 624 1224.67 L 624 1248 A 8 8 0 0 1 616 1256 L 472 1256" stroke-width="3.5"/>
+      <path d="M 3192 1256 L 1328 1256 A 8 8 0 0 1 1320 1248 L 1320 1224.67 A 8 8 0 0 0 1312 1216.67 L 632 1216.67 A 8 8 0 0 0 624 1224.67 L 624 1248 A 8 8 0 0 1 616 1256 L 472 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="api-gateway-&gt;search-api" data-kind="call" data-from="api-gateway" data-to="search-api">
-      <path d="M 472 1256 L 504 1256 A 8 8 0 0 1 512 1264 L 512 1285.33 A 8 8 0 0 0 520 1293.33 L 2832 1293.33 A 8 8 0 0 1 2840 1301.33 L 2840 1360 A 8 8 0 0 0 2848 1368 L 2864 1368 A 4 4 0 0 1 2868 1372 A 4 4 0 0 0 2872 1376 L 2888 1376"/>
+      <path class="diagram-casing" d="M 2888 1376 L 2872 1376 A 4 4 0 0 1 2868 1372 A 4 4 0 0 0 2864 1368 L 2848 1368 A 8 8 0 0 1 2840 1360 L 2840 1301.33 A 8 8 0 0 0 2832 1293.33 L 520 1293.33 A 8 8 0 0 1 512 1285.33 L 512 1264 A 8 8 0 0 0 504 1256 L 472 1256" stroke-width="3.5"/>
+      <path d="M 2888 1376 L 2872 1376 A 4 4 0 0 1 2868 1372 A 4 4 0 0 0 2864 1368 L 2848 1368 A 8 8 0 0 1 2840 1360 L 2840 1301.33 A 8 8 0 0 0 2832 1293.33 L 520 1293.33 A 8 8 0 0 1 512 1285.33 L 512 1264 A 8 8 0 0 0 504 1256 L 472 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="api-gateway-&gt;inventory-api" data-kind="call" data-from="api-gateway" data-to="inventory-api">
-      <path d="M 472 1256 L 592 1256 A 8 8 0 0 0 600 1248 L 600 1202.67 A 8 8 0 0 1 608 1194.67 L 1272 1194.67 A 8 8 0 0 0 1280 1186.67 L 1280 960 A 8 8 0 0 1 1288 952 L 2616 952"/>
+      <path class="diagram-casing" d="M 2616 952 L 1288 952 A 8 8 0 0 0 1280 960 L 1280 1186.67 A 8 8 0 0 1 1272 1194.67 L 608 1194.67 A 8 8 0 0 0 600 1202.67 L 600 1248 A 8 8 0 0 1 592 1256 L 472 1256" stroke-width="3.5"/>
+      <path d="M 2616 952 L 1288 952 A 8 8 0 0 0 1280 960 L 1280 1186.67 A 8 8 0 0 1 1272 1194.67 L 608 1194.67 A 8 8 0 0 0 600 1202.67 L 600 1248 A 8 8 0 0 1 592 1256 L 472 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="api-gateway-&gt;reviews-api" data-kind="call" data-from="api-gateway" data-to="reviews-api">
-      <path d="M 472 1256 L 560 1256 A 8 8 0 0 0 568 1248 L 568 1072 A 8 8 0 0 1 576 1064 L 2616 1064"/>
+      <path class="diagram-casing" d="M 2616 1064 L 576 1064 A 8 8 0 0 0 568 1072 L 568 1248 A 8 8 0 0 1 560 1256 L 472 1256" stroke-width="3.5"/>
+      <path d="M 2616 1064 L 576 1064 A 8 8 0 0 0 568 1072 L 568 1248 A 8 8 0 0 1 560 1256 L 472 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="api-gateway-&gt;pricing-api" data-kind="call" data-from="api-gateway" data-to="pricing-api">
-      <path d="M 472 1256 L 600 1256 A 8 8 0 0 0 608 1248 L 608 1210 A 8 8 0 0 1 616 1202 L 2584 1202 A 8 8 0 0 0 2592 1194 L 2592 1184 A 8 8 0 0 1 2600 1176 L 2616 1176"/>
+      <path class="diagram-casing" d="M 2616 1176 L 2600 1176 A 8 8 0 0 0 2592 1184 L 2592 1194 A 8 8 0 0 1 2584 1202 L 616 1202 A 8 8 0 0 0 608 1210 L 608 1248 A 8 8 0 0 1 600 1256 L 472 1256" stroke-width="3.5"/>
+      <path d="M 2616 1176 L 2600 1176 A 8 8 0 0 0 2592 1184 L 2592 1194 A 8 8 0 0 1 2584 1202 L 616 1202 A 8 8 0 0 0 608 1210 L 608 1248 A 8 8 0 0 1 600 1256 L 472 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="api-gateway-&gt;promotions-api" data-kind="call" data-from="api-gateway" data-to="promotions-api">
-      <path d="M 472 1256 L 608 1256 A 8 8 0 0 0 616 1248 L 616 1217.33 A 8 8 0 0 1 624 1209.33 L 2848 1209.33 A 8 8 0 0 0 2856 1201.33 L 2856 1174 A 6 6 0 0 1 2862 1168 L 2864 1168 A 4 4 0 0 1 2868 1172 A 4 4 0 0 0 2872 1176 L 2888 1176"/>
+      <path class="diagram-casing" d="M 2888 1176 L 2872 1176 A 4 4 0 0 1 2868 1172 A 4 4 0 0 0 2864 1168 L 2862 1168 A 6 6 0 0 0 2856 1174 L 2856 1201.33 A 8 8 0 0 1 2848 1209.33 L 624 1209.33 A 8 8 0 0 0 616 1217.33 L 616 1248 A 8 8 0 0 1 608 1256 L 472 1256" stroke-width="3.5"/>
+      <path d="M 2888 1176 L 2872 1176 A 4 4 0 0 1 2868 1172 A 4 4 0 0 0 2864 1168 L 2862 1168 A 6 6 0 0 0 2856 1174 L 2856 1201.33 A 8 8 0 0 1 2848 1209.33 L 624 1209.33 A 8 8 0 0 0 616 1217.33 L 616 1248 A 8 8 0 0 1 608 1256 L 472 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="api-gateway-&gt;recs-api" data-kind="call" data-from="api-gateway" data-to="recs-api">
-      <path d="M 472 1256 L 496 1256 A 8 8 0 0 1 504 1264 L 504 1290.67 A 8 8 0 0 0 512 1298.67 L 2592 1298.67 A 8 8 0 0 1 2600 1306.67 L 2600 1368 A 8 8 0 0 0 2608 1376 L 2616 1376"/>
+      <path class="diagram-casing" d="M 2616 1376 L 2608 1376 A 8 8 0 0 1 2600 1368 L 2600 1306.67 A 8 8 0 0 0 2592 1298.67 L 512 1298.67 A 8 8 0 0 1 504 1290.67 L 504 1264 A 8 8 0 0 0 496 1256 L 472 1256" stroke-width="3.5"/>
+      <path d="M 2616 1376 L 2608 1376 A 8 8 0 0 1 2600 1368 L 2600 1306.67 A 8 8 0 0 0 2592 1298.67 L 512 1298.67 A 8 8 0 0 1 504 1290.67 L 504 1264 A 8 8 0 0 0 496 1256 L 472 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="api-gateway-&gt;shipping-api" data-kind="call" data-from="api-gateway" data-to="shipping-api">
-      <path d="M 472 1256 L 520 1256 A 8 8 0 0 0 528 1248 L 528 168 A 8 8 0 0 1 536 160 L 4488 160"/>
+      <path class="diagram-casing" d="M 4488 160 L 536 160 A 8 8 0 0 0 528 168 L 528 1248 A 8 8 0 0 1 520 1256 L 472 1256" stroke-width="3.5"/>
+      <path d="M 4488 160 L 536 160 A 8 8 0 0 0 528 168 L 528 1248 A 8 8 0 0 1 520 1256 L 472 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="api-gateway-&gt;admin-api" data-kind="call" data-from="api-gateway" data-to="admin-api">
-      <path d="M 472 1256 L 544 1256 A 8 8 0 0 0 552 1248 L 552 904 A 8 8 0 0 1 560 896 L 1072 896"/>
+      <path class="diagram-casing" d="M 1072 896 L 560 896 A 8 8 0 0 0 552 904 L 552 1248 A 8 8 0 0 1 544 1256 L 472 1256" stroke-width="3.5"/>
+      <path d="M 1072 896 L 560 896 A 8 8 0 0 0 552 904 L 552 1248 A 8 8 0 0 1 544 1256 L 472 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="api-gateway-&gt;report-api" data-kind="call" data-from="api-gateway" data-to="report-api">
-      <path d="M 472 1256 L 552 1256 A 8 8 0 0 0 560 1248 L 560 984 A 8 8 0 0 1 568 976 L 1072 976"/>
+      <path class="diagram-casing" d="M 1072 976 L 568 976 A 8 8 0 0 0 560 984 L 560 1248 A 8 8 0 0 1 552 1256 L 472 1256" stroke-width="3.5"/>
+      <path d="M 1072 976 L 568 976 A 8 8 0 0 0 560 984 L 560 1248 A 8 8 0 0 1 552 1256 L 472 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="orders-api-&gt;orders-db" data-kind="call" data-from="orders-api" data-to="orders-db">
-      <path d="M 1552 440 L 1584 440 A 8 8 0 0 1 1592 448 L 1592 512 A 8 8 0 0 0 1600 520 L 1816 520"/>
+      <path class="diagram-casing" d="M 1816 520 L 1600 520 A 8 8 0 0 1 1592 512 L 1592 448 A 8 8 0 0 0 1584 440 L 1552 440" stroke-width="3.5"/>
+      <path d="M 1816 520 L 1600 520 A 8 8 0 0 1 1592 512 L 1592 448 A 8 8 0 0 0 1584 440 L 1552 440" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="cart-api-&gt;cart-cache" data-kind="call" data-from="cart-api" data-to="cart-cache">
-      <path d="M 1992 360 L 2256 360"/>
+      <path class="diagram-casing" d="M 2256 360 L 1992 360" stroke-width="3.5"/>
+      <path d="M 2256 360 L 1992 360" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="users-api-&gt;users-db" data-kind="call" data-from="users-api" data-to="users-db">
-      <path d="M 1992 440 L 2000 440 A 8 8 0 0 1 2008 448 L 2008 512 A 8 8 0 0 0 2016 520 L 2256 520"/>
+      <path class="diagram-casing" d="M 2256 520 L 2016 520 A 8 8 0 0 1 2008 512 L 2008 448 A 8 8 0 0 0 2000 440 L 1992 440" stroke-width="3.5"/>
+      <path d="M 2256 520 L 2016 520 A 8 8 0 0 1 2008 512 L 2008 448 A 8 8 0 0 0 2000 440 L 1992 440" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="payments-api-&gt;payments-db" data-kind="call" data-from="payments-api" data-to="payments-db">
-      <path d="M 1856 656 L 1952 656"/>
+      <path class="diagram-casing" d="M 1952 656 L 1856 656" stroke-width="3.5"/>
+      <path d="M 1952 656 L 1856 656" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="catalog-api-&gt;catalog-db" data-kind="call" data-from="catalog-api" data-to="catalog-db">
-      <path d="M 3368 1256 L 3380 1256 A 8 8 0 0 0 3388 1248 L 3388 1184 A 8 8 0 0 1 3396 1176 L 3464 1176"/>
+      <path class="diagram-casing" d="M 3464 1176 L 3396 1176 A 8 8 0 0 0 3388 1184 L 3388 1248 A 8 8 0 0 1 3380 1256 L 3368 1256" stroke-width="3.5"/>
+      <path d="M 3464 1176 L 3396 1176 A 8 8 0 0 0 3388 1184 L 3388 1248 A 8 8 0 0 1 3380 1256 L 3368 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="search-api-&gt;search-index" data-kind="call" data-from="search-api" data-to="search-index">
-      <path d="M 3064 1376 L 3464 1376"/>
+      <path class="diagram-casing" d="M 3464 1376 L 3064 1376" stroke-width="3.5"/>
+      <path d="M 3464 1376 L 3064 1376" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="inventory-api-&gt;inventory-db" data-kind="call" data-from="inventory-api" data-to="inventory-db">
-      <path d="M 2792 952 L 2888 952"/>
+      <path class="diagram-casing" d="M 2888 952 L 2792 952" stroke-width="3.5"/>
+      <path d="M 2888 952 L 2792 952" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="reviews-api-&gt;reviews-db" data-kind="call" data-from="reviews-api" data-to="reviews-db">
-      <path d="M 2792 1064 L 2888 1064"/>
+      <path class="diagram-casing" d="M 2888 1064 L 2792 1064" stroke-width="3.5"/>
+      <path d="M 2888 1064 L 2792 1064" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="pricing-api-&gt;catalog-db" data-kind="call" data-from="pricing-api" data-to="catalog-db">
-      <path d="M 2792 1176 L 2840 1176 A 8 8 0 0 0 2848 1168 L 2848 1148 A 8 8 0 0 1 2856 1140 L 3076 1140 A 8 8 0 0 1 3084 1148 L 3084 1168 A 8 8 0 0 0 3092 1176 L 3464 1176"/>
+      <path class="diagram-casing" d="M 3464 1176 L 3092 1176 A 8 8 0 0 1 3084 1168 L 3084 1148 A 8 8 0 0 0 3076 1140 L 2856 1140 A 8 8 0 0 0 2848 1148 L 2848 1168 A 8 8 0 0 1 2840 1176 L 2792 1176" stroke-width="3.5"/>
+      <path d="M 3464 1176 L 3092 1176 A 8 8 0 0 1 3084 1168 L 3084 1148 A 8 8 0 0 0 3076 1140 L 2856 1140 A 8 8 0 0 0 2848 1148 L 2848 1168 A 8 8 0 0 1 2840 1176 L 2792 1176" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="promotions-api-&gt;catalog-db" data-kind="call" data-from="promotions-api" data-to="catalog-db">
-      <path d="M 3064 1176 L 3464 1176"/>
+      <path class="diagram-casing" d="M 3464 1176 L 3064 1176" stroke-width="3.5"/>
+      <path d="M 3464 1176 L 3064 1176" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="recs-api-&gt;recs-cache" data-kind="call" data-from="recs-api" data-to="recs-cache">
-      <path d="M 2792 1376 L 2816 1376 A 8 8 0 0 1 2824 1384 L 2824 1448 A 8 8 0 0 0 2832 1456 L 2888 1456"/>
+      <path class="diagram-casing" d="M 2888 1456 L 2832 1456 A 8 8 0 0 1 2824 1448 L 2824 1384 A 8 8 0 0 0 2816 1376 L 2792 1376" stroke-width="3.5"/>
+      <path d="M 2888 1456 L 2832 1456 A 8 8 0 0 1 2824 1448 L 2824 1384 A 8 8 0 0 0 2816 1376 L 2792 1376" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="shipping-api-&gt;shipping-db" data-kind="call" data-from="shipping-api" data-to="shipping-db">
-      <path d="M 4664 160 L 4704 160 A 8 8 0 0 1 4712 168 L 4712 192 A 8 8 0 0 0 4720 200 L 4944 200 A 8 8 0 0 1 4952 208 L 4952 232 A 8 8 0 0 0 4960 240 L 5032 240"/>
+      <path class="diagram-casing" d="M 5032 240 L 4960 240 A 8 8 0 0 1 4952 232 L 4952 208 A 8 8 0 0 0 4944 200 L 4720 200 A 8 8 0 0 1 4712 192 L 4712 168 A 8 8 0 0 0 4704 160 L 4664 160" stroke-width="3.5"/>
+      <path d="M 5032 240 L 4960 240 A 8 8 0 0 1 4952 232 L 4952 208 A 8 8 0 0 0 4944 200 L 4720 200 A 8 8 0 0 1 4712 192 L 4712 168 A 8 8 0 0 0 4704 160 L 4664 160" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="admin-writes" data-kind="call" data-from="admin-api" data-to="audit-log">
-      <path d="M 1248 896 L 1816 896"/>
+      <path class="diagram-casing" d="M 1816 896 L 1248 896" stroke-width="3.5"/>
+      <path d="M 1816 896 L 1248 896" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="report-api-&gt;orders-replica" data-kind="call" data-from="report-api" data-to="orders-replica">
-      <path d="M 1248 976 L 1320 976 A 8 8 0 0 1 1328 984 A 8 8 0 0 0 1336 992 L 2824 992 A 8 8 0 0 1 2832 1000 L 2832 1408 A 8 8 0 0 0 2840 1416 L 4952 1416 A 8 8 0 0 1 4960 1424 L 4960 1448 A 8 8 0 0 0 4968 1456 L 5696 1456 A 8 8 0 0 1 5704 1464 L 5704 1608 A 8 8 0 0 0 5712 1616 L 5776 1616"/>
+      <path class="diagram-casing" d="M 5776 1616 L 5712 1616 A 8 8 0 0 1 5704 1608 L 5704 1464 A 8 8 0 0 0 5696 1456 L 4968 1456 A 8 8 0 0 1 4960 1448 L 4960 1424 A 8 8 0 0 0 4952 1416 L 2840 1416 A 8 8 0 0 1 2832 1408 L 2832 1000 A 8 8 0 0 0 2824 992 L 1336 992 A 8 8 0 0 1 1328 984 A 8 8 0 0 0 1320 976 L 1248 976" stroke-width="3.5"/>
+      <path d="M 5776 1616 L 5712 1616 A 8 8 0 0 1 5704 1608 L 5704 1464 A 8 8 0 0 0 5696 1456 L 4968 1456 A 8 8 0 0 1 4960 1448 L 4960 1424 A 8 8 0 0 0 4952 1416 L 2840 1416 A 8 8 0 0 1 2832 1408 L 2832 1000 A 8 8 0 0 0 2824 992 L 1336 992 A 8 8 0 0 1 1328 984 A 8 8 0 0 0 1320 976 L 1248 976" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="orders-charge" data-kind="call" data-from="orders-api" data-to="payments-api">
-      <path d="M 1552 440 L 1576 440 A 8 8 0 0 1 1584 448 L 1584 656 A 8 8 0 0 0 1592 664 L 1660 664 A 4 4 0 0 0 1664 660 A 4 4 0 0 1 1668 656 L 1680 656"/>
+      <path class="diagram-casing" d="M 1680 656 L 1668 656 A 4 4 0 0 0 1664 660 A 4 4 0 0 1 1660 664 L 1592 664 A 8 8 0 0 1 1584 656 L 1584 448 A 8 8 0 0 0 1576 440 L 1552 440" stroke-width="3.5"/>
+      <path d="M 1680 656 L 1668 656 A 4 4 0 0 0 1664 660 A 4 4 0 0 1 1660 664 L 1592 664 A 8 8 0 0 1 1584 656 L 1584 448 A 8 8 0 0 0 1576 440 L 1552 440" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="orders-refund" data-kind="call" data-from="orders-api" data-to="payments-api">
-      <path d="M 1552 440 L 1568 440 A 8 8 0 0 1 1576 448 L 1576 648 A 8 8 0 0 0 1584 656 L 1680 656"/>
+      <path class="diagram-casing" d="M 1680 656 L 1584 656 A 8 8 0 0 1 1576 648 L 1576 448 A 8 8 0 0 0 1568 440 L 1552 440" stroke-width="3.5"/>
+      <path d="M 1680 656 L 1584 656 A 8 8 0 0 1 1576 648 L 1576 448 A 8 8 0 0 0 1568 440 L 1552 440" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="orders-api-&gt;inventory-api" data-kind="call" data-from="orders-api" data-to="inventory-api">
-      <path d="M 1552 440 L 1560 440 A 8 8 0 0 1 1568 448 L 1568 944 A 8 8 0 0 0 1576 952 L 2616 952"/>
+      <path class="diagram-casing" d="M 2616 952 L 1576 952 A 8 8 0 0 1 1568 944 L 1568 448 A 8 8 0 0 0 1560 440 L 1552 440" stroke-width="3.5"/>
+      <path d="M 2616 952 L 1576 952 A 8 8 0 0 1 1568 944 L 1568 448 A 8 8 0 0 0 1560 440 L 1552 440" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="orders-api-&gt;cart-api" data-kind="call" data-from="orders-api" data-to="cart-api">
-      <path d="M 1552 440 L 1568 440 A 8 8 0 0 0 1576 432 L 1576 368 A 8 8 0 0 1 1584 360 L 1816 360"/>
+      <path class="diagram-casing" d="M 1816 360 L 1584 360 A 8 8 0 0 0 1576 368 L 1576 432 A 8 8 0 0 1 1568 440 L 1552 440" stroke-width="3.5"/>
+      <path d="M 1816 360 L 1584 360 A 8 8 0 0 0 1576 368 L 1576 432 A 8 8 0 0 1 1568 440 L 1552 440" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="orders-api-&gt;users-api" data-kind="call" data-from="orders-api" data-to="users-api">
-      <path d="M 1552 440 L 1584 440 A 4 4 0 0 0 1588 436 A 4 4 0 0 1 1592 432 L 1796 432 A 4 4 0 0 1 1800 436 A 4 4 0 0 0 1804 440 L 1816 440"/>
+      <path class="diagram-casing" d="M 1816 440 L 1804 440 A 4 4 0 0 1 1800 436 A 4 4 0 0 0 1796 432 L 1592 432 A 4 4 0 0 0 1588 436 A 4 4 0 0 1 1584 440 L 1552 440" stroke-width="3.5"/>
+      <path d="M 1816 440 L 1804 440 A 4 4 0 0 1 1800 436 A 4 4 0 0 0 1796 432 L 1592 432 A 4 4 0 0 0 1588 436 A 4 4 0 0 1 1584 440 L 1552 440" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="orders-api-&gt;pricing-api" data-kind="call" data-from="orders-api" data-to="pricing-api">
-      <path d="M 1552 440 L 1576 440 A 8 8 0 0 0 1584 432 L 1584 416 A 8 8 0 0 1 1592 408 L 2024 408 A 8 8 0 0 0 2032 400 L 2032 384 A 8 8 0 0 1 2040 376 L 2136 376 A 8 8 0 0 1 2144 384 L 2144 1194 A 8 8 0 0 0 2152 1202 L 2584 1202 A 8 8 0 0 0 2592 1194 L 2592 1184 A 8 8 0 0 1 2600 1176 L 2616 1176"/>
+      <path class="diagram-casing" d="M 2616 1176 L 2600 1176 A 8 8 0 0 0 2592 1184 L 2592 1194 A 8 8 0 0 1 2584 1202 L 2152 1202 A 8 8 0 0 1 2144 1194 L 2144 384 A 8 8 0 0 0 2136 376 L 2040 376 A 8 8 0 0 0 2032 384 L 2032 400 A 8 8 0 0 1 2024 408 L 1592 408 A 8 8 0 0 0 1584 416 L 1584 432 A 8 8 0 0 1 1576 440 L 1552 440" stroke-width="3.5"/>
+      <path d="M 2616 1176 L 2600 1176 A 8 8 0 0 0 2592 1184 L 2592 1194 A 8 8 0 0 1 2584 1202 L 2152 1202 A 8 8 0 0 1 2144 1194 L 2144 384 A 8 8 0 0 0 2136 376 L 2040 376 A 8 8 0 0 0 2032 384 L 2032 400 A 8 8 0 0 1 2024 408 L 1592 408 A 8 8 0 0 0 1584 416 L 1584 432 A 8 8 0 0 1 1576 440 L 1552 440" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="cart-api-&gt;pricing-api" data-kind="call" data-from="cart-api" data-to="pricing-api">
-      <path d="M 1992 360 L 2024 360 A 8 8 0 0 1 2032 368 A 8 8 0 0 0 2040 376 L 2136 376 A 8 8 0 0 1 2144 384 L 2144 1194 A 8 8 0 0 0 2152 1202 L 2584 1202 A 8 8 0 0 0 2592 1194 L 2592 1184 A 8 8 0 0 1 2600 1176 L 2616 1176"/>
+      <path class="diagram-casing" d="M 2616 1176 L 2600 1176 A 8 8 0 0 0 2592 1184 L 2592 1194 A 8 8 0 0 1 2584 1202 L 2152 1202 A 8 8 0 0 1 2144 1194 L 2144 384 A 8 8 0 0 0 2136 376 L 2040 376 A 8 8 0 0 1 2032 368 A 8 8 0 0 0 2024 360 L 1992 360" stroke-width="3.5"/>
+      <path d="M 2616 1176 L 2600 1176 A 8 8 0 0 0 2592 1184 L 2592 1194 A 8 8 0 0 1 2584 1202 L 2152 1202 A 8 8 0 0 1 2144 1194 L 2144 384 A 8 8 0 0 0 2136 376 L 2040 376 A 8 8 0 0 1 2032 368 A 8 8 0 0 0 2024 360 L 1992 360" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="cart-api-&gt;promotions-api" data-kind="call" data-from="cart-api" data-to="promotions-api">
-      <path d="M 1992 360 L 2020 360 A 8 8 0 0 1 2028 368 L 2028 376 A 8 8 0 0 0 2036 384 L 2128 384 A 8 8 0 0 1 2136 392 L 2136 1201.33 A 8 8 0 0 0 2144 1209.33 L 2848 1209.33 A 8 8 0 0 0 2856 1201.33 L 2856 1174 A 6 6 0 0 1 2862 1168 L 2864 1168 A 4 4 0 0 1 2868 1172 A 4 4 0 0 0 2872 1176 L 2888 1176"/>
+      <path class="diagram-casing" d="M 2888 1176 L 2872 1176 A 4 4 0 0 1 2868 1172 A 4 4 0 0 0 2864 1168 L 2862 1168 A 6 6 0 0 0 2856 1174 L 2856 1201.33 A 8 8 0 0 1 2848 1209.33 L 2144 1209.33 A 8 8 0 0 1 2136 1201.33 L 2136 392 A 8 8 0 0 0 2128 384 L 2036 384 A 8 8 0 0 1 2028 376 L 2028 368 A 8 8 0 0 0 2020 360 L 1992 360" stroke-width="3.5"/>
+      <path d="M 2888 1176 L 2872 1176 A 4 4 0 0 1 2868 1172 A 4 4 0 0 0 2864 1168 L 2862 1168 A 6 6 0 0 0 2856 1174 L 2856 1201.33 A 8 8 0 0 1 2848 1209.33 L 2144 1209.33 A 8 8 0 0 1 2136 1201.33 L 2136 392 A 8 8 0 0 0 2128 384 L 2036 384 A 8 8 0 0 1 2028 376 L 2028 368 A 8 8 0 0 0 2020 360 L 1992 360" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="cart-api-&gt;inventory-api" data-kind="call" data-from="cart-api" data-to="inventory-api">
-      <path d="M 1992 360 L 2032 360 A 4 4 0 0 1 2036 364 A 4 4 0 0 0 2040 368 L 2144 368 A 8 8 0 0 1 2152 376 L 2152 944 A 8 8 0 0 0 2160 952 L 2616 952"/>
+      <path class="diagram-casing" d="M 2616 952 L 2160 952 A 8 8 0 0 1 2152 944 L 2152 376 A 8 8 0 0 0 2144 368 L 2040 368 A 4 4 0 0 1 2036 364 A 4 4 0 0 0 2032 360 L 1992 360" stroke-width="3.5"/>
+      <path d="M 2616 952 L 2160 952 A 8 8 0 0 1 2152 944 L 2152 376 A 8 8 0 0 0 2144 368 L 2040 368 A 4 4 0 0 1 2036 364 A 4 4 0 0 0 2032 360 L 1992 360" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="cart-api-&gt;session-cache" data-kind="call" data-from="cart-api" data-to="session-cache">
-      <path d="M 1992 360 L 2016 360 A 8 8 0 0 1 2024 368 L 2024 424 A 8 8 0 0 0 2032 432 L 2236 432 A 4 4 0 0 1 2240 436 A 4 4 0 0 0 2244 440 L 2256 440"/>
+      <path class="diagram-casing" d="M 2256 440 L 2244 440 A 4 4 0 0 1 2240 436 A 4 4 0 0 0 2236 432 L 2032 432 A 8 8 0 0 1 2024 424 L 2024 368 A 8 8 0 0 0 2016 360 L 1992 360" stroke-width="3.5"/>
+      <path d="M 2256 440 L 2244 440 A 4 4 0 0 1 2240 436 A 4 4 0 0 0 2236 432 L 2032 432 A 8 8 0 0 1 2024 424 L 2024 368 A 8 8 0 0 0 2016 360 L 1992 360" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="users-api-&gt;session-cache" data-kind="call" data-from="users-api" data-to="session-cache">
-      <path d="M 1992 440 L 2016 440 A 4 4 0 0 0 2020 436 A 4 4 0 0 1 2024 432 L 2236 432 A 4 4 0 0 1 2240 436 A 4 4 0 0 0 2244 440 L 2256 440"/>
+      <path class="diagram-casing" d="M 2256 440 L 2244 440 A 4 4 0 0 1 2240 436 A 4 4 0 0 0 2236 432 L 2024 432 A 4 4 0 0 0 2020 436 A 4 4 0 0 1 2016 440 L 1992 440" stroke-width="3.5"/>
+      <path d="M 2256 440 L 2244 440 A 4 4 0 0 1 2240 436 A 4 4 0 0 0 2236 432 L 2024 432 A 4 4 0 0 0 2020 436 A 4 4 0 0 1 2016 440 L 1992 440" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="payments-api-&gt;payment-provider" data-kind="call" data-from="payments-api" data-to="payment-provider">
-      <path d="M 1856 656 L 1872 656 A 8 8 0 0 1 1880 664 L 1880 684 A 8 8 0 0 0 1888 692 L 3984 692 A 8 8 0 0 1 3992 700 L 3992 1312 A 8 8 0 0 0 4000 1320 L 5624 1320"/>
+      <path class="diagram-casing" d="M 5624 1320 L 4000 1320 A 8 8 0 0 1 3992 1312 L 3992 700 A 8 8 0 0 0 3984 692 L 1888 692 A 8 8 0 0 1 1880 684 L 1880 664 A 8 8 0 0 0 1872 656 L 1856 656" stroke-width="3.5"/>
+      <path d="M 5624 1320 L 4000 1320 A 8 8 0 0 1 3992 1312 L 3992 700 A 8 8 0 0 0 3984 692 L 1888 692 A 8 8 0 0 1 1880 684 L 1880 664 A 8 8 0 0 0 1872 656 L 1856 656" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="search-api-&gt;catalog-api" data-kind="call" data-from="search-api" data-to="catalog-api">
-      <path d="M 3064 1376 L 3072 1376 A 8 8 0 0 0 3080 1368 L 3080 1264 A 8 8 0 0 1 3088 1256 L 3192 1256"/>
+      <path class="diagram-casing" d="M 3192 1256 L 3088 1256 A 8 8 0 0 0 3080 1264 L 3080 1368 A 8 8 0 0 1 3072 1376 L 3064 1376" stroke-width="3.5"/>
+      <path d="M 3192 1256 L 3088 1256 A 8 8 0 0 0 3080 1264 L 3080 1368 A 8 8 0 0 1 3072 1376 L 3064 1376" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="recs-api-&gt;search-api" data-kind="call" data-from="recs-api" data-to="search-api">
-      <path d="M 2792 1376 L 2808 1376 A 4 4 0 0 0 2812 1372 A 4 4 0 0 1 2816 1368 L 2864 1368 A 4 4 0 0 1 2868 1372 A 4 4 0 0 0 2872 1376 L 2888 1376"/>
+      <path class="diagram-casing" d="M 2888 1376 L 2872 1376 A 4 4 0 0 1 2868 1372 A 4 4 0 0 0 2864 1368 L 2816 1368 A 4 4 0 0 0 2812 1372 A 4 4 0 0 1 2808 1376 L 2792 1376" stroke-width="3.5"/>
+      <path d="M 2888 1376 L 2872 1376 A 4 4 0 0 1 2868 1372 A 4 4 0 0 0 2864 1368 L 2816 1368 A 4 4 0 0 0 2812 1372 A 4 4 0 0 1 2808 1376 L 2792 1376" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="recs-api-&gt;orders-replica" data-kind="call" data-from="recs-api" data-to="orders-replica">
-      <path d="M 2792 1376 L 2824 1376 A 8 8 0 0 1 2832 1384 L 2832 1408 A 8 8 0 0 0 2840 1416 L 4952 1416 A 8 8 0 0 1 4960 1424 L 4960 1448 A 8 8 0 0 0 4968 1456 L 5696 1456 A 8 8 0 0 1 5704 1464 L 5704 1608 A 8 8 0 0 0 5712 1616 L 5776 1616"/>
+      <path class="diagram-casing" d="M 5776 1616 L 5712 1616 A 8 8 0 0 1 5704 1608 L 5704 1464 A 8 8 0 0 0 5696 1456 L 4968 1456 A 8 8 0 0 1 4960 1448 L 4960 1424 A 8 8 0 0 0 4952 1416 L 2840 1416 A 8 8 0 0 1 2832 1408 L 2832 1384 A 8 8 0 0 0 2824 1376 L 2792 1376" stroke-width="3.5"/>
+      <path d="M 5776 1616 L 5712 1616 A 8 8 0 0 1 5704 1608 L 5704 1464 A 8 8 0 0 0 5696 1456 L 4968 1456 A 8 8 0 0 1 4960 1448 L 4960 1424 A 8 8 0 0 0 4952 1416 L 2840 1416 A 8 8 0 0 1 2832 1408 L 2832 1384 A 8 8 0 0 0 2824 1376 L 2792 1376" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="catalog-api-&gt;product-images" data-kind="call" data-from="catalog-api" data-to="product-images">
-      <path d="M 3368 1256 L 3384 1256 A 8 8 0 0 1 3392 1264 L 3392 1280 A 8 8 0 0 0 3400 1288 L 3648 1288 A 8 8 0 0 0 3656 1280 L 3656 1264 A 8 8 0 0 1 3664 1256 L 3736 1256"/>
+      <path class="diagram-casing" d="M 3736 1256 L 3664 1256 A 8 8 0 0 0 3656 1264 L 3656 1280 A 8 8 0 0 1 3648 1288 L 3400 1288 A 8 8 0 0 1 3392 1280 L 3392 1264 A 8 8 0 0 0 3384 1256 L 3368 1256" stroke-width="3.5"/>
+      <path d="M 3736 1256 L 3664 1256 A 8 8 0 0 0 3656 1264 L 3656 1280 A 8 8 0 0 1 3648 1288 L 3400 1288 A 8 8 0 0 1 3392 1280 L 3392 1264 A 8 8 0 0 0 3384 1256 L 3368 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="catalog-api-&gt;image-resizer" data-kind="call" data-from="catalog-api" data-to="image-resizer">
-      <path d="M 3368 1256 L 3464 1256"/>
+      <path class="diagram-casing" d="M 3464 1256 L 3368 1256" stroke-width="3.5"/>
+      <path d="M 3464 1256 L 3368 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="image-resizer-&gt;product-images" data-kind="call" data-from="image-resizer" data-to="product-images">
-      <path d="M 3640 1256 L 3736 1256"/>
+      <path class="diagram-casing" d="M 3736 1256 L 3640 1256" stroke-width="3.5"/>
+      <path d="M 3736 1256 L 3640 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="pricing-api-&gt;promotions-api" data-kind="call" data-from="pricing-api" data-to="promotions-api">
-      <path d="M 2792 1176 L 2808 1176 A 4 4 0 0 0 2812 1172 A 4 4 0 0 1 2816 1168 L 2864 1168 A 4 4 0 0 1 2868 1172 A 4 4 0 0 0 2872 1176 L 2888 1176"/>
+      <path class="diagram-casing" d="M 2888 1176 L 2872 1176 A 4 4 0 0 1 2868 1172 A 4 4 0 0 0 2864 1168 L 2816 1168 A 4 4 0 0 0 2812 1172 A 4 4 0 0 1 2808 1176 L 2792 1176" stroke-width="3.5"/>
+      <path d="M 2888 1176 L 2872 1176 A 4 4 0 0 1 2868 1172 A 4 4 0 0 0 2864 1168 L 2816 1168 A 4 4 0 0 0 2812 1172 A 4 4 0 0 1 2808 1176 L 2792 1176" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="shipping-api-&gt;shipping-carrier" data-kind="call" data-from="shipping-api" data-to="shipping-carrier">
-      <path d="M 4664 160 L 4712 160 A 8 8 0 0 1 4720 168 L 4720 184 A 8 8 0 0 0 4728 192 L 5248 192 A 8 8 0 0 1 5256 200 L 5256 1408 A 8 8 0 0 0 5264 1416 L 5624 1416"/>
+      <path class="diagram-casing" d="M 5624 1416 L 5264 1416 A 8 8 0 0 1 5256 1408 L 5256 200 A 8 8 0 0 0 5248 192 L 4728 192 A 8 8 0 0 1 4720 184 L 4720 168 A 8 8 0 0 0 4712 160 L 4664 160" stroke-width="3.5"/>
+      <path d="M 5624 1416 L 5264 1416 A 8 8 0 0 1 5256 1408 L 5256 200 A 8 8 0 0 0 5248 192 L 4728 192 A 8 8 0 0 1 4720 184 L 4720 168 A 8 8 0 0 0 4712 160 L 4664 160" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="admin-api-&gt;orders-api" data-kind="call" data-from="admin-api" data-to="orders-api">
-      <path d="M 1248 896 L 1256 896 A 8 8 0 0 0 1264 888 L 1264 448 A 8 8 0 0 1 1272 440 L 1376 440"/>
+      <path class="diagram-casing" d="M 1376 440 L 1272 440 A 8 8 0 0 0 1264 448 L 1264 888 A 8 8 0 0 1 1256 896 L 1248 896" stroke-width="3.5"/>
+      <path d="M 1376 440 L 1272 440 A 8 8 0 0 0 1264 448 L 1264 888 A 8 8 0 0 1 1256 896 L 1248 896" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="admin-api-&gt;users-api" data-kind="call" data-from="admin-api" data-to="users-api">
-      <path d="M 1248 896 L 1264 896 A 4 4 0 0 0 1268 892 A 4 4 0 0 1 1272 888 L 1608 888 A 8 8 0 0 0 1616 880 L 1616 440 A 8 8 0 0 1 1624 432 L 1796 432 A 4 4 0 0 1 1800 436 A 4 4 0 0 0 1804 440 L 1816 440"/>
+      <path class="diagram-casing" d="M 1816 440 L 1804 440 A 4 4 0 0 1 1800 436 A 4 4 0 0 0 1796 432 L 1624 432 A 8 8 0 0 0 1616 440 L 1616 880 A 8 8 0 0 1 1608 888 L 1272 888 A 4 4 0 0 0 1268 892 A 4 4 0 0 1 1264 896 L 1248 896" stroke-width="3.5"/>
+      <path d="M 1816 440 L 1804 440 A 4 4 0 0 1 1800 436 A 4 4 0 0 0 1796 432 L 1624 432 A 8 8 0 0 0 1616 440 L 1616 880 A 8 8 0 0 1 1608 888 L 1272 888 A 4 4 0 0 0 1268 892 A 4 4 0 0 1 1264 896 L 1248 896" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="admin-api-&gt;catalog-api" data-kind="call" data-from="admin-api" data-to="catalog-api">
-      <path d="M 1248 896 L 1312 896 A 8 8 0 0 1 1320 904 L 1320 1248 A 8 8 0 0 0 1328 1256 L 3192 1256"/>
+      <path class="diagram-casing" d="M 3192 1256 L 1328 1256 A 8 8 0 0 1 1320 1248 L 1320 904 A 8 8 0 0 0 1312 896 L 1248 896" stroke-width="3.5"/>
+      <path d="M 3192 1256 L 1328 1256 A 8 8 0 0 1 1320 1248 L 1320 904 A 8 8 0 0 0 1312 896 L 1248 896" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="report-api-&gt;search-replica" data-kind="call" data-from="report-api" data-to="search-replica">
-      <path d="M 1248 976 L 1296 976 A 8 8 0 0 1 1304 984 L 1304 1696 A 8 8 0 0 0 1312 1704 L 5756 1704 A 4 4 0 0 0 5760 1700 A 4 4 0 0 1 5764 1696 L 5776 1696"/>
+      <path class="diagram-casing" d="M 5776 1696 L 5764 1696 A 4 4 0 0 0 5760 1700 A 4 4 0 0 1 5756 1704 L 1312 1704 A 8 8 0 0 1 1304 1696 L 1304 984 A 8 8 0 0 0 1296 976 L 1248 976" stroke-width="3.5"/>
+      <path d="M 5776 1696 L 5764 1696 A 4 4 0 0 0 5760 1700 A 4 4 0 0 1 5756 1704 L 1312 1704 A 8 8 0 0 1 1304 1696 L 1304 984 A 8 8 0 0 0 1296 976 L 1248 976" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="report-api-&gt;report-worker" data-kind="call" data-from="report-api" data-to="report-worker">
-      <path d="M 1248 976 L 1304 976 A 8 8 0 0 1 1312 984 L 1312 1608 A 8 8 0 0 0 1320 1616 L 5504 1616"/>
+      <path class="diagram-casing" d="M 5504 1616 L 1320 1616 A 8 8 0 0 1 1312 1608 L 1312 984 A 8 8 0 0 0 1304 976 L 1248 976" stroke-width="3.5"/>
+      <path d="M 5504 1616 L 1320 1616 A 8 8 0 0 1 1312 1608 L 1312 984 A 8 8 0 0 0 1304 976 L 1248 976" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="report-worker-&gt;orders-replica" data-kind="call" data-from="report-worker" data-to="orders-replica">
-      <path d="M 5680 1616 L 5776 1616"/>
+      <path class="diagram-casing" d="M 5776 1616 L 5680 1616" stroke-width="3.5"/>
+      <path d="M 5776 1616 L 5680 1616" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="report-worker-&gt;search-replica" data-kind="call" data-from="report-worker" data-to="search-replica">
-      <path d="M 5680 1616 L 5684 1616 A 4 4 0 0 1 5688 1620 L 5688 1696 A 8 8 0 0 0 5696 1704 L 5756 1704 A 4 4 0 0 0 5760 1700 A 4 4 0 0 1 5764 1696 L 5776 1696"/>
+      <path class="diagram-casing" d="M 5776 1696 L 5764 1696 A 4 4 0 0 0 5760 1700 A 4 4 0 0 1 5756 1704 L 5696 1704 A 8 8 0 0 1 5688 1696 L 5688 1620 A 4 4 0 0 0 5684 1616 L 5680 1616" stroke-width="3.5"/>
+      <path d="M 5776 1696 L 5764 1696 A 4 4 0 0 0 5760 1700 A 4 4 0 0 1 5756 1704 L 5696 1704 A 8 8 0 0 1 5688 1696 L 5688 1620 A 4 4 0 0 0 5684 1616 L 5680 1616" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="invoice-worker-&gt;payments-db" data-kind="call" data-from="invoice-worker" data-to="payments-db">
-      <path d="M 4936 600 L 4940 600 A 4 4 0 0 0 4944 596 L 4944 572 A 8 8 0 0 0 4936 564 L 1944 564 A 8 8 0 0 0 1936 572 L 1936 648 A 8 8 0 0 0 1944 656 L 1952 656"/>
+      <path class="diagram-casing" d="M 1952 656 L 1944 656 A 8 8 0 0 1 1936 648 L 1936 572 A 8 8 0 0 1 1944 564 L 4936 564 A 8 8 0 0 1 4944 572 L 4944 596 A 4 4 0 0 1 4940 600 L 4936 600" stroke-width="3.5"/>
+      <path d="M 1952 656 L 1944 656 A 8 8 0 0 1 1936 648 L 1936 572 A 8 8 0 0 1 1944 564 L 4936 564 A 8 8 0 0 1 4944 572 L 4944 596 A 4 4 0 0 1 4940 600 L 4936 600" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="fraud-worker-&gt;orders-api" data-kind="call" data-from="fraud-worker" data-to="orders-api">
-      <path d="M 1856 736 L 1860 736 A 4 4 0 0 0 1864 732 L 1864 708 A 8 8 0 0 0 1856 700 L 1368 700 A 8 8 0 0 1 1360 692 L 1360 448 A 8 8 0 0 1 1368 440 L 1376 440"/>
+      <path class="diagram-casing" d="M 1376 440 L 1368 440 A 8 8 0 0 0 1360 448 L 1360 692 A 8 8 0 0 0 1368 700 L 1856 700 A 8 8 0 0 1 1864 708 L 1864 732 A 4 4 0 0 1 1860 736 L 1856 736" stroke-width="3.5"/>
+      <path d="M 1376 440 L 1368 440 A 8 8 0 0 0 1360 448 L 1360 692 A 8 8 0 0 0 1368 700 L 1856 700 A 8 8 0 0 1 1864 708 L 1864 732 A 4 4 0 0 1 1860 736 L 1856 736" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="picker-&gt;shipping-db" data-kind="call" data-from="picker" data-to="shipping-db">
-      <path d="M 4936 160 L 4944 160 A 8 8 0 0 1 4952 168 L 4952 232 A 8 8 0 0 0 4960 240 L 5032 240"/>
+      <path class="diagram-casing" d="M 5032 240 L 4960 240 A 8 8 0 0 1 4952 232 L 4952 168 A 8 8 0 0 0 4944 160 L 4936 160" stroke-width="3.5"/>
+      <path d="M 5032 240 L 4960 240 A 8 8 0 0 1 4952 232 L 4952 168 A 8 8 0 0 0 4944 160 L 4936 160" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="picker-&gt;label-printer" data-kind="call" data-from="picker" data-to="label-printer">
-      <path d="M 4936 160 L 5032 160"/>
+      <path class="diagram-casing" d="M 5032 160 L 4936 160" stroke-width="3.5"/>
+      <path d="M 5032 160 L 4936 160" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="label-printer-&gt;shipping-carrier" data-kind="call" data-from="label-printer" data-to="shipping-carrier">
-      <path d="M 5208 160 L 5248 160 A 8 8 0 0 1 5256 168 L 5256 1408 A 8 8 0 0 0 5264 1416 L 5624 1416"/>
+      <path class="diagram-casing" d="M 5624 1416 L 5264 1416 A 8 8 0 0 1 5256 1408 L 5256 168 A 8 8 0 0 0 5248 160 L 5208 160" stroke-width="3.5"/>
+      <path d="M 5624 1416 L 5264 1416 A 8 8 0 0 1 5256 1408 L 5256 168 A 8 8 0 0 0 5248 160 L 5208 160" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="email-worker-&gt;email-provider" data-kind="call" data-from="email-worker" data-to="email-provider">
-      <path d="M 4936 360 L 4960 360 A 8 8 0 0 1 4968 368 L 4968 1248 A 8 8 0 0 0 4976 1256 L 6992 1256"/>
+      <path class="diagram-casing" d="M 6992 1256 L 4976 1256 A 8 8 0 0 1 4968 1248 L 4968 368 A 8 8 0 0 0 4960 360 L 4936 360" stroke-width="3.5"/>
+      <path d="M 6992 1256 L 4976 1256 A 8 8 0 0 1 4968 1248 L 4968 368 A 8 8 0 0 0 4960 360 L 4936 360" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="sms-worker-&gt;sms-provider" data-kind="call" data-from="sms-worker" data-to="sms-provider">
-      <path d="M 4936 440 L 6908 440 A 8 8 0 0 1 6916 448 L 6916 1824 A 8 8 0 0 0 6924 1832 L 6992 1832"/>
+      <path class="diagram-casing" d="M 6992 1832 L 6924 1832 A 8 8 0 0 1 6916 1824 L 6916 448 A 8 8 0 0 0 6908 440 L 4936 440" stroke-width="3.5"/>
+      <path d="M 6992 1832 L 6924 1832 A 8 8 0 0 1 6916 1824 L 6916 448 A 8 8 0 0 0 6908 440 L 4936 440" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="analytics-worker-&gt;metrics" data-kind="call" data-from="analytics-worker" data-to="metrics">
-      <path d="M 4936 520 L 6336 520 A 8 8 0 0 1 6344 528 L 6344 1824 A 8 8 0 0 0 6352 1832 L 6416 1832"/>
+      <path class="diagram-casing" d="M 6416 1832 L 6352 1832 A 8 8 0 0 1 6344 1824 L 6344 528 A 8 8 0 0 0 6336 520 L 4936 520" stroke-width="3.5"/>
+      <path d="M 6416 1832 L 6352 1832 A 8 8 0 0 1 6344 1824 L 6344 528 A 8 8 0 0 0 6336 520 L 4936 520" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="analytics-worker-&gt;recs-api" data-kind="call" data-from="analytics-worker" data-to="recs-api">
-      <path d="M 4936 520 L 4944 520 A 8 8 0 0 1 4952 528 L 4952 900 A 8 8 0 0 1 4944 908 L 2608 908 A 8 8 0 0 0 2600 916 L 2600 1368 A 8 8 0 0 0 2608 1376 L 2616 1376"/>
+      <path class="diagram-casing" d="M 2616 1376 L 2608 1376 A 8 8 0 0 1 2600 1368 L 2600 916 A 8 8 0 0 1 2608 908 L 4944 908 A 8 8 0 0 0 4952 900 L 4952 528 A 8 8 0 0 0 4944 520 L 4936 520" stroke-width="3.5"/>
+      <path d="M 2616 1376 L 2608 1376 A 8 8 0 0 1 2600 1368 L 2600 916 A 8 8 0 0 1 2608 908 L 4944 908 A 8 8 0 0 0 4952 900 L 4952 528 A 8 8 0 0 0 4944 520 L 4936 520" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="payment-webhooks" data-kind="call" data-from="payment-provider" data-to="payments-api">
-      <path d="M 5832 1320 L 5840 1320 A 8 8 0 0 0 5848 1312 L 5848 864 A 8 8 0 0 0 5840 856 L 1672 856 A 8 8 0 0 1 1664 848 L 1664 664 A 8 8 0 0 1 1672 656 L 1680 656"/>
+      <path class="diagram-casing" d="M 1680 656 L 1672 656 A 8 8 0 0 0 1664 664 L 1664 848 A 8 8 0 0 0 1672 856 L 5840 856 A 8 8 0 0 1 5848 864 L 5848 1312 A 8 8 0 0 1 5840 1320 L 5832 1320" stroke-width="3.5"/>
+      <path d="M 1680 656 L 1672 656 A 8 8 0 0 0 1664 664 L 1664 848 A 8 8 0 0 0 1672 856 L 5840 856 A 8 8 0 0 1 5848 864 L 5848 1312 A 8 8 0 0 1 5840 1320 L 5832 1320" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="tracking-webhooks" data-kind="call" data-from="shipping-carrier" data-to="shipping-api">
-      <path d="M 5832 1416 L 5840 1416 A 8 8 0 0 0 5848 1408 L 5848 1384 A 8 8 0 0 0 5840 1376 L 4480 1376 A 8 8 0 0 1 4472 1368 L 4472 168 A 8 8 0 0 1 4480 160 L 4488 160"/>
+      <path class="diagram-casing" d="M 4488 160 L 4480 160 A 8 8 0 0 0 4472 168 L 4472 1368 A 8 8 0 0 0 4480 1376 L 5840 1376 A 8 8 0 0 1 5848 1384 L 5848 1408 A 8 8 0 0 1 5840 1416 L 5832 1416" stroke-width="3.5"/>
+      <path d="M 4488 160 L 4480 160 A 8 8 0 0 0 4472 168 L 4472 1368 A 8 8 0 0 0 4480 1376 L 5840 1376 A 8 8 0 0 1 5848 1384 L 5848 1408 A 8 8 0 0 1 5840 1416 L 5832 1416" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="tracing-&gt;metrics" data-kind="call" data-from="tracing" data-to="metrics">
-      <path d="M 6320 1832 L 6416 1832"/>
+      <path class="diagram-casing" d="M 6416 1832 L 6320 1832" stroke-width="3.5"/>
+      <path d="M 6416 1832 L 6320 1832" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="metrics-&gt;alerting" data-kind="call" data-from="metrics" data-to="alerting">
-      <path d="M 6592 1832 L 6600 1832 A 8 8 0 0 0 6608 1824 L 6608 1760 A 8 8 0 0 1 6616 1752 L 6688 1752"/>
+      <path class="diagram-casing" d="M 6688 1752 L 6616 1752 A 8 8 0 0 0 6608 1760 L 6608 1824 A 8 8 0 0 1 6600 1832 L 6592 1832" stroke-width="3.5"/>
+      <path d="M 6688 1752 L 6616 1752 A 8 8 0 0 0 6608 1760 L 6608 1824 A 8 8 0 0 1 6600 1832 L 6592 1832" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="alerting-&gt;email-provider" data-kind="call" data-from="alerting" data-to="email-provider">
-      <path d="M 6864 1752 L 6900 1752 A 8 8 0 0 0 6908 1744 L 6908 1264 A 8 8 0 0 1 6916 1256 L 6992 1256"/>
+      <path class="diagram-casing" d="M 6992 1256 L 6916 1256 A 8 8 0 0 0 6908 1264 L 6908 1744 A 8 8 0 0 1 6900 1752 L 6864 1752" stroke-width="3.5"/>
+      <path d="M 6992 1256 L 6916 1256 A 8 8 0 0 0 6908 1264 L 6908 1744 A 8 8 0 0 1 6900 1752 L 6864 1752" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="alerting-&gt;sms-provider" data-kind="call" data-from="alerting" data-to="sms-provider">
-      <path d="M 6864 1752 L 6876 1752 A 4 4 0 0 1 6880 1756 A 4 4 0 0 0 6884 1760 L 6908 1760 A 8 8 0 0 1 6916 1768 L 6916 1824 A 8 8 0 0 0 6924 1832 L 6992 1832"/>
+      <path class="diagram-casing" d="M 6992 1832 L 6924 1832 A 8 8 0 0 1 6916 1824 L 6916 1768 A 8 8 0 0 0 6908 1760 L 6884 1760 A 4 4 0 0 1 6880 1756 A 4 4 0 0 0 6876 1752 L 6864 1752" stroke-width="3.5"/>
+      <path d="M 6992 1832 L 6924 1832 A 8 8 0 0 1 6916 1824 L 6916 1768 A 8 8 0 0 0 6908 1760 L 6884 1760 A 4 4 0 0 1 6880 1756 A 4 4 0 0 0 6876 1752 L 6864 1752" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="logs-&gt;alerting" data-kind="call" data-from="logs" data-to="alerting">
-      <path d="M 6320 1752 L 6688 1752"/>
+      <path class="diagram-casing" d="M 6688 1752 L 6320 1752" stroke-width="3.5"/>
+      <path d="M 6688 1752 L 6320 1752" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="web-app-&gt;auth-service" data-kind="call" data-from="web-app" data-to="auth-service">
-      <path d="M 200 1040 L 224 1040 A 8 8 0 0 1 232 1048 L 232 1104 A 8 8 0 0 0 240 1112 L 652 1112 A 4 4 0 0 1 656 1116 A 4 4 0 0 0 660 1120 L 672 1120"/>
+      <path class="diagram-casing" d="M 672 1120 L 660 1120 A 4 4 0 0 1 656 1116 A 4 4 0 0 0 652 1112 L 240 1112 A 8 8 0 0 1 232 1104 L 232 1048 A 8 8 0 0 0 224 1040 L 200 1040" stroke-width="3.5"/>
+      <path d="M 672 1120 L 660 1120 A 4 4 0 0 1 656 1116 A 4 4 0 0 0 652 1112 L 240 1112 A 8 8 0 0 1 232 1104 L 232 1048 A 8 8 0 0 0 224 1040 L 200 1040" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="mobile-app-&gt;auth-service" data-kind="call" data-from="mobile-app" data-to="auth-service">
-      <path d="M 200 1120 L 216 1120 A 4 4 0 0 0 220 1116 A 4 4 0 0 1 224 1112 L 652 1112 A 4 4 0 0 1 656 1116 A 4 4 0 0 0 660 1120 L 672 1120"/>
+      <path class="diagram-casing" d="M 672 1120 L 660 1120 A 4 4 0 0 1 656 1116 A 4 4 0 0 0 652 1112 L 224 1112 A 4 4 0 0 0 220 1116 A 4 4 0 0 1 216 1120 L 200 1120" stroke-width="3.5"/>
+      <path d="M 672 1120 L 660 1120 A 4 4 0 0 1 656 1116 A 4 4 0 0 0 652 1112 L 224 1112 A 4 4 0 0 0 220 1116 A 4 4 0 0 1 216 1120 L 200 1120" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="partner-portal-&gt;cdn" data-kind="call" data-from="partner-portal" data-to="cdn">
-      <path d="M 200 1256 L 216 1256 A 8 8 0 0 0 224 1248 L 224 1184 A 8 8 0 0 1 232 1176 L 296 1176"/>
+      <path class="diagram-casing" d="M 296 1176 L 232 1176 A 8 8 0 0 0 224 1184 L 224 1248 A 8 8 0 0 1 216 1256 L 200 1256" stroke-width="3.5"/>
+      <path d="M 296 1176 L 232 1176 A 8 8 0 0 0 224 1184 L 224 1248 A 8 8 0 0 1 216 1256 L 200 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="reviews-api-&gt;users-api" data-kind="call" data-from="reviews-api" data-to="users-api">
-      <path d="M 2792 1064 L 2796 1064 A 4 4 0 0 1 2800 1068 L 2800 1124 A 8 8 0 0 1 2792 1132 L 1624 1132 A 8 8 0 0 1 1616 1124 L 1616 440 A 8 8 0 0 1 1624 432 L 1796 432 A 4 4 0 0 1 1800 436 A 4 4 0 0 0 1804 440 L 1816 440"/>
+      <path class="diagram-casing" d="M 1816 440 L 1804 440 A 4 4 0 0 1 1800 436 A 4 4 0 0 0 1796 432 L 1624 432 A 8 8 0 0 0 1616 440 L 1616 1124 A 8 8 0 0 0 1624 1132 L 2792 1132 A 8 8 0 0 0 2800 1124 L 2800 1068 A 4 4 0 0 0 2796 1064 L 2792 1064" stroke-width="3.5"/>
+      <path d="M 1816 440 L 1804 440 A 4 4 0 0 1 1800 436 A 4 4 0 0 0 1796 432 L 1624 432 A 8 8 0 0 0 1616 440 L 1616 1124 A 8 8 0 0 0 1624 1132 L 2792 1132 A 8 8 0 0 0 2800 1124 L 2800 1068 A 4 4 0 0 0 2796 1064 L 2792 1064" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="reviews-api-&gt;catalog-api" data-kind="call" data-from="reviews-api" data-to="catalog-api">
-      <path d="M 2792 1064 L 2832 1064 A 8 8 0 0 1 2840 1072 L 2840 1248 A 8 8 0 0 0 2848 1256 L 3192 1256"/>
+      <path class="diagram-casing" d="M 3192 1256 L 2848 1256 A 8 8 0 0 1 2840 1248 L 2840 1072 A 8 8 0 0 0 2832 1064 L 2792 1064" stroke-width="3.5"/>
+      <path d="M 3192 1256 L 2848 1256 A 8 8 0 0 1 2840 1248 L 2840 1072 A 8 8 0 0 0 2832 1064 L 2792 1064" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="promotions-api-&gt;users-api" data-kind="call" data-from="promotions-api" data-to="users-api">
-      <path d="M 3064 1176 L 3070 1176 A 6 6 0 0 0 3076 1170 L 3076 1140 A 8 8 0 0 0 3068 1132 L 1624 1132 A 8 8 0 0 1 1616 1124 L 1616 440 A 8 8 0 0 1 1624 432 L 1796 432 A 4 4 0 0 1 1800 436 A 4 4 0 0 0 1804 440 L 1816 440"/>
+      <path class="diagram-casing" d="M 1816 440 L 1804 440 A 4 4 0 0 1 1800 436 A 4 4 0 0 0 1796 432 L 1624 432 A 8 8 0 0 0 1616 440 L 1616 1124 A 8 8 0 0 0 1624 1132 L 3068 1132 A 8 8 0 0 1 3076 1140 L 3076 1170 A 6 6 0 0 1 3070 1176 L 3064 1176" stroke-width="3.5"/>
+      <path d="M 1816 440 L 1804 440 A 4 4 0 0 1 1800 436 A 4 4 0 0 0 1796 432 L 1624 432 A 8 8 0 0 0 1616 440 L 1616 1124 A 8 8 0 0 0 1624 1132 L 3068 1132 A 8 8 0 0 1 3076 1140 L 3076 1170 A 6 6 0 0 1 3070 1176 L 3064 1176" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="inventory-api-&gt;catalog-api" data-kind="call" data-from="inventory-api" data-to="catalog-api">
-      <path d="M 2792 952 L 2832 952 A 8 8 0 0 1 2840 960 L 2840 1248 A 8 8 0 0 0 2848 1256 L 3192 1256"/>
+      <path class="diagram-casing" d="M 3192 1256 L 2848 1256 A 8 8 0 0 1 2840 1248 L 2840 960 A 8 8 0 0 0 2832 952 L 2792 952" stroke-width="3.5"/>
+      <path d="M 3192 1256 L 2848 1256 A 8 8 0 0 1 2840 1248 L 2840 960 A 8 8 0 0 0 2832 952 L 2792 952" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="shipping-api-&gt;orders-api" data-kind="call" data-from="shipping-api" data-to="orders-api">
-      <path d="M 4664 160 L 4672 160 A 8 8 0 0 1 4680 168 L 4680 712 A 8 8 0 0 1 4672 720 L 1872 720 A 8 8 0 0 1 1864 712 L 1864 708 A 8 8 0 0 0 1856 700 L 1368 700 A 8 8 0 0 1 1360 692 L 1360 448 A 8 8 0 0 1 1368 440 L 1376 440"/>
+      <path class="diagram-casing" d="M 1376 440 L 1368 440 A 8 8 0 0 0 1360 448 L 1360 692 A 8 8 0 0 0 1368 700 L 1856 700 A 8 8 0 0 1 1864 708 L 1864 712 A 8 8 0 0 0 1872 720 L 4672 720 A 8 8 0 0 0 4680 712 L 4680 168 A 8 8 0 0 0 4672 160 L 4664 160" stroke-width="3.5"/>
+      <path d="M 1376 440 L 1368 440 A 8 8 0 0 0 1360 448 L 1360 692 A 8 8 0 0 0 1368 700 L 1856 700 A 8 8 0 0 1 1864 708 L 1864 712 A 8 8 0 0 0 1872 720 L 4672 720 A 8 8 0 0 0 4680 712 L 4680 168 A 8 8 0 0 0 4672 160 L 4664 160" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="shipping-api-&gt;inventory-api" data-kind="call" data-from="shipping-api" data-to="inventory-api">
-      <path d="M 4664 160 L 4668 160 A 4 4 0 0 1 4672 164 L 4672 200 A 8 8 0 0 1 4664 208 L 2160 208 A 8 8 0 0 0 2152 216 L 2152 944 A 8 8 0 0 0 2160 952 L 2616 952"/>
+      <path class="diagram-casing" d="M 2616 952 L 2160 952 A 8 8 0 0 1 2152 944 L 2152 216 A 8 8 0 0 1 2160 208 L 4664 208 A 8 8 0 0 0 4672 200 L 4672 164 A 4 4 0 0 0 4668 160 L 4664 160" stroke-width="3.5"/>
+      <path d="M 2616 952 L 2160 952 A 8 8 0 0 1 2152 944 L 2152 216 A 8 8 0 0 1 2160 208 L 4664 208 A 8 8 0 0 0 4672 200 L 4672 164 A 4 4 0 0 0 4668 160 L 4664 160" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="invoice-worker-&gt;orders-api" data-kind="call" data-from="invoice-worker" data-to="orders-api">
-      <path d="M 4936 600 L 4940 600 A 4 4 0 0 1 4944 604 L 4944 712 A 8 8 0 0 1 4936 720 L 1872 720 A 8 8 0 0 1 1864 712 L 1864 708 A 8 8 0 0 0 1856 700 L 1368 700 A 8 8 0 0 1 1360 692 L 1360 448 A 8 8 0 0 1 1368 440 L 1376 440"/>
+      <path class="diagram-casing" d="M 1376 440 L 1368 440 A 8 8 0 0 0 1360 448 L 1360 692 A 8 8 0 0 0 1368 700 L 1856 700 A 8 8 0 0 1 1864 708 L 1864 712 A 8 8 0 0 0 1872 720 L 4936 720 A 8 8 0 0 0 4944 712 L 4944 604 A 4 4 0 0 0 4940 600 L 4936 600" stroke-width="3.5"/>
+      <path d="M 1376 440 L 1368 440 A 8 8 0 0 0 1360 448 L 1360 692 A 8 8 0 0 0 1368 700 L 1856 700 A 8 8 0 0 1 1864 708 L 1864 712 A 8 8 0 0 0 1872 720 L 4936 720 A 8 8 0 0 0 4944 712 L 4944 604 A 4 4 0 0 0 4940 600 L 4936 600" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="analytics-worker-&gt;orders-replica" data-kind="call" data-from="analytics-worker" data-to="orders-replica">
-      <path d="M 4936 520 L 4952 520 A 8 8 0 0 1 4960 528 L 4960 1448 A 8 8 0 0 0 4968 1456 L 5696 1456 A 8 8 0 0 1 5704 1464 L 5704 1608 A 8 8 0 0 0 5712 1616 L 5776 1616"/>
+      <path class="diagram-casing" d="M 5776 1616 L 5712 1616 A 8 8 0 0 1 5704 1608 L 5704 1464 A 8 8 0 0 0 5696 1456 L 4968 1456 A 8 8 0 0 1 4960 1448 L 4960 528 A 8 8 0 0 0 4952 520 L 4936 520" stroke-width="3.5"/>
+      <path d="M 5776 1616 L 5712 1616 A 8 8 0 0 1 5704 1608 L 5704 1464 A 8 8 0 0 0 5696 1456 L 4968 1456 A 8 8 0 0 1 4960 1448 L 4960 528 A 8 8 0 0 0 4952 520 L 4936 520" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="report-worker-&gt;metrics" data-kind="call" data-from="report-worker" data-to="metrics">
-      <path d="M 5680 1616 L 5684 1616 A 4 4 0 0 0 5688 1612 L 5688 1584 A 8 8 0 0 1 5696 1576 L 6336 1576 A 8 8 0 0 1 6344 1584 L 6344 1824 A 8 8 0 0 0 6352 1832 L 6416 1832"/>
+      <path class="diagram-casing" d="M 6416 1832 L 6352 1832 A 8 8 0 0 1 6344 1824 L 6344 1584 A 8 8 0 0 0 6336 1576 L 5696 1576 A 8 8 0 0 0 5688 1584 L 5688 1612 A 4 4 0 0 1 5684 1616 L 5680 1616" stroke-width="3.5"/>
+      <path d="M 6416 1832 L 6352 1832 A 8 8 0 0 1 6344 1824 L 6344 1584 A 8 8 0 0 0 6336 1576 L 5696 1576 A 8 8 0 0 0 5688 1584 L 5688 1612 A 4 4 0 0 1 5684 1616 L 5680 1616" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="feature-flags-&gt;session-cache" data-kind="call" data-from="feature-flags" data-to="session-cache">
-      <path d="M 848 1336 L 856 1336 A 8 8 0 0 0 864 1328 L 864 1120 A 8 8 0 0 1 872 1112 L 2176 1112 A 8 8 0 0 0 2184 1104 L 2184 440 A 8 8 0 0 1 2192 432 L 2236 432 A 4 4 0 0 1 2240 436 A 4 4 0 0 0 2244 440 L 2256 440"/>
+      <path class="diagram-casing" d="M 2256 440 L 2244 440 A 4 4 0 0 1 2240 436 A 4 4 0 0 0 2236 432 L 2192 432 A 8 8 0 0 0 2184 440 L 2184 1104 A 8 8 0 0 1 2176 1112 L 872 1112 A 8 8 0 0 0 864 1120 L 864 1328 A 8 8 0 0 1 856 1336 L 848 1336" stroke-width="3.5"/>
+      <path d="M 2256 440 L 2244 440 A 4 4 0 0 1 2240 436 A 4 4 0 0 0 2236 432 L 2192 432 A 8 8 0 0 0 2184 440 L 2184 1104 A 8 8 0 0 1 2176 1112 L 872 1112 A 8 8 0 0 0 864 1120 L 864 1328 A 8 8 0 0 1 856 1336 L 848 1336" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="api-gateway-&gt;tracing" data-kind="call" data-from="api-gateway" data-to="tracing">
-      <path d="M 472 1256 L 488 1256 A 8 8 0 0 1 496 1264 L 496 1296 A 8 8 0 0 0 504 1304 L 1280 1304 A 8 8 0 0 1 1288 1312 L 1288 1824 A 8 8 0 0 0 1296 1832 L 6144 1832"/>
+      <path class="diagram-casing" d="M 6144 1832 L 1296 1832 A 8 8 0 0 1 1288 1824 L 1288 1312 A 8 8 0 0 0 1280 1304 L 504 1304 A 8 8 0 0 1 496 1296 L 496 1264 A 8 8 0 0 0 488 1256 L 472 1256" stroke-width="3.5"/>
+      <path d="M 6144 1832 L 1296 1832 A 8 8 0 0 1 1288 1824 L 1288 1312 A 8 8 0 0 0 1280 1304 L 504 1304 A 8 8 0 0 1 496 1296 L 496 1264 A 8 8 0 0 0 488 1256 L 472 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="orders-api-&gt;tracing" data-kind="call" data-from="orders-api" data-to="tracing">
-      <path d="M 1552 440 L 1560 440 A 8 8 0 0 0 1568 432 L 1568 400 A 8 8 0 0 0 1560 392 L 1296 392 A 8 8 0 0 0 1288 400 L 1288 1824 A 8 8 0 0 0 1296 1832 L 6144 1832"/>
+      <path class="diagram-casing" d="M 6144 1832 L 1296 1832 A 8 8 0 0 1 1288 1824 L 1288 400 A 8 8 0 0 1 1296 392 L 1560 392 A 8 8 0 0 1 1568 400 L 1568 432 A 8 8 0 0 1 1560 440 L 1552 440" stroke-width="3.5"/>
+      <path d="M 6144 1832 L 1296 1832 A 8 8 0 0 1 1288 1824 L 1288 400 A 8 8 0 0 1 1296 392 L 1560 392 A 8 8 0 0 1 1568 400 L 1568 432 A 8 8 0 0 1 1560 440 L 1552 440" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="cart-api-&gt;tracing" data-kind="call" data-from="cart-api" data-to="tracing">
-      <path d="M 1992 360 L 2000 360 A 8 8 0 0 1 2008 368 L 2008 384 A 8 8 0 0 1 2000 392 L 1296 392 A 8 8 0 0 0 1288 400 L 1288 1824 A 8 8 0 0 0 1296 1832 L 6144 1832"/>
+      <path class="diagram-casing" d="M 6144 1832 L 1296 1832 A 8 8 0 0 1 1288 1824 L 1288 400 A 8 8 0 0 1 1296 392 L 2000 392 A 8 8 0 0 0 2008 384 L 2008 368 A 8 8 0 0 0 2000 360 L 1992 360" stroke-width="3.5"/>
+      <path d="M 6144 1832 L 1296 1832 A 8 8 0 0 1 1288 1824 L 1288 400 A 8 8 0 0 1 1296 392 L 2000 392 A 8 8 0 0 0 2008 384 L 2008 368 A 8 8 0 0 0 2000 360 L 1992 360" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="users-api-&gt;tracing" data-kind="call" data-from="users-api" data-to="tracing">
-      <path d="M 1992 440 L 2000 440 A 8 8 0 0 0 2008 432 L 2008 400 A 8 8 0 0 0 2000 392 L 1296 392 A 8 8 0 0 0 1288 400 L 1288 1824 A 8 8 0 0 0 1296 1832 L 6144 1832"/>
+      <path class="diagram-casing" d="M 6144 1832 L 1296 1832 A 8 8 0 0 1 1288 1824 L 1288 400 A 8 8 0 0 1 1296 392 L 2000 392 A 8 8 0 0 1 2008 400 L 2008 432 A 8 8 0 0 1 2000 440 L 1992 440" stroke-width="3.5"/>
+      <path d="M 6144 1832 L 1296 1832 A 8 8 0 0 1 1288 1824 L 1288 400 A 8 8 0 0 1 1296 392 L 2000 392 A 8 8 0 0 1 2008 400 L 2008 432 A 8 8 0 0 1 2000 440 L 1992 440" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="payments-api-&gt;tracing" data-kind="call" data-from="payments-api" data-to="tracing">
-      <path d="M 1856 656 L 1872 656 A 8 8 0 0 0 1880 648 L 1880 616 A 8 8 0 0 0 1872 608 L 1800 608 A 8 8 0 0 1 1792 600 L 1792 400 A 8 8 0 0 0 1784 392 L 1296 392 A 8 8 0 0 0 1288 400 L 1288 1824 A 8 8 0 0 0 1296 1832 L 6144 1832"/>
+      <path class="diagram-casing" d="M 6144 1832 L 1296 1832 A 8 8 0 0 1 1288 1824 L 1288 400 A 8 8 0 0 1 1296 392 L 1784 392 A 8 8 0 0 1 1792 400 L 1792 600 A 8 8 0 0 0 1800 608 L 1872 608 A 8 8 0 0 1 1880 616 L 1880 648 A 8 8 0 0 1 1872 656 L 1856 656" stroke-width="3.5"/>
+      <path d="M 6144 1832 L 1296 1832 A 8 8 0 0 1 1288 1824 L 1288 400 A 8 8 0 0 1 1296 392 L 1784 392 A 8 8 0 0 1 1792 400 L 1792 600 A 8 8 0 0 0 1800 608 L 1872 608 A 8 8 0 0 1 1880 616 L 1880 648 A 8 8 0 0 1 1872 656 L 1856 656" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="catalog-api-&gt;tracing" data-kind="call" data-from="catalog-api" data-to="tracing">
-      <path d="M 3368 1256 L 3372 1256 A 4 4 0 0 1 3376 1260 L 3376 1824 A 8 8 0 0 0 3384 1832 L 6144 1832"/>
+      <path class="diagram-casing" d="M 6144 1832 L 3384 1832 A 8 8 0 0 1 3376 1824 L 3376 1260 A 4 4 0 0 0 3372 1256 L 3368 1256" stroke-width="3.5"/>
+      <path d="M 6144 1832 L 3384 1832 A 8 8 0 0 1 3376 1824 L 3376 1260 A 4 4 0 0 0 3372 1256 L 3368 1256" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="search-api-&gt;tracing" data-kind="call" data-from="search-api" data-to="tracing">
-      <path d="M 3064 1376 L 3072 1376 A 8 8 0 0 1 3080 1384 A 8 8 0 0 0 3088 1392 L 3368 1392 A 8 8 0 0 1 3376 1400 L 3376 1824 A 8 8 0 0 0 3384 1832 L 6144 1832"/>
+      <path class="diagram-casing" d="M 6144 1832 L 3384 1832 A 8 8 0 0 1 3376 1824 L 3376 1400 A 8 8 0 0 0 3368 1392 L 3088 1392 A 8 8 0 0 1 3080 1384 A 8 8 0 0 0 3072 1376 L 3064 1376" stroke-width="3.5"/>
+      <path d="M 6144 1832 L 3384 1832 A 8 8 0 0 1 3376 1824 L 3376 1400 A 8 8 0 0 0 3368 1392 L 3088 1392 A 8 8 0 0 1 3080 1384 A 8 8 0 0 0 3072 1376 L 3064 1376" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="inventory-api-&gt;tracing" data-kind="call" data-from="inventory-api" data-to="tracing">
-      <path d="M 2792 952 L 2800 952 A 8 8 0 0 1 2808 960 L 2808 1824 A 8 8 0 0 0 2816 1832 L 6144 1832"/>
+      <path class="diagram-casing" d="M 6144 1832 L 2816 1832 A 8 8 0 0 1 2808 1824 L 2808 960 A 8 8 0 0 0 2800 952 L 2792 952" stroke-width="3.5"/>
+      <path d="M 6144 1832 L 2816 1832 A 8 8 0 0 1 2808 1824 L 2808 960 A 8 8 0 0 0 2800 952 L 2792 952" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="shipping-api-&gt;tracing" data-kind="call" data-from="shipping-api" data-to="tracing">
-      <path d="M 4664 160 L 4688 160 A 8 8 0 0 1 4696 168 L 4696 1824 A 8 8 0 0 0 4704 1832 L 6144 1832"/>
+      <path class="diagram-casing" d="M 6144 1832 L 4704 1832 A 8 8 0 0 1 4696 1824 L 4696 168 A 8 8 0 0 0 4688 160 L 4664 160" stroke-width="3.5"/>
+      <path d="M 6144 1832 L 4704 1832 A 8 8 0 0 1 4696 1824 L 4696 168 A 8 8 0 0 0 4688 160 L 4664 160" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="admin-api-&gt;tracing" data-kind="call" data-from="admin-api" data-to="tracing">
-      <path d="M 1248 896 L 1280 896 A 8 8 0 0 1 1288 904 L 1288 1824 A 8 8 0 0 0 1296 1832 L 6144 1832"/>
+      <path class="diagram-casing" d="M 6144 1832 L 1296 1832 A 8 8 0 0 1 1288 1824 L 1288 904 A 8 8 0 0 0 1280 896 L 1248 896" stroke-width="3.5"/>
+      <path d="M 6144 1832 L 1296 1832 A 8 8 0 0 1 1288 1824 L 1288 904 A 8 8 0 0 0 1280 896 L 1248 896" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="report-api-&gt;tracing" data-kind="call" data-from="report-api" data-to="tracing">
-      <path d="M 1248 976 L 1280 976 A 8 8 0 0 1 1288 984 L 1288 1824 A 8 8 0 0 0 1296 1832 L 6144 1832"/>
+      <path class="diagram-casing" d="M 6144 1832 L 1296 1832 A 8 8 0 0 1 1288 1824 L 1288 984 A 8 8 0 0 0 1280 976 L 1248 976" stroke-width="3.5"/>
+      <path d="M 6144 1832 L 1296 1832 A 8 8 0 0 1 1288 1824 L 1288 984 A 8 8 0 0 0 1280 976 L 1248 976" stroke="currentColor" stroke-width="1.5"/>
     </g>
     <g data-edge="orders-api-&gt;order-events" data-kind="message" data-from="orders-api" data-to="order-events">
-      <path d="M 1552 440 L 1600 440 A 8 8 0 0 1 1608 448 L 1608 468 A 8 8 0 0 0 1616 476 L 2440 476 A 8 8 0 0 0 2448 468 L 2448 448 A 8 8 0 0 1 2456 440 L 4120 440"/>
+      <path class="diagram-casing" d="M 4120 440 L 2456 440 A 8 8 0 0 0 2448 448 L 2448 468 A 8 8 0 0 1 2440 476 L 1616 476 A 8 8 0 0 1 1608 468 L 1608 448 A 8 8 0 0 0 1600 440 L 1552 440" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4120 440 L 2456 440 A 8 8 0 0 0 2448 448 L 2448 468 A 8 8 0 0 1 2440 476 L 1616 476 A 8 8 0 0 1 1608 468 L 1608 448 A 8 8 0 0 0 1600 440 L 1552 440" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="payments-api-&gt;payment-events" data-kind="message" data-from="payments-api" data-to="payment-events">
-      <path d="M 1856 656 L 1864 656 A 8 8 0 0 1 1872 664 L 1872 728 A 8 8 0 0 0 1880 736 L 2440 736 A 8 8 0 0 0 2448 728 L 2448 528 A 8 8 0 0 1 2456 520 L 4120 520"/>
+      <path class="diagram-casing" d="M 4120 520 L 2456 520 A 8 8 0 0 0 2448 528 L 2448 728 A 8 8 0 0 1 2440 736 L 1880 736 A 8 8 0 0 1 1872 728 L 1872 664 A 8 8 0 0 0 1864 656 L 1856 656" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4120 520 L 2456 520 A 8 8 0 0 0 2448 528 L 2448 728 A 8 8 0 0 1 2440 736 L 1880 736 A 8 8 0 0 1 1872 728 L 1872 664 A 8 8 0 0 0 1864 656 L 1856 656" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="inventory-api-&gt;inventory-events" data-kind="message" data-from="inventory-api" data-to="inventory-events">
-      <path d="M 2792 952 L 2848 952 A 8 8 0 0 0 2856 944 L 2856 924 A 8 8 0 0 1 2864 916 L 3372 916 A 8 8 0 0 0 3380 908 L 3380 608 A 8 8 0 0 1 3388 600 L 4120 600"/>
+      <path class="diagram-casing" d="M 4120 600 L 3388 600 A 8 8 0 0 0 3380 608 L 3380 908 A 8 8 0 0 1 3372 916 L 2864 916 A 8 8 0 0 0 2856 924 L 2856 944 A 8 8 0 0 1 2848 952 L 2792 952" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4120 600 L 3388 600 A 8 8 0 0 0 3380 608 L 3380 908 A 8 8 0 0 1 3372 916 L 2864 916 A 8 8 0 0 0 2856 924 L 2856 944 A 8 8 0 0 1 2848 952 L 2792 952" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="orders-api-&gt;notifications" data-kind="message" data-from="orders-api" data-to="notifications">
-      <path d="M 1552 440 L 1592 440 A 8 8 0 0 1 1600 448 L 1600 476 A 8 8 0 0 0 1608 484 L 2168 484 A 8 8 0 0 1 2176 492 L 2176 672 A 8 8 0 0 0 2184 680 L 4120 680"/>
+      <path class="diagram-casing" d="M 4120 680 L 2184 680 A 8 8 0 0 1 2176 672 L 2176 492 A 8 8 0 0 0 2168 484 L 1608 484 A 8 8 0 0 1 1600 476 L 1600 448 A 8 8 0 0 0 1592 440 L 1552 440" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4120 680 L 2184 680 A 8 8 0 0 1 2176 672 L 2176 492 A 8 8 0 0 0 2168 484 L 1608 484 A 8 8 0 0 1 1600 476 L 1600 448 A 8 8 0 0 0 1592 440 L 1552 440" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="payments-api-&gt;notifications" data-kind="message" data-from="payments-api" data-to="notifications">
-      <path d="M 1856 656 L 1880 656 A 8 8 0 0 0 1888 648 L 1888 608 A 8 8 0 0 0 1880 600 L 1808 600 A 8 8 0 0 1 1800 592 L 1800 492 A 8 8 0 0 1 1808 484 L 2168 484 A 8 8 0 0 1 2176 492 L 2176 672 A 8 8 0 0 0 2184 680 L 4120 680"/>
+      <path class="diagram-casing" d="M 4120 680 L 2184 680 A 8 8 0 0 1 2176 672 L 2176 492 A 8 8 0 0 0 2168 484 L 1808 484 A 8 8 0 0 0 1800 492 L 1800 592 A 8 8 0 0 0 1808 600 L 1880 600 A 8 8 0 0 1 1888 608 L 1888 648 A 8 8 0 0 1 1880 656 L 1856 656" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4120 680 L 2184 680 A 8 8 0 0 1 2176 672 L 2176 492 A 8 8 0 0 0 2168 484 L 1808 484 A 8 8 0 0 0 1800 492 L 1800 592 A 8 8 0 0 0 1808 600 L 1880 600 A 8 8 0 0 1 1888 608 L 1888 648 A 8 8 0 0 1 1880 656 L 1856 656" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="shipping-api-&gt;notifications" data-kind="message" data-from="shipping-api" data-to="notifications">
-      <path d="M 4664 160 L 4680 160 A 8 8 0 0 1 4688 168 L 4688 1208 A 8 8 0 0 1 4680 1216 L 4112 1216 A 8 8 0 0 1 4104 1208 L 4104 688 A 8 8 0 0 1 4112 680 L 4120 680"/>
+      <path class="diagram-casing" d="M 4120 680 L 4112 680 A 8 8 0 0 0 4104 688 L 4104 1208 A 8 8 0 0 0 4112 1216 L 4680 1216 A 8 8 0 0 0 4688 1208 L 4688 168 A 8 8 0 0 0 4680 160 L 4664 160" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4120 680 L 4112 680 A 8 8 0 0 0 4104 688 L 4104 1208 A 8 8 0 0 0 4112 1216 L 4680 1216 A 8 8 0 0 0 4688 1208 L 4688 168 A 8 8 0 0 0 4680 160 L 4664 160" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="order-events-&gt;email-worker" data-kind="message" data-from="order-events" data-to="email-worker">
-      <path d="M 4312 440 L 4324 440 A 8 8 0 0 0 4332 432 A 8 8 0 0 1 4340 424 L 4368 424 A 8 8 0 0 0 4376 416 L 4376 368 A 8 8 0 0 1 4384 360 L 4760 360"/>
+      <path class="diagram-casing" d="M 4760 360 L 4384 360 A 8 8 0 0 0 4376 368 L 4376 416 A 8 8 0 0 1 4368 424 L 4340 424 A 8 8 0 0 0 4332 432 A 8 8 0 0 1 4324 440 L 4312 440" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4760 360 L 4384 360 A 8 8 0 0 0 4376 368 L 4376 416 A 8 8 0 0 1 4368 424 L 4340 424 A 8 8 0 0 0 4332 432 A 8 8 0 0 1 4324 440 L 4312 440" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="order-events-&gt;analytics-worker" data-kind="message" data-from="order-events" data-to="analytics-worker">
-      <path d="M 4312 440 L 4352 440 A 8 8 0 0 1 4360 448 L 4360 504 A 8 8 0 0 0 4368 512 L 4740 512 A 4 4 0 0 1 4744 516 A 4 4 0 0 0 4748 520 L 4760 520"/>
+      <path class="diagram-casing" d="M 4760 520 L 4748 520 A 4 4 0 0 1 4744 516 A 4 4 0 0 0 4740 512 L 4368 512 A 8 8 0 0 1 4360 504 L 4360 448 A 8 8 0 0 0 4352 440 L 4312 440" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4760 520 L 4748 520 A 4 4 0 0 1 4744 516 A 4 4 0 0 0 4740 512 L 4368 512 A 8 8 0 0 1 4360 504 L 4360 448 A 8 8 0 0 0 4352 440 L 4312 440" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="order-events-&gt;invoice-worker" data-kind="message" data-from="order-events" data-to="invoice-worker">
-      <path d="M 4312 440 L 4324 440 A 4 4 0 0 1 4328 444 A 4 4 0 0 0 4332 448 L 4344 448 A 8 8 0 0 1 4352 456 L 4352 600 A 8 8 0 0 0 4360 608 L 4740 608 A 4 4 0 0 0 4744 604 A 4 4 0 0 1 4748 600 L 4760 600"/>
+      <path class="diagram-casing" d="M 4760 600 L 4748 600 A 4 4 0 0 0 4744 604 A 4 4 0 0 1 4740 608 L 4360 608 A 8 8 0 0 1 4352 600 L 4352 456 A 8 8 0 0 0 4344 448 L 4332 448 A 4 4 0 0 1 4328 444 A 4 4 0 0 0 4324 440 L 4312 440" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4760 600 L 4748 600 A 4 4 0 0 0 4744 604 A 4 4 0 0 1 4740 608 L 4360 608 A 8 8 0 0 1 4352 600 L 4352 456 A 8 8 0 0 0 4344 448 L 4332 448 A 4 4 0 0 1 4328 444 A 4 4 0 0 0 4324 440 L 4312 440" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="order-events-&gt;shipping-api" data-kind="message" data-from="order-events" data-to="shipping-api">
-      <path d="M 4312 440 L 4320 440 A 8 8 0 0 0 4328 432 L 4328 424 A 8 8 0 0 1 4336 416 L 4360 416 A 8 8 0 0 0 4368 408 L 4368 176 A 8 8 0 0 1 4376 168 L 4464 168 A 4 4 0 0 0 4468 164 A 4 4 0 0 1 4472 160 L 4488 160"/>
+      <path class="diagram-casing" d="M 4488 160 L 4472 160 A 4 4 0 0 0 4468 164 A 4 4 0 0 1 4464 168 L 4376 168 A 8 8 0 0 0 4368 176 L 4368 408 A 8 8 0 0 1 4360 416 L 4336 416 A 8 8 0 0 0 4328 424 L 4328 432 A 8 8 0 0 1 4320 440 L 4312 440" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4488 160 L 4472 160 A 4 4 0 0 0 4468 164 A 4 4 0 0 1 4464 168 L 4376 168 A 8 8 0 0 0 4368 176 L 4368 408 A 8 8 0 0 1 4360 416 L 4336 416 A 8 8 0 0 0 4328 424 L 4328 432 A 8 8 0 0 1 4320 440 L 4312 440" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="payment-events-&gt;fraud-worker" data-kind="message" data-from="payment-events" data-to="fraud-worker">
-      <path d="M 4312 520 L 4320 520 A 8 8 0 0 1 4328 528 L 4328 548 A 8 8 0 0 1 4320 556 L 1640 556 A 8 8 0 0 0 1632 564 L 1632 728 A 8 8 0 0 0 1640 736 L 1680 736"/>
+      <path class="diagram-casing" d="M 1680 736 L 1640 736 A 8 8 0 0 1 1632 728 L 1632 564 A 8 8 0 0 1 1640 556 L 4320 556 A 8 8 0 0 0 4328 548 L 4328 528 A 8 8 0 0 0 4320 520 L 4312 520" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 1680 736 L 1640 736 A 8 8 0 0 1 1632 728 L 1632 564 A 8 8 0 0 1 1640 556 L 4320 556 A 8 8 0 0 0 4328 548 L 4328 528 A 8 8 0 0 0 4320 520 L 4312 520" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="payment-events-&gt;invoice-worker" data-kind="message" data-from="payment-events" data-to="invoice-worker">
-      <path d="M 4312 520 L 4344 520 A 8 8 0 0 1 4352 528 L 4352 600 A 8 8 0 0 0 4360 608 L 4740 608 A 4 4 0 0 0 4744 604 A 4 4 0 0 1 4748 600 L 4760 600"/>
+      <path class="diagram-casing" d="M 4760 600 L 4748 600 A 4 4 0 0 0 4744 604 A 4 4 0 0 1 4740 608 L 4360 608 A 8 8 0 0 1 4352 600 L 4352 528 A 8 8 0 0 0 4344 520 L 4312 520" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4760 600 L 4748 600 A 4 4 0 0 0 4744 604 A 4 4 0 0 1 4740 608 L 4360 608 A 8 8 0 0 1 4352 600 L 4352 528 A 8 8 0 0 0 4344 520 L 4312 520" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="payment-events-&gt;analytics-worker" data-kind="message" data-from="payment-events" data-to="analytics-worker">
-      <path d="M 4312 520 L 4324 520 A 4 4 0 0 0 4328 516 A 4 4 0 0 1 4332 512 L 4740 512 A 4 4 0 0 1 4744 516 A 4 4 0 0 0 4748 520 L 4760 520"/>
+      <path class="diagram-casing" d="M 4760 520 L 4748 520 A 4 4 0 0 1 4744 516 A 4 4 0 0 0 4740 512 L 4332 512 A 4 4 0 0 0 4328 516 A 4 4 0 0 1 4324 520 L 4312 520" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4760 520 L 4748 520 A 4 4 0 0 1 4744 516 A 4 4 0 0 0 4740 512 L 4332 512 A 4 4 0 0 0 4328 516 A 4 4 0 0 1 4324 520 L 4312 520" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="inventory-events-&gt;search-api" data-kind="message" data-from="inventory-events" data-to="search-api">
-      <path d="M 4312 600 L 4320 600 A 8 8 0 0 1 4328 608 L 4328 632 A 8 8 0 0 1 4320 640 L 2880 640 A 8 8 0 0 0 2872 648 L 2872 1368 A 8 8 0 0 0 2880 1376 L 2888 1376"/>
+      <path class="diagram-casing" d="M 2888 1376 L 2880 1376 A 8 8 0 0 1 2872 1368 L 2872 648 A 8 8 0 0 1 2880 640 L 4320 640 A 8 8 0 0 0 4328 632 L 4328 608 A 8 8 0 0 0 4320 600 L 4312 600" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 2888 1376 L 2880 1376 A 8 8 0 0 1 2872 1368 L 2872 648 A 8 8 0 0 1 2880 640 L 4320 640 A 8 8 0 0 0 4328 632 L 4328 608 A 8 8 0 0 0 4320 600 L 4312 600" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="inventory-events-&gt;analytics-worker" data-kind="message" data-from="inventory-events" data-to="analytics-worker">
-      <path d="M 4312 600 L 4352 600 A 8 8 0 0 0 4360 592 L 4360 520 A 8 8 0 0 1 4368 512 L 4740 512 A 4 4 0 0 1 4744 516 A 4 4 0 0 0 4748 520 L 4760 520"/>
+      <path class="diagram-casing" d="M 4760 520 L 4748 520 A 4 4 0 0 1 4744 516 A 4 4 0 0 0 4740 512 L 4368 512 A 8 8 0 0 0 4360 520 L 4360 592 A 8 8 0 0 1 4352 600 L 4312 600" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4760 520 L 4748 520 A 4 4 0 0 1 4744 516 A 4 4 0 0 0 4740 512 L 4368 512 A 8 8 0 0 0 4360 520 L 4360 592 A 8 8 0 0 1 4352 600 L 4312 600" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="notifications-&gt;email-worker" data-kind="message" data-from="notifications" data-to="email-worker">
-      <path d="M 4312 680 L 4368 680 A 8 8 0 0 0 4376 672 L 4376 368 A 8 8 0 0 1 4384 360 L 4760 360"/>
+      <path class="diagram-casing" d="M 4760 360 L 4384 360 A 8 8 0 0 0 4376 368 L 4376 672 A 8 8 0 0 1 4368 680 L 4312 680" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4760 360 L 4384 360 A 8 8 0 0 0 4376 368 L 4376 672 A 8 8 0 0 1 4368 680 L 4312 680" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="notifications-&gt;sms-worker" data-kind="message" data-from="notifications" data-to="sms-worker">
-      <path d="M 4312 680 L 4324 680 A 4 4 0 0 1 4328 684 A 4 4 0 0 0 4332 688 L 4376 688 A 8 8 0 0 0 4384 680 L 4384 440 A 8 8 0 0 1 4392 432 L 4740 432 A 4 4 0 0 1 4744 436 A 4 4 0 0 0 4748 440 L 4760 440"/>
+      <path class="diagram-casing" d="M 4760 440 L 4748 440 A 4 4 0 0 1 4744 436 A 4 4 0 0 0 4740 432 L 4392 432 A 8 8 0 0 0 4384 440 L 4384 680 A 8 8 0 0 1 4376 688 L 4332 688 A 4 4 0 0 1 4328 684 A 4 4 0 0 0 4324 680 L 4312 680" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4760 440 L 4748 440 A 4 4 0 0 1 4744 436 A 4 4 0 0 0 4740 432 L 4392 432 A 8 8 0 0 0 4384 440 L 4384 680 A 8 8 0 0 1 4376 688 L 4332 688 A 4 4 0 0 1 4328 684 A 4 4 0 0 0 4324 680 L 4312 680" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="shipping-api-&gt;picker" data-kind="message" data-from="shipping-api" data-to="picker">
-      <path d="M 4664 160 L 4760 160"/>
+      <path class="diagram-casing" d="M 4760 160 L 4664 160" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4760 160 L 4664 160" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="orders-db-&gt;orders-replica" data-kind="message" data-from="orders-db" data-to="orders-replica">
-      <path d="M 1992 520 L 2004 520 A 4 4 0 0 1 2008 524 A 4 4 0 0 0 2012 528 L 2160 528 A 8 8 0 0 1 2168 536 L 2168 1512 A 8 8 0 0 0 2176 1520 L 5688 1520 A 8 8 0 0 1 5696 1528 L 5696 1600 A 8 8 0 0 0 5704 1608 L 5756 1608 A 4 4 0 0 1 5760 1612 A 4 4 0 0 0 5764 1616 L 5776 1616"/>
+      <path class="diagram-casing" d="M 5776 1616 L 5764 1616 A 4 4 0 0 1 5760 1612 A 4 4 0 0 0 5756 1608 L 5704 1608 A 8 8 0 0 1 5696 1600 L 5696 1528 A 8 8 0 0 0 5688 1520 L 2176 1520 A 8 8 0 0 1 2168 1512 L 2168 536 A 8 8 0 0 0 2160 528 L 2012 528 A 4 4 0 0 1 2008 524 A 4 4 0 0 0 2004 520 L 1992 520" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 5776 1616 L 5764 1616 A 4 4 0 0 1 5760 1612 A 4 4 0 0 0 5756 1608 L 5704 1608 A 8 8 0 0 1 5696 1600 L 5696 1528 A 8 8 0 0 0 5688 1520 L 2176 1520 A 8 8 0 0 1 2168 1512 L 2168 536 A 8 8 0 0 0 2160 528 L 2012 528 A 4 4 0 0 1 2008 524 A 4 4 0 0 0 2004 520 L 1992 520" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="search-index-&gt;search-replica" data-kind="message" data-from="search-index" data-to="search-replica">
-      <path d="M 3640 1376 L 3648 1376 A 8 8 0 0 1 3656 1384 L 3656 1688 A 8 8 0 0 0 3664 1696 L 5776 1696"/>
+      <path class="diagram-casing" d="M 5776 1696 L 3664 1696 A 8 8 0 0 1 3656 1688 L 3656 1384 A 8 8 0 0 0 3648 1376 L 3640 1376" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 5776 1696 L 3664 1696 A 8 8 0 0 1 3656 1688 L 3656 1384 A 8 8 0 0 0 3648 1376 L 3640 1376" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="admin-audit" data-kind="message" data-from="admin-api" data-to="audit-log">
-      <path d="M 1248 896 L 1320 896 A 4 4 0 0 1 1324 900 A 4 4 0 0 0 1328 904 L 1796 904 A 4 4 0 0 0 1800 900 A 4 4 0 0 1 1804 896 L 1816 896"/>
+      <path class="diagram-casing" d="M 1816 896 L 1804 896 A 4 4 0 0 0 1800 900 A 4 4 0 0 1 1796 904 L 1328 904 A 4 4 0 0 1 1324 900 A 4 4 0 0 0 1320 896 L 1248 896" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 1816 896 L 1804 896 A 4 4 0 0 0 1800 900 A 4 4 0 0 1 1796 904 L 1328 904 A 4 4 0 0 1 1324 900 A 4 4 0 0 0 1320 896 L 1248 896" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="email-bounces" data-kind="message" data-from="email-provider" data-to="notifications">
-      <path d="M 7200 1256 L 7208 1256 A 8 8 0 0 0 7216 1248 L 7216 1224 A 8 8 0 0 0 7208 1216 L 4112 1216 A 8 8 0 0 1 4104 1208 L 4104 688 A 8 8 0 0 1 4112 680 L 4120 680"/>
+      <path class="diagram-casing" d="M 4120 680 L 4112 680 A 8 8 0 0 0 4104 688 L 4104 1208 A 8 8 0 0 0 4112 1216 L 7208 1216 A 8 8 0 0 1 7216 1224 L 7216 1248 A 8 8 0 0 1 7208 1256 L 7200 1256" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4120 680 L 4112 680 A 8 8 0 0 0 4104 688 L 4104 1208 A 8 8 0 0 0 4112 1216 L 7208 1216 A 8 8 0 0 1 7216 1224 L 7216 1248 A 8 8 0 0 1 7208 1256 L 7200 1256" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="catalog-api-&gt;inventory-events" data-kind="message" data-from="catalog-api" data-to="inventory-events">
-      <path d="M 3368 1256 L 3374 1256 A 6 6 0 0 0 3380 1250 L 3380 608 A 8 8 0 0 1 3388 600 L 4120 600"/>
+      <path class="diagram-casing" d="M 4120 600 L 3388 600 A 8 8 0 0 0 3380 608 L 3380 1250 A 6 6 0 0 1 3374 1256 L 3368 1256" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4120 600 L 3388 600 A 8 8 0 0 0 3380 608 L 3380 1250 A 6 6 0 0 1 3374 1256 L 3368 1256" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="reviews-api-&gt;notifications" data-kind="message" data-from="reviews-api" data-to="notifications">
-      <path d="M 2792 1064 L 2840 1064 A 8 8 0 0 0 2848 1056 L 2848 688 A 8 8 0 0 1 2856 680 L 4120 680"/>
+      <path class="diagram-casing" d="M 4120 680 L 2856 680 A 8 8 0 0 0 2848 688 L 2848 1056 A 8 8 0 0 1 2840 1064 L 2792 1064" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4120 680 L 2856 680 A 8 8 0 0 0 2848 688 L 2848 1056 A 8 8 0 0 1 2840 1064 L 2792 1064" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="users-api-&gt;notifications" data-kind="message" data-from="users-api" data-to="notifications">
-      <path d="M 1992 440 L 2008 440 A 8 8 0 0 1 2016 448 L 2016 476 A 8 8 0 0 0 2024 484 L 2168 484 A 8 8 0 0 1 2176 492 L 2176 672 A 8 8 0 0 0 2184 680 L 4120 680"/>
+      <path class="diagram-casing" d="M 4120 680 L 2184 680 A 8 8 0 0 1 2176 672 L 2176 492 A 8 8 0 0 0 2168 484 L 2024 484 A 8 8 0 0 1 2016 476 L 2016 448 A 8 8 0 0 0 2008 440 L 1992 440" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4120 680 L 2184 680 A 8 8 0 0 1 2176 672 L 2176 492 A 8 8 0 0 0 2168 484 L 2024 484 A 8 8 0 0 1 2016 476 L 2016 448 A 8 8 0 0 0 2008 440 L 1992 440" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="fraud-worker-&gt;payment-events" data-kind="message" data-from="fraud-worker" data-to="payment-events">
-      <path d="M 1856 736 L 2440 736 A 8 8 0 0 0 2448 728 L 2448 528 A 8 8 0 0 1 2456 520 L 4120 520"/>
+      <path class="diagram-casing" d="M 4120 520 L 2456 520 A 8 8 0 0 0 2448 528 L 2448 728 A 8 8 0 0 1 2440 736 L 1856 736" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 4120 520 L 2456 520 A 8 8 0 0 0 2448 528 L 2448 728 A 8 8 0 0 1 2440 736 L 1856 736" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="api-gateway-&gt;metrics" data-kind="message" data-from="api-gateway" data-to="metrics">
-      <path d="M 472 1256 L 476 1256 A 4 4 0 0 1 480 1260 L 480 1776 A 8 8 0 0 0 488 1784 L 6328 1784 A 8 8 0 0 1 6336 1792 L 6336 1816 A 8 8 0 0 0 6344 1824 L 6396 1824 A 4 4 0 0 1 6400 1828 A 4 4 0 0 0 6404 1832 L 6416 1832"/>
+      <path class="diagram-casing" d="M 6416 1832 L 6404 1832 A 4 4 0 0 1 6400 1828 A 4 4 0 0 0 6396 1824 L 6344 1824 A 8 8 0 0 1 6336 1816 L 6336 1792 A 8 8 0 0 0 6328 1784 L 488 1784 A 8 8 0 0 1 480 1776 L 480 1260 A 4 4 0 0 0 476 1256 L 472 1256" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 6416 1832 L 6404 1832 A 4 4 0 0 1 6400 1828 A 4 4 0 0 0 6396 1824 L 6344 1824 A 8 8 0 0 1 6336 1816 L 6336 1792 A 8 8 0 0 0 6328 1784 L 488 1784 A 8 8 0 0 1 480 1776 L 480 1260 A 4 4 0 0 0 476 1256 L 472 1256" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="orders-api-&gt;metrics" data-kind="message" data-from="orders-api" data-to="metrics">
-      <path d="M 1552 440 L 1556 440 A 4 4 0 0 1 1560 444 L 1560 1776 A 8 8 0 0 0 1568 1784 L 6328 1784 A 8 8 0 0 1 6336 1792 L 6336 1816 A 8 8 0 0 0 6344 1824 L 6396 1824 A 4 4 0 0 1 6400 1828 A 4 4 0 0 0 6404 1832 L 6416 1832"/>
+      <path class="diagram-casing" d="M 6416 1832 L 6404 1832 A 4 4 0 0 1 6400 1828 A 4 4 0 0 0 6396 1824 L 6344 1824 A 8 8 0 0 1 6336 1816 L 6336 1792 A 8 8 0 0 0 6328 1784 L 1568 1784 A 8 8 0 0 1 1560 1776 L 1560 444 A 4 4 0 0 0 1556 440 L 1552 440" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 6416 1832 L 6404 1832 A 4 4 0 0 1 6400 1828 A 4 4 0 0 0 6396 1824 L 6344 1824 A 8 8 0 0 1 6336 1816 L 6336 1792 A 8 8 0 0 0 6328 1784 L 1568 1784 A 8 8 0 0 1 1560 1776 L 1560 444 A 4 4 0 0 0 1556 440 L 1552 440" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="payments-api-&gt;metrics" data-kind="message" data-from="payments-api" data-to="metrics">
-      <path d="M 1856 656 L 1860 656 A 4 4 0 0 0 1864 652 L 1864 632 A 8 8 0 0 0 1856 624 L 1568 624 A 8 8 0 0 0 1560 632 L 1560 1776 A 8 8 0 0 0 1568 1784 L 6328 1784 A 8 8 0 0 1 6336 1792 L 6336 1816 A 8 8 0 0 0 6344 1824 L 6396 1824 A 4 4 0 0 1 6400 1828 A 4 4 0 0 0 6404 1832 L 6416 1832"/>
+      <path class="diagram-casing" d="M 6416 1832 L 6404 1832 A 4 4 0 0 1 6400 1828 A 4 4 0 0 0 6396 1824 L 6344 1824 A 8 8 0 0 1 6336 1816 L 6336 1792 A 8 8 0 0 0 6328 1784 L 1568 1784 A 8 8 0 0 1 1560 1776 L 1560 632 A 8 8 0 0 1 1568 624 L 1856 624 A 8 8 0 0 1 1864 632 L 1864 652 A 4 4 0 0 1 1860 656 L 1856 656" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 6416 1832 L 6404 1832 A 4 4 0 0 1 6400 1828 A 4 4 0 0 0 6396 1824 L 6344 1824 A 8 8 0 0 1 6336 1816 L 6336 1792 A 8 8 0 0 0 6328 1784 L 1568 1784 A 8 8 0 0 1 1560 1776 L 1560 632 A 8 8 0 0 1 1568 624 L 1856 624 A 8 8 0 0 1 1864 632 L 1864 652 A 4 4 0 0 1 1860 656 L 1856 656" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="api-gateway-&gt;logs" data-kind="message" data-from="api-gateway" data-to="logs">
-      <path d="M 472 1256 L 624 1256 A 8 8 0 0 0 632 1248 L 632 1232 A 8 8 0 0 1 640 1224 L 1288 1224 A 8 8 0 0 1 1296 1232 L 1296 1744 A 8 8 0 0 0 1304 1752 L 6144 1752"/>
+      <path class="diagram-casing" d="M 6144 1752 L 1304 1752 A 8 8 0 0 1 1296 1744 L 1296 1232 A 8 8 0 0 0 1288 1224 L 640 1224 A 8 8 0 0 0 632 1232 L 632 1248 A 8 8 0 0 1 624 1256 L 472 1256" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 6144 1752 L 1304 1752 A 8 8 0 0 1 1296 1744 L 1296 1232 A 8 8 0 0 0 1288 1224 L 640 1224 A 8 8 0 0 0 632 1232 L 632 1248 A 8 8 0 0 1 624 1256 L 472 1256" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="orders-api-&gt;logs" data-kind="message" data-from="orders-api" data-to="logs">
-      <path d="M 1552 440 L 1556 440 A 4 4 0 0 0 1560 436 L 1560 408 A 8 8 0 0 0 1552 400 L 1304 400 A 8 8 0 0 0 1296 408 L 1296 1744 A 8 8 0 0 0 1304 1752 L 6144 1752"/>
+      <path class="diagram-casing" d="M 6144 1752 L 1304 1752 A 8 8 0 0 1 1296 1744 L 1296 408 A 8 8 0 0 1 1304 400 L 1552 400 A 8 8 0 0 1 1560 408 L 1560 436 A 4 4 0 0 1 1556 440 L 1552 440" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 6144 1752 L 1304 1752 A 8 8 0 0 1 1296 1744 L 1296 408 A 8 8 0 0 1 1304 400 L 1552 400 A 8 8 0 0 1 1560 408 L 1560 436 A 4 4 0 0 1 1556 440 L 1552 440" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="cart-api-&gt;logs" data-kind="message" data-from="cart-api" data-to="logs">
-      <path d="M 1992 360 L 2008 360 A 8 8 0 0 1 2016 368 L 2016 392 A 8 8 0 0 1 2008 400 L 1304 400 A 8 8 0 0 0 1296 408 L 1296 1744 A 8 8 0 0 0 1304 1752 L 6144 1752"/>
+      <path class="diagram-casing" d="M 6144 1752 L 1304 1752 A 8 8 0 0 1 1296 1744 L 1296 408 A 8 8 0 0 1 1304 400 L 2008 400 A 8 8 0 0 0 2016 392 L 2016 368 A 8 8 0 0 0 2008 360 L 1992 360" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 6144 1752 L 1304 1752 A 8 8 0 0 1 1296 1744 L 1296 408 A 8 8 0 0 1 1304 400 L 2008 400 A 8 8 0 0 0 2016 392 L 2016 368 A 8 8 0 0 0 2008 360 L 1992 360" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="users-api-&gt;logs" data-kind="message" data-from="users-api" data-to="logs">
-      <path d="M 1992 440 L 2008 440 A 8 8 0 0 0 2016 432 L 2016 408 A 8 8 0 0 0 2008 400 L 1304 400 A 8 8 0 0 0 1296 408 L 1296 1744 A 8 8 0 0 0 1304 1752 L 6144 1752"/>
+      <path class="diagram-casing" d="M 6144 1752 L 1304 1752 A 8 8 0 0 1 1296 1744 L 1296 408 A 8 8 0 0 1 1304 400 L 2008 400 A 8 8 0 0 1 2016 408 L 2016 432 A 8 8 0 0 1 2008 440 L 1992 440" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 6144 1752 L 1304 1752 A 8 8 0 0 1 1296 1744 L 1296 408 A 8 8 0 0 1 1304 400 L 2008 400 A 8 8 0 0 1 2016 408 L 2016 432 A 8 8 0 0 1 2008 440 L 1992 440" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="payments-api-&gt;logs" data-kind="message" data-from="payments-api" data-to="logs">
-      <path d="M 1856 656 L 1864 656 A 8 8 0 0 0 1872 648 L 1872 624 A 8 8 0 0 0 1864 616 L 1792 616 A 8 8 0 0 1 1784 608 L 1784 408 A 8 8 0 0 0 1776 400 L 1304 400 A 8 8 0 0 0 1296 408 L 1296 1744 A 8 8 0 0 0 1304 1752 L 6144 1752"/>
+      <path class="diagram-casing" d="M 6144 1752 L 1304 1752 A 8 8 0 0 1 1296 1744 L 1296 408 A 8 8 0 0 1 1304 400 L 1776 400 A 8 8 0 0 1 1784 408 L 1784 608 A 8 8 0 0 0 1792 616 L 1864 616 A 8 8 0 0 1 1872 624 L 1872 648 A 8 8 0 0 1 1864 656 L 1856 656" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 6144 1752 L 1304 1752 A 8 8 0 0 1 1296 1744 L 1296 408 A 8 8 0 0 1 1304 400 L 1776 400 A 8 8 0 0 1 1784 408 L 1784 608 A 8 8 0 0 0 1792 616 L 1864 616 A 8 8 0 0 1 1872 624 L 1872 648 A 8 8 0 0 1 1864 656 L 1856 656" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="catalog-api-&gt;logs" data-kind="message" data-from="catalog-api" data-to="logs">
-      <path d="M 3368 1256 L 3376 1256 A 8 8 0 0 1 3384 1264 L 3384 1744 A 8 8 0 0 0 3392 1752 L 6144 1752"/>
+      <path class="diagram-casing" d="M 6144 1752 L 3392 1752 A 8 8 0 0 1 3384 1744 L 3384 1264 A 8 8 0 0 0 3376 1256 L 3368 1256" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 6144 1752 L 3392 1752 A 8 8 0 0 1 3384 1744 L 3384 1264 A 8 8 0 0 0 3376 1256 L 3368 1256" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="search-api-&gt;logs" data-kind="message" data-from="search-api" data-to="logs">
-      <path d="M 3064 1376 L 3080 1376 A 4 4 0 0 1 3084 1380 A 4 4 0 0 0 3088 1384 L 3376 1384 A 8 8 0 0 1 3384 1392 L 3384 1744 A 8 8 0 0 0 3392 1752 L 6144 1752"/>
+      <path class="diagram-casing" d="M 6144 1752 L 3392 1752 A 8 8 0 0 1 3384 1744 L 3384 1392 A 8 8 0 0 0 3376 1384 L 3088 1384 A 4 4 0 0 1 3084 1380 A 4 4 0 0 0 3080 1376 L 3064 1376" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 6144 1752 L 3392 1752 A 8 8 0 0 1 3384 1744 L 3384 1392 A 8 8 0 0 0 3376 1384 L 3088 1384 A 4 4 0 0 1 3084 1380 A 4 4 0 0 0 3080 1376 L 3064 1376" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="inventory-api-&gt;logs" data-kind="message" data-from="inventory-api" data-to="logs">
-      <path d="M 2792 952 L 2808 952 A 8 8 0 0 1 2816 960 L 2816 1744 A 8 8 0 0 0 2824 1752 L 6144 1752"/>
+      <path class="diagram-casing" d="M 6144 1752 L 2824 1752 A 8 8 0 0 1 2816 1744 L 2816 960 A 8 8 0 0 0 2808 952 L 2792 952" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 6144 1752 L 2824 1752 A 8 8 0 0 1 2816 1744 L 2816 960 A 8 8 0 0 0 2808 952 L 2792 952" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="shipping-api-&gt;logs" data-kind="message" data-from="shipping-api" data-to="logs">
-      <path d="M 4664 160 L 4696 160 A 8 8 0 0 1 4704 168 L 4704 1744 A 8 8 0 0 0 4712 1752 L 6144 1752"/>
+      <path class="diagram-casing" d="M 6144 1752 L 4712 1752 A 8 8 0 0 1 4704 1744 L 4704 168 A 8 8 0 0 0 4696 160 L 4664 160" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 6144 1752 L 4712 1752 A 8 8 0 0 1 4704 1744 L 4704 168 A 8 8 0 0 0 4696 160 L 4664 160" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
     <g data-edge="admin-api-&gt;logs" data-kind="message" data-from="admin-api" data-to="logs">
-      <path d="M 1248 896 L 1288 896 A 8 8 0 0 1 1296 904 L 1296 1744 A 8 8 0 0 0 1304 1752 L 6144 1752"/>
+      <path class="diagram-casing" d="M 6144 1752 L 1304 1752 A 8 8 0 0 1 1296 1744 L 1296 904 A 8 8 0 0 0 1288 896 L 1248 896" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 6144 1752 L 1304 1752 A 8 8 0 0 1 1296 1744 L 1296 904 A 8 8 0 0 0 1288 896 L 1248 896" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
     </g>
   </g>
   <g class="diagram-nodes">

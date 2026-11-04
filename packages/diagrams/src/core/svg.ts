@@ -10,8 +10,10 @@
 
 import type { Diagram } from "../authoring/model.ts";
 import {
+	type ArchitectureEdgeLook,
 	type ArchitectureNodeLook,
 	type ArchitectureStatus,
+	architectureEdgeLooks,
 	architectureFamilies,
 	architectureNodeKinds,
 	architectureNodeLooks,
@@ -109,7 +111,6 @@ export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): s
 			start("g", [
 				["class", "diagram-edges"],
 				["fill", "none"],
-				["stroke-width", 1.5],
 			]),
 		),
 		...scene.edges.flatMap((edge) => writeEdge(edge).map((text) => indent(2, text))),
@@ -219,7 +220,10 @@ function colorUses(scene: Scene): ColorUse[] {
 				] as const)),
 		...(scene.edges.length === 0
 			? []
-			: [{ selector: ".diagram-edges", property: "stroke", color: "muted" } as const]),
+			: ([
+					{ selector: ".diagram-edges", property: "color", color: "edge" },
+					{ selector: ".diagram-casing", property: "stroke", color: "edge-casing" },
+				] as const)),
 		...(scene.nodes.length === 0
 			? []
 			: [{ selector: ".diagram-base", property: "fill", color: "surface" } as const]),
@@ -502,7 +506,21 @@ function pathText(path: PathData): string {
 	return path.map((part) => (typeof part === "number" ? number(part) : part)).join(" ");
 }
 
+/** An Edge's line: a body, in the Edge's color, inside a wider, darker casing. */
+const bodyWidth = 1.5;
+const casingWidth = 3.5;
+/** The dashes of a dashed line, such as a message's: 6 px drawn, then 4 px left out. */
+const dashes = "6 4";
+
+/**
+ * An Edge: its line, as a casing beneath a body. The line's path is written
+ * from its target, so that its dashes start there: the Edges of one bundle
+ * end at one Port, and so dash alike along the trunk they share.
+ */
 function writeEdge(edge: SceneEdge): string[] {
+	const line = pathData([...edge.route].reverse());
+	const dashed: Attribute[] =
+		edgeLookOf(edge.kind).line === "dashed" ? [["stroke-dasharray", dashes]] : [];
 	return [
 		start("g", [
 			["data-edge", edge.id],
@@ -512,9 +530,34 @@ function writeEdge(edge: SceneEdge): string[] {
 			["data-to", edge.to],
 			...(edge.toRow === undefined ? [] : [["data-to-row", edge.toRow] as const]),
 		]),
-		indent(1, empty("path", [["d", pathData(edge.route)]])),
+		indent(
+			1,
+			empty("path", [
+				["class", "diagram-casing"],
+				["d", line],
+				["stroke-width", casingWidth],
+				...dashed,
+			]),
+		),
+		indent(
+			1,
+			empty("path", [
+				["d", line],
+				["stroke", "currentColor"],
+				["stroke-width", bodyWidth],
+				...dashed,
+			]),
+		),
 		"</g>",
 	];
+}
+
+function edgeLookOf(kind: string): ArchitectureEdgeLook {
+	const look = (architectureEdgeLooks as Partial<Record<string, ArchitectureEdgeLook>>)[kind];
+	if (look === undefined) {
+		throw new Error(`Edge Kind ${kind} has no look, so validation should have rejected it`);
+	}
+	return look;
 }
 
 /**

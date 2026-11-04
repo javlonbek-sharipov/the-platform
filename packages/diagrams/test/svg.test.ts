@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { architecture, type Diagram, render } from "../src/index.ts";
 import { deepNesting } from "./fixtures/groups.ts";
+import { draw, linesOf } from "./support/drawn.ts";
 import { everyFixture } from "./support/fixtures.ts";
 import { ancestors, descendants, type Element, matches, parseSvg, rulesOf } from "./support/svg.ts";
 
@@ -141,19 +142,22 @@ describe("the SVG", () => {
 	});
 
 	test("draws each rounded corner of a route with an arc command of the corner's radius", () => {
-		const { scene, svg } = render(shop);
-		const paths = new Map(
-			[...(svg ?? "").matchAll(/<g data-edge="([^"]*)"[^>]*>\s*<path d="([^"]*)"\/>/g)].map(
-				([, id, d]) => [id?.replaceAll("&gt;", ">"), d ?? ""],
-			),
-		);
-		const corners = scene?.edges.flatMap((edge) => edge.route.slice(1, -1)) ?? [];
+		const drawn = draw(shop);
+		const corners = drawn.scene.edges.flatMap((edge) => edge.route.slice(1, -1));
 		expect(corners.length).toBeGreaterThan(0);
-		for (const edge of scene?.edges ?? []) {
-			const arcs = [...(paths.get(edge.id) ?? "").matchAll(/A ([\d.]+) ([\d.]+) 0 0 [01] /g)];
-			expect(arcs.map(([, rx, ry]) => [Number(rx), Number(ry)])).toEqual(
-				edge.route.slice(1, -1).map(({ radius }) => [radius, radius]),
-			);
+		for (const edge of drawn.scene.edges) {
+			const radii = edge.route.slice(1, -1).map(({ radius }) => [radius, radius]);
+			const lines = linesOf(drawn, edge);
+			expect(lines.length).toBeGreaterThan(0);
+			for (const line of lines) {
+				const d = line.attributes.get("d") ?? "";
+				const arcs = [...d.matchAll(/A ([\d.]+) ([\d.]+) 0 0 [01] /g)].map(([, rx, ry]) => [
+					Number(rx),
+					Number(ry),
+				]);
+				// A line may be drawn from either end.
+				expect([arcs, [...arcs].reverse()], edge.id).toContainEqual(radii);
+			}
 		}
 	});
 

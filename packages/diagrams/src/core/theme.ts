@@ -15,6 +15,10 @@ export const palette = {
 	ok: { light: "#1a7f37", dark: "#3fb950" },
 	warn: { light: "#9a6700", dark: "#d29922" },
 	danger: { light: "#d1242f", dark: "#f85149" },
+	// An Edge's body, and the darker casing around it, which sets it apart
+	// where it passes over another Edge.
+	edge: { light: "#818b98", dark: "#9198a1" },
+	"edge-casing": { light: "#424a53", dark: "#262c36" },
 	// One hue for each family of architecture Kinds.
 	"hue-users": { light: "#8250df", dark: "#ab7df8" },
 	"hue-system": { light: "#424a53", dark: "#b7bdc8" },

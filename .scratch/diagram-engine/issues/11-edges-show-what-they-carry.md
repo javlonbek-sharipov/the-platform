@@ -24,9 +24,9 @@
 
 **Edge styles**
 
-- [ ] `call` and `message` Edges look different in both themes.
+- [x] `call` and `message` Edges look different in both themes.
 - [ ] Every Edge has an arrowhead at its target, and chevrons at a fixed spacing along its route.
-- [ ] Every Edge is drawn as a body inside a darker casing.
+- [x] Every Edge is drawn as a body inside a darker casing.
 - [ ] Wherever one Port feeds two or more Edges, a junction mark sits over the split.
 - [ ] An Edge whose ends sit in different `region` Groups, or in different `zone` Groups, gets the warning color and a badge at its midpoint.
 
