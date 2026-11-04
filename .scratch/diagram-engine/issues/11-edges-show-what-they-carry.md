@@ -57,3 +57,4 @@
 
 - Orchestrator: added **Model** here. Ticket 01 found that no slice 1 ticket covered the spec's `<metadata>` model (Static SVG › Model and hooks, and Testing Decisions › SVG).
 - Orchestrator: added **Text baselines**. Ticket 13 found the problem; see its Comments ("For later tickets") and its decision on `dominant-baseline` in the spec.
+- Orchestrator: ticket 10's Comments end with a note for this ticket ("For ticket 11"), on drawing an Edge's stroke pieces between hops. Read it when you merge ticket 10's work.

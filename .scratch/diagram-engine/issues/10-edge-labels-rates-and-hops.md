@@ -66,3 +66,4 @@
 - **For ticket 12.** A label's Technology is `label.technology`, its own scene text on the line below the label. `labelWidth` and `labelTexts` in `src/core/text.ts` measure and lay out that line; a logo goes before the Technology's text there.
 
 Merged into diagram-engine in 3574db9.
+- Orchestrator: the labels that fall back because a trunk took their run are now ticket 16's work. The spec's step 8 gained the rule.

@@ -44,3 +44,7 @@
   - a Node with an unknown slug;
   - an Edge label with a logo.
 - [ ] The example Diagram uses a few logos.
+
+## Comments
+
+- Orchestrator: ticket 10's Comments end with a note for this ticket ("For ticket 12"), on where a label's Technology is laid out. Read it before you start.

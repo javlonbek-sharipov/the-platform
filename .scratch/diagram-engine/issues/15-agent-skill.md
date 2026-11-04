@@ -20,6 +20,7 @@ AGENTS.md points agents to the skill.
 - 12 Technology logos
 - 13 PNG and JSON export
 - 14 JSON Schema for generated Diagrams
+- 16 Every label has a run of its own
 
 **Status:** ready-for-agent
 

@@ -670,6 +670,7 @@ The method comes from Wybrow, Marriott and Stuckey (2009), Marriott, Stuckey and
    - Where a Port's stub meets a lane at a different height, add a short jog.
 8. **Labels.** Place each label, with its Technology and rate below it.
    - Use the longest straight run that belongs to that Edge alone, not to a shared trunk, and center the label beside the line.
+   - So a label needs a run of its own that holds it. When a bundle's trunk would leave a labeled Edge no such run, the Edge stays out of the trunk and keeps its own lane, as a parallel Edge does.
    - If it would cover a Node, a Port stub, a Group label or another label, try the next-longest run.
    - If nothing fits, put it at the route's midpoint and report a warning.
 9. **Crossings.**
@@ -1684,6 +1685,16 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
    - A scene Edge's `stroke` is its route in pieces, from gap to gap. Each piece starts and ends sharp, and keeps the route's corners and their radii. `route` stays whole, for anything that follows the Edge along its length.
    - The SVG draws an Edge's pieces as the subpaths of its one path.
 7. **Rules added:** `technology-format`, `rate-format` and `label-placement`.
+
+**Orchestrator**
+
+Scope moved or added while the tickets ran. Each ticket's Comments say why.
+
+1. Ticket 11 gained the `<metadata>` model, and gained per-text baselines.
+2. Ticket 09 gained the rank gaps' room for lanes, and the lane offsets with their jog.
+3. Ticket 14 gained the rejection of control characters in text.
+4. Ticket 06's Group-containment check now names the property that can be tested.
+5. A labeled Edge stays out of a trunk that would leave it no run of its own for its label (Edge routing, step 8). Ticket 16 builds it.
 
 ### References
 
