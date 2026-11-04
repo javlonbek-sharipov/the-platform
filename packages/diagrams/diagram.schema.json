@@ -26,22 +26,30 @@
 		"members": {
 			"description": "The ids of the Diagram's top-level Nodes and Groups, in declaration order, which breaks layout ties.",
 			"type": "array",
-			"items": { "$ref": "#/$defs/id" }
+			"items": {
+				"$ref": "#/$defs/id"
+			}
 		},
 		"nodes": {
 			"description": "Every Node on the Diagram, whatever its Group.",
 			"type": "array",
-			"items": { "$ref": "#/$defs/node" }
+			"items": {
+				"$ref": "#/$defs/node"
+			}
 		},
 		"groups": {
 			"description": "Every Group on the Diagram, whatever its parent.",
 			"type": "array",
-			"items": { "$ref": "#/$defs/group" }
+			"items": {
+				"$ref": "#/$defs/group"
+			}
 		},
 		"edges": {
 			"description": "Every Edge on the Diagram.",
 			"type": "array",
-			"items": { "$ref": "#/$defs/edge" }
+			"items": {
+				"$ref": "#/$defs/edge"
+			}
 		},
 		"walkthroughs": {
 			"description": "The Diagram's Walkthroughs.",
@@ -58,6 +66,7 @@
 		"edges",
 		"walkthroughs"
 	],
+	"additionalProperties": false,
 	"$defs": {
 		"id": {
 			"description": "Lowercase kebab-case words, such as `payments-api`, optionally namespaced by a context, as in `billing/order`.",
@@ -78,7 +87,9 @@
 			"description": "One thing drawn on the Diagram, such as a service or a database.",
 			"type": "object",
 			"properties": {
-				"id": { "$ref": "#/$defs/id" },
+				"id": {
+					"$ref": "#/$defs/id"
+				},
 				"kind": {
 					"description": "The Node's Kind, which alone decides how it looks.",
 					"enum": [
@@ -100,6 +111,10 @@
 					"description": "The Node's title, drawn in its header. A title too wide for its Kind is shortened.",
 					"type": "string"
 				},
+				"technology": {
+					"description": "What the Node is built with, drawn in its header.",
+					"$ref": "#/$defs/technology"
+				},
 				"external": {
 					"description": "Whether the Node stands for something we don't own or run, drawn with a dashed outline.",
 					"type": "boolean"
@@ -111,19 +126,24 @@
 				"rows": {
 					"description": "The Node's Rows, drawn below its header, one band each, in order.",
 					"type": "array",
-					"items": { "$ref": "#/$defs/row" }
+					"items": {
+						"$ref": "#/$defs/row"
+					}
 				},
 				"links": {
 					"description": "\"See also\" pointers, which aren't drawn.",
 					"type": "array",
-					"items": { "$ref": "#/$defs/link" }
+					"items": {
+						"$ref": "#/$defs/link"
+					}
 				},
 				"callout": {
 					"description": "A short tag above the Node that draws attention to it, such as `single point of failure`.",
 					"$ref": "#/$defs/someText"
 				}
 			},
-			"required": ["id", "kind", "title"]
+			"required": ["id", "kind", "title"],
+			"additionalProperties": false
 		},
 		"row": {
 			"description": "A name and a value shown on a Node, such as `replicas: 3`. Every Row has a Port on each side of its Node.",
@@ -138,13 +158,16 @@
 					"type": "string"
 				}
 			},
-			"required": ["name"]
+			"required": ["name"],
+			"additionalProperties": false
 		},
 		"group": {
 			"description": "A labeled box drawn around Nodes and other Groups.",
 			"type": "object",
 			"properties": {
-				"id": { "$ref": "#/$defs/id" },
+				"id": {
+					"$ref": "#/$defs/id"
+				},
 				"kind": {
 					"description": "The Group's Kind, which alone decides how it looks.",
 					"enum": ["system", "region", "zone"]
@@ -156,7 +179,9 @@
 				"members": {
 					"description": "The ids of the Group's Nodes and child Groups, in declaration order.",
 					"type": "array",
-					"items": { "$ref": "#/$defs/id" }
+					"items": {
+						"$ref": "#/$defs/id"
+					}
 				},
 				"description": {
 					"description": "What the Group is, which isn't drawn.",
@@ -165,10 +190,13 @@
 				"links": {
 					"description": "\"See also\" pointers, which aren't drawn.",
 					"type": "array",
-					"items": { "$ref": "#/$defs/link" }
+					"items": {
+						"$ref": "#/$defs/link"
+					}
 				}
 			},
-			"required": ["id", "kind", "title", "members"]
+			"required": ["id", "kind", "title", "members"],
+			"additionalProperties": false
 		},
 		"edge": {
 			"description": "A connection from one Port to another.",
@@ -205,31 +233,58 @@
 					"pattern": "^[0-9]+(?:\\.[0-9]+)?[kM]?/(?:s|min|h)$"
 				}
 			},
-			"required": ["id", "kind", "from", "to"]
+			"required": ["id", "kind", "from", "to"],
+			"additionalProperties": false
 		},
 		"end": {
 			"description": "An Edge end: the id of a Node, whose header Port the Edge uses, or one of the Node's Rows, whose Port on the matching side it uses instead.",
-			"oneOf": [{ "$ref": "#/$defs/id" }, { "$ref": "#/$defs/rowEnd" }]
+			"oneOf": [
+				{
+					"$ref": "#/$defs/id"
+				},
+				{
+					"$ref": "#/$defs/rowEnd"
+				}
+			]
 		},
 		"rowEnd": {
 			"description": "An Edge end at one of a Node's Rows.",
 			"type": "object",
 			"properties": {
-				"node": { "description": "The Node's id.", "$ref": "#/$defs/id" },
-				"row": { "description": "The Row's name.", "type": "string" }
+				"node": {
+					"description": "The Node's id.",
+					"$ref": "#/$defs/id"
+				},
+				"row": {
+					"description": "The Row's name.",
+					"type": "string"
+				}
 			},
-			"required": ["node", "row"]
+			"required": ["node", "row"],
+			"additionalProperties": false
 		},
 		"link": {
 			"description": "A \"see also\" pointer from a Node or a Group to exactly one thing: another id, or a Markdown document.",
-			"oneOf": [{ "$ref": "#/$defs/idLink" }, { "$ref": "#/$defs/docLink" }]
+			"oneOf": [
+				{
+					"$ref": "#/$defs/idLink"
+				},
+				{
+					"$ref": "#/$defs/docLink"
+				}
+			]
 		},
 		"idLink": {
 			"description": "A Link to another id in the Atlas.",
 			"type": "object",
 			"properties": {
-				"id": { "$ref": "#/$defs/id" },
-				"label": { "description": "Replaces the text shown for the Link.", "type": "string" }
+				"id": {
+					"$ref": "#/$defs/id"
+				},
+				"label": {
+					"description": "Replaces the text shown for the Link.",
+					"type": "string"
+				}
 			},
 			"required": ["id"],
 			"additionalProperties": false
@@ -246,7 +301,10 @@
 					"description": "A heading in the document, by its text or by its anchor.",
 					"type": "string"
 				},
-				"label": { "description": "Replaces the text shown for the Link.", "type": "string" }
+				"label": {
+					"description": "Replaces the text shown for the Link.",
+					"type": "string"
+				}
 			},
 			"required": ["doc"],
 			"additionalProperties": false

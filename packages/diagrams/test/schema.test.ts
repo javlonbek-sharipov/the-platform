@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { render } from "../src/index.ts";
 import everyField from "./fixtures/every-field.json" with { type: "json" };
 import everyKind from "./fixtures/every-kind.ts";
-import { schemaErrors, schemaPointers } from "./support/schema.ts";
+import { schema, schemaErrors, schemaPointers } from "./support/schema.ts";
 
 const fixtureFolder = new URL("./fixtures/", import.meta.url);
 
@@ -134,9 +134,49 @@ const brokenModels: [what: string, pointer: string, value: unknown, rule: string
 	["a rate written another way", "/edges/1/rate", "30 per second", "rate-format"],
 	["a rate without a digit before its point", "/edges/1/rate", ".5/s", "rate-format"],
 	["a rate that isn't a string", "/edges/3/rate", 1500, "model-shape"],
+
+	["a field that a Diagram doesn't have", "/legend", "Orders", "model-shape"],
+	["a Diagram description, which the engine doesn't read yet", "/description", "x", "model-shape"],
+	["a misspelled Node field", "/nodes/4/extrenal", true, "model-shape"],
+	[
+		"a Node description, which the engine doesn't read yet",
+		"/nodes/2/description",
+		"x",
+		"model-shape",
+	],
+	["a field that a Row doesn't have", "/nodes/2/rows/0/unit", "pods", "model-shape"],
+	["a field that a Link doesn't have", "/nodes/2/links/0/title", "Its database", "model-shape"],
+	["a field that a Group doesn't have", "/groups/0/color", "blue", "model-shape"],
+	["a misspelled Edge field", "/edges/1/lable", "Places orders", "model-shape"],
+	["a field that a Row end doesn't have", "/edges/2/from/side", "right", "model-shape"],
+	["a field whose name holds a slash", "/nodes/0/a~1b", "x", "model-shape"],
 ];
 
 describe("the JSON Schema", () => {
+	test("allows each object the fields that the core does, and no others", () => {
+		const { $defs } = schema;
+		const objects: [what: string, pointer: string, properties: object[]][] = [
+			["a Diagram", "", [schema.properties]],
+			["a Node", "/nodes/2", [$defs.node.properties]],
+			["a Row", "/nodes/2/rows/0", [$defs.row.properties]],
+			["a Group", "/groups/0", [$defs.group.properties]],
+			["an Edge", "/edges/1", [$defs.edge.properties]],
+			["an Edge end at a Row", "/edges/2/from", [$defs.rowEnd.properties]],
+			["a Link", "/nodes/2/links/0", [$defs.idLink.properties, $defs.docLink.properties]],
+		];
+		for (const [what, pointer, properties] of objects) {
+			// The core's message about a field it doesn't know lists the fields it does.
+			const at = `${pointer}/not-a-field`;
+			const { message } = render(broken(at, "x")).diagnostics.find((d) => d.pointer === at) ?? {};
+			const listed = /Its fields are (.+)\.$/.exec(message ?? "")?.[1]?.match(/`[^`]+`/g) ?? [];
+
+			expect(listed.length, what).toBeGreaterThan(1);
+			expect(new Set(properties.flatMap((fields) => Object.keys(fields))), what).toEqual(
+				new Set(listed.map((field) => field.slice(1, -1))),
+			);
+		}
+	});
+
 	test("rejects each broken model where the core does", () => {
 		for (const [what, pointer, value, rule] of brokenModels) {
 			const model = broken(pointer, value);

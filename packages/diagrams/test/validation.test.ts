@@ -225,6 +225,79 @@ describe("validation", () => {
 		]);
 	});
 
+	test("reports each field that the model doesn't have, such as a misspelled one, and lists the fields it does", () => {
+		const diagram = {
+			...regionJson(),
+			legend: "Shop",
+			nodes: [
+				{ id: "web-app", kind: "client", title: "Web app", extrenal: true },
+				{
+					id: "shop-api",
+					kind: "service",
+					title: "Shop API",
+					rows: [{ name: "replicas", unit: "pods" }],
+					links: [{ id: "shop-db", title: "Its database" }],
+				},
+				{ id: "shop-db", kind: "database", title: "Shop database" },
+			],
+			groups: [
+				{ ...regionJson().groups[0], color: "blue" },
+				{ id: "eu-west-a", kind: "zone", title: "Zone A", members: ["shop-db"] },
+			],
+			edges: [
+				{ id: "web-app->shop-api", kind: "call", from: "web-app", to: "shop-api", lable: "Orders" },
+				{
+					id: "shop-api->shop-db",
+					kind: "call",
+					from: { node: "shop-api", row: "replicas", side: "right" },
+					to: "shop-db",
+				},
+			],
+		};
+
+		expect(render(diagram).diagnostics).toEqual(
+			[
+				[
+					"/legend",
+					"a Diagram",
+					"`version`, `notation`, `id`, `title`, `direction`, `members`, `nodes`, `groups`, `edges` and `walkthroughs`",
+				],
+				[
+					"/nodes/0/extrenal",
+					"a Node",
+					"`id`, `kind`, `title`, `technology`, `external`, `status`, `rows`, `links` and `callout`",
+				],
+				["/nodes/1/rows/0/unit", "a Row", "`name` and `value`"],
+				["/nodes/1/links/0/title", "a Link", "`id`, `doc`, `section` and `label`"],
+				[
+					"/groups/0/color",
+					"a Group",
+					"`id`, `kind`, `title`, `members`, `description` and `links`",
+				],
+				[
+					"/edges/0/lable",
+					"an Edge",
+					"`id`, `kind`, `from`, `to`, `label`, `technology` and `rate`",
+				],
+				["/edges/1/from/side", "an Edge end at a Row", "`node` and `row`"],
+			].map(([pointer, thing, fields]) => ({
+				severity: "error",
+				rule: "model-shape",
+				message: `\`${pointer}\` must be left out: ${thing} has no such field. Its fields are ${fields}.`,
+				pointer,
+			})),
+		);
+	});
+
+	test("points at a field whose name holds a slash or a tilde, escaped as JSON Pointers escape them", () => {
+		const diagram = shopJson();
+		diagram.nodes[0] = { ...diagram.nodes[0], "replicas/zone~a": "3" } as never;
+
+		expect(render(diagram).diagnostics).toMatchObject([
+			{ rule: "model-shape", pointer: "/nodes/0/replicas~1zone~0a" },
+		]);
+	});
+
 	test("reports a Diagram that isn't an object", () => {
 		expect(render(null).diagnostics).toEqual([
 			{

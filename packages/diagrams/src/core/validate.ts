@@ -3,7 +3,16 @@
  * generated JSON has no types, so everything they prevent is checked here.
  */
 
-import { type Diagram, endNode, type Link } from "../authoring/model.ts";
+import {
+	type Diagram,
+	type Edge,
+	endNode,
+	type Group,
+	type Link,
+	type Node,
+	type Row,
+	type RowEnd,
+} from "../authoring/model.ts";
 import {
 	architectureEdgeKinds,
 	architectureGroupKinds,
@@ -35,6 +44,65 @@ const slugPattern = new RegExp(`^${kebabCase}$`);
 const ratePattern = /^[0-9]+(?:\.[0-9]+)?[kM]?\/(?:s|min|h)$/;
 
 const directions: unknown[] = [undefined, "right", "down"];
+
+/**
+ * The fields of one of the model's types, in the model's order. The type
+ * checker makes the list name every field of the type and no other, so a
+ * field added to the model can't be left out of validation.
+ */
+function fieldsOf<T>(fields: Record<keyof T, true>): readonly string[] {
+	return Object.keys(fields);
+}
+
+/**
+ * Every field that a version-1 model may have. Any other is an error, as the
+ * types make it one, so that a misspelled field is never silently ignored.
+ */
+const fields = {
+	diagram: fieldsOf<Diagram>({
+		version: true,
+		notation: true,
+		id: true,
+		title: true,
+		direction: true,
+		members: true,
+		nodes: true,
+		groups: true,
+		edges: true,
+		walkthroughs: true,
+	}),
+	node: fieldsOf<Node>({
+		id: true,
+		kind: true,
+		title: true,
+		technology: true,
+		external: true,
+		status: true,
+		rows: true,
+		links: true,
+		callout: true,
+	}),
+	row: fieldsOf<Row>({ name: true, value: true }),
+	group: fieldsOf<Group>({
+		id: true,
+		kind: true,
+		title: true,
+		members: true,
+		description: true,
+		links: true,
+	}),
+	edge: fieldsOf<Edge>({
+		id: true,
+		kind: true,
+		from: true,
+		to: true,
+		label: true,
+		technology: true,
+		rate: true,
+	}),
+	rowEnd: fieldsOf<RowEnd>({ node: true, row: true }),
+	link: fieldsOf<Link>({ id: true, doc: true, section: true, label: true }),
+};
 
 export function validate(input: unknown): Validation {
 	const shape = checkShape(input);
@@ -451,7 +519,33 @@ function checkShape(input: unknown): Diagnostic[] {
 			check(false, pointer, "an object");
 		}
 	};
+	/**
+	 * Reports each field of `value` that `thing` doesn't have, listing those it
+	 * does. `alsoRead` holds fields that a later check reports in its own words.
+	 */
+	const checkFields = (
+		value: Record<string, unknown>,
+		pointer: string,
+		thing: string,
+		known: readonly string[],
+		alsoRead: readonly string[] = [],
+	) => {
+		for (const field of Object.keys(value)) {
+			if (!known.includes(field) && !alsoRead.includes(field)) {
+				const at = `${pointer}/${pointerSegment(field)}`;
+				const listed = list(known.map((name) => `\`${name}\``));
+				diagnostics.push(
+					error(
+						"model-shape",
+						`\`${at}\` must be left out: ${thing} has no such field. Its fields are ${listed}.`,
+						at,
+					),
+				);
+			}
+		}
+	};
 
+	checkFields(input, "", "a Diagram", fields.diagram);
 	check(input.id === undefined || typeof input.id === "string", "/id", "a string");
 	check(typeof input.title === "string", "/title", "a string");
 	check(directions.includes(input.direction), "/direction", "`right` or `down`");
@@ -467,6 +561,8 @@ function checkShape(input: unknown): Diagnostic[] {
 			check(false, at, "an object");
 			return;
 		}
+		// A Link to a glossary term is reported below, as a Link without a target.
+		checkFields(link, at, "a Link", fields.link, ["term"]);
 		const targets = ["id", "doc", "term"].filter((field) => link[field] !== undefined);
 		const [target] = targets;
 		if (target === undefined || target === "term" || targets.length > 1) {
@@ -496,6 +592,9 @@ function checkShape(input: unknown): Diagnostic[] {
 
 	/** A Row has a name, and may have a value. */
 	const checkRow = (row: unknown, at: string) => {
+		if (isObject(row)) {
+			checkFields(row, at, "a Row", fields.row);
+		}
 		checkStrings(row, at, ["name"]);
 		if (isObject(row)) {
 			check(row.value === undefined || typeof row.value === "string", `${at}/value`, "a string");
@@ -504,6 +603,7 @@ function checkShape(input: unknown): Diagnostic[] {
 	/** An Edge end is a Node's id, or an object that names a Node and one of its Rows. */
 	const checkEnd = (end: unknown, at: string) => {
 		if (isObject(end)) {
+			checkFields(end, at, "an Edge end at a Row", fields.rowEnd);
 			checkStrings(end, at, ["node", "row"]);
 		} else {
 			check(typeof end === "string", at, "a Node's id, or an object with `node` and `row`");
@@ -511,9 +611,17 @@ function checkShape(input: unknown): Diagnostic[] {
 	};
 
 	checkList(input.nodes, "/nodes", (node, at) => {
+		if (isObject(node)) {
+			checkFields(node, at, "a Node", fields.node);
+		}
 		checkStrings(node, at, ["id", "kind", "title"]);
 		if (isObject(node)) {
-			const { external, status, callout } = node;
+			const { technology, external, status, callout } = node;
+			check(
+				technology === undefined || typeof technology === "string",
+				`${at}/technology`,
+				"a string",
+			);
 			check(
 				external === undefined || typeof external === "boolean",
 				`${at}/external`,
@@ -534,6 +642,9 @@ function checkShape(input: unknown): Diagnostic[] {
 		}
 	});
 	checkList(input.groups, "/groups", (group, at) => {
+		if (isObject(group)) {
+			checkFields(group, at, "a Group", fields.group);
+		}
 		checkStrings(group, at, ["id", "kind", "title"]);
 		if (isObject(group)) {
 			check(
@@ -550,6 +661,9 @@ function checkShape(input: unknown): Diagnostic[] {
 		}
 	});
 	checkList(input.edges, "/edges", (edge, at) => {
+		if (isObject(edge)) {
+			checkFields(edge, at, "an Edge", fields.edge);
+		}
 		checkStrings(edge, at, ["id", "kind"]);
 		if (isObject(edge)) {
 			const { label, technology, rate } = edge;
@@ -570,6 +684,11 @@ function checkShape(input: unknown): Diagnostic[] {
 	});
 	checkList(input.walkthroughs, "/walkthroughs", () => {});
 	return diagnostics;
+}
+
+/** A field's name as one segment of a JSON Pointer, escaped as RFC 6901 says. */
+function pointerSegment(field: string): string {
+	return field.replaceAll("~", "~0").replaceAll("/", "~1");
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
