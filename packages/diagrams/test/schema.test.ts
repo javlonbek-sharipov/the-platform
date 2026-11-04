@@ -1,6 +1,8 @@
 import { readdirSync } from "node:fs";
 import { describe, expect, test } from "vitest";
-import { schemaErrors } from "./support/schema.ts";
+import { render } from "../src/index.ts";
+import everyKind from "./fixtures/every-kind.ts";
+import { schemaErrors, schemaPointers } from "./support/schema.ts";
 
 const fixtureFolder = new URL("./fixtures/", import.meta.url);
 
@@ -35,6 +37,17 @@ describe("the JSON Schema", () => {
 		expect(models.length).toBeGreaterThanOrEqual(16);
 		for (const [name, model] of models) {
 			expect(schemaErrors(model), name).toEqual([]);
+		}
+	});
+
+	test("requires `version` to be 1, as the core does", () => {
+		for (const version of [2, 0, 1.5, "1", null, undefined]) {
+			const model = { ...everyKind, version };
+
+			expect(schemaPointers(model), String(version)).toContain("/version");
+			expect(render(model).diagnostics, String(version)).toMatchObject([
+				{ severity: "error", rule: "model-version", pointer: "/version" },
+			]);
 		}
 	});
 });

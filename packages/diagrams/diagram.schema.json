@@ -1,5 +1,12 @@
 {
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"title": "Diagram",
-	"type": "object"
+	"type": "object",
+	"properties": {
+		"version": {
+			"description": "The version of the JSON model. This engine reads version 1.",
+			"const": 1
+		}
+	},
+	"required": ["version"]
 }

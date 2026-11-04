@@ -15,4 +15,22 @@ export function schemaErrors(model: unknown): ErrorObject[] {
 	return validator(model) ? [] : [...(validator.errors ?? [])];
 }
 
+/**
+ * Where the schema finds a model wrong: a JSON Pointer for each problem,
+ * once each, in Ajv's order. A missing field, or one the schema doesn't
+ * allow, is pointed at by its own name, as the core's diagnostics point at it.
+ */
+export function schemaPointers(model: unknown): string[] {
+	const pointers = schemaErrors(model).map(({ instancePath, params }) => {
+		const field = params.missingProperty ?? params.additionalProperty;
+		return typeof field === "string" ? `${instancePath}/${escaped(field)}` : instancePath;
+	});
+	return [...new Set(pointers)];
+}
+
+/** A field's name as a segment of a JSON Pointer. */
+function escaped(field: string): string {
+	return field.replaceAll("~", "~0").replaceAll("/", "~1");
+}
+
 export { schema };
