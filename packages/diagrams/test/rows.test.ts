@@ -50,6 +50,35 @@ function database(direction: Direction, count: number): Diagram {
 	});
 }
 
+/** A number as the SVG writes it: rounded to two decimals. */
+function rounded(value: number): number {
+	return Math.round(value * 100) / 100;
+}
+
+/** The inside of a Node's group in an SVG. */
+function nodeGroup(svg: string, id: string): string {
+	const group = svg.match(new RegExp(`<g data-node="${id}"[^>]*>([\\s\\S]*?)</g>`))?.[1];
+	if (group === undefined) {
+		throw new Error(`no group for Node ${id}`);
+	}
+	return group;
+}
+
+/** Each `<text>` in a piece of SVG, with its position, size, weight and text. */
+function textsIn(svg: string) {
+	return [
+		...svg.matchAll(
+			/<text x="([^"]*)" y="([^"]*)" font-size="([^"]*)" font-weight="([^"]*)"[^>]*>([^<]*)<\/text>/g,
+		),
+	].map(([, x, y, size, weight, text]) => ({
+		x: Number(x),
+		y: Number(y),
+		size: Number(size),
+		weight: Number(weight),
+		text,
+	}));
+}
+
 describe.each(directions)("Rows on a Diagram laid out %s", (direction) => {
 	test("each add a band to their Node's height, below its header", () => {
 		const [plain, ...withRows] = [0, 1, 2, 3].map((count) =>
@@ -101,5 +130,51 @@ describe.each(directions)("Rows on a Diagram laid out %s", (direction) => {
 				expect(text.shortened).toBe(false);
 			}
 		}
+	});
+});
+
+describe("the SVG", () => {
+	test("draws each Row's name and value in its Node's group, in the regular weight, where the scene puts them", () => {
+		for (const direction of directions) {
+			const { scene, svg } = render(database(direction, 3));
+			const node = nodeOf(scene ?? sceneOf(null), "orders-db");
+			const drawn = (text: SceneText) => ({
+				x: rounded(text.point.x),
+				y: rounded(text.point.y),
+				size: text.size,
+				weight: text.weight === "regular" ? 400 : 600,
+				text: text.text,
+			});
+			expect(textsIn(nodeGroup(svg ?? "", "orders-db"))).toEqual(
+				[node.title, ...node.rows.flatMap((row) => [row.name, row.value ?? row.name])].map(drawn),
+			);
+		}
+	});
+
+	test("draws a line across the Node between its header and its first Row", () => {
+		const { scene, svg } = render(database("right", 2));
+		const node = nodeOf(scene ?? sceneOf(null), "orders-db");
+		const top = node.rows[0]?.box.y;
+		const lines = [
+			...nodeGroup(svg ?? "", "orders-db").matchAll(
+				/<line x1="([^"]*)" y1="([^"]*)" x2="([^"]*)" y2="([^"]*)"/g,
+			),
+		].map((match) => match.slice(1).map(Number));
+		expect(lines).toEqual([[node.box.x, top, node.box.x + node.box.width, top]]);
+		expect(nodeGroup(render(database("right", 0)).svg ?? "", "orders-db")).not.toContain("<line");
+	});
+
+	test("asks for the regular weight's glyphs for the characters that Rows draw", () => {
+		const weights: Record<string, string> = {};
+		render(database("right", 3), {
+			fontData: ({ weight, characters }) => {
+				weights[weight] = characters;
+				return new Uint8Array([1]);
+			},
+		});
+		// Every character of "replicas", "3", "region", "eu-west-1", "engine" and "Postgres 17", once, in order.
+		expect(weights.regular).toBe(" -137Pacegilnoprstuw");
+		// Every character of "Orders database".
+		expect(weights.semibold).toBe(" Oabderst");
 	});
 });
