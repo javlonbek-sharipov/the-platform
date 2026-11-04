@@ -1562,6 +1562,34 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
    - The Edge's `<g>` then carries `data-from-row` after `data-from`, and `data-to-row` after `data-to`.
 10. **Rules added:** `duplicate-row`.
 
+**Ticket 13**
+
+1. **The command.**
+   - `<diagram>` is the path of the Diagram's module, from the working directory. A path that isn't a `*.diagram.ts` file, or that lies outside the Atlas, exits with 2.
+   - `--format` has no default. Each option takes its value as `--format png` or `--format=png`.
+   - `--theme` is `light` unless told otherwise, and `--scale` is 1. `--scale` takes a number from 0.25 to 8: resvg ignores all its options when the zoom isn't a number, and draws whatever size it's asked for, such as 188,800 by 33,600 pixels for the example at 100.
+   - A PNG is the SVG's width and height times the scale, each rounded to the nearest pixel, as resvg rounds them.
+   - Both formats come from a fresh render, the one `render` would write, not from the SVG on disk, which may be stale.
+2. **Output.**
+   - stdout gets only the file's absolute path, so that a script can read it. Errors and warnings go to stderr, in lint's format.
+   - The exit code is 0 when the file is written, with or without warnings. It's 1 when the Diagram has errors, and then nothing is written. It's 2 for arguments it can't use, a module that isn't there, or a file it can't write.
+3. **Where files go.**
+   - By default, into `.diagrams-cache/export/`, under the Diagram's id: `docs/shop.json`, `docs/shop.light.png` and `docs/shop.dark@2x.png`. A PNG's name always has its theme, and has its scale unless that's 1.
+   - The cache folder gets a `.gitignore` of `*` when it's made, so git ignores the folder in any repo, whatever the repo's own `.gitignore` says.
+   - `--out` names the file, from the working directory. Its folders are made as needed.
+4. **JSON** is the module's default export, with the `id` that the Atlas gives it placed after `notation`, where a builder puts an explicit id. It's indented by two spaces and ends with a newline.
+5. **The rasterizer** is `@resvg/resvg-js` 2.6.2, pinned exactly, since a newer resvg may draw differently.
+   - It's MPL-2.0, unmodified, and the only runtime dependency, of `packages/diagrams`. Biome's `noRestrictedImports` rejects it outside `src/cli/`.
+   - It ships prebuilt binaries and has no install scripts. With nothing added to the system, it installed and exported on Debian 13 (arm64 and amd64) and on Alpine (arm64, musl).
+6. **Fonts.** This changes the spec's "the bundled font handed straight to the rasterizer".
+   - resvg draws text in the font faces that the SVG embeds, the subset of the bundled font. They're written to a temporary folder, since resvg takes fonts only as files and reads no `@font-face`.
+   - Given the bundled files themselves, resvg applies Inter's contextual alternates, and neither `font-variant-ligatures` nor `font-feature-settings` stops it. They turn `->` into a narrower arrow and raise the colon in `12:30`, so the text no longer matches the SVG's, whose subset has no `GSUB`. resvg does honor the SVG's `font-kerning: none`.
+   - System fonts are off, so the faces are all that resvg has, and every text falls back to their family. The SVG's `font-family` stays as written.
+7. **The SVG as resvg gets it,** on top of ticket 07's decision 15:
+   - Every at-rule goes. That takes out `@font-face` now, and `@keyframes` in slice 4, so the PNG has no animation.
+   - resvg takes `dominant-baseline` only from an element's parent, but the SVG sets it on the group around all Nodes, two levels above each text. So a rule sets it on each text inside an element that has it. Without that rule, every text sat 5 px high.
+8. **Tests read PNGs with their own decoder,** `test/support/png.ts`, written from the PNG specification. They check sizes from the header, the theme from the background's pixels, and where each text's ink lies: across, the span that Inter's advance widths give, and up and down, capitals centered on their point, as browsers draw them.
+
 ### References
 
 **Routing and layout papers**
