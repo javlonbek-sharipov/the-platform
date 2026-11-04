@@ -1,14 +1,15 @@
 /**
  * The routing grid (spec: Edge routing, step 1): a sparse set of horizontal
  * and vertical lines that keep clear of the Nodes. Lines run half a clearance
- * outside each side of each Node, through the end of each Port's stub, Row
- * Ports included, and once more on each side, outside the whole drawing.
- * Where two lines cross is a vertex, and a segment joins two neighboring
- * vertices on one line.
+ * outside each side of each Node and of each callout's tag, through the end
+ * of each Port's stub, Row Ports included, and once more on each side,
+ * outside the whole drawing. Where two lines cross is a vertex, and a segment
+ * joins two neighboring vertices on one line.
  *
- * A segment is open only if it stays clear of every Node, border included. A
- * crossing inside a Node, or on its border, has no open segment, so no route
- * can reach it: the vertices that routes use all lie outside the Nodes.
+ * A segment is open only if it stays clear of every Node and tag, border
+ * included. A crossing inside a Node, or on its border, has no open segment,
+ * so no route can reach it: the vertices that routes use all lie outside the
+ * Nodes.
  */
 
 import type { Box, Point, SceneNode } from "./scene.ts";
@@ -29,7 +30,10 @@ export interface Grid {
 
 export function buildGrid(nodes: SceneNode[], clearance: number): Grid {
 	const half = clearance / 2;
-	const boxes = nodes.map((node) => node.box);
+	// A callout's tag sits above its Node, where layout leaves room for it, and
+	// is in the way of routes as the Node is.
+	const tags = nodes.flatMap((node) => (node.callout === undefined ? [] : [node.callout.tag]));
+	const boxes = [...nodes.map((node) => node.box), ...tags];
 	const xs = new Set<number>();
 	const ys = new Set<number>();
 	for (const { box, input, output, rows } of nodes) {
@@ -39,6 +43,11 @@ export function buildGrid(nodes: SceneNode[], clearance: number): Grid {
 			xs.add(stub.x);
 			ys.add(stub.y);
 		}
+	}
+	// A tag's bottom is just above its Node, so no line runs below it.
+	for (const tag of tags) {
+		xs.add(tag.x - half).add(tag.x + tag.width + half);
+		ys.add(tag.y - half);
 	}
 	const drawing = boundsOf(boxes);
 	xs.add(drawing.x - clearance).add(drawing.x + drawing.width + clearance);

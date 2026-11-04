@@ -289,6 +289,48 @@ describe("a Node's callout", () => {
 		expect(render(calledOut("right")).diagnostics).toEqual([]);
 	});
 
+	test.each(directions)("keeps every route clear of its tag, laid out %s", (direction) => {
+		// The API's call to search passes the cache's rank, through the corridor
+		// above the cache, where its tag is.
+		const diagram = architecture({ title: "Orders", direction }, (d) => {
+			const api = d.node({ id: "orders-api", kind: "service", title: "Orders API" });
+			const db = d.node({ id: "orders-db", kind: "database", title: "Orders database" });
+			const cache = d.node({
+				id: "orders-cache",
+				kind: "cache",
+				title: "Orders cache",
+				callout: "single point of failure",
+			});
+			const search = d.node({ id: "orders-search", kind: "search", title: "Search" });
+			d.edge(api, db, { kind: "call" });
+			d.edge(api, cache, { kind: "call" });
+			d.edge(api, search, { kind: "call" });
+			d.edge(db, search, { kind: "call" });
+		});
+		for (const fixture of [diagram, calledOut(direction)]) {
+			const { scene } = draw(fixture);
+			const tags = scene.nodes.flatMap((node) =>
+				node.callout === undefined ? [] : [node.callout.tag],
+			);
+			expect(tags.length).toBeGreaterThan(0);
+			for (const edge of scene.edges) {
+				expect(edge.fellBack, edge.id).toBe(false);
+				edge.route.slice(1).forEach((point, index) => {
+					const from = edge.route[index] ?? point;
+					const run = {
+						x: Math.min(from.x, point.x),
+						y: Math.min(from.y, point.y),
+						width: Math.abs(point.x - from.x),
+						height: Math.abs(point.y - from.y),
+					};
+					for (const tag of tags) {
+						expect(gap(run, tag), `${edge.id}, run ${index}`).toBeGreaterThan(0);
+					}
+				});
+			}
+		}
+	});
+
 	test("shortens a callout too wide for its tag, and warns, naming the Node", () => {
 		const long = "this cache is the only copy of every order placed today";
 		const { scene, diagnostics } = render(calledOut("right", long));
