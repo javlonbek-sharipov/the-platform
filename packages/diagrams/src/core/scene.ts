@@ -54,6 +54,11 @@ export interface SceneEdge {
 export interface Scene {
 	/** The bounds of the whole drawing, margin included. */
 	bounds: Box;
+	/**
+	 * The margin every Node keeps around it, which no other Node may enter, so
+	 * that Edges always have a corridor between two Nodes.
+	 */
+	clearance: number;
 	nodes: SceneNode[];
 	edges: SceneEdge[];
 	/** The diagnostics that layout and routing raised. */

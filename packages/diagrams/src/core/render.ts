@@ -5,7 +5,7 @@
  */
 
 import type { Diagnostic } from "./diagnostics.ts";
-import { layOut, margin } from "./layout.ts";
+import { clearance, layOut, margin } from "./layout.ts";
 import { route } from "./route.ts";
 import type { Box, Scene, SceneEdge, SceneNode } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
@@ -25,7 +25,13 @@ export function render(diagram: unknown): RenderResult {
 	const model = validation.diagram;
 	const nodes = layOut(model);
 	const edges = route(model, nodes);
-	const scene: Scene = { bounds: boundsOf(nodes, edges), nodes, edges, diagnostics: [] };
+	const scene: Scene = {
+		bounds: boundsOf(nodes, edges),
+		clearance,
+		nodes,
+		edges,
+		diagnostics: [],
+	};
 	return {
 		diagnostics: [...validation.diagnostics, ...scene.diagnostics],
 		scene,

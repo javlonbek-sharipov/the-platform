@@ -1,35 +1,54 @@
 /**
  * A minimal layout: each Node goes in the rank of the longest path that
- * reaches it, ranks run left to right, and each rank stacks its Nodes from the
- * top in declaration order. Ticket 02 replaces it with the full layout.
+ * reaches it, ranks run along the Diagram's direction, and each rank stacks
+ * its Nodes across it in declaration order. Ticket 02 replaces it with the
+ * full layout.
  */
 
 import type { Diagram } from "../authoring/model.ts";
-import type { SceneNode } from "./scene.ts";
+import type { Box, SceneNode } from "./scene.ts";
 
 const nodeWidth = 160;
 const nodeHeight = 48;
 const rankGap = 96;
-const nodeGap = 32;
+export const clearance = 32;
 export const margin = 24;
 
 export function layOut(diagram: Diagram): SceneNode[] {
+	const down = diagram.direction === "down";
 	const ranks = ranksOf(diagram);
 	const nextInRank: number[] = [];
 	return diagram.nodes.map((node) => {
 		const rank = ranks.get(node.id) ?? 0;
 		const order = nextInRank[rank] ?? 0;
 		nextInRank[rank] = order + 1;
-		const x = margin + rank * (nodeWidth + rankGap);
-		const y = margin + order * (nodeHeight + nodeGap);
+		const box: Box = down
+			? {
+					x: margin + order * (nodeWidth + clearance),
+					y: margin + rank * (nodeHeight + rankGap),
+					width: nodeWidth,
+					height: nodeHeight,
+				}
+			: {
+					x: margin + rank * (nodeWidth + rankGap),
+					y: margin + order * (nodeHeight + clearance),
+					width: nodeWidth,
+					height: nodeHeight,
+				};
+		const { x, y } = box;
+		const center = x + nodeWidth / 2;
 		const middle = y + nodeHeight / 2;
 		return {
 			id: node.id,
 			kind: node.kind,
-			box: { x, y, width: nodeWidth, height: nodeHeight },
-			input: { side: "left", point: { x, y: middle } },
-			output: { side: "right", point: { x: x + nodeWidth, y: middle } },
-			title: { text: node.title, point: { x: x + nodeWidth / 2, y: middle } },
+			box,
+			input: down
+				? { side: "top", point: { x: center, y } }
+				: { side: "left", point: { x, y: middle } },
+			output: down
+				? { side: "bottom", point: { x: center, y: y + nodeHeight } }
+				: { side: "right", point: { x: x + nodeWidth, y: middle } },
+			title: { text: node.title, point: { x: center, y: middle } },
 		};
 	});
 }
