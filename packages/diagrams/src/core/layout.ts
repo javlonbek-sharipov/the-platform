@@ -1,18 +1,24 @@
 /**
- * A minimal layout: each Node goes in the rank of the longest path that
- * reaches it, ranks run left to right, and each rank stacks its Nodes from the
- * top in declaration order. Ticket 02 replaces it with the full layout.
+ * Layout: a pure function of the Diagram, with no coordinates in the source,
+ * no randomness and no memory of earlier layouts. Authors steer it only with
+ * the Diagram's direction and the order they declare things in, which breaks
+ * every tie.
+ *
+ * The rank axis runs along the direction: x for `right`, y for `down`. The
+ * order axis runs across it.
  */
 
-import type { Diagram, Direction } from "../authoring/model.ts";
-import type { Box, Point, SceneNode, ScenePort, Side } from "./scene.ts";
+import type { Diagram } from "../authoring/model.ts";
+import { arrange, type Member } from "./layers.ts";
+import type { Point, SceneNode, ScenePort, Side } from "./scene.ts";
 
-/**
- * The margin every Node keeps around it, which no other Node may enter. It
- * leaves a corridor for Edges between any two Nodes, and the router relies
- * on it.
- */
+const nodeWidth = 160;
+const nodeHeight = 48;
+const rankGap = 96;
 export const clearance = 32;
+/** Node sizes are multiples of twice the grid, so that their corners land on it too. */
+export const grid = 8;
+export const margin = 24;
 
 /**
  * A Port's stub is half a clearance long, so it ends on the routing grid's
@@ -20,56 +26,41 @@ export const clearance = 32;
  */
 const stubLength = clearance / 2;
 
-const nodeWidth = 160;
-const nodeHeight = 48;
-const rankGap = 96;
-const nodeGap = clearance;
-export const margin = 24;
-
 export function layOut(diagram: Diagram): SceneNode[] {
-	const ranks = ranksOf(diagram);
-	const nextInRank: number[] = [];
-	return diagram.nodes.map((node) => {
-		const rank = ranks.get(node.id) ?? 0;
-		const order = nextInRank[rank] ?? 0;
-		nextInRank[rank] = order + 1;
-		const box = {
-			x: margin + rank * (nodeWidth + rankGap),
-			y: margin + order * (nodeHeight + nodeGap),
-			width: nodeWidth,
-			height: nodeHeight,
-		};
+	const down = diagram.direction === "down";
+	/** From the layout's frame, where the rank axis is x, to the scene. */
+	const turn = (along: number, across: number): Point =>
+		down ? { x: margin + across, y: margin + along } : { x: margin + along, y: margin + across };
+
+	// Header Ports sit on a Node's sides along the rank axis, halfway across it.
+	const members: Member[] = diagram.nodes.map(() => {
+		const [depth, breadth] = down ? [nodeHeight, nodeWidth] : [nodeWidth, nodeHeight];
+		return { depth, before: breadth / 2, after: breadth / 2 };
+	});
+	const index = new Map(diagram.nodes.map((node, at) => [node.id, at]));
+	const connections = diagram.edges.map((edge) => ({
+		from: index.get(edge.from) ?? 0,
+		to: index.get(edge.to) ?? 0,
+	}));
+	const placements = arrange(members, connections, { clearance, rankGap, grid });
+
+	return diagram.nodes.map((node, at) => {
+		const { x: line, y: ports } = placements[at] ?? { x: 0, y: 0 };
+		const { depth, before } = members[at] ?? { depth: 0, before: 0 };
+		const corner = turn(line - depth / 2, ports - before);
+		const box = { ...corner, width: nodeWidth, height: nodeHeight };
 		return {
 			id: node.id,
 			kind: node.kind,
 			box,
-			...headerPorts(box, diagram.direction),
+			input: port(down ? "top" : "left", turn(line - depth / 2, ports)),
+			output: port(down ? "bottom" : "right", turn(line + depth / 2, ports)),
 			title: {
 				text: node.title,
 				point: { x: box.x + box.width / 2, y: box.y + box.height / 2 },
 			},
 		};
 	});
-}
-
-/**
- * Each Node's input and output Port, level with its header: on its left and
- * right sides for `right`, and in the middle of its top and bottom for `down`.
- * Until Nodes have Rows, the header is the whole Node.
- */
-function headerPorts(box: Box, direction: Direction): { input: ScenePort; output: ScenePort } {
-	if (direction === "down") {
-		const middle = box.x + box.width / 2;
-		return {
-			input: port("top", { x: middle, y: box.y }),
-			output: port("bottom", { x: middle, y: box.y + box.height }),
-		};
-	}
-	const level = box.y + box.height / 2;
-	return {
-		input: port("left", { x: box.x, y: level }),
-		output: port("right", { x: box.x + box.width, y: level }),
-	};
 }
 
 const outward: Record<Side, Point> = {
@@ -79,6 +70,7 @@ const outward: Record<Side, Point> = {
 	bottom: { x: 0, y: 1 },
 };
 
+/** A Port on a Node's side, with its stub: a short, straight run out of the side. */
 function port(side: Side, point: Point): ScenePort {
 	const normal = outward[side];
 	return {
@@ -86,56 +78,4 @@ function port(side: Side, point: Point): ScenePort {
 		point,
 		stub: { x: point.x + normal.x * stubLength, y: point.y + normal.y * stubLength },
 	};
-}
-
-/**
- * The length of the longest path that reaches each Node. A depth-first search
- * from the Nodes in declaration order leaves out every Edge that leads back
- * into its current path, so that the rest have no cycles. Self-loops never
- * count.
- */
-function ranksOf(diagram: Diagram): Map<string, number> {
-	const targets = new Map<string, string[]>(diagram.nodes.map((node) => [node.id, []]));
-	for (const edge of diagram.edges) {
-		if (edge.from !== edge.to) {
-			targets.get(edge.from)?.push(edge.to);
-		}
-	}
-
-	const onPath = new Set<string>();
-	const visited = new Set<string>();
-	const finished: string[] = [];
-	const kept = new Map<string, string[]>();
-	const visit = (id: string) => {
-		visited.add(id);
-		onPath.add(id);
-		const next: string[] = [];
-		for (const target of targets.get(id) ?? []) {
-			if (onPath.has(target)) {
-				continue;
-			}
-			next.push(target);
-			if (!visited.has(target)) {
-				visit(target);
-			}
-		}
-		kept.set(id, next);
-		onPath.delete(id);
-		finished.push(id);
-	};
-	for (const node of diagram.nodes) {
-		if (!visited.has(node.id)) {
-			visit(node.id);
-		}
-	}
-
-	// Reverse finishing order is a topological order of the Edges kept.
-	const ranks = new Map<string, number>(diagram.nodes.map((node) => [node.id, 0]));
-	for (const id of finished.reverse()) {
-		const rank = ranks.get(id) ?? 0;
-		for (const target of kept.get(id) ?? []) {
-			ranks.set(target, Math.max(ranks.get(target) ?? 0, rank + 1));
-		}
-	}
-	return ranks;
 }

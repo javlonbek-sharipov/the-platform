@@ -5,7 +5,7 @@
  */
 
 import type { Diagnostic } from "./diagnostics.ts";
-import { layOut, margin } from "./layout.ts";
+import { clearance, grid, layOut, margin } from "./layout.ts";
 import { route } from "./route.ts";
 import type { Box, Scene, SceneEdge, SceneNode } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
@@ -20,8 +20,8 @@ export interface RenderResult {
 export interface RenderOptions {
 	/**
 	 * How many states each Edge's route search may visit. An Edge whose search
-	 * runs out falls back to a simple route, with a warning. The default is
-	 * enough for any Diagram of a few hundred Nodes.
+	 * runs out falls back to a simple route, with a warning. The default is far
+	 * above what routes on Diagrams of a few hundred Nodes need.
 	 */
 	searchBudget?: number;
 }
@@ -34,7 +34,14 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 	const model = validation.diagram;
 	const nodes = layOut(model);
 	const { edges, diagnostics } = route(model, nodes, options);
-	const scene: Scene = { bounds: boundsOf(nodes, edges), nodes, edges, diagnostics };
+	const scene: Scene = {
+		bounds: boundsOf(nodes, edges),
+		clearance,
+		grid,
+		nodes,
+		edges,
+		diagnostics,
+	};
 	return {
 		diagnostics: [...validation.diagnostics, ...scene.diagnostics],
 		scene,

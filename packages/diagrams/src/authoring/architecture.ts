@@ -1,12 +1,14 @@
 /** The builder for architecture Diagrams. */
 
 import type { ArchitectureEdgeKind, ArchitectureNodeKind } from "../notations/architecture.ts";
-import type { Diagram, Edge, Node } from "./model.ts";
+import type { Diagram, Direction, Edge, Node } from "./model.ts";
 
 export interface ArchitectureOptions {
 	/** Only for Diagrams built outside the Atlas, which assigns ids from paths. */
 	id?: string;
 	title: string;
+	/** Which way the ranks run: `right`, the default, or `down`. */
+	direction?: Direction;
 }
 
 export interface ArchitectureNode {
@@ -66,7 +68,7 @@ export function architecture(
 		notation: "architecture",
 		...(options.id === undefined ? {} : { id: options.id }),
 		title: options.title,
-		direction: "right",
+		direction: options.direction ?? "right",
 		members,
 		nodes,
 		groups: [],

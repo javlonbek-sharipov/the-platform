@@ -35,6 +35,12 @@
 			"quoteStyle": "double"
 		}
 	},
+	"plugins": [
+		{
+			"path": "./packages/diagrams/biome/exact-arithmetic.grit",
+			"includes": ["packages/diagrams/src/core/**"]
+		}
+	],
 	"assist": {
 		"enabled": true,
 		"actions": {
@@ -59,10 +65,6 @@
 					}
 				}
 			}
-		},
-		{
-			"includes": ["packages/diagrams/src/core/**"],
-			"plugins": ["./packages/diagrams/biome/arithmetic.grit"]
 		}
 	]
 }

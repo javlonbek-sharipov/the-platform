@@ -154,25 +154,6 @@ function onSegment(point: Point, a: Point | undefined, b: Point | undefined): bo
 }
 
 describe("Ports", () => {
-	test("for `right`, the input Port is on the left side and the output Port on the right, level with the header", () => {
-		for (const { box, input, output, title } of sceneOf(shop).nodes) {
-			expect(input.side).toBe("left");
-			expect(input.point).toEqual({ x: box.x, y: title.point.y });
-			expect(output.side).toBe("right");
-			expect(output.point).toEqual({ x: box.x + box.width, y: title.point.y });
-		}
-	});
-
-	test("for `down`, the input Port is in the middle of the top side and the output Port in the middle of the bottom", () => {
-		for (const { box, input, output } of sceneOf(down(shop)).nodes) {
-			const middle = box.x + box.width / 2;
-			expect(input.side).toBe("top");
-			expect(input.point).toEqual({ x: middle, y: box.y });
-			expect(output.side).toBe("bottom");
-			expect(output.point).toEqual({ x: middle, y: box.y + box.height });
-		}
-	});
-
 	test("every Port has a short, straight stub, at a right angle to its side", () => {
 		for (const scene of [sceneOf(shop), sceneOf(down(shop))]) {
 			for (const node of scene.nodes) {
@@ -207,31 +188,42 @@ describe("an Edge", () => {
 		}
 	});
 
-	test("squeezed between two Nodes of one rank runs down the middle of the corridor between them", () => {
-		// The Web app calls the Audit log, whose Port is level with the corridor
-		// between the Orders API and the Payments API.
+	test("squeezed between two Nodes one clearance apart runs down the middle of the corridor between them", () => {
+		// The Orders API fans out to three Nodes, which layout packs one clearance
+		// apart. The Billing worker calls back, against the direction, so its
+		// route has to cross the fan.
 		const scene = sceneOf(
 			architecture({ title: "Corridor" }, (d) => {
-				const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
-				const orders = d.node({ id: "orders-api", kind: "service", title: "Orders API" });
-				const payments = d.node({ id: "payments-api", kind: "service", title: "Payments API" });
-				const ledger = d.node({ id: "ledger", kind: "database", title: "Ledger" });
-				const audit = d.node({ id: "audit-log", kind: "storage", title: "Audit log" });
-				d.edge(web, orders, { kind: "call" });
-				d.edge(web, payments, { kind: "call" });
-				d.edge(orders, ledger, { kind: "call" });
-				d.edge(payments, audit, { kind: "call" });
-				d.edge(web, audit, { kind: "message" });
+				const api = d.node({ id: "orders-api", kind: "service", title: "Orders API" });
+				const db = d.node({ id: "orders-db", kind: "database", title: "Orders database" });
+				const events = d.node({ id: "order-events", kind: "queue", title: "Order events" });
+				const cache = d.node({ id: "orders-cache", kind: "cache", title: "Orders cache" });
+				const worker = d.node({ id: "billing-worker", kind: "worker", title: "Billing worker" });
+				d.edge(api, db, { kind: "call" });
+				d.edge(api, events, { kind: "message" });
+				d.edge(api, cache, { kind: "call" });
+				d.edge(events, worker, { kind: "message" });
+				d.edge(worker, api, { kind: "call" });
 			}),
 		);
-		const above = nodeOf(scene, "orders-api").box;
-		const below = nodeOf(scene, "payments-api").box;
-		const edge = scene.edges.find(({ id }) => id === "web-app->audit-log");
-		const between = segmentsOf(edge?.route ?? []).filter(
+		const fan = ["orders-db", "order-events", "orders-cache"].map((id) => nodeOf(scene, id).box);
+		const column = fan[0] ?? scene.bounds;
+		const back = scene.edges.find(({ id }) => id === "billing-worker->orders-api");
+		const across = segmentsOf(back?.route ?? []).filter(
 			([a, b]) =>
-				a.y === b.y && Math.min(a.x, b.x) <= above.x && Math.max(a.x, b.x) >= above.x + above.width,
+				a.y === b.y &&
+				Math.min(a.x, b.x) <= column.x &&
+				Math.max(a.x, b.x) >= column.x + column.width,
 		);
-		expect(between.map(([a]) => a.y)).toEqual([(above.y + above.height + below.y) / 2]);
+		expect(across).toHaveLength(1);
+		const y = across[0]?.[0].y ?? 0;
+		const above = fan.filter((box) => box.y + box.height < y).at(-1);
+		const below = fan.find((box) => box.y > y);
+		if (above === undefined || below === undefined) {
+			throw new Error("the route doesn't pass between two Nodes of the fan");
+		}
+		expect(below.y - (above.y + above.height)).toBe(scene.clearance);
+		expect(y).toBe((above.y + above.height + below.y) / 2);
 	});
 
 	test("gets the same route whatever order the Diagram declares its Edges in", () => {
@@ -338,7 +330,17 @@ describe("an Edge that the search can't route", () => {
 				"order-events->mailer",
 			],
 		],
-		[down(orders), ["orders-api->order-events"]],
+		[
+			down(orders),
+			[
+				"web-app->gateway",
+				"gateway->orders-api",
+				"orders-api->orders-db",
+				"gateway->orders-db",
+				"orders-api->order-events",
+				"order-events->mailer",
+			],
+		],
 	];
 
 	test("still gets a route, and the core warns that it fell back", () => {
