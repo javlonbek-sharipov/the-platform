@@ -88,7 +88,7 @@ export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): s
 	// so it stays out of the scope's name, and editing it changes only these lines.
 	const about = [
 		indent(1, element("title", [], collapseSpaces(diagram.title))),
-		indent(1, element("desc", [], descriptionOf(diagram))),
+		indent(1, element("desc", [], descriptionOf(diagram, scene))),
 		indent(1, element("metadata", [], modelText(diagram))),
 	];
 	const body = [
@@ -116,7 +116,12 @@ export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): s
 				["fill", "none"],
 			]),
 		),
-		...scene.edges.flatMap((edge) => writeEdge(edge).map((text) => indent(2, text))),
+		// Edges that cross between regions or zones go beneath the others, so a
+		// trunk they share with Edges that don't shows the plain color.
+		...[
+			...scene.edges.filter((edge) => edge.crosses !== undefined),
+			...scene.edges.filter((edge) => edge.crosses === undefined),
+		].flatMap((edge) => writeEdge(edge).map((text) => indent(2, text))),
 		...(scene.junctions.length === 0
 			? []
 			: [
@@ -233,6 +238,13 @@ function colorUses(scene: Scene): ColorUse[] {
 			: ([
 					{ selector: ".diagram-edges", property: "color", color: "edge" },
 					{ selector: ".diagram-casing", property: "stroke", color: "edge-casing" },
+				] as const)),
+		...(scene.edges.every((edge) => edge.crosses === undefined)
+			? []
+			: ([
+					{ selector: "[data-crosses]", property: "color", color: "warn" },
+					{ selector: "[data-crosses] .diagram-casing", property: "stroke", color: "warn-casing" },
+					{ selector: ".diagram-badge", property: "stroke", color: "surface" },
 				] as const)),
 		...(scene.nodes.length === 0
 			? []
@@ -556,6 +568,7 @@ function writeEdge(edge: SceneEdge): string[] {
 			...(edge.fromRow === undefined ? [] : [["data-from-row", edge.fromRow] as const]),
 			["data-to", edge.to],
 			...(edge.toRow === undefined ? [] : [["data-to-row", edge.toRow] as const]),
+			...(edge.crosses === undefined ? [] : [["data-crosses", edge.crosses.kind] as const]),
 		]),
 		indent(
 			1,
@@ -609,7 +622,51 @@ function writeEdge(edge: SceneEdge): string[] {
 				["stroke-linejoin", "round"],
 			]),
 		),
+		...(edge.crosses === undefined
+			? []
+			: writeBadge(edge.crosses.badge).map((text) => indent(1, text))),
 		"</g>",
+	];
+}
+
+/** The badge of an Edge that crosses between regions or zones: a disc in its color. */
+const badgeRadius = 7;
+const badgeOutline = 1;
+/** The globe on the badge: its radius, and the half-width of its meridian. */
+const globeRadius = 3.5;
+const meridian = 1.5;
+const globeStroke = 1;
+
+/** A badge, centered on its point: a disc, cased like the Edge, with a globe on it. */
+function writeBadge({ x, y }: Point): string[] {
+	const [left, right, top, bottom] = [
+		x - globeRadius,
+		x + globeRadius,
+		y - globeRadius,
+		y + globeRadius,
+	];
+	const r = number(globeRadius);
+	const globe = [
+		`M ${number(left)} ${number(y)} A ${r} ${r} 0 1 0 ${number(right)} ${number(y)}`,
+		`A ${r} ${r} 0 1 0 ${number(left)} ${number(y)} Z`,
+		`M ${number(x)} ${number(top)} A ${number(meridian)} ${r} 0 0 0 ${number(x)} ${number(bottom)}`,
+		`A ${number(meridian)} ${r} 0 0 0 ${number(x)} ${number(top)} Z`,
+		`M ${number(left)} ${number(y)} H ${number(right)}`,
+	].join(" ");
+	return [
+		empty("circle", [
+			["class", "diagram-casing"],
+			["cx", x],
+			["cy", y],
+			["r", badgeRadius],
+			["fill", "currentColor"],
+			["stroke-width", badgeOutline],
+		]),
+		empty("path", [
+			["class", "diagram-badge"],
+			["d", globe],
+			["stroke-width", globeStroke],
+		]),
 	];
 }
 

@@ -156,6 +156,13 @@ export interface SceneEdge {
 	 * them along their trunk.
 	 */
 	chevrons: SceneChevron[];
+	/**
+	 * Set when the Edge's ends sit in different `region` Groups, or in
+	 * different `zone` Groups, since such calls cost latency and egress: which
+	 * Kind of Group it crosses between, regions before zones, and where its
+	 * badge sits, in the middle of the stretch of its route that's its own.
+	 */
+	crosses?: { kind: "region" | "zone"; badge: Point };
 }
 
 /**

@@ -19,6 +19,8 @@ export const palette = {
 	// where it passes over another Edge.
 	edge: { light: "#818b98", dark: "#9198a1" },
 	"edge-casing": { light: "#424a53", dark: "#262c36" },
+	// The casing of an Edge drawn in the warning color, darker than it.
+	"warn-casing": { light: "#7d4e00", dark: "#4b2900" },
 	// One hue for each family of architecture Kinds.
 	"hue-users": { light: "#8250df", dark: "#ab7df8" },
 	"hue-system": { light: "#424a53", dark: "#b7bdc8" },

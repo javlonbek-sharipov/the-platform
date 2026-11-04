@@ -49,7 +49,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 	const model = validation.diagram;
 	const { nodes, groups } = layOut(model, options.bundle);
 	const routing = route(model, nodes, groups, options);
-	const edges = markEdges(routing.edges);
+	const edges = markEdges(model, routing.edges);
 	const scene: Scene = {
 		bounds: boundsOf(
 			[

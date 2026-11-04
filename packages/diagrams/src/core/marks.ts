@@ -1,17 +1,18 @@
 /**
  * The marks along each routed Edge (spec: Static SVG, Look): the chevrons
- * that show which way it runs, and the junctions where Edges that leave one
- * Port part. They're plain geometry in the scene, so that any renderer draws
- * them alike.
+ * that show which way it runs, the junctions where Edges that leave one Port
+ * part, and the badge of an Edge that crosses between regions or zones.
+ * They're plain geometry in the scene, so that any renderer draws them alike.
  *
  * Every distance here is measured along a route's runs, from corner point to
  * corner point, ignoring the arcs that round the corners.
  */
 
+import type { Diagram } from "../authoring/model.ts";
 import type { Point, RoutePoint, SceneChevron, SceneEdge, SceneJunction } from "./scene.ts";
 
 /** An Edge as the router leaves it, before its marks are added. */
-export type RoutedEdge = Omit<SceneEdge, "chevrons">;
+export type RoutedEdge = Omit<SceneEdge, "chevrons" | "crosses">;
 
 /**
  * Chevrons sit at this spacing back from the target, the first of them this
@@ -42,35 +43,97 @@ function byPort(edges: RoutedEdge[], end: "fromPort" | "toPort"): Map<string, Ro
 	return found;
 }
 
-export function markEdges(edges: RoutedEdge[]): SceneEdge[] {
+export function markEdges(diagram: Diagram, edges: RoutedEdge[]): SceneEdge[] {
 	const fromPort = byPort(edges, "fromPort");
 	const toPort = byPort(edges, "toPort");
 	const clear = clearOfCorners(edges);
+	const crossing = crossingOf(diagram);
 	return edges.map((edge) => {
 		const others = (sharing: Map<string, RoutedEdge[]>, end: "fromPort" | "toPort") =>
 			(sharing.get(pointKey(edge[end].point)) ?? []).filter((other) => other !== edge);
 		// The stretch out of the source's Port that the Edge shares with the other
 		// Edges from it, at least its stub, and the stretch into the target's Port
 		// that it shares with the other Edges into it, such as a bundle's trunk.
-		const fromSource =
-			Math.max(
-				lengthOf([edge.fromPort.point, edge.fromPort.stub]),
-				...others(fromPort, "fromPort").map((other) => parting(edge.route, other.route).length),
-			) + sharedClearance;
-		const intoTarget = Math.max(
-			arrowRoom,
+		// Between them lies the stretch that's the Edge's own.
+		const sharedOut = Math.max(
+			lengthOf([edge.fromPort.point, edge.fromPort.stub]),
+			...others(fromPort, "fromPort").map((other) => parting(edge.route, other.route).length),
+		);
+		const sharedIn = Math.max(
+			lengthOf([edge.toPort.point, edge.toPort.stub]),
 			...others(toPort, "toPort").map(
-				(other) =>
-					parting([...edge.route].reverse(), [...other.route].reverse()).length + sharedClearance,
+				(other) => parting([...edge.route].reverse(), [...other.route].reverse()).length,
 			),
 		);
+		const fromSource = sharedOut + sharedClearance;
+		const intoTarget = Math.max(arrowRoom, sharedIn + sharedClearance);
 		const chevrons = chevronsOf(edge.route, fromSource, clear);
+		const kind = crossing(edge.from, edge.to);
 		return {
 			...edge,
 			chevrons:
 				chevrons.length > 0 ? chevrons : middleChevron(edge.route, fromSource, intoTarget, clear),
+			...(kind === undefined
+				? {}
+				: { crosses: { kind, badge: ownMiddle(edge.route, sharedOut, sharedIn) } }),
 		};
 	});
+}
+
+/**
+ * Which Groups an Edge between two Nodes crosses between: regions, when its
+ * ends sit in different `region` Groups, or else zones, when they sit in
+ * different `zone` Groups. Each end counts the innermost Group of each Kind
+ * around it, and an end in no Group of a Kind crosses nothing of that Kind.
+ */
+function crossingOf(diagram: Diagram): (from: string, to: string) => "region" | "zone" | undefined {
+	const parentOf = new Map<string, string>();
+	for (const group of diagram.groups) {
+		for (const member of group.members) {
+			parentOf.set(member, group.id);
+		}
+	}
+	const kindOf = new Map(diagram.groups.map((group) => [group.id, group.kind as string]));
+	/** The innermost Group of a Kind around a Node, if any. */
+	const around = (node: string, kind: string) => {
+		for (let at = parentOf.get(node); at !== undefined; at = parentOf.get(at)) {
+			if (kindOf.get(at) === kind) {
+				return at;
+			}
+		}
+		return undefined;
+	};
+	return (from, to) =>
+		(["region", "zone"] as const).find((kind) => {
+			const [a, b] = [around(from, kind), around(to, kind)];
+			return a !== undefined && b !== undefined && a !== b;
+		});
+}
+
+/**
+ * The middle of the stretch of a route that's its Edge's own: past the
+ * stretch it shares out of its source's Port, and short of the stretch it
+ * shares into its target's. When the shared stretches leave nothing between
+ * them, the middle of the whole route.
+ */
+function ownMiddle(route: RoutePoint[], sharedOut: number, sharedIn: number): Point {
+	const length = lengthOf(route);
+	const middle = sharedOut < length - sharedIn ? (sharedOut + length - sharedIn) / 2 : length / 2;
+	let start = 0;
+	for (let index = 1; index < route.length; index += 1) {
+		const from = route[index - 1];
+		const to = route[index];
+		if (from === undefined || to === undefined) {
+			break;
+		}
+		const run = lengthOf([from, to]);
+		if (middle <= start + run) {
+			const heading = headingOf(from, to);
+			return { x: from.x + heading.x * (middle - start), y: from.y + heading.y * (middle - start) };
+		}
+		start += run;
+	}
+	return { x: route.at(-1)?.x ?? 0, y: route.at(-1)?.y ?? 0 };
 }
 
 /**

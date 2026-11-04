@@ -6,14 +6,21 @@
 
 import { type Diagram, type Edge, endNode, type RowEnd } from "../authoring/model.ts";
 import { architectureEdgeLooks } from "../notations/architecture.ts";
+import type { Scene } from "./scene.ts";
 import { collapseSpaces } from "./text.ts";
+
+/** How the description says that an Edge crosses between Groups of a Kind. */
+const across = { region: "across regions", zone: "across zones" } as const;
 
 /**
  * The SVG's description: each Node, by its title, with its Kind, and whether
  * it's External and its status, which the drawing shows only as shapes and
- * colors; then each Edge as a sentence. Both lists are in model order.
+ * colors; then each Edge as a sentence, which says when the Edge crosses
+ * between regions or zones, as the drawing shows only by its color and its
+ * badge. Both lists are in model order.
  */
-export function descriptionOf(diagram: Diagram): string {
+export function descriptionOf(diagram: Diagram, scene: Scene): string {
+	const crosses = new Map(scene.edges.map((edge) => [edge.id, edge.crosses?.kind]));
 	const nodes = diagram.nodes.map((node) => {
 		const facts = [
 			node.kind,
@@ -22,7 +29,10 @@ export function descriptionOf(diagram: Diagram): string {
 		];
 		return `${collapseSpaces(node.title)} (${facts.join(", ")})`;
 	});
-	const edges = diagram.edges.map((edge) => `${sentenceOf(diagram, edge)}.`);
+	const edges = diagram.edges.map((edge) => {
+		const kind = crosses.get(edge.id);
+		return `${sentenceOf(diagram, edge)}${kind === undefined ? "" : ` ${across[kind]}`}.`;
+	});
 	return [
 		`Nodes: ${nodes.length === 0 ? "none" : nodes.join("; ")}.`,
 		`Edges: ${edges.length === 0 ? "none." : edges.join(" ")}`,

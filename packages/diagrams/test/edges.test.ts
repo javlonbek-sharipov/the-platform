@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import example from "../docs/example-system.diagram.ts";
-import type { Point, SceneEdge, Side } from "../src/index.ts";
+import { architecture, type Point, type SceneEdge, type Side } from "../src/index.ts";
 import { crowded } from "./fixtures/crowded.ts";
 import orderFlow from "./fixtures/edges.ts";
 import { draw, edgeGroupOf, linesOf, sceneOf, strokeOf } from "./support/drawn.ts";
@@ -14,6 +14,7 @@ import {
 	isShape,
 	luminance,
 	paintedBounds,
+	parseColor,
 	runsOf,
 	type Theme,
 } from "./support/svg.ts";
@@ -452,6 +453,187 @@ describe("a Port that feeds two or more Edges", () => {
 						computedStyle(linesOf(drawn, edge, theme)[1] ?? mark, drawn.rules, theme).get("stroke"),
 					);
 					expect(bodies).toContain(computedStyle(mark, drawn.rules, theme).get("fill"));
+				}
+			}
+		}
+	});
+});
+
+describe("an Edge between regions or zones", () => {
+	test("crosses them when its ends sit in different region Groups, or different zone Groups", () => {
+		const crossing = (diagram: unknown) =>
+			Object.fromEntries(sceneOf(diagram).edges.map((edge) => [edge.id, edge.crosses?.kind]));
+		// The web app sits in no region, and the Mailer in its region but in no zone.
+		expect(crossing(orderFlow)).toEqual({
+			"web-app->orders-api": undefined,
+			"orders-api->orders-db": undefined,
+			"orders-api->order-events": undefined,
+			"orders-api->stock-api": "zone",
+			"order-events->mailer": undefined,
+			"order-events->analytics": "region",
+		});
+		// Zones in different regions: the Edge crosses regions.
+		const zonesApart = architecture({ title: "Zones apart" }, (d) => {
+			for (const region of ["eu", "us"]) {
+				d.group({ id: `${region}-west`, kind: "region", title: region }, (west) => {
+					west.group({ id: `${region}-west-a`, kind: "zone", title: "a" }, (zone) => {
+						zone.node({ id: `${region}-api`, kind: "service", title: `${region} API` });
+					});
+				});
+			}
+			d.edge("eu-api", "us-api", { kind: "call" });
+			d.edge("us-api", "eu-api", { kind: "message" });
+		});
+		expect(crossing(zonesApart)).toEqual({
+			"eu-api->us-api": "region",
+			"us-api->eu-api": "region",
+		});
+		// A system isn't a region or a zone, and a Node outside every Group is in neither.
+		const systems = architecture({ title: "Systems" }, (d) => {
+			const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+			for (const name of ["orders", "stock"]) {
+				d.group({ id: name, kind: "system", title: name }, (system) => {
+					const api = system.node({ id: `${name}-api`, kind: "service", title: `${name} API` });
+					d.edge(web, api, { kind: "call" });
+				});
+			}
+			d.edge("orders-api", "stock-api", { kind: "call" });
+		});
+		expect(Object.values(crossing(systems))).toEqual([undefined, undefined, undefined]);
+	});
+
+	test("has its badge in the middle of the stretch of its route that it shares with no other Edge", () => {
+		const length = (route: Point[]) =>
+			route.slice(1).reduce((total, to, index) => {
+				const from = route[index] ?? to;
+				return total + Math.abs(to.x - from.x) + Math.abs(to.y - from.y);
+			}, 0);
+		/** How far two routes from one point run together, walking both half a pixel at a time. */
+		const together = (a: Point[], b: Point[]) => {
+			for (let t = 0; ; t += 0.5) {
+				const [onA, onB] = [pointAlong(a, t), pointAlong(b, t)];
+				if (
+					onA === undefined ||
+					onB === undefined ||
+					Math.hypot(onA.x - onB.x, onA.y - onB.y) > 0.01
+				) {
+					return t - 0.5;
+				}
+			}
+		};
+		let seen = 0;
+		for (const [name, diagram] of fixtures) {
+			const { edges } = sceneOf(diagram);
+			for (const edge of edges) {
+				if (edge.crosses === undefined) {
+					continue;
+				}
+				seen += 1;
+				const stub = (port: SceneEdge["fromPort"]) => length([port.point, port.stub]);
+				const out = Math.max(
+					stub(edge.fromPort),
+					...edges
+						.filter(
+							(other) =>
+								other !== edge && other.from === edge.from && other.fromRow === edge.fromRow,
+						)
+						.map((other) => together(edge.route, other.route)),
+				);
+				const into = Math.max(
+					stub(edge.toPort),
+					...edges
+						.filter((other) => other !== edge && other.to === edge.to && other.toRow === edge.toRow)
+						.map((other) => together([...edge.route].reverse(), [...other.route].reverse())),
+				);
+				const total = length(edge.route);
+				const middle = out < total - into ? (out + total - into) / 2 : total / 2;
+				const at = distanceAlong(edge.route, edge.crosses.badge);
+				expect(at, `${name}: ${edge.id}`).toBeDefined();
+				expect(Math.abs((at ?? 0) - middle), `${name}: ${edge.id}`).toBeLessThanOrEqual(1);
+			}
+		}
+		expect(seen).toBeGreaterThan(5);
+	});
+
+	test("goes beneath an Edge that doesn't cross, wherever they share a stretch, so that stretch looks plain", () => {
+		let seen = 0;
+		for (const [name, diagram] of fixtures) {
+			const drawn = draw(diagram);
+			const order = descendants(drawn.root);
+			for (const edge of drawn.scene.edges.filter((candidate) => candidate.crosses !== undefined)) {
+				for (const other of drawn.scene.edges.filter(
+					(candidate) => candidate.crosses === undefined,
+				)) {
+					const shares =
+						(edge.from === other.from && edge.fromRow === other.fromRow) ||
+						(edge.to === other.to && edge.toRow === other.toRow);
+					if (shares) {
+						seen += 1;
+						expect(
+							order.indexOf(edgeGroupOf(drawn, edge.id)),
+							`${name}: ${edge.id} and ${other.id}`,
+						).toBeLessThan(order.indexOf(edgeGroupOf(drawn, other.id)));
+					}
+				}
+			}
+		}
+		expect(seen).toBeGreaterThan(5);
+	});
+
+	test("is drawn in the warning color, with a badge at its middle that says so, in both themes", () => {
+		// The theme's warning color, in which a degraded status is drawn too.
+		const warning: Record<Theme, string> = { light: "#9a6700", dark: "#d29922" };
+		for (const diagram of [orderFlow, crowded()]) {
+			const drawn = draw(diagram);
+			const crossing = drawn.scene.edges.filter((edge) => edge.crosses !== undefined);
+			expect(crossing.length).toBeGreaterThan(0);
+			for (const edge of drawn.scene.edges) {
+				const group = edgeGroupOf(drawn, edge.id);
+				expect(group.attributes.get("data-crosses"), edge.id).toBe(edge.crosses?.kind);
+				for (const theme of themes) {
+					const [, body] = linesOf(drawn, edge, theme);
+					const color = computedStyle(body ?? group, drawn.rules, theme).get("stroke");
+					expect(color === warning[theme], `${edge.id}, ${theme}`).toBe(edge.crosses !== undefined);
+				}
+				if (edge.crosses === undefined) {
+					continue;
+				}
+				const { badge } = edge.crosses;
+				const shapes = descendants(group).filter(isShape);
+				const disc = shapes.find(
+					(shape) =>
+						computedStyle(shape, drawn.rules, "light").get("fill") !== "none" &&
+						fillContains(shape, badge),
+				);
+				expect(disc, edge.id).toBeDefined();
+				if (disc === undefined) {
+					continue;
+				}
+				const painted = paintedBounds(disc, drawn.rules, "light");
+				expect(painted.right - painted.left, edge.id).toBeGreaterThanOrEqual(12);
+				expect((painted.left + painted.right) / 2, edge.id).toBeCloseTo(badge.x, 2);
+				expect((painted.top + painted.bottom) / 2, edge.id).toBeCloseTo(badge.y, 2);
+				// A glyph on it, painted after it and inside it.
+				const glyph = shapes.slice(shapes.indexOf(disc) + 1).filter((shape) => {
+					const bounds = paintedBounds(shape, drawn.rules, "light");
+					return (
+						bounds.left >= painted.left &&
+						bounds.right <= painted.right &&
+						bounds.top >= painted.top &&
+						bounds.bottom <= painted.bottom
+					);
+				});
+				expect(glyph.length, edge.id).toBeGreaterThan(0);
+				for (const theme of themes) {
+					const fill = parseColor(computedStyle(disc, drawn.rules, theme).get("fill") ?? "");
+					expect(computedStyle(disc, drawn.rules, theme).get("fill"), edge.id).toBe(warning[theme]);
+					for (const shape of glyph) {
+						const ink = parseColor(computedStyle(shape, drawn.rules, theme).get("stroke") ?? "");
+						expect(
+							contrast(ink ?? [0, 0, 0], fill ?? [0, 0, 0]),
+							`${edge.id}, ${theme}`,
+						).toBeGreaterThanOrEqual(3);
+					}
 				}
 			}
 		}

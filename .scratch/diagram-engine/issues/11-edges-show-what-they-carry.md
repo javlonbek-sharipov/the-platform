@@ -28,7 +28,7 @@
 - [x] Every Edge has an arrowhead at its target, and chevrons at a fixed spacing along its route.
 - [x] Every Edge is drawn as a body inside a darker casing.
 - [x] Wherever one Port feeds two or more Edges, a junction mark sits over the split.
-- [ ] An Edge whose ends sit in different `region` Groups, or in different `zone` Groups, gets the warning color and a badge at its midpoint.
+- [x] An Edge whose ends sit in different `region` Groups, or in different `zone` Groups, gets the warning color and a badge at its midpoint.
 
 **Accessibility**
 

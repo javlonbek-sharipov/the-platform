@@ -5,6 +5,7 @@ import {
 	architectureEdgeLooks,
 	render,
 } from "../src/index.ts";
+import orderFlow from "./fixtures/edges.ts";
 import { everyFixture } from "./support/fixtures.ts";
 import { descendants, parseSvg } from "./support/svg.ts";
 
@@ -92,6 +93,13 @@ describe("an SVG, for screen readers,", () => {
 		const desc = root.children.find((child) => child.name === "desc");
 		expect(desc?.text).toBe(
 			"Nodes: Internationalization service (service); Orders database (database). Edges: Internationalization service calls Orders database.",
+		);
+	});
+
+	test("says which Edges cross between regions or zones, which the drawing shows only in color and a badge", () => {
+		const desc = rootOf(orderFlow).children.find((child) => child.name === "desc");
+		expect(desc?.text).toBe(
+			"Nodes: Web app (client); Orders API (service); Orders database (database); Order events (queue); Stock API (service); Mailer (worker); Analytics (worker). Edges: Web app calls Orders API. Orders API calls Orders database. Orders API sends messages to Order events. Orders API calls Stock API across zones. Order events sends messages to Mailer. Order events sends messages to Analytics across regions.",
 		);
 	});
 
