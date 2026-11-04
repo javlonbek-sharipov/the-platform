@@ -6,6 +6,25 @@ import { git, runCli, sampleAtlas, shopModule } from "./support/atlas.ts";
 /** A module that fails if anything loads it. */
 const unreachable = 'throw new Error("This module should never be loaded.");\n';
 
+interface SampleNode {
+	id: string;
+	kind: string;
+	title: string;
+	links?: object[];
+}
+
+/** A diagram module that declares one Node per line: the first on line 4, each at column 4. */
+function diagramModule(title: string, nodes: SampleNode[]): string {
+	return `import { architecture } from "@the-platform/diagrams";
+
+export default architecture({ title: ${JSON.stringify(title)} }, (d) => {
+${nodes.map((node) => `\td.node(${JSON.stringify(node)});`).join("\n")}
+});
+`;
+}
+
+const paymentsApi = { id: "payments-api", kind: "service", title: "Payments API" };
+
 describe("the config", () => {
 	test("marks the Atlas: without one, render and lint exit with 2 and say how to add it", async () => {
 		const atlas = await sampleAtlas({ "docs/shop.diagram.ts": shopModule() });
@@ -82,6 +101,31 @@ describe("discovery", () => {
 		expect(await runCli(["lint"], join(atlas, "repos"))).toEqual({
 			code: 0,
 			stdout: "Checked 2 Diagrams: no errors.\n",
+			stderr: "",
+		});
+	});
+});
+
+describe("Links", () => {
+	test("lint reports a Link to an id that no Diagram draws", async () => {
+		const atlas = await sampleAtlas({
+			"docs/payments.diagram.ts": diagramModule("Payments", [paymentsApi]),
+			"docs/shop.diagram.ts": diagramModule("Shop", [
+				{
+					id: "shop-api",
+					kind: "service",
+					title: "Shop API",
+					links: [{ id: "payments-api" }, { id: "paymnts-api", label: "Payments" }],
+				},
+			]),
+		});
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 1,
+			stdout:
+				"docs/shop.diagram.ts:4:4: error: Node `shop-api` has a Link to `paymnts-api`, which no Diagram in the Atlas draws. (broken-link)\n" +
+				"Checked 2 Diagrams: 1 error.\n",
 			stderr: "",
 		});
 	});
