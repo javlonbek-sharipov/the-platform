@@ -9,7 +9,7 @@
 
 - 10 Edge labels, rates and hops
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Spec:**
 
@@ -48,3 +48,5 @@
 - **Speed.** `pnpm bench` now times the crowded fixture with every Edge labeled too. See decision 4.
 - **Merging diagram-engine, with tickets 11, 12 and 14.** `render` marks the Edges once the last round is routed. Ticket 14 reads every module in `test/fixtures/` as Diagrams, so the helper that labels a Diagram's Edges moved to `test/support/labeled.ts`. The label tests measure a Technology with a logo by its name after the logo, as ticket 12 draws it.
 - **For ticket 15.** A `label-placement` warning now says why the label is at its route's midpoint. "Too long for any run" asks for a shorter label, or one without its Technology and rate. "No room beside any run" means other labels, Nodes or stubs take every place, so shortening labels near it may help. "No run of its own" now shows mostly with a `fallback-route` warning on the same Edge, so fix that first.
+
+Merged into diagram-engine in 6f2b4e0.
