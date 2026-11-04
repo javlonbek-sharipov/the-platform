@@ -3,7 +3,11 @@
  * The authoring API produces it, and generators may write it directly.
  */
 
-import type { ArchitectureEdgeKind, ArchitectureNodeKind } from "../notations/architecture.ts";
+import type {
+	ArchitectureEdgeKind,
+	ArchitectureGroupKind,
+	ArchitectureNodeKind,
+} from "../notations/architecture.ts";
 
 export type Direction = "right" | "down";
 
@@ -20,8 +24,7 @@ export interface Diagram {
 	/** The ids of the top-level Nodes and Groups, in declaration order. */
 	members: string[];
 	nodes: Node[];
-	/** Groups come with ticket 06. */
-	groups: never[];
+	groups: Group[];
 	edges: Edge[];
 	/** Walkthroughs come in slice 4. */
 	walkthroughs: never[];
@@ -35,9 +38,24 @@ export interface Node {
 }
 
 /**
- * A "see also" pointer from a Node, which isn't drawn on the Diagram. It
- * points at exactly one thing: an id or a document. Term Links come in
- * slice 2.
+ * A labeled box drawn around Nodes and other Groups. Every Node and Group is
+ * a member of exactly one parent: the Diagram itself, or one Group. So Groups
+ * nest as a tree.
+ */
+export interface Group {
+	id: string;
+	kind: ArchitectureGroupKind;
+	title: string;
+	/** The ids of its Nodes and child Groups, in declaration order. */
+	members: string[];
+	description?: string;
+	links?: Link[];
+}
+
+/**
+ * A "see also" pointer from a Node or a Group, which isn't drawn on the
+ * Diagram. It points at exactly one thing: an id or a document. Term Links
+ * come in slice 2.
  */
 export type Link = IdLink | DocLink;
 

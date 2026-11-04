@@ -20,3 +20,7 @@ export type ArchitectureNodeKind = (typeof architectureNodeKinds)[number];
 export const architectureEdgeKinds = ["call", "message"] as const;
 
 export type ArchitectureEdgeKind = (typeof architectureEdgeKinds)[number];
+
+export const architectureGroupKinds = ["system", "region", "zone"] as const;
+
+export type ArchitectureGroupKind = (typeof architectureGroupKinds)[number];

@@ -1,8 +1,12 @@
 /** The builder for architecture Diagrams. */
 
-import type { ArchitectureEdgeKind, ArchitectureNodeKind } from "../notations/architecture.ts";
+import type {
+	ArchitectureEdgeKind,
+	ArchitectureGroupKind,
+	ArchitectureNodeKind,
+} from "../notations/architecture.ts";
 import { callerOf, type Declarations, declarationsKey } from "./declarations.ts";
-import type { Diagram, Direction, Edge, Link, Node } from "./model.ts";
+import type { Diagram, Direction, Edge, Group, Link, Node } from "./model.ts";
 
 export interface ArchitectureOptions {
 	/** Only for Diagrams built outside the Atlas, which assigns ids from paths. */
@@ -24,8 +28,26 @@ export interface ArchitectureNode {
 	links?: readonly Link[];
 }
 
+/**
+ * A Group to declare. Like a Node, it's a plain object, so one definition can
+ * serve several Diagrams: a `system` can be a Node on one and a Group on
+ * another.
+ */
+export interface ArchitectureGroup {
+	id: string;
+	kind: ArchitectureGroupKind;
+	title: string;
+	description?: string;
+	links?: readonly Link[];
+}
+
 /** What a Node declaration returns. Later calls accept it in place of the id. */
 export interface NodeHandle {
+	readonly id: string;
+}
+
+/** What a Group declaration returns. */
+export interface GroupHandle {
 	readonly id: string;
 }
 
@@ -42,8 +64,15 @@ export interface EdgeOptions {
 	id?: string;
 }
 
+/**
+ * Declares the members of one parent: the Diagram, or a Group. Each Node and
+ * Group it declares joins that parent, so each one has exactly one parent by
+ * construction. Edges belong to the Diagram, whichever builder declares them.
+ */
 export interface ArchitectureBuilder {
 	node(node: ArchitectureNode): NodeHandle;
+	/** Declares a Group, whose members `build` declares with the builder it's given. */
+	group(group: ArchitectureGroup, build: (group: ArchitectureBuilder) => void): GroupHandle;
 	edge(from: EdgeEnd, to: EdgeEnd, options: EdgeOptions): EdgeHandle;
 }
 
@@ -57,6 +86,7 @@ export function architecture(
 	build: (diagram: ArchitectureBuilder) => void,
 ): Diagram {
 	const nodes: Node[] = [];
+	const groups: Group[] = [];
 	const edges: Edge[] = [];
 	const members: string[] = [];
 	const declarations: Declarations = {};
@@ -68,28 +98,42 @@ export function architecture(
 	};
 	declare("", architecture);
 
-	const builder: ArchitectureBuilder = {
-		node({ id, kind, title, links }) {
-			declare(`/nodes/${nodes.length}`, builder.node);
-			nodes.push({
-				id,
-				kind,
-				title,
-				...(links === undefined ? {} : { links: links.map((link) => ({ ...link })) }),
-			});
-			members.push(id);
-			return Object.freeze({ id });
-		},
-		edge(from, to, { kind, id }) {
-			declare(`/edges/${edges.length}`, builder.edge);
-			const fromId = endId(from);
-			const toId = endId(to);
-			const edge: Edge = { id: id ?? `${fromId}->${toId}`, kind, from: fromId, to: toId };
-			edges.push(edge);
-			return Object.freeze({ id: edge.id });
-		},
+	/** A builder whose Nodes and Groups join `parent`, the members list of the Diagram or of one Group. */
+	const builderFor = (parent: string[]): ArchitectureBuilder => {
+		const builder: ArchitectureBuilder = {
+			node({ id, kind, title, links }) {
+				declare(`/nodes/${nodes.length}`, builder.node);
+				nodes.push({ id, kind, title, ...copyLinks(links) });
+				parent.push(id);
+				return Object.freeze({ id });
+			},
+			group({ id, kind, title, description, links }, buildGroup) {
+				declare(`/groups/${groups.length}`, builder.group);
+				const group: Group = {
+					id,
+					kind,
+					title,
+					members: [],
+					...(description === undefined ? {} : { description }),
+					...copyLinks(links),
+				};
+				groups.push(group);
+				parent.push(id);
+				buildGroup(builderFor(group.members));
+				return Object.freeze({ id });
+			},
+			edge(from, to, { kind, id }) {
+				declare(`/edges/${edges.length}`, builder.edge);
+				const fromId = endId(from);
+				const toId = endId(to);
+				const edge: Edge = { id: id ?? `${fromId}->${toId}`, kind, from: fromId, to: toId };
+				edges.push(edge);
+				return Object.freeze({ id: edge.id });
+			},
+		};
+		return builder;
 	};
-	build(builder);
+	build(builderFor(members));
 
 	const diagram: Diagram = {
 		version: 1,
@@ -99,7 +143,7 @@ export function architecture(
 		direction: options.direction ?? "right",
 		members,
 		nodes,
-		groups: [],
+		groups,
 		edges,
 		walkthroughs: [],
 	};
@@ -108,4 +152,9 @@ export function architecture(
 
 function endId(end: EdgeEnd): string {
 	return typeof end === "string" ? end : end.id;
+}
+
+/** The model's own copy of each Link, so that a shared definition never changes with it. */
+function copyLinks(links: readonly Link[] | undefined): { links?: Link[] } {
+	return links === undefined ? {} : { links: links.map((link) => ({ ...link })) };
 }

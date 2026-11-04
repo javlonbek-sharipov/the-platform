@@ -2,11 +2,13 @@
 
 export type {
 	ArchitectureBuilder,
+	ArchitectureGroup,
 	ArchitectureNode,
 	ArchitectureOptions,
 	EdgeEnd,
 	EdgeHandle,
 	EdgeOptions,
+	GroupHandle,
 	NodeHandle,
 } from "./authoring/architecture.ts";
 export { architecture } from "./authoring/architecture.ts";
@@ -17,6 +19,7 @@ export type {
 	Direction,
 	DocLink,
 	Edge,
+	Group,
 	IdLink,
 	Link,
 	Node,
@@ -36,5 +39,13 @@ export type {
 	Side,
 } from "./core/scene.ts";
 export type { FontData, FontRequest, FontWeight } from "./core/text.ts";
-export type { ArchitectureEdgeKind, ArchitectureNodeKind } from "./notations/architecture.ts";
-export { architectureEdgeKinds, architectureNodeKinds } from "./notations/architecture.ts";
+export type {
+	ArchitectureEdgeKind,
+	ArchitectureGroupKind,
+	ArchitectureNodeKind,
+} from "./notations/architecture.ts";
+export {
+	architectureEdgeKinds,
+	architectureGroupKinds,
+	architectureNodeKinds,
+} from "./notations/architecture.ts";
