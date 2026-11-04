@@ -32,6 +32,8 @@ export interface SceneText {
 	point: Point;
 	/** Its measured width, which is the width it's drawn at. */
 	width: number;
+	/** Whether it was shortened to fit, with an ellipsis. The model keeps the full text. */
+	shortened: boolean;
 	weight: FontWeight;
 	/** Its font size. */
 	size: number;

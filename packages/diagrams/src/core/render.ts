@@ -9,6 +9,7 @@ import { layOut, margin } from "./layout.ts";
 import { route } from "./route.ts";
 import type { Box, Scene, SceneEdge, SceneNode } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
+import { titleDiagnostics } from "./text.ts";
 import { validate } from "./validate.ts";
 
 export interface RenderResult {
@@ -25,7 +26,12 @@ export function render(diagram: unknown): RenderResult {
 	const model = validation.diagram;
 	const nodes = layOut(model);
 	const edges = route(model, nodes);
-	const scene: Scene = { bounds: boundsOf(nodes, edges), nodes, edges, diagnostics: [] };
+	const scene: Scene = {
+		bounds: boundsOf(nodes, edges),
+		nodes,
+		edges,
+		diagnostics: titleDiagnostics(model, nodes),
+	};
 	return {
 		diagnostics: [...validation.diagnostics, ...scene.diagnostics],
 		scene,
