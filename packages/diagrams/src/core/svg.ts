@@ -8,7 +8,15 @@
  * show a negative zero, and lines end with LF, as does the file.
  */
 
-import type { Point, RoutePoint, Scene, SceneEdge, SceneNode } from "./scene.ts";
+import type {
+	Point,
+	RoutePoint,
+	Scene,
+	SceneEdge,
+	SceneGroup,
+	SceneNode,
+	SceneText,
+} from "./scene.ts";
 import { type FontData, type FontWeight, hasCharacter } from "./text.ts";
 
 type Attribute = readonly [name: string, value: string | number];
@@ -16,6 +24,18 @@ type Attribute = readonly [name: string, value: string | number];
 const ink = "#1f2328";
 const line = "#57606a";
 const surface = "#ffffff";
+/** Groups stay behind what they hold, in a lighter line. */
+const groupLine = "#8c959f";
+
+/** How each Group Kind draws its box: a `system` heavier than a `region`, and a `zone` dashed. */
+const groupOutlines: Record<string, Attribute[]> = {
+	system: [["stroke-width", 2]],
+	region: [["stroke-width", 1]],
+	zone: [
+		["stroke-width", 1],
+		["stroke-dasharray", "6 4"],
+	],
+};
 /**
  * Where the embedded font can't be used, text falls back to fonts no wider
  * than Inter, so that text shortened to fit still fits. There's no generic
@@ -32,6 +52,13 @@ export function writeSvg(scene: Scene, fontData?: FontData): string {
 		["height", bounds.height],
 	];
 	const body = [
+		...(scene.groups.length === 0
+			? []
+			: [
+					indent(1, start("g", textAttributes)),
+					...scene.groups.flatMap((group) => writeGroup(group).map((text) => indent(2, text))),
+					indent(1, "</g>"),
+				]),
 		indent(
 			1,
 			start("g", [
@@ -42,13 +69,7 @@ export function writeSvg(scene: Scene, fontData?: FontData): string {
 		),
 		...scene.edges.flatMap((edge) => writeEdge(edge).map((text) => indent(2, text))),
 		indent(1, "</g>"),
-		indent(
-			1,
-			start("g", [
-				["text-anchor", "middle"],
-				["dominant-baseline", "central"],
-			]),
-		),
+		indent(1, start("g", textAttributes)),
 		...scene.nodes.flatMap((node) => writeNode(node).map((text) => indent(2, text))),
 		indent(1, "</g>"),
 	];
@@ -66,6 +87,12 @@ export function writeSvg(scene: Scene, fontData?: FontData): string {
 	return `${lines.join("\n")}\n`;
 }
 
+/** Every text is centered on its point. */
+const textAttributes: Attribute[] = [
+	["text-anchor", "middle"],
+	["dominant-baseline", "central"],
+];
+
 interface EmbeddedFont {
 	weight: FontWeight;
 	/** The font data, in base64. */
@@ -75,7 +102,7 @@ interface EmbeddedFont {
 /** The font data for each weight that the scene draws text in, in a fixed order. */
 function embeddedFonts(scene: Scene, fontData: FontData): EmbeddedFont[] {
 	// Every piece of text the scene draws.
-	const texts = scene.nodes.map((node) => node.title);
+	const texts = [...scene.nodes, ...scene.groups].map(({ title }) => title);
 	return (["regular", "semibold"] as const).flatMap((weight) => {
 		const drawn = new Set(
 			texts.filter((text) => text.weight === weight).flatMap((text) => [...text.text]),
@@ -109,6 +136,32 @@ function style(scope: string, fonts: EmbeddedFont[]): string[] {
 	];
 }
 
+/** A Group's box, drawn as its Kind draws it, with its title in its label band. */
+function writeGroup(group: SceneGroup): string[] {
+	const { box, title } = group;
+	return [
+		start("g", [
+			["data-group", group.id],
+			["data-kind", group.kind],
+		]),
+		indent(
+			1,
+			empty("rect", [
+				["x", box.x],
+				["y", box.y],
+				["width", box.width],
+				["height", box.height],
+				["rx", 8],
+				["fill", "none"],
+				["stroke", groupLine],
+				...(groupOutlines[group.kind] ?? []),
+			]),
+		),
+		indent(1, writeText(title, line)),
+		"</g>",
+	];
+}
+
 function writeNode(node: SceneNode): string[] {
 	const { box, title } = node;
 	return [
@@ -128,22 +181,24 @@ function writeNode(node: SceneNode): string[] {
 				["stroke", line],
 			]),
 		),
-		indent(
-			1,
-			element(
-				"text",
-				[
-					["x", title.point.x],
-					["y", title.point.y],
-					["font-size", title.size],
-					["font-weight", fontWeights[title.weight]],
-					["fill", ink],
-				],
-				title.text,
-			),
-		),
+		indent(1, writeText(title, ink)),
 		"</g>",
 	];
+}
+
+/** A piece of text, centered on its point, in its weight and size. */
+function writeText(text: SceneText, fill: string): string {
+	return element(
+		"text",
+		[
+			["x", text.point.x],
+			["y", text.point.y],
+			["font-size", text.size],
+			["font-weight", fontWeights[text.weight]],
+			["fill", fill],
+		],
+		text.text,
+	);
 }
 
 function writeEdge(edge: SceneEdge): string[] {

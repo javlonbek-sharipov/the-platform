@@ -80,6 +80,54 @@ describe("the SVG", () => {
 		]);
 	});
 
+	test("draws each Group in its own group, beneath the Edges and Nodes, with its id, Kind, box and title", () => {
+		const regions = architecture({ title: "Regions" }, (d) => {
+			const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+			d.group({ id: "eu-west", kind: "region", title: "EU West" }, (eu) => {
+				const api = eu.node({ id: "shop-api", kind: "service", title: "Shop API" });
+				eu.group({ id: "eu-west-a", kind: "zone", title: "Zone A" }, (zone) => {
+					zone.group({ id: "billing", kind: "system", title: "Billing" }, (billing) => {
+						const ledger = billing.node({ id: "ledger", kind: "worker", title: "Ledger" });
+						d.edge(api, ledger, { kind: "message" });
+					});
+				});
+				d.edge(web, api, { kind: "call" });
+			});
+		});
+		const { scene, svg = "" } = render(regions);
+		const drawn = [
+			...svg.matchAll(
+				/<g data-group="([^"]*)" data-kind="([^"]*)">\s*<rect x="([^"]*)" y="([^"]*)" width="([^"]*)" height="([^"]*)"([^>]*)\/>\s*<text [^>]*>([^<]*)<\/text>/g,
+			),
+		];
+
+		expect(
+			drawn.map(([, id, kind, x, y, width, height, , title]) => ({
+				id,
+				kind,
+				x,
+				y,
+				width,
+				height,
+				title,
+			})),
+		).toEqual(
+			(scene?.groups ?? []).map(({ id, kind, box, title }) => ({
+				id,
+				kind,
+				x: String(box.x),
+				y: String(box.y),
+				width: String(box.width),
+				height: String(box.height),
+				title: title.text,
+			})),
+		);
+		expect(drawn.map(([, id]) => id)).toEqual(["eu-west", "eu-west-a", "billing"]);
+		expect(svg.lastIndexOf("data-group=")).toBeLessThan(svg.indexOf("data-edge="));
+		// Each Kind draws its box its own way.
+		expect(new Set(drawn.map(([, , , , , , , style]) => style)).size).toBe(3);
+	});
+
 	test("draws each rounded corner of a route with an arc command of the corner's radius", () => {
 		const { scene, svg } = render(shop);
 		const paths = new Map(

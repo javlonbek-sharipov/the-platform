@@ -8,7 +8,7 @@
 import type { Diagram } from "../authoring/model.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { fontMetrics } from "./font-metrics.ts";
-import type { Box, SceneNode, SceneText } from "./scene.ts";
+import type { Box, SceneGroup, SceneNode, SceneText } from "./scene.ts";
 
 /** The weights that text is drawn in: regular for Rows and labels, and semibold for titles. */
 export type FontWeight = "regular" | "semibold";
@@ -77,13 +77,35 @@ export function groupTitle(title: string, band: Box): SceneText {
 	};
 }
 
-/** A warning for each title with characters that the font lacks, and for each one shortened. */
-export function titleDiagnostics(diagram: Diagram, nodes: SceneNode[]): Diagnostic[] {
-	const titles = new Map(nodes.map((node) => [node.id, node.title]));
-	return diagram.nodes.flatMap((node, index) => {
+/**
+ * A warning for each title with characters that the font lacks, and for each
+ * one shortened, for Nodes and then for Groups.
+ */
+export function titleDiagnostics(
+	diagram: Diagram,
+	nodes: SceneNode[],
+	groups: SceneGroup[],
+): Diagnostic[] {
+	// The scene keeps the model's order, so each drawn title lines up with its source.
+	const titles = [
+		...diagram.nodes.map(({ id, title }, index) => ({
+			thing: "Node",
+			id,
+			text: title,
+			drawn: nodes[index]?.title,
+			pointer: `/nodes/${index}/title`,
+		})),
+		...diagram.groups.map(({ id, title }, index) => ({
+			thing: "Group",
+			id,
+			text: title,
+			drawn: groups[index]?.title,
+			pointer: `/groups/${index}/title`,
+		})),
+	];
+	return titles.flatMap(({ thing, id, text, drawn, pointer }) => {
 		const diagnostics: Diagnostic[] = [];
-		const pointer = `/nodes/${index}/title`;
-		const missing = missingCharacters(collapseSpaces(node.title), "semibold");
+		const missing = missingCharacters(collapseSpaces(text), "semibold");
 		if (missing.length > 0) {
 			const listed = list(missing.map((character) => `${character} (${codePointOf(character)})`));
 			diagnostics.push({
@@ -91,17 +113,16 @@ export function titleDiagnostics(diagram: Diagram, nodes: SceneNode[]): Diagnost
 				rule: "glyph-missing",
 				message:
 					missing.length === 1
-						? `Node \`${node.id}\`'s title has a character that the bundled font lacks: ${listed}. It's measured at an average width, and drawn in a fallback font.`
-						: `Node \`${node.id}\`'s title has characters that the bundled font lacks: ${listed}. They're measured at an average width, and drawn in a fallback font.`,
+						? `${thing} \`${id}\`'s title has a character that the bundled font lacks: ${listed}. It's measured at an average width, and drawn in a fallback font.`
+						: `${thing} \`${id}\`'s title has characters that the bundled font lacks: ${listed}. They're measured at an average width, and drawn in a fallback font.`,
 				pointer,
 			});
 		}
-		const title = titles.get(node.id);
-		if (title?.shortened === true) {
+		if (drawn?.shortened === true) {
 			diagnostics.push({
 				severity: "warning",
 				rule: "text-shortened",
-				message: `Node \`${node.id}\`'s title is too wide for its Node, so it's shortened to \`${title.text}\`. Choose a shorter title to show it in full.`,
+				message: `${thing} \`${id}\`'s title is too wide for its ${thing}, so it's shortened to \`${drawn.text}\`. Choose a shorter title to show it in full.`,
 				pointer,
 			});
 		}
