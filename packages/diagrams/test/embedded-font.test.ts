@@ -21,6 +21,7 @@ import {
 	glyphCount,
 	glyphHeader,
 	openFont,
+	tableStart,
 } from "./support/truetype.ts";
 
 const shop = architecture({ title: "Shop" }, (d) => {
@@ -146,6 +147,14 @@ describe("the embedded subset", () => {
 		expect(
 			componentsOf(subsetOf(latin).font, characterMap(subsetOf(latin).font).get(0xe9) ?? 0),
 		).not.toEqual([]);
+	});
+
+	test("is byte-identical from run to run, keeping the bundled font's own timestamps", () => {
+		expect(renderWithFont(latin).svg).toBe(renderWithFont(latin).svg);
+		// `head` holds the times the font was created and modified, in bytes 20 to 36.
+		const timestamps = (font: FontFile) =>
+			[...font.bytes.subarray(tableStart(font, "head") + 20, tableStart(font, "head") + 36)].join();
+		expect(timestamps(subsetOf(shop).font)).toBe(timestamps(interSemiBoldFile));
 	});
 
 	test("is a well-formed TrueType font, with no tables for kerning or ligatures", () => {

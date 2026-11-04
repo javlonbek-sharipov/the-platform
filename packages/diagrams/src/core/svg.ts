@@ -1,5 +1,7 @@
 /**
- * The SVG writer turns a scene into one self-contained SVG.
+ * The SVG writer turns a scene into one self-contained SVG. It works out which
+ * of the bundled font's glyphs the SVG draws, and embeds the font data that
+ * its caller's function gives for them.
  *
  * Its output is deterministic: elements are written in model order and
  * attributes in a fixed order, numbers have at most two decimals and never
@@ -72,6 +74,7 @@ interface EmbeddedFont {
 
 /** The font data for each weight that the scene draws text in, in a fixed order. */
 function embeddedFonts(scene: Scene, fontData: FontData): EmbeddedFont[] {
+	// Every piece of text the scene draws.
 	const texts = scene.nodes.map((node) => node.title);
 	return (["regular", "semibold"] as const).flatMap((weight) => {
 		const drawn = new Set(
@@ -86,8 +89,8 @@ function embeddedFonts(scene: Scene, fontData: FontData): EmbeddedFont[] {
 }
 
 /**
- * The font's faces, and one rule for the SVG's root, which every text inherits
- * from. It turns kerning and ligatures off, since measuring ignores them.
+ * The embedded font's faces, and one rule for the SVG's root, which every text
+ * inherits from. It turns kerning and ligatures off, since measuring ignores them.
  */
 function style(scope: string, fonts: EmbeddedFont[]): string[] {
 	return [

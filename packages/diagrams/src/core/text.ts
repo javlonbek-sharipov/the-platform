@@ -16,7 +16,10 @@ export type FontWeight = "regular" | "semibold";
 /** What an SVG needs of the bundled font in one weight. */
 export interface FontRequest {
 	weight: FontWeight;
-	/** Every character that the SVG draws in this weight and that the font has, once each, in code point order. */
+	/**
+	 * Every character that the SVG draws in this weight and that the font has,
+	 * once each, in code point order.
+	 */
 	characters: string;
 }
 
@@ -54,7 +57,7 @@ export function nodeTitle(title: string, header: Box): SceneText {
 	};
 }
 
-/** A warning for each title with characters the font lacks, and for each that had to be shortened. */
+/** A warning for each title with characters that the font lacks, and for each one shortened. */
 export function titleDiagnostics(diagram: Diagram, nodes: SceneNode[]): Diagnostic[] {
 	const titles = new Map(nodes.map((node) => [node.id, node.title]));
 	return diagram.nodes.flatMap((node, index) => {
