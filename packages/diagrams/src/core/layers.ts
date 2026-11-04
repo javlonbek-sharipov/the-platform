@@ -364,8 +364,8 @@ function alignOneWay(
 		return block;
 	};
 	// Each block goes as near the start as the blocks before its vertices
-	// allow. A block waits for those blocks one at a time, so `chain` holds
-	// each block that the one above it waits for.
+	// allow. It waits for those blocks one at a time, so each block in `chain`
+	// is one that the block before it in `chain` waits for.
 	const placed = new Map<number, number>();
 	for (const start of new Set(root)) {
 		const chain = placed.has(start) ? [] : [start];
