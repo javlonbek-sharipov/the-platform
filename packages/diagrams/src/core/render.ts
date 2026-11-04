@@ -48,8 +48,20 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		return { diagnostics: validation.diagnostics };
 	}
 	const model = validation.diagram;
-	const { nodes, groups } = layOut(model, options.bundle);
-	const { edges, diagnostics } = route(model, nodes, groups, options);
+	// A labeled Edge that its bundle's trunk leaves no run of its own that holds
+	// its label keeps a lane of its own instead (spec: Edge routing, step 8).
+	// Layout leaves room for that lane too, so both run again.
+	const ownLanes = new Set<string>();
+	let { nodes, groups } = layOut(model, options.bundle, ownLanes);
+	let routing = route(model, nodes, groups, { ...options, ownLanes });
+	if (routing.crowdedOut.length > 0) {
+		for (const id of routing.crowdedOut) {
+			ownLanes.add(id);
+		}
+		({ nodes, groups } = layOut(model, options.bundle, ownLanes));
+		routing = route(model, nodes, groups, { ...options, ownLanes });
+	}
+	const { edges, diagnostics } = routing;
 	const scene: Scene = {
 		bounds: boundsOf(
 			[

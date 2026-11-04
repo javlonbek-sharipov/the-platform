@@ -86,13 +86,24 @@ export interface Labeling {
 	labels: Map<string, SceneLabel>;
 	/** A warning for each label that no run had room for. */
 	diagnostics: Diagnostic[];
+	/**
+	 * The labeled Edges that share a lane with Edges of their lane group, as a
+	 * trunk does, and have no run of their own that holds their label in full.
+	 * Each should keep a lane of its own instead (spec: Edge routing, step 8).
+	 */
+	crowdedOut: string[];
 }
 
+/**
+ * Places each Edge's label, given each Edge's lane group, whose Edges may
+ * share a lane, as a bundle's trunk does.
+ */
 export function placeLabels(
 	diagram: { direction: Direction; edges: Edge[] },
 	nodes: SceneNode[],
 	groups: SceneGroup[],
 	edges: SceneEdge[],
+	laneGroupOf: Map<string, string>,
 ): Labeling {
 	const byId = new Map(edges.map((edge) => [edge.id, edge]));
 	const runs = new Map(edges.map((edge) => [edge.id, runsOf(edge.route, false)]));
@@ -138,7 +149,8 @@ export function placeLabels(
 				return [];
 			}
 			const others = edges.flatMap((other) => (other === scene ? [] : (runs.get(other.id) ?? [])));
-			const candidates = ownStretches(scene, others, borders)
+			const stretches = ownStretches(scene, others, borders);
+			const candidates = [...stretches]
 				.sort((a, b) => b.high - b.low - (a.high - a.low))
 				.flatMap((stretch) =>
 					sidesFor(stretch, diagram.direction).flatMap((side) => {
@@ -146,10 +158,26 @@ export function placeLabels(
 						return box === undefined ? [] : [box];
 					}),
 				);
-			const { width } = labelBoxSize(content, labelWidth(content));
-			return [{ edge, index, content, scene, candidates, width }];
+			const natural = labelBoxSize(content, labelWidth(content));
+			return [{ edge, index, content, scene, stretches, candidates, natural }];
 		})
 		.sort((a, b) => compareText(a.edge.id, b.edge.id));
+
+	// A labeled Edge may ride its bundle's trunk only where a run of its own
+	// still holds its label in full. One whose lane group's routes run along it
+	// with no such run left is crowded out, and should keep a lane of its own.
+	const crowdedOut = wanted.flatMap(({ edge, scene, stretches, natural }) => {
+		const group = laneGroupOf.get(edge.id);
+		const mates = edges.flatMap((other) =>
+			other !== scene && laneGroupOf.get(other.id) === group ? (runs.get(other.id) ?? []) : [],
+		);
+		const rides = ownStretches(scene, [], []).some((stretch) => alongAny(stretch, mates));
+		const holds = stretches.some(
+			(stretch) =>
+				(stretch.horizontal ? natural.width : natural.height) <= stretch.high - stretch.low,
+		);
+		return rides && !holds ? [edge.id] : [];
+	});
 
 	// The first pass places labels in full where they hide nothing, the second
 	// in full wherever they cover nothing else, and the third shortened if need be.
@@ -160,13 +188,13 @@ export function placeLabels(
 	];
 	const boxes = new Map<string, Box>();
 	for (const { mayHide, mayShorten } of passes) {
-		for (const { edge, candidates, width } of wanted) {
+		for (const { edge, candidates, natural } of wanted) {
 			if (boxes.has(edge.id)) {
 				continue;
 			}
 			const box = candidates.find(
 				(candidate) =>
-					(mayShorten || candidate.width >= width) &&
+					(mayShorten || candidate.width >= natural.width) &&
 					!covers(candidate) &&
 					(mayHide || !hides(candidate)),
 			);
@@ -192,7 +220,17 @@ export function placeLabels(
 		}
 		labels.set(edge.id, { box, ...labelTexts(content, box) });
 	}
-	return { labels, diagnostics };
+	return { labels, diagnostics, crowdedOut };
+}
+
+/** Whether any of the runs lies along the stretch, on its line, for more than a point. */
+function alongAny(stretch: Stretch, runs: Stretch[]): boolean {
+	return runs.some(
+		(run) =>
+			run.horizontal === stretch.horizontal &&
+			Math.abs(run.line - stretch.line) < sameLine &&
+			Math.min(run.high, stretch.high) - Math.max(run.low, stretch.low) > sameLine,
+	);
 }
 
 /**

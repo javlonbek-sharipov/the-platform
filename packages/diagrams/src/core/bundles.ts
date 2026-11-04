@@ -20,8 +20,16 @@ export type Bundling = "target" | "source" | "none";
  * one Port, or that leave one Port, or each Edge on its own. Parallel Edges,
  * which join the same pair of Ports, never share one: the second Edge between
  * two Ports in a bundle goes into a second group, and so on.
+ *
+ * An Edge in `ownLanes` keeps a lane of its own too, as a parallel Edge does:
+ * a labeled Edge that its bundle's trunk would leave no run of its own that
+ * holds its label (step 8).
  */
-export function laneGroups(diagram: Diagram, bundle: Bundling): Map<string, string> {
+export function laneGroups(
+	diagram: Diagram,
+	bundle: Bundling,
+	ownLanes: ReadonlySet<string> = new Set(),
+): Map<string, string> {
 	const groups = new Map<string, string>();
 	const taken = new Map<string, number>();
 	const port = (end: string | RowEnd) => (typeof end === "string" ? [end] : [end.node, end.row]);
@@ -29,6 +37,10 @@ export function laneGroups(diagram: Diagram, bundle: Bundling): Map<string, stri
 		const [shared, other] =
 			bundle === "source" ? [port(edge.from), port(edge.to)] : [port(edge.to), port(edge.from)];
 		const key = bundle === "none" ? edge.id : JSON.stringify([edge.kind, ...shared]);
+		if (ownLanes.has(edge.id)) {
+			groups.set(edge.id, JSON.stringify([key, edge.id]));
+			continue;
+		}
 		const pair = JSON.stringify([key, ...other]);
 		const index = taken.get(pair) ?? 0;
 		taken.set(pair, index + 1);

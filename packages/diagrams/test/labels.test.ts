@@ -600,47 +600,63 @@ describe.each(directions)("the labels in each fixture, laid out %s", (direction)
 	});
 });
 
-describe("an Edge's label with no room on a run of its own", () => {
+/** The point halfway along a route, and whether the run it lies on is horizontal. */
+function halfwayAlong(route: Point[]): { point: Point; horizontal: boolean } {
+	const runs = route.slice(1).map((to, index): [Point, Point] => [route[index] ?? to, to]);
+	const length = ([a, b]: [Point, Point]) => Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+	let left = runs.reduce((sum, run) => sum + length(run), 0) / 2;
+	for (const run of runs) {
+		const [a, b] = run;
+		if (left <= length(run)) {
+			const share = left / length(run);
+			return {
+				point: { x: a.x + (b.x - a.x) * share, y: a.y + (b.y - a.y) * share },
+				horizontal: a.y === b.y,
+			};
+		}
+		left -= length(run);
+	}
+	throw new Error("expected a route with some length");
+}
+
+describe("an Edge's label with no room beside a run of its own", () => {
 	/**
-	 * The web app and the admin app both call the gateway. The admin app's Edge
-	 * is routed first, by id, and the web app's joins its trunk at the end of
-	 * its own stub, so it has no run of its own.
+	 * The web app calls the gateway three ways, so three parallel Edges run side
+	 * by side, each in a lane of its own. The outer two's labels sit outside the
+	 * three lanes, where they hide nothing. The middle one's label would cover
+	 * one of theirs on either side of its run, so it has no room.
 	 */
-	function joined(direction: Direction): Diagram {
-		return architecture({ title: "Joined", direction }, (d) => {
+	function threeWays(direction: Direction): Diagram {
+		return architecture({ title: "Three ways", direction }, (d) => {
 			const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
-			const admin = d.node({ id: "admin-app", kind: "client", title: "Admin app" });
 			const gateway = d.node({ id: "gateway", kind: "gateway", title: "Gateway" });
-			d.edge(web, gateway, { kind: "call", label: "Signs in" });
-			d.edge(admin, gateway, { kind: "call" });
+			d.edge(web, gateway, { kind: "call", id: "sign-in", label: "Signs in" });
+			d.edge(web, gateway, { kind: "call", id: "sign-out", label: "Signs out" });
+			d.edge(web, gateway, { kind: "call", id: "refresh", label: "Refreshes" });
 		});
 	}
 
 	test.each(directions)(
 		"goes beside its route's midpoint, and lint warns, laid out %s",
 		(direction) => {
-			const { scene, diagnostics } = render(joined(direction));
-			const edge = scene?.edges.find(({ id }) => id === "web-app->gateway");
+			const { scene, diagnostics } = render(threeWays(direction));
+			const edge = scene?.edges.find(({ id }) => id === "sign-in");
 			if (scene === undefined || edge === undefined) {
-				throw new Error("expected the web app's Edge");
+				throw new Error("expected the sign-in Edge");
 			}
-			expect(ownStretches(scene, edge)).toEqual([]);
 			expect(diagnostics).toEqual([
 				{
 					severity: "warning",
 					rule: "label-placement",
 					message:
-						"Edge `web-app->gateway`'s label has no room beside any run of the Edge's own, clear of Nodes, Port stubs, Group labels and other labels, so it's drawn at the middle of its route.",
+						"Edge `sign-in`'s label has no room beside any run of the Edge's own, clear of Nodes, Port stubs, Group labels and other labels, so it's drawn at the middle of its route.",
 					pointer: "/edges/0",
 				},
 			]);
-			// The route is one straight run from Port to Port, so its midpoint is
-			// halfway between them. The label is centered there, beside the run.
-			const [from, to] = [edge.fromPort.point, edge.toPort.point];
-			const horizontal = from.y === to.y;
-			const [line, middle] = horizontal
-				? [from.y, (from.x + to.x) / 2]
-				: [from.x, (from.y + to.y) / 2];
+			// The label is centered on the point halfway along the route, beside the
+			// run there.
+			const { point, horizontal } = halfwayAlong(edge.route);
+			const [line, middle] = horizontal ? [point.y, point.x] : [point.x, point.y];
 			const box = edge.label?.box ?? scene.bounds;
 			const [start, size, near, far] = horizontal
 				? [box.x, box.width, box.y, box.y + box.height]
@@ -649,6 +665,125 @@ describe("an Edge's label with no room on a run of its own", () => {
 			const gap = near > line ? near - line : line - far;
 			expect(gap).toBeGreaterThan(0);
 			expect(gap).toBeLessThanOrEqual(8);
+		},
+	);
+});
+
+/** Whether two points are the same. */
+function same(a: Point, b: Point): boolean {
+	return a.x === b.x && a.y === b.y;
+}
+
+/** What's left of some pieces of a line once the stretch from `low` to `high` is cut out of them. */
+function cutOut(pieces: [number, number][], low: number, high: number): [number, number][] {
+	return pieces.flatMap(([a, b]): [number, number][] =>
+		high <= a || low >= b
+			? [[a, b]]
+			: [
+					...(low > a ? [[a, low] as [number, number]] : []),
+					...(high < b ? [[high, b] as [number, number]] : []),
+				],
+	);
+}
+
+/**
+ * The stretches where two Edges' routes run along one lane, read from the
+ * spec: runs on one line, within half a pixel, that overlap by more than
+ * that. Where both Edges leave one Port, or enter one, they may share its
+ * junction, where they converge on it: its stub's line, from the Port out
+ * past the stub's end by a lane's room, a grid step, for each Edge at it.
+ */
+function sharedBeyondJunctions(scene: Scene, a: SceneEdge, b: SceneEdge): Stretch[] {
+	const junctions = [
+		[a.fromPort, b.fromPort],
+		[a.toPort, b.toPort],
+	].flatMap(([port, other]) =>
+		port !== undefined && other !== undefined && same(port.point, other.point) ? [port] : [],
+	);
+	return runsOf(a.route, false).flatMap((first) =>
+		runsOf(b.route, false).flatMap((second): Stretch[] => {
+			if (
+				first.horizontal !== second.horizontal ||
+				Math.abs(first.line - second.line) >= sameLine
+			) {
+				return [];
+			}
+			let pieces: [number, number][] = [
+				[Math.max(first.low, second.low), Math.min(first.high, second.high)],
+			];
+			for (const { point, stub } of junctions) {
+				const alongStub = first.horizontal ? point.y === stub.y : point.x === stub.x;
+				const across = first.horizontal ? point.y : point.x;
+				if (!alongStub || Math.abs(across - first.line) >= sameLine) {
+					continue;
+				}
+				const atPort = scene.edges.filter(
+					(edge) => same(edge.fromPort.point, point) || same(edge.toPort.point, point),
+				).length;
+				const [start, end] = first.horizontal ? [point.x, stub.x] : [point.y, stub.y];
+				const far = start + Math.sign(end - start) * (Math.abs(end - start) + atPort * scene.grid);
+				pieces = cutOut(pieces, Math.min(start, far), Math.max(start, far));
+			}
+			return pieces
+				.filter(([low, high]) => high - low > sameLine)
+				.map(([low, high]) => ({ horizontal: first.horizontal, line: first.line, low, high }));
+		}),
+	);
+}
+
+describe("a labeled Edge in a bundle", () => {
+	/**
+	 * The web app and the admin app both call the gateway. The admin app's Edge
+	 * is routed first, by id. Riding its trunk, the web app's Edge would join it
+	 * at the end of its own stub, and have no run of its own.
+	 */
+	function joining(direction: Direction): Diagram {
+		return architecture({ title: "Joining", direction }, (d) => {
+			const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+			const admin = d.node({ id: "admin-app", kind: "client", title: "Admin app" });
+			const gateway = d.node({ id: "gateway", kind: "gateway", title: "Gateway" });
+			d.edge(web, gateway, { kind: "call", label: "Signs in" });
+			d.edge(admin, gateway, { kind: "call" });
+		});
+	}
+
+	/**
+	 * The same two apps, declared the other way round, so that the admin app
+	 * lines up with the gateway, and labeled the other way round. The admin
+	 * app's Edge is still routed first, straight into the gateway. Riding its
+	 * trunk, the web app's Edge would join it at the end of its stub, and leave
+	 * it no run of its own.
+	 */
+	function joined(direction: Direction): Diagram {
+		return architecture({ title: "Joined", direction }, (d) => {
+			const admin = d.node({ id: "admin-app", kind: "client", title: "Admin app" });
+			const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+			const gateway = d.node({ id: "gateway", kind: "gateway", title: "Gateway" });
+			d.edge(admin, gateway, { kind: "call", label: "Signs in" });
+			d.edge(web, gateway, { kind: "call" });
+		});
+	}
+
+	/** Each case: its Diagram, and the labeled Edge in it. */
+	const cases = {
+		"joining it": [joining, "web-app->gateway"],
+		"joined by it": [joined, "admin-app->gateway"],
+	} as const;
+
+	test.each(
+		directions.flatMap((direction) =>
+			Object.keys(cases).map((name) => [name as keyof typeof cases, direction] as const),
+		),
+	)(
+		"keeps a lane of its own from end to end, when its trunk would leave it no run of its own, %s, laid out %s",
+		(name, direction) => {
+			const [fixture, id] = cases[name];
+			const scene = sceneOf(fixture(direction));
+			const edge = edgeOf(scene, id);
+			const other = scene.edges.find((candidate) => candidate !== edge) ?? edge;
+			expect(sharedBeyondJunctions(scene, edge, other)).toEqual([]);
+			const box = edge.label?.box ?? scene.bounds;
+			expect(ownStretches(scene, edge).some((stretch) => besideStretch(box, stretch))).toBe(true);
 		},
 	);
 });
