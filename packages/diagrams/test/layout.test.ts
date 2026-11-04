@@ -194,6 +194,28 @@ function crossings(scene: Scene): number {
 	return count;
 }
 
+/**
+ * The web app calls two APIs, each with its own database, and also reads the
+ * orders database directly. That last Edge skips the APIs' rank, and passes
+ * it between the two APIs without crossing anything.
+ */
+function skippingEdge(direction: Direction, skips = true): Diagram {
+	return diagram("Skipping", direction, (d) => {
+		const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+		const orders = d.node({ id: "orders-api", kind: "service", title: "Orders API" });
+		const stock = d.node({ id: "stock-api", kind: "service", title: "Stock API" });
+		const ordersDb = d.node({ id: "orders-db", kind: "database", title: "Orders database" });
+		const stockDb = d.node({ id: "stock-db", kind: "database", title: "Stock database" });
+		d.edge(web, orders, { kind: "call" });
+		d.edge(web, stock, { kind: "call" });
+		d.edge(orders, ordersDb, { kind: "call" });
+		d.edge(stock, stockDb, { kind: "call" });
+		if (skips) {
+			d.edge(web, ordersDb, { kind: "call" });
+		}
+	});
+}
+
 /** Each fixture, with the Edges that close a cycle in it. */
 const fixtures: [string, (direction: Direction) => Diagram, string[]][] = [
 	["a chain", chain, []],
@@ -289,6 +311,15 @@ describe.each(directions)("a Diagram laid out %s", (direction) => {
 
 	test("reorders the first rank too, when only that removes the crossings", () => {
 		expect(crossings(sceneOf(crossedClients(direction)))).toBe(0);
+	});
+
+	test("makes room in each rank that an Edge skips, where it crosses nothing", () => {
+		const gapBetweenApis = (scene: Scene) =>
+			start(boxOf(scene, "stock-api"), order) - end(boxOf(scene, "orders-api"), order);
+
+		const withSkip = sceneOf(skippingEdge(direction));
+		const withoutSkip = sceneOf(skippingEdge(direction, false));
+		expect(gapBetweenApis(withSkip)).toBeGreaterThan(gapBetweenApis(withoutSkip));
 	});
 
 	test("swaps two unconnected Nodes of one rank when their declaration order is swapped", () => {

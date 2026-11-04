@@ -46,9 +46,10 @@ export function arrange(
 	connections: Connection[],
 	spacing: Spacing,
 ): Placement[] {
-	const { rank, next } = rankMembers(members.length, connections);
-	const ranks = orderRanks(rank, next);
-	return place(members, ranks, spacing);
+	const { rank, kept } = rankMembers(members.length, connections);
+	const vertices = layered(members, rank, kept);
+	const ranks = orderRanks(vertices);
+	return place(vertices, ranks, spacing).slice(0, members.length);
 }
 
 /**
@@ -57,81 +58,125 @@ export function arrange(
  * connection that leads back into its current path, which closes a cycle.
  * Self-loops never count, and parallel connections count once.
  *
- * Returns each member's rank, and the members that each one's kept
- * connections lead to.
+ * Returns each member's rank, and the connections kept, in declaration order.
  */
 function rankMembers(count: number, connections: Connection[]) {
-	const targets: number[][] = Array.from({ length: count }, () => []);
-	for (const { from, to } of connections) {
+	const outgoing: number[][] = Array.from({ length: count }, () => []);
+	connections.forEach(({ from, to }, index) => {
 		if (from !== to) {
-			targets[from]?.push(to);
+			outgoing[from]?.push(index);
 		}
-	}
+	});
 
 	const unvisited = 0;
 	const onPath = 1;
 	const finished = 2;
 	const state: number[] = new Array(count).fill(unvisited);
 	const finishOrder: number[] = [];
-	const next: Set<number>[] = Array.from({ length: count }, () => new Set());
+	const leadsBack = new Set<number>();
 	for (let root = 0; root < count; root += 1) {
 		if (state[root] !== unvisited) {
 			continue;
 		}
 		state[root] = onPath;
-		const path = [{ member: root, edge: 0 }];
+		const path = [{ member: root, next: 0 }];
 		for (let top = path.at(-1); top !== undefined; top = path.at(-1)) {
-			const target = targets[top.member]?.[top.edge];
-			top.edge += 1;
-			if (target === undefined) {
+			const index = outgoing[top.member]?.[top.next];
+			top.next += 1;
+			const target = index === undefined ? undefined : connections[index]?.to;
+			if (index === undefined || target === undefined) {
 				state[top.member] = finished;
 				finishOrder.push(top.member);
 				path.pop();
-			} else if (state[target] !== onPath) {
-				next[top.member]?.add(target);
-				if (state[target] === unvisited) {
-					state[target] = onPath;
-					path.push({ member: target, edge: 0 });
-				}
+			} else if (state[target] === onPath) {
+				leadsBack.add(index);
+			} else if (state[target] === unvisited) {
+				state[target] = onPath;
+				path.push({ member: target, next: 0 });
 			}
 		}
 	}
 
+	const seen = new Set<string>();
+	const kept = connections.filter(({ from, to }, index) => {
+		const pair = `${from} ${to}`;
+		const keep = from !== to && !leadsBack.has(index) && !seen.has(pair);
+		seen.add(pair);
+		return keep;
+	});
+
 	// Reverse finishing order is a topological order of the connections kept.
+	const position = new Map(finishOrder.map((member, index) => [member, -index]));
+	const byPosition = [...kept].sort(
+		(a, b) => (position.get(a.from) ?? 0) - (position.get(b.from) ?? 0),
+	);
 	const rank: number[] = new Array(count).fill(0);
-	for (const member of finishOrder.reverse()) {
-		for (const target of next[member] ?? []) {
-			rank[target] = Math.max(rank[target] ?? 0, (rank[member] ?? 0) + 1);
-		}
+	for (const { from, to } of byPosition) {
+		rank[to] = Math.max(rank[to] ?? 0, (rank[from] ?? 0) + 1);
 	}
-	return { rank, next: next.map((targets) => [...targets]) };
+	return { rank, kept };
+}
+
+/** A member, or a placeholder for a connection that passes through a rank. */
+interface Vertex {
+	rank: number;
+	/** Placeholders have no size. */
+	depth: number;
+	before: number;
+	after: number;
+	/** Its neighbors in the ranks just before and just after its own. */
+	upper: number[];
+	lower: number[];
 }
 
 /**
- * The members of each rank, in order across it. Each rank starts in
- * declaration order. Then the ranks are swept forward and backward a fixed
+ * The members, followed by a placeholder in each rank that a connection
+ * passes through, so that every connection joins neighboring ranks.
+ */
+function layered(members: Member[], rank: number[], kept: Connection[]): Vertex[] {
+	const vertices: Vertex[] = members.map((member, index) => ({
+		...member,
+		rank: rank[index] ?? 0,
+		upper: [],
+		lower: [],
+	}));
+	const join = (from: number, to: number) => {
+		vertices[from]?.lower.push(to);
+		vertices[to]?.upper.push(from);
+	};
+	for (const { from, to } of kept) {
+		let previous = from;
+		for (let passed = (rank[from] ?? 0) + 1; passed < (rank[to] ?? 0); passed += 1) {
+			vertices.push({ rank: passed, depth: 0, before: 0, after: 0, upper: [], lower: [] });
+			join(previous, vertices.length - 1);
+			previous = vertices.length - 1;
+		}
+		join(previous, to);
+	}
+	return vertices;
+}
+
+/**
+ * The vertices of each rank, in order across it. Each rank starts with its
+ * members in declaration order, followed by its placeholders in the order of
+ * their connections. Then the ranks are swept forward and backward a fixed
  * number of times: each sweep sorts each rank by the average position of its
  * neighbors in the rank placed just before, and keeps the current order on
  * ties. The order with the fewest crossings wins, and on a tie the earlier
  * one does.
  */
-function orderRanks(rank: number[], next: number[][]): number[][] {
-	const ranks: number[][] = Array.from({ length: Math.max(-1, ...rank) + 1 }, () => []);
-	rank.forEach((index, member) => {
-		ranks[index]?.push(member);
-	});
-	const upper: number[][] = rank.map(() => []);
-	const lower: number[][] = rank.map(() => []);
-	next.forEach((targets, member) => {
-		for (const target of targets) {
-			if (rank[target] === (rank[member] ?? 0) + 1) {
-				lower[member]?.push(target);
-				upper[target]?.push(member);
-			}
+function orderRanks(vertices: Vertex[]): number[][] {
+	const ranks: number[][] = [];
+	vertices.forEach((vertex, index) => {
+		while (ranks.length <= vertex.rank) {
+			ranks.push([]);
 		}
+		ranks[vertex.rank]?.push(index);
 	});
+	const upper = vertices.map((vertex) => vertex.upper);
+	const lower = vertices.map((vertex) => vertex.lower);
 
-	let best = ranks.map((members) => [...members]);
+	let best = ranks.map((rank) => [...rank]);
 	let fewest = crossings(ranks, lower);
 	for (let sweep = 0; sweep < sweeps && fewest > 0; sweep += 1) {
 		const forward = sweep % 2 === 0;
@@ -142,7 +187,7 @@ function orderRanks(rank: number[], next: number[][]): number[][] {
 		}
 		const count = crossings(ranks, lower);
 		if (count < fewest) {
-			best = ranks.map((members) => [...members]);
+			best = ranks.map((rank) => [...rank]);
 			fewest = count;
 		}
 	}
@@ -197,21 +242,21 @@ function crossings(ranks: number[][], lower: number[][]): number {
 }
 
 /**
- * Coordinates: each rank becomes a line along the rank axis, and its members
+ * Coordinates: each rank becomes a line along the rank axis, and its vertices
  * are stacked across it in order, the clearance apart.
  */
-function place(members: Member[], ranks: number[][], spacing: Spacing): Placement[] {
-	const placements: Placement[] = members.map(() => ({ x: 0, y: 0 }));
+function place(vertices: Vertex[], ranks: number[][], spacing: Spacing): Placement[] {
+	const placements: Placement[] = vertices.map(() => ({ x: 0, y: 0 }));
 	let line = 0;
 	let previousDepth = 0;
 	for (const [index, rank] of ranks.entries()) {
-		const depth = Math.max(...rank.map((member) => members[member]?.depth ?? 0));
+		const depth = Math.max(...rank.map((vertex) => vertices[vertex]?.depth ?? 0));
 		line = index === 0 ? depth / 2 : line + previousDepth / 2 + spacing.rankGap + depth / 2;
 		previousDepth = depth;
 		let edge = 0;
-		for (const member of rank) {
-			const { before = 0, after = 0 } = members[member] ?? {};
-			placements[member] = { x: line, y: edge + before };
+		for (const vertex of rank) {
+			const { before = 0, after = 0 } = vertices[vertex] ?? {};
+			placements[vertex] = { x: line, y: edge + before };
 			edge += before + after + spacing.clearance;
 		}
 	}
