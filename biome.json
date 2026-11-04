@@ -43,6 +43,11 @@
 			"quoteStyle": "double"
 		}
 	},
+	"markdown": {
+		"parser": {
+			"frontmatter": true
+		}
+	},
 	"plugins": [
 		{
 			"path": "./packages/diagrams/biome/exact-arithmetic.grit",
