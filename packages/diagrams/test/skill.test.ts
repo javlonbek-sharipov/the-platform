@@ -1,6 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
+import {
+	architectureEdgeKinds,
+	architectureGroupKinds,
+	architectureNodeKinds,
+	architectureStatuses,
+	technologies,
+} from "../src/index.ts";
 import { type CliRun, runCli, sampleAtlas } from "./support/atlas.ts";
 import { pngSize } from "./support/png.ts";
 
@@ -62,5 +69,18 @@ describe("the agent skill", () => {
 		expect(exampleIn(skill), "the skill's copy of docs/example-system.diagram.ts").toBe(
 			example.toString(),
 		);
+	});
+
+	test("it names every Kind and status of the architecture Notation, and every Technology that has a logo", async () => {
+		const skill = await readFile(skillFile, "utf8");
+		const words = [
+			...architectureNodeKinds,
+			...architectureGroupKinds,
+			...architectureEdgeKinds,
+			...architectureStatuses,
+			...Object.keys(technologies),
+		];
+
+		expect(words.filter((word) => !skill.includes(`\`${word}\``))).toEqual([]);
 	});
 });
