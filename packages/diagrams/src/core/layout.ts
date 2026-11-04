@@ -16,6 +16,8 @@ const nodeWidth = 160;
 const nodeHeight = 48;
 const rankGap = 96;
 export const clearance = 32;
+/** Node sizes are multiples of twice the grid, so that their corners land on it too. */
+export const grid = 8;
 export const margin = 24;
 
 export function layOut(diagram: Diagram): SceneNode[] {
@@ -30,7 +32,7 @@ export function layOut(diagram: Diagram): SceneNode[] {
 		from: index.get(edge.from) ?? 0,
 		to: index.get(edge.to) ?? 0,
 	}));
-	const placements = arrange(members, connections, { clearance, rankGap });
+	const placements = arrange(members, connections, { clearance, rankGap, grid });
 
 	return diagram.nodes.map((node, at) => {
 		const { x: line, y: ports } = placements[at] ?? { x: 0, y: 0 };

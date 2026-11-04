@@ -28,6 +28,8 @@ export interface Spacing {
 	clearance: number;
 	/** How far apart two ranks are. */
 	rankGap: number;
+	/** The step of the grid that every Ports' line and rank line snaps to. */
+	grid: number;
 }
 
 /** Where a member goes, in the layout's frame. */
@@ -49,10 +51,16 @@ export function arrange(
 	const { rank, kept } = rankMembers(members.length, connections);
 	const vertices = layered(members, rank, kept);
 	const ranks = orderRanks(vertices);
-	const across = alignAcross(vertices, ranks, spacing.clearance);
-	const along = ranksAlong(vertices, ranks, spacing.rankGap);
+	const across = alignAcross(vertices, ranks, spacing);
+	const along = ranksAlong(vertices, ranks, spacing);
 	const top = Math.min(...members.map((member, index) => (across[index] ?? 0) - member.before));
-	return members.map((_, index) => ({ x: along[index] ?? 0, y: (across[index] ?? 0) - top }));
+	const shift = Math.floor(top / spacing.grid) * spacing.grid;
+	return members.map((_, index) => ({ x: along[index] ?? 0, y: (across[index] ?? 0) - shift }));
+}
+
+/** The first line of the grid at or after a position. */
+function snap(position: number, grid: number): number {
+	return Math.ceil(position / grid) * grid;
 }
 
 /**
@@ -255,13 +263,14 @@ function crossings(ranks: number[][], lower: number[][]): number {
 }
 
 /** Each vertex's rank line, along the rank axis: the ranks follow each other, a gap apart. */
-function ranksAlong(vertices: Vertex[], ranks: number[][], rankGap: number): number[] {
+function ranksAlong(vertices: Vertex[], ranks: number[][], spacing: Spacing): number[] {
+	const { rankGap, grid } = spacing;
 	const along: number[] = vertices.map(() => 0);
 	let line = 0;
 	let previousDepth = 0;
 	for (const [index, rank] of ranks.entries()) {
 		const depth = Math.max(...rank.map((vertex) => vertices[vertex]?.depth ?? 0));
-		line = index === 0 ? depth / 2 : line + previousDepth / 2 + rankGap + depth / 2;
+		line = snap(index === 0 ? depth / 2 : line + previousDepth / 2 + rankGap + depth / 2, grid);
 		previousDepth = depth;
 		for (const vertex of rank) {
 			along[vertex] = line;
@@ -279,12 +288,12 @@ function ranksAlong(vertices: Vertex[], ranks: number[][], rankGap: number): num
  * then the earlier one. So a Node lines up with one of its neighbors, where
  * the paper's balancing would often put it between two.
  */
-function alignAcross(vertices: Vertex[], ranks: number[][], clearance: number): number[] {
+function alignAcross(vertices: Vertex[], ranks: number[][], spacing: Spacing): number[] {
 	let best: number[] = [];
 	let bestCost = [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY];
 	for (const fromBelow of [false, true]) {
 		for (const fromEnd of [false, true]) {
-			const across = alignOneWay(vertices, ranks, clearance, fromBelow, fromEnd);
+			const across = alignOneWay(vertices, ranks, spacing, fromBelow, fromEnd);
 			const cost = bends(vertices, across);
 			if (
 				cost[0] < (bestCost[0] ?? 0) ||
@@ -306,7 +315,7 @@ function alignAcross(vertices: Vertex[], ranks: number[][], clearance: number): 
 function alignOneWay(
 	vertices: Vertex[],
 	ranks: number[][],
-	clearance: number,
+	spacing: Spacing,
 	fromBelow: boolean,
 	fromEnd: boolean,
 ): number[] {
@@ -343,10 +352,12 @@ function alignOneWay(
 		}
 	}
 
-	// How far past a vertex its neighbor toward the start of the rank must be.
+	// How far past its neighbor toward the start of the rank a vertex must be,
+	// in whole steps of the grid, so that every block lands on it.
 	const separation = (earlier: number, later: number) => {
 		const [first, second] = fromEnd ? [later, earlier] : [earlier, later];
-		return (vertices[first]?.after ?? 0) + clearance + (vertices[second]?.before ?? 0);
+		const { clearance, grid } = spacing;
+		return snap((vertices[first]?.after ?? 0) + clearance + (vertices[second]?.before ?? 0), grid);
 	};
 	const blockOf = (start: number) => {
 		const block = [start];

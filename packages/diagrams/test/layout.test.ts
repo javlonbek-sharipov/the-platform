@@ -408,6 +408,23 @@ describe.each(directions)("a Diagram laid out %s", (direction) => {
 			}
 		});
 
+		test("snaps every Node's corners and Ports to the grid", () => {
+			const scene = sceneOf(fixture(direction));
+			const { grid } = scene;
+			expect(grid).toBeGreaterThan(0);
+			for (const { id, box, input, output } of scene.nodes) {
+				const points = [
+					{ x: box.x, y: box.y },
+					{ x: box.x + box.width, y: box.y + box.height },
+					input.point,
+					output.point,
+				];
+				for (const { x, y } of points) {
+					expect([x % grid, y % grid], id).toEqual([0, 0]);
+				}
+			}
+		});
+
 		test("ranks every Edge's target after its source, except Edges that close a cycle", () => {
 			const scene = sceneOf(fixture(direction));
 			for (const edge of scene.edges.filter(({ id }) => !closing.includes(id))) {
