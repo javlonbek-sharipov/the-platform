@@ -17,7 +17,14 @@ import {
 } from "../src/index.ts";
 import ordersFlow from "./fixtures/technologies.ts";
 import { draw, groupOf, nodeOf, paintsWithin, sceneOf, shapesOf } from "./support/drawn.ts";
-import { computedStyle, descendants, type Point, paintedBounds, runsOf } from "./support/svg.ts";
+import {
+	computedStyle,
+	descendants,
+	type Point,
+	paintedBounds,
+	parseSvg,
+	runsOf,
+} from "./support/svg.ts";
 
 const run = promisify(execFile);
 const script = fileURLToPath(new URL("../scripts/generate-technologies.ts", import.meta.url));
@@ -499,5 +506,41 @@ describe("a logo", () => {
 			expect(hex, logo.technology).toMatch(/^[0-9a-f]{6}$/);
 			expect(svg, logo.technology).not.toContain(`#${hex}`);
 		}
+	});
+});
+
+describe("an SVG's description", () => {
+	test("says what each Node and Edge is built with, by the Technology's name, as its logo can't", () => {
+		const root = parseSvg(
+			render(
+				architecture({ title: "Orders" }, (d) => {
+					const api = d.node({
+						id: "orders-api",
+						kind: "service",
+						title: "Orders API",
+						technology: "go",
+					});
+					const db = d.node({
+						id: "orders-db",
+						kind: "database",
+						title: "Orders DB",
+						technology: "postgres",
+						status: "ok",
+					});
+					const ledger = d.node({
+						id: "ledger",
+						kind: "system",
+						title: "Ledger",
+						technology: "our-ledger",
+						external: true,
+					});
+					d.edge(api, db, { kind: "call", label: "Stores orders", technology: "postgres" });
+					d.edge(api, ledger, { kind: "call", technology: "grpc" });
+				}),
+			).svg ?? "",
+		);
+		expect(root.children.find((child) => child.name === "desc")?.text).toBe(
+			"Nodes: Orders API (service, Go); Orders DB (database, PostgreSQL, ok); Ledger (system, our-ledger, External). Edges: Orders API calls Orders DB over PostgreSQL: Stores orders. Orders API calls Ledger over grpc.",
+		);
 	});
 });
