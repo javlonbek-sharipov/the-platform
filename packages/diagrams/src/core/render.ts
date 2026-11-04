@@ -69,7 +69,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 	return {
 		diagnostics: [...validation.diagnostics, ...scene.diagnostics],
 		scene,
-		svg: writeSvg(scene, options.fontData),
+		svg: writeSvg(model, scene, options.fontData),
 	};
 }
 

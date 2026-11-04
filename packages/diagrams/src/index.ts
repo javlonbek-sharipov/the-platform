@@ -49,6 +49,7 @@ export type {
 export type { FontData, FontRequest, FontWeight } from "./core/text.ts";
 export type {
 	ArchitectureEdgeKind,
+	ArchitectureEdgeLook,
 	ArchitectureFamily,
 	ArchitectureGroupKind,
 	ArchitectureNodeKind,
@@ -57,6 +58,7 @@ export type {
 } from "./notations/architecture.ts";
 export {
 	architectureEdgeKinds,
+	architectureEdgeLooks,
 	architectureFamilies,
 	architectureGroupKinds,
 	architectureNodeKinds,

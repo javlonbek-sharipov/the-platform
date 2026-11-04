@@ -8,6 +8,7 @@
  * show a negative zero, and lines end with LF, as does the file.
  */
 
+import type { Diagram } from "../authoring/model.ts";
 import {
 	type ArchitectureNodeLook,
 	type ArchitectureStatus,
@@ -16,6 +17,7 @@ import {
 	architectureNodeLooks,
 	architectureStatuses,
 } from "../notations/architecture.ts";
+import { descriptionOf } from "./description.ts";
 import { outlines, type PathData } from "./outlines.ts";
 import type {
 	Point,
@@ -26,7 +28,7 @@ import type {
 	SceneNode,
 	SceneText,
 } from "./scene.ts";
-import { type FontData, type FontWeight, hasCharacter } from "./text.ts";
+import { collapseSpaces, type FontData, type FontWeight, hasCharacter } from "./text.ts";
 import { type ColorName, palette } from "./theme.ts";
 
 type Attribute = readonly [name: string, value: string | number];
@@ -68,12 +70,18 @@ const statusMarks: Record<ArchitectureStatus, { path: string; color: ColorName; 
 	unknown: { path: "M 1.75 1.75 H 10.25 V 10.25 H 1.75 Z", color: "muted", line: false },
 };
 
-export function writeSvg(scene: Scene, fontData?: FontData): string {
+export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): string {
 	const { bounds } = scene;
 	const size: Attribute[] = [
 		["viewBox", [bounds.x, bounds.y, bounds.width, bounds.height].map(number).join(" ")],
 		["width", bounds.width],
 		["height", bounds.height],
+	];
+	// What the SVG says about itself, for screen readers. No style reaches it,
+	// so it stays out of the scope's name, and editing it changes only these lines.
+	const about = [
+		indent(1, element("title", [], collapseSpaces(diagram.title))),
+		indent(1, element("desc", [], descriptionOf(diagram))),
 	];
 	const body = [
 		indent(
@@ -119,7 +127,13 @@ export function writeSvg(scene: Scene, fontData?: FontData): string {
 	];
 	const scope = `diagram-${hash(contents.join("\n"))}`;
 	const lines = [
-		start("svg", [["xmlns", "http://www.w3.org/2000/svg"], ["class", scope], ...size]),
+		start("svg", [
+			["xmlns", "http://www.w3.org/2000/svg"],
+			["class", scope],
+			["role", "img"],
+			...size,
+		]),
+		...about,
 		...style(scope, fonts, uses).map((text) => indent(1, text)),
 		...body,
 		"</svg>",

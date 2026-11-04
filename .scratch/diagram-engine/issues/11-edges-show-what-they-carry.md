@@ -32,8 +32,8 @@
 
 **Accessibility**
 
-- [ ] Each Edge Kind declares a sentence form in its Notation, such as "Checkout API calls Payments API".
-- [ ] The SVG's root has:
+- [x] Each Edge Kind declares a sentence form in its Notation, such as "Checkout API calls Payments API".
+- [x] The SVG's root has:
   - `role="img"`;
   - a `<title>` that holds the Diagram's title;
   - a `<desc>` that lists its Nodes, and its Edges in their sentence forms.
