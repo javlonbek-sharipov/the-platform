@@ -6,10 +6,10 @@
  */
 
 import type { Direction, Node } from "../authoring/model.ts";
-import { architectureNodeLooks } from "../notations/architecture.ts";
+import { architectureNodeLooks, technologyOf } from "../notations/architecture.ts";
 import { outlines } from "./outlines.ts";
-import type { Box, SceneCallout, SceneStatus, SceneText } from "./scene.ts";
-import { calloutText, nodeTitle } from "./text.ts";
+import type { Box, SceneCallout, SceneLogo, SceneStatus, SceneText } from "./scene.ts";
+import { calloutText, headerTexts } from "./text.ts";
 
 /**
  * The band of each Row, below the header. It's two steps of 16 px, so that
@@ -19,9 +19,14 @@ export const rowHeight = 32;
 /** The room between the header's contents and the outline's face, on each side. */
 const padding = 12;
 const badgeSize = 16;
-/** The room between the badge and the title, and between the title and a status mark. */
+/**
+ * The room between the badge and the title, between the title and a logo or
+ * a status mark, and between a logo and a status mark.
+ */
 const badgeGap = 8;
 const markSize = 12;
+/** A Technology's logo is as big as the Kind's badge. */
+const logoSize = badgeSize;
 /** A callout's tag: its height, the room between it and its Node, and the room on each side of its text. */
 const tagHeight = 20;
 const tagGap = 4;
@@ -66,11 +71,18 @@ export interface NodeParts {
 	header: Box;
 	badge: Box;
 	title: SceneText;
+	technology?: SceneText;
+	logo?: SceneLogo;
 	status?: SceneStatus;
 	callout?: SceneCallout;
 }
 
-/** Where a Node's parts go, once its box is placed. */
+/**
+ * Where a Node's parts go, once its box is placed. Its header holds its badge
+ * at the start, then its title, and at the end its status mark, with its
+ * Technology's logo before that. The title is centered between the badge and
+ * whichever comes next, and the Technology's name below it.
+ */
 export function partsOf(node: Node, box: Box, direction: Direction): NodeParts {
 	const { headerTop, headerHeight } = frameOf(node);
 	const { inset } = outlines[architectureNodeLooks[node.kind].outline];
@@ -95,19 +107,39 @@ export function partsOf(node: Node, box: Box, direction: Direction): NodeParts {
 						height: markSize,
 					},
 				};
+	const beforeStatus = status === undefined ? right : status.mark.x - badgeGap;
+	const technology = node.technology === undefined ? undefined : technologyOf(node.technology);
+	const logo: SceneLogo | undefined =
+		node.technology === undefined || technology?.logo === undefined
+			? undefined
+			: {
+					technology: node.technology,
+					box: {
+						x: beforeStatus - logoSize,
+						y: middle - logoSize / 2,
+						width: logoSize,
+						height: logoSize,
+					},
+				};
 	const start = badge.x + badge.width + badgeGap;
-	const end = status === undefined ? right : status.mark.x - badgeGap;
-	const title = nodeTitle(node.title, {
-		x: start,
-		y: header.y,
-		width: end - start,
-		height: header.height,
-	});
+	const end = logo === undefined ? beforeStatus : logo.box.x - badgeGap;
+	const texts = headerTexts(
+		node.title,
+		technology?.name,
+		{
+			x: start,
+			y: header.y + inset.top,
+			width: end - start,
+			height: header.height - inset.top,
+		},
+		middle,
+	);
 	const callout = node.callout === undefined ? undefined : calloutOf(node.callout, box, direction);
 	return {
 		header,
 		badge,
-		title,
+		...texts,
+		...(logo === undefined ? {} : { logo }),
 		...(status === undefined ? {} : { status }),
 		...(callout === undefined ? {} : { callout }),
 	};

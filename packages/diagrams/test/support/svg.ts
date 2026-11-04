@@ -313,22 +313,60 @@ export interface Bounds {
 	bottom: number;
 }
 
-/** The translation that the element's `transform`, and its ancestors', add up to. */
-function translationOf(element: Element): Point {
-	let x = 0;
-	let y = 0;
+/** A uniform scale, then a translation: `p` goes to `scale * p + (x, y)`. */
+interface Placement {
+	scale: number;
+	x: number;
+	y: number;
+}
+
+/**
+ * Where the element's own coordinates land in the root's: what its
+ * `transform`, its ancestors' transforms, and the viewports of the `<svg>`
+ * elements nested around it add up to.
+ */
+function placementOf(element: Element): Placement {
+	let placement: Placement = { scale: 1, x: 0, y: 0 };
 	for (const each of [element, ...ancestors(element)]) {
-		const transform = each.attributes.get("transform");
-		if (transform !== undefined) {
-			const match = transform.match(/^translate\(\s*(-?[\d.]+)[\s,]+(-?[\d.]+)\s*\)$/);
-			if (match === null) {
-				throw new Error(`a transform this reader doesn't know: ${transform}`);
-			}
-			x += Number(match[1]);
-			y += Number(match[2]);
-		}
+		const own = ownPlacement(each);
+		placement = {
+			scale: own.scale * placement.scale,
+			x: own.scale * placement.x + own.x,
+			y: own.scale * placement.y + own.y,
+		};
 	}
-	return { x, y };
+	return placement;
+}
+
+/** What one element adds: a `translate()` transform, or a nested `<svg>`'s viewport. */
+function ownPlacement(element: Element): Placement {
+	const transform = element.attributes.get("transform");
+	if (transform !== undefined) {
+		const match = transform.match(/^translate\(\s*(-?[\d.]+)[\s,]+(-?[\d.]+)\s*\)$/);
+		if (match === null) {
+			throw new Error(`a transform this reader doesn't know: ${transform}`);
+		}
+		return { scale: 1, x: Number(match[1]), y: Number(match[2]) };
+	}
+	const viewBox = element.attributes.get("viewBox");
+	if (element.name !== "svg" || element.parent === undefined || viewBox === undefined) {
+		return { scale: 1, x: 0, y: 0 };
+	}
+	// A nested viewport maps its viewBox onto its box. This reader knows only
+	// those that scale both ways alike, where preserveAspectRatio has no effect.
+	const [minX = 0, minY = 0, width = 0, height = 0] = viewBox
+		.trim()
+		.split(/[\s,]+/)
+		.map(Number);
+	const scale = number(element, "width") / width;
+	if (number(element, "height") / height !== scale) {
+		throw new Error(`a viewport this reader doesn't know: ${viewBox}`);
+	}
+	return {
+		scale,
+		x: number(element, "x") - minX * scale,
+		y: number(element, "y") - minY * scale,
+	};
 }
 
 const shapeNames = new Set(["rect", "circle", "ellipse", "line", "path", "polygon", "polyline"]);
@@ -339,11 +377,11 @@ export function isShape(element: Element): boolean {
 
 const number = (element: Element, name: string) => Number(element.attributes.get(name) ?? 0);
 
-/** A shape's outline, as closed or open runs of points, with arcs sampled finely. */
+/** A shape's outline, as closed or open runs of points, with arcs and curves sampled finely. */
 export function runsOf(element: Element): Point[][] {
-	const shift = translationOf(element);
+	const { scale, x: dx, y: dy } = placementOf(element);
 	const runs = localRuns(element);
-	return runs.map((run) => run.map(({ x, y }) => ({ x: x + shift.x, y: y + shift.y })));
+	return runs.map((run) => run.map(({ x, y }) => ({ x: scale * x + dx, y: scale * y + dy })));
 }
 
 function ellipsePoints(cx: number, cy: number, rx: number, ry: number): Point[] {
@@ -412,72 +450,176 @@ function localRuns(element: Element): Point[][] {
 	}
 }
 
-/** The runs of a path's data: one per subpath, with arcs sampled. Supports M, L, H, V, A and Z. */
+/**
+ * The runs of a path's data: one per subpath, with arcs and curves sampled.
+ * It reads the whole grammar of SVG path data: every command, absolute or
+ * relative, repeated without its letter, and numbers and arc flags written
+ * without separators, as in `a.5.5 0 011-1`.
+ */
 export function pathRuns(d: string): Point[][] {
-	const tokens = d.match(/[a-zA-Z]|-?(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?/g) ?? [];
+	const numberPattern = /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/y;
+	let at = 0;
+	const skip = () => {
+		while (at < d.length && /[\s,]/.test(d.charAt(at))) {
+			at += 1;
+		}
+	};
+	const next = () => {
+		skip();
+		numberPattern.lastIndex = at;
+		const match = numberPattern.exec(d);
+		if (match === null) {
+			throw new Error(`path data this reader can't read: ${d.slice(at, at + 20)}`);
+		}
+		at = numberPattern.lastIndex;
+		return Number(match[0]);
+	};
+	const flag = () => {
+		skip();
+		const character = d.charAt(at);
+		if (character !== "0" && character !== "1") {
+			throw new Error(`an arc flag this reader can't read: ${d.slice(at, at + 20)}`);
+		}
+		at += 1;
+		return character === "1";
+	};
 	const runs: Point[][] = [];
 	let run: Point[] = [];
-	let current = { x: 0, y: 0 };
-	let start = { x: 0, y: 0 };
+	let current: Point = { x: 0, y: 0 };
+	let start: Point = { x: 0, y: 0 };
+	// The control point a smooth curve reflects, if the command before it was a curve of its kind.
+	let cubicControl: Point | undefined;
+	let quadraticControl: Point | undefined;
 	let command = "";
-	let at = 0;
-	const next = () => Number(tokens[at++]);
-	while (at < tokens.length) {
-		const token = tokens[at] ?? "";
-		if (/[a-zA-Z]/.test(token)) {
-			command = token;
+	const draw = (points: Point[]) => {
+		if (run.length === 0) {
+			// A subpath that goes on after a close starts where the closed one did.
+			run = [current];
+		}
+		run.push(...points);
+	};
+	for (skip(); at < d.length; skip()) {
+		const letter = d.charAt(at);
+		if (/[a-zA-Z]/.test(letter)) {
+			command = letter;
 			at += 1;
+		} else if (command === "" || command.toUpperCase() === "Z") {
+			throw new Error(`path data without a command: ${d.slice(at, at + 20)}`);
 		} else if (command === "M") {
+			// Pairs after a moveto are linetos.
 			command = "L";
 		} else if (command === "m") {
 			command = "l";
 		}
 		const relative = command === command.toLowerCase();
-		const base = relative ? current : { x: 0, y: 0 };
+		const point = () => {
+			const x = next();
+			const y = next();
+			return relative ? { x: current.x + x, y: current.y + y } : { x, y };
+		};
+		let nextCubic: Point | undefined;
+		let nextQuadratic: Point | undefined;
 		switch (command.toUpperCase()) {
-			case "M": {
+			case "M":
 				if (run.length > 0) {
 					runs.push(run);
 				}
-				current = { x: base.x + next(), y: base.y + next() };
+				current = point();
 				start = current;
 				run = [current];
 				break;
-			}
 			case "L":
-				current = { x: base.x + next(), y: base.y + next() };
-				run.push(current);
+				current = point();
+				draw([current]);
 				break;
 			case "H":
 				current = { x: (relative ? current.x : 0) + next(), y: current.y };
-				run.push(current);
+				draw([current]);
 				break;
 			case "V":
 				current = { x: current.x, y: (relative ? current.y : 0) + next() };
-				run.push(current);
+				draw([current]);
 				break;
-			case "A": {
-				const [rx, ry, rotation, large, sweep] = [next(), next(), next(), next(), next()];
-				const end = { x: base.x + next(), y: base.y + next() };
-				run.push(...arcPoints(current, end, rx, ry, rotation, large !== 0, sweep !== 0));
+			case "C":
+			case "S": {
+				const first =
+					command.toUpperCase() === "C"
+						? point()
+						: cubicControl === undefined
+							? current
+							: { x: 2 * current.x - cubicControl.x, y: 2 * current.y - cubicControl.y };
+				const second = point();
+				const end = point();
+				draw(curvePoints([current, first, second, end]));
+				nextCubic = second;
 				current = end;
 				break;
 			}
-			case "Z":
+			case "Q":
+			case "T": {
+				const control =
+					command.toUpperCase() === "Q"
+						? point()
+						: quadraticControl === undefined
+							? current
+							: {
+									x: 2 * current.x - quadraticControl.x,
+									y: 2 * current.y - quadraticControl.y,
+								};
+				const end = point();
+				draw(curvePoints([current, control, end]));
+				nextQuadratic = control;
+				current = end;
+				break;
+			}
+			case "A": {
+				const [rx, ry, rotation] = [next(), next(), next()];
+				const [large, sweep] = [flag(), flag()];
+				const end = point();
+				draw(arcPoints(current, end, rx, ry, rotation, large, sweep));
+				current = end;
+				break;
+			}
+			case "Z": {
+				// A closed subpath's outline runs back to its start.
+				const last = run.at(-1);
+				if (last !== undefined && (last.x !== start.x || last.y !== start.y)) {
+					run.push(start);
+				}
 				current = start;
 				if (run.length > 0) {
 					runs.push(run);
 				}
 				run = [];
 				break;
+			}
 			default:
 				throw new Error(`a path command this reader doesn't know: ${command}`);
 		}
+		cubicControl = nextCubic;
+		quadraticControl = nextQuadratic;
 	}
 	if (run.length > 0) {
 		runs.push(run);
 	}
 	return runs;
+}
+
+/** Points along a Bézier curve of any degree, from its start, which is left out, to its end. */
+function curvePoints(controls: Point[]): Point[] {
+	const steps = 16;
+	return Array.from({ length: steps }, (_, index) => {
+		const t = (index + 1) / steps;
+		// De Casteljau's construction.
+		let points = controls;
+		while (points.length > 1) {
+			points = points.slice(1).map((after, at) => {
+				const before = points[at] ?? after;
+				return { x: before.x + (after.x - before.x) * t, y: before.y + (after.y - before.y) * t };
+			});
+		}
+		return points[0] ?? { x: 0, y: 0 };
+	});
 }
 
 /** Points along an elliptical arc, after the SVG specification's endpoint-to-center conversion. */
@@ -536,7 +678,11 @@ function arcPoints(
 export function paintedBounds(element: Element, rules: Rule[], theme: Theme): Bounds {
 	const points = runsOf(element).flat();
 	const style = computedStyle(element, rules, theme);
-	const half = style.get("stroke") === "none" ? 0 : Number(style.get("stroke-width")) / 2;
+	// A stroke's width scales with the viewports around it.
+	const half =
+		style.get("stroke") === "none"
+			? 0
+			: (Number(style.get("stroke-width")) / 2) * placementOf(element).scale;
 	return {
 		left: Math.min(...points.map((point) => point.x)) - half,
 		top: Math.min(...points.map((point) => point.y)) - half,

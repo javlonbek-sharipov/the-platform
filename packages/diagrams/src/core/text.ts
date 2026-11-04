@@ -43,6 +43,15 @@ const metrics: Record<FontWeight, Metrics> = {
 };
 
 const titleSize = 14;
+/** The size of a Node's Technology's name, below its title. */
+const technologySize = 11;
+/**
+ * How far a Node's title rises above its header's middle, and its
+ * Technology's name drops below it, when it has a Technology, so that the
+ * two lines are centered together.
+ */
+const titleRise = 7;
+const technologyDrop = 8;
 const groupTitleSize = 13;
 /** The room a Group's title leaves on each side, between it and the edge of its label box. */
 export const labelPadding = 12;
@@ -55,16 +64,40 @@ const rowGap = 8;
 const ellipsis = "…";
 
 /**
- * A Node's title, centered in the room its header leaves for it, and
- * shortened if it's too wide for that room.
+ * A Node's title, centered across the room its header leaves for it, level
+ * with the header's `middle`, and shortened if it's too wide for the room.
+ *
+ * When the Node has a Technology, the Technology's name goes below the
+ * title, smaller, and the title rises to make room for it. But the title
+ * rises no higher than the room's top, where the outline's face starts below
+ * a lid or a title bar.
  */
-export function nodeTitle(title: string, room: Box): SceneText {
-	return {
+export function headerTexts(
+	title: string,
+	technology: string | undefined,
+	room: Box,
+	middle: number,
+): { title: SceneText; technology?: SceneText } {
+	const x = room.x + room.width / 2;
+	const titleY =
+		technology === undefined ? middle : Math.max(middle - titleRise, room.y + titleSize / 2);
+	const titleText: SceneText = {
 		...fit(collapseSpaces(title), "semibold", titleSize, room.width),
-		point: { x: room.x + room.width / 2, y: room.y + room.height / 2 },
+		point: { x, y: titleY },
 		weight: "semibold",
 		size: titleSize,
 	};
+	return technology === undefined
+		? { title: titleText }
+		: {
+				title: titleText,
+				technology: {
+					...fit(technology, "regular", technologySize, room.width),
+					point: { x, y: titleY + titleRise + technologyDrop },
+					weight: "regular",
+					size: technologySize,
+				},
+			};
 }
 
 /**

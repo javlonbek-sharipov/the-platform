@@ -38,6 +38,11 @@ export interface ArchitectureNode<R extends string = string> {
 	id: string;
 	kind: ArchitectureNodeKind;
 	title: string;
+	/**
+	 * What it's built with: a product, language or protocol's slug, such as
+	 * `postgres` or `go`, drawn in its header as its logo and its name.
+	 */
+	technology?: string;
 	/** Whether the Node stands for something we don't own or run, drawn with a dashed outline. */
 	external?: boolean;
 	/** How the Node is doing, shown as a mark at the end of its header. */
@@ -145,12 +150,13 @@ export function architecture(
 	/** A builder whose Nodes and Groups join `parent`, the members list of the Diagram or of one Group. */
 	const builderFor = (parent: string[]): ArchitectureBuilder => {
 		const builder: ArchitectureBuilder = {
-			node({ id, kind, title, external, status, rows, links, callout }) {
+			node({ id, kind, title, technology, external, status, rows, links, callout }) {
 				declare(`/nodes/${nodes.length}`, builder.node);
 				nodes.push({
 					id,
 					kind,
 					title,
+					...(technology === undefined ? {} : { technology }),
 					...(external === undefined ? {} : { external }),
 					...(status === undefined ? {} : { status }),
 					...(rows === undefined

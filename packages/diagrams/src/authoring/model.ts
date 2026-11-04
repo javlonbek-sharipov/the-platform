@@ -35,6 +35,11 @@ export interface Node {
 	id: string;
 	kind: ArchitectureNodeKind;
 	title: string;
+	/**
+	 * What it's built with: the slug of a product, language or protocol, such
+	 * as `postgres` or `go`, drawn in its header as its logo and its name.
+	 */
+	technology?: string;
 	/** Whether the Node stands for something we don't own or run, such as a third-party API. */
 	external?: boolean;
 	status?: ArchitectureStatus;
