@@ -49,6 +49,7 @@ export function findRoot(cwd: string): string {
  * Ticket 05 replaces this walk with git's view of the repo.
  */
 export function discover(root: string, folder = root): string[] {
+	const top = resolve(root);
 	const modules: string[] = [];
 	const walk = (current: string) => {
 		const entries = readdirSync(current, { withFileTypes: true }).sort((a, b) =>
@@ -60,7 +61,7 @@ export function discover(root: string, folder = root): string[] {
 				const skipped =
 					entry.name === ".git" ||
 					entry.name === "node_modules" ||
-					(entry.name === "repos" && current === root);
+					(entry.name === "repos" && current === top);
 				if (!skipped) {
 					walk(path);
 				}

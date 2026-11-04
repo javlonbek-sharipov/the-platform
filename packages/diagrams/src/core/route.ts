@@ -25,7 +25,7 @@ export function route(diagram: Diagram, nodes: SceneNode[]): SceneEdge[] {
 	});
 }
 
-/** Runs along the source's side of the bend first, then into the target. */
+/** Leaves level with the source's Port, and turns once, toward the target's Port. */
 function straightOrBent(start: Point, end: Point): Point[] {
 	if (start.x === end.x || start.y === end.y) {
 		return [start, end];

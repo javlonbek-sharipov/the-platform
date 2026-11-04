@@ -16,11 +16,14 @@ export interface Validation {
 const nodeKinds: readonly string[] = architectureNodeKinds;
 const edgeKinds: readonly string[] = architectureEdgeKinds;
 
-/** Lowercase kebab-case words, optionally namespaced by a context: `billing/order`. */
-const idPattern = /^[a-z0-9]+(-[a-z0-9]+)*(\/[a-z0-9]+(-[a-z0-9]+)*)*$/;
-const idSource = idPattern.source.slice(1, -1);
-/** An id, or the default name of an Edge: its two ends joined by `->`. */
-const edgeIdPattern = new RegExp(`^${idSource}(->${idSource})?$`);
+const kebabCase = "[a-z0-9]+(?:-[a-z0-9]+)*";
+/** Lowercase kebab-case words, optionally namespaced by a context, as in `billing/order`. */
+const id = `${kebabCase}(?:/${kebabCase})*`;
+const idPattern = new RegExp(`^${id}$`);
+/** An id, or an Edge's default name: its two ends' ids joined by `->`. */
+const edgeIdPattern = new RegExp(`^${id}(?:->${id})?$`);
+
+const directions: unknown[] = [undefined, "right", "down"];
 
 export function validate(input: unknown): Validation {
 	const shape = checkShape(input);
@@ -147,12 +150,12 @@ function checkShape(input: unknown): Diagnostic[] {
 	}
 
 	const diagnostics: Diagnostic[] = [];
-	const require = (valid: boolean, pointer: string, what: string) => {
+	const check = (valid: boolean, pointer: string, what: string) => {
 		if (!valid) {
 			diagnostics.push(error("model-shape", `\`${pointer}\` must be ${what}.`, pointer));
 		}
 	};
-	const requireList = (
+	const checkList = (
 		value: unknown,
 		pointer: string,
 		each: (item: unknown, at: string) => void,
@@ -162,35 +165,33 @@ function checkShape(input: unknown): Diagnostic[] {
 				each(item, `${pointer}/${index}`);
 			});
 		} else {
-			require(false, pointer, "a list");
+			check(false, pointer, "a list");
 		}
 	};
-	const requireStrings = (value: unknown, pointer: string, fields: string[]) => {
+	const checkStrings = (value: unknown, pointer: string, fields: string[]) => {
 		if (isObject(value)) {
 			for (const field of fields) {
-				require(typeof value[field] === "string", `${pointer}/${field}`, "a string");
+				check(typeof value[field] === "string", `${pointer}/${field}`, "a string");
 			}
 		} else {
-			require(false, pointer, "an object");
+			check(false, pointer, "an object");
 		}
 	};
 
-	require(input.id === undefined || typeof input.id === "string", "/id", "a string");
-	require(typeof input.title === "string", "/title", "a string");
-	require(input.direction === undefined ||
-		input.direction === "right" ||
-		input.direction === "down", "/direction", "`right` or `down`");
-	requireList(input.members, "/members", (member, at) => {
-		require(typeof member === "string", at, "an id");
+	check(input.id === undefined || typeof input.id === "string", "/id", "a string");
+	check(typeof input.title === "string", "/title", "a string");
+	check(directions.includes(input.direction), "/direction", "`right` or `down`");
+	checkList(input.members, "/members", (member, at) => {
+		check(typeof member === "string", at, "an id");
 	});
-	requireList(input.nodes, "/nodes", (node, at) => {
-		requireStrings(node, at, ["id", "kind", "title"]);
+	checkList(input.nodes, "/nodes", (node, at) => {
+		checkStrings(node, at, ["id", "kind", "title"]);
 	});
-	requireList(input.groups, "/groups", () => {});
-	requireList(input.edges, "/edges", (edge, at) => {
-		requireStrings(edge, at, ["id", "kind", "from", "to"]);
+	checkList(input.groups, "/groups", () => {});
+	checkList(input.edges, "/edges", (edge, at) => {
+		checkStrings(edge, at, ["id", "kind", "from", "to"]);
 	});
-	requireList(input.walkthroughs, "/walkthroughs", () => {});
+	checkList(input.walkthroughs, "/walkthroughs", () => {});
 	return diagnostics;
 }
 
