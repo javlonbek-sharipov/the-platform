@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="diagram-7a582f0edf14bda9" role="img" viewBox="0 0 1584 368" width="1584" height="368">
+  <title>Order flow</title>
+  <desc>Nodes: Web app (client); Orders API (service); Orders database (database); Order events (queue); Stock API (service); Mailer (worker); Analytics (worker). Edges: Web app calls Orders API. Orders API calls Orders database. Orders API sends messages to Order events. Orders API calls Stock API across zones. Order events sends messages to Mailer. Order events sends messages to Analytics across regions.</desc>
+  <metadata>{"direction":"right","edges":[{"from":"web-app","id":"web-app-&gt;orders-api","kind":"call","to":"orders-api"},{"from":"orders-api","id":"orders-api-&gt;orders-db","kind":"call","to":"orders-db"},{"from":"orders-api","id":"orders-api-&gt;order-events","kind":"message","to":"order-events"},{"from":"orders-api","id":"orders-api-&gt;stock-api","kind":"call","to":"stock-api"},{"from":"order-events","id":"order-events-&gt;mailer","kind":"message","to":"mailer"},{"from":"order-events","id":"order-events-&gt;analytics","kind":"message","to":"analytics"}],"groups":[{"id":"eu-west","kind":"region","members":["eu-west-a","eu-west-b","mailer"],"title":"EU West"},{"id":"eu-west-a","kind":"zone","members":["orders-api","orders-db","order-events"],"title":"Zone A"},{"id":"eu-west-b","kind":"zone","members":["stock-api"],"title":"Zone B"},{"id":"us-east","kind":"region","members":["analytics"],"title":"US East"}],"members":["web-app","eu-west","us-east"],"nodes":[{"id":"web-app","kind":"client","title":"Web app"},{"id":"orders-api","kind":"service","title":"Orders API"},{"id":"orders-db","kind":"database","title":"Orders database"},{"id":"order-events","kind":"queue","title":"Order events"},{"id":"stock-api","kind":"service","title":"Stock API"},{"id":"mailer","kind":"worker","title":"Mailer"},{"id":"analytics","kind":"worker","title":"Analytics"}],"notation":"architecture","title":"Order flow","version":1,"walkthroughs":[]}</metadata>
+  <style>
+    @font-face { font-family: "diagram-7a582f0edf14bda9"; font-weight: 600; src: url("data:font/ttf;base64,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AAEECQANASAB8gADAAEECQAOADQDEgADAAEECQAQAAoDRgADAAEECQARABADUAADAAEECQAVAAoDYAADAAEECQAWABADagBDAG8AcAB5AHIAaQBnAGgAdAAgADIAMAAxADYAIABUAGgAZQAgAEkAbgB0AGUAcgAgAFAAcgBvAGoAZQBjAHQAIABBAHUAdABoAG8AcgBzAEkAbgB0AGUAcgAgAFMAZQBtAGkAQgBvAGwAZABSAGUAZwB1AGwAYQByADQALgAwADAAMQA7AGcAaQB0AC0AOQAyADIAMQBiAGUAZQBkADMAOwBSAFMATQBTADsASQBuAHQAZQByAC0AUwBlAG0AaQBCAG8AbABkAEkAbgB0AGUAcgAgAFMAZQBtAGkAQgBvAGwAZABWAGUAcgBzAGkAbwBuACAANAAuADAAMAAxADsAZwBpAHQALQA5ADIAMgAxAGIAZQBlAGQAMwBJAG4AdABlAHIALQBTAGUAbQBpAEIAbwBsAGQASQBuAHQAZQByACAAVQBJACAAYQBuAGQAIABJAG4AdABlAHIAIABpAHMAIABhACAAdAByAGEAZABlAG0AYQByAGsAIABvAGYAIAByAHMAbQBzAC4AcgBzAG0AcwBSAGEAcwBtAHUAcwAgAEEAbgBkAGUAcgBzAHMAbwBuAGgAdAB0AHAAcwA6AC8ALwByAHMAbQBzAC4AbQBlAC8AaAB0AHQAcABzADoALwAvAHIAcwBtAHMALgBtAGUALwBUAGgAaQBzACAARgBvAG4AdAAgAFMAbwBmAHQAdwBhAHIAZQAgAGkAcwAgAGwAaQBjAGUAbgBzAGUAZAAgAHUAbgBkAGUAcgAgAHQAaABlACAAUwBJAEwAIABPAHAAZQBuACAARgBvAG4AdAAgAEwAaQBjAGUAbgBzAGUALAAgAFYAZQByAHMAaQBvAG4AIAAxAC4AMQAuACAAVABoAGkAcwAgAGwAaQBjAGUAbgBzAGUAIABpAHMAIABhAHYAYQBpAGwAYQBiAGwAZQAgAHcAaQB0AGgAIABhACAARgBBAFEAIABhAHQAOgAgAGgAdAB0AHAAOgAvAC8AcwBjAHIAaQBwAHQAcwAuAHMAaQBsAC4AbwByAGcALwBPAEYATABoAHQAdABwADoALwAvAHMAYwByAGkAcAB0AHMALgBzAGkAbAAuAG8AcgBnAC8ATwBGAEwASQBuAHQAZQByAFMAZQBtAGkAQgBvAGwAZABJAG4AdABlAHIAUwBlAG0AaQBCAG8AbABkAAMAAAAAAAD+tQCtAAAAAAAAAAAAAAAAAAAAAAAAAAA=") format("truetype"); }
+    .diagram-7a582f0edf14bda9 { font-family: "diagram-7a582f0edf14bda9", Helvetica, Arial; font-kerning: none; font-variant-ligatures: none; }
+    .diagram-7a582f0edf14bda9 .diagram-background { fill: var(--diagram-background, #ffffff); }
+    .diagram-7a582f0edf14bda9 .diagram-group { stroke: var(--diagram-border, #d1d9e0); }
+    .diagram-7a582f0edf14bda9 .diagram-group-title { fill: var(--diagram-muted, #59636e); }
+    .diagram-7a582f0edf14bda9 .diagram-edges { color: var(--diagram-edge, #818b98); }
+    .diagram-7a582f0edf14bda9 .diagram-casing { stroke: var(--diagram-edge-casing, #424a53); }
+    .diagram-7a582f0edf14bda9 [data-crosses] { color: var(--diagram-warn, #9a6700); }
+    .diagram-7a582f0edf14bda9 [data-crosses] .diagram-casing { stroke: var(--diagram-warn-casing, #7d4e00); }
+    .diagram-7a582f0edf14bda9 .diagram-badge { stroke: var(--diagram-surface, #ffffff); }
+    .diagram-7a582f0edf14bda9 .diagram-base { fill: var(--diagram-surface, #ffffff); }
+    .diagram-7a582f0edf14bda9 [data-node][data-kind="client"] { color: var(--diagram-hue-users, #8250df); }
+    .diagram-7a582f0edf14bda9 [data-node][data-kind="service"], .diagram-7a582f0edf14bda9 [data-node][data-kind="worker"] { color: var(--diagram-hue-compute, #0969da); }
+    .diagram-7a582f0edf14bda9 [data-node][data-kind="database"] { color: var(--diagram-hue-data, #1b7c83); }
+    .diagram-7a582f0edf14bda9 [data-node][data-kind="queue"] { color: var(--diagram-hue-messaging, #bc4c00); }
+    .diagram-7a582f0edf14bda9 .diagram-text { fill: var(--diagram-ink, #1f2328); }
+    @media (prefers-color-scheme: dark) {
+      .diagram-7a582f0edf14bda9 .diagram-background { fill: var(--diagram-background, #0d1117); }
+      .diagram-7a582f0edf14bda9 .diagram-group { stroke: var(--diagram-border, #3d444d); }
+      .diagram-7a582f0edf14bda9 .diagram-group-title { fill: var(--diagram-muted, #9198a1); }
+      .diagram-7a582f0edf14bda9 .diagram-edges { color: var(--diagram-edge, #9198a1); }
+      .diagram-7a582f0edf14bda9 .diagram-casing { stroke: var(--diagram-edge-casing, #262c36); }
+      .diagram-7a582f0edf14bda9 [data-crosses] { color: var(--diagram-warn, #d29922); }
+      .diagram-7a582f0edf14bda9 [data-crosses] .diagram-casing { stroke: var(--diagram-warn-casing, #4b2900); }
+      .diagram-7a582f0edf14bda9 .diagram-badge { stroke: var(--diagram-surface, #161b22); }
+      .diagram-7a582f0edf14bda9 .diagram-base { fill: var(--diagram-surface, #161b22); }
+      .diagram-7a582f0edf14bda9 [data-node][data-kind="client"] { color: var(--diagram-hue-users, #ab7df8); }
+      .diagram-7a582f0edf14bda9 [data-node][data-kind="service"], .diagram-7a582f0edf14bda9 [data-node][data-kind="worker"] { color: var(--diagram-hue-compute, #4493f8); }
+      .diagram-7a582f0edf14bda9 [data-node][data-kind="database"] { color: var(--diagram-hue-data, #39c5cf); }
+      .diagram-7a582f0edf14bda9 [data-node][data-kind="queue"] { color: var(--diagram-hue-messaging, #f0883e); }
+      .diagram-7a582f0edf14bda9 .diagram-text { fill: var(--diagram-ink, #f0f6fc); }
+    }
+  </style>
+  <rect class="diagram-background" x="0" y="0" width="1584" height="368"/>
+  <g class="diagram-groups">
+    <g data-group="eu-west" data-kind="region">
+      <rect class="diagram-group" x="296" y="24" width="928" height="320" rx="8" fill="none" stroke-width="1.5"/>
+      <text class="diagram-group-title" x="334.7" y="36" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="central">EU West</text>
+    </g>
+    <g data-group="eu-west-a" data-kind="zone">
+      <rect class="diagram-group" x="328" y="80" width="528" height="224" rx="8" fill="none" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <text class="diagram-group-title" x="362.39" y="92" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="central">Zone A</text>
+    </g>
+    <g data-group="eu-west-b" data-kind="zone">
+      <rect class="diagram-group" x="952" y="80" width="240" height="144" rx="8" fill="none" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <text class="diagram-group-title" x="985.94" y="92" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="central">Zone B</text>
+    </g>
+    <g data-group="us-east" data-kind="region">
+      <rect class="diagram-group" x="1320" y="80" width="240" height="144" rx="8" fill="none" stroke-width="1.5"/>
+      <text class="diagram-group-title" x="1356.18" y="92" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="central">US East</text>
+    </g>
+  </g>
+  <g class="diagram-edges" fill="none">
+    <g data-edge="orders-api-&gt;stock-api" data-kind="call" data-from="orders-api" data-to="stock-api" data-crosses="zone">
+      <path class="diagram-casing" d="M 977 160 L 840 160 A 8 8 0 0 0 832 168 L 832 192 A 8 8 0 0 1 824 200 L 564 200 A 8 8 0 0 1 556 192 L 556 168 A 8 8 0 0 0 548 160 L 536 160" stroke-width="3.5"/>
+      <path d="M 977 160 L 840 160 A 8 8 0 0 0 832 168 L 832 192 A 8 8 0 0 1 824 200 L 564 200 A 8 8 0 0 1 556 192 L 556 168 A 8 8 0 0 0 548 160 L 536 160" stroke="currentColor" stroke-width="1.5"/>
+      <path class="diagram-casing" d="M 934 163.5 L 938 160 L 934 156.5 M 835.5 186 L 832 182 L 828.5 186 M 718 203.5 L 722 200 L 718 196.5 M 590 203.5 L 594 200 L 590 196.5" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 934 163.5 L 938 160 L 934 156.5 M 835.5 186 L 832 182 L 828.5 186 M 718 203.5 L 722 200 L 718 196.5 M 590 203.5 L 594 200 L 590 196.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="diagram-casing" d="M 984 160 L 976 164.5 L 976 155.5 Z" fill="currentColor" stroke-width="1" stroke-linejoin="round"/>
+      <circle class="diagram-casing" cx="762" cy="200" r="7" fill="currentColor" stroke-width="1"/>
+      <path class="diagram-badge" d="M 758.5 200 A 3.5 3.5 0 1 0 765.5 200 A 3.5 3.5 0 1 0 758.5 200 Z M 762 196.5 A 1.5 3.5 0 0 0 762 203.5 A 1.5 3.5 0 0 0 762 196.5 Z M 758.5 200 H 765.5" stroke-width="1"/>
+    </g>
+    <g data-edge="order-events-&gt;analytics" data-kind="message" data-from="order-events" data-to="analytics" data-crosses="region">
+      <path class="diagram-casing" d="M 1345 160 L 1216 160 A 8 8 0 0 0 1208 168 L 1208 232 A 8 8 0 0 1 1200 240 L 824 240" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 1345 160 L 1216 160 A 8 8 0 0 0 1208 168 L 1208 232 A 8 8 0 0 1 1200 240 L 824 240" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <path class="diagram-casing" d="M 1302 163.5 L 1306 160 L 1302 156.5 M 1211.5 194 L 1208 190 L 1204.5 194 M 1126 243.5 L 1130 240 L 1126 236.5 M 998 243.5 L 1002 240 L 998 236.5 M 870 243.5 L 874 240 L 870 236.5" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 1302 163.5 L 1306 160 L 1302 156.5 M 1211.5 194 L 1208 190 L 1204.5 194 M 1126 243.5 L 1130 240 L 1126 236.5 M 998 243.5 L 1002 240 L 998 236.5 M 870 243.5 L 874 240 L 870 236.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="diagram-casing" d="M 1352 160 L 1344 164.5 L 1344 155.5 Z" fill="currentColor" stroke-width="1" stroke-linejoin="round"/>
+      <circle class="diagram-casing" cx="1128" cy="240" r="7" fill="currentColor" stroke-width="1"/>
+      <path class="diagram-badge" d="M 1124.5 240 A 3.5 3.5 0 1 0 1131.5 240 A 3.5 3.5 0 1 0 1124.5 240 Z M 1128 236.5 A 1.5 3.5 0 0 0 1128 243.5 A 1.5 3.5 0 0 0 1128 236.5 Z M 1124.5 240 H 1131.5" stroke-width="1"/>
+    </g>
+    <g data-edge="web-app-&gt;orders-api" data-kind="call" data-from="web-app" data-to="orders-api">
+      <path class="diagram-casing" d="M 353 160 L 200 160" stroke-width="3.5"/>
+      <path d="M 353 160 L 200 160" stroke="currentColor" stroke-width="1.5"/>
+      <path class="diagram-casing" d="M 310 163.5 L 314 160 L 310 156.5" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 310 163.5 L 314 160 L 310 156.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="diagram-casing" d="M 360 160 L 352 164.5 L 352 155.5 Z" fill="currentColor" stroke-width="1" stroke-linejoin="round"/>
+    </g>
+    <g data-edge="orders-api-&gt;orders-db" data-kind="call" data-from="orders-api" data-to="orders-db">
+      <path class="diagram-casing" d="M 633 160 L 536 160" stroke-width="3.5"/>
+      <path d="M 633 160 L 536 160" stroke="currentColor" stroke-width="1.5"/>
+      <path class="diagram-casing" d="M 590 163.5 L 594 160 L 590 156.5" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 590 163.5 L 594 160 L 590 156.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="diagram-casing" d="M 640 160 L 632 164.5 L 632 155.5 Z" fill="currentColor" stroke-width="1" stroke-linejoin="round"/>
+    </g>
+    <g data-edge="orders-api-&gt;order-events" data-kind="message" data-from="orders-api" data-to="order-events">
+      <path class="diagram-casing" d="M 625 240 L 556 240 A 8 8 0 0 1 548 232 L 548 166 A 6 6 0 0 0 542 160 L 536 160" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 625 240 L 556 240 A 8 8 0 0 1 548 232 L 548 166 A 6 6 0 0 0 542 160 L 536 160" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <path class="diagram-casing" d="M 582 243.5 L 586 240 L 582 236.5" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 582 243.5 L 586 240 L 582 236.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="diagram-casing" d="M 632 240 L 624 244.5 L 624 235.5 Z" fill="currentColor" stroke-width="1" stroke-linejoin="round"/>
+    </g>
+    <g data-edge="order-events-&gt;mailer" data-kind="message" data-from="order-events" data-to="mailer">
+      <path class="diagram-casing" d="M 977 280 L 848 280 A 8 8 0 0 1 840 272 L 840 248 A 8 8 0 0 0 832 240 L 824 240" stroke-width="3.5" stroke-dasharray="6 4"/>
+      <path d="M 977 280 L 848 280 A 8 8 0 0 1 840 272 L 840 248 A 8 8 0 0 0 832 240 L 824 240" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <path class="diagram-casing" d="M 934 283.5 L 938 280 L 934 276.5" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 934 283.5 L 938 280 L 934 276.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="diagram-casing" d="M 984 280 L 976 284.5 L 976 275.5 Z" fill="currentColor" stroke-width="1" stroke-linejoin="round"/>
+    </g>
+    <g class="diagram-junctions">
+      <circle class="diagram-casing" data-from="orders-api" cx="548" cy="160" r="3" fill="currentColor" stroke-width="1.5"/>
+      <circle class="diagram-casing" data-from="orders-api" cx="556" cy="160" r="3" fill="currentColor" stroke-width="1.5"/>
+      <circle class="diagram-casing" data-from="order-events" cx="840" cy="240" r="3" fill="currentColor" stroke-width="1.5"/>
+    </g>
+  </g>
+  <g class="diagram-nodes">
+    <g data-node="web-app" data-kind="client">
+      <path class="diagram-base" d="M 30.75 136.75 H 193.25 A 6 6 0 0 1 199.25 142.75 V 177.25 A 6 6 0 0 1 193.25 183.25 H 30.75 A 6 6 0 0 1 24.75 177.25 V 142.75 A 6 6 0 0 1 30.75 136.75 Z"/>
+      <path d="M 30.75 136.75 H 193.25 A 6 6 0 0 1 199.25 142.75 V 145 L 199.25 145 H 24.75 L 24.75 145 V 142.75 A 6 6 0 0 1 30.75 136.75 Z" fill="currentColor" fill-opacity="0.5"/>
+      <path d="M 30.75 136.75 H 193.25 A 6 6 0 0 1 199.25 142.75 V 177.25 A 6 6 0 0 1 193.25 183.25 H 30.75 A 6 6 0 0 1 24.75 177.25 V 142.75 A 6 6 0 0 1 30.75 136.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path transform="translate(36 152)" d="M 1.5 2.5 H 14.5 V 11 H 1.5 Z M 5 14.5 H 11 M 8 11 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text class="diagram-text" x="124" y="160" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Web app</text>
+    </g>
+    <g data-node="orders-api" data-kind="service">
+      <path class="diagram-base" d="M 368.75 136.75 H 527.25 A 8 8 0 0 1 535.25 144.75 V 175.25 A 8 8 0 0 1 527.25 183.25 H 368.75 A 8 8 0 0 1 360.75 175.25 V 144.75 A 8 8 0 0 1 368.75 136.75 Z"/>
+      <path d="M 368.75 136.75 H 527.25 A 8 8 0 0 1 535.25 144.75 V 175.25 A 8 8 0 0 1 527.25 183.25 H 368.75 A 8 8 0 0 1 360.75 175.25 V 144.75 A 8 8 0 0 1 368.75 136.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path transform="translate(372 152)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text class="diagram-text" x="460" y="160" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Orders API</text>
+    </g>
+    <g data-node="orders-db" data-kind="database">
+      <path class="diagram-base" d="M 640.75 143.75 V 176.25 A 87.25 7 0 0 0 815.25 176.25 V 143.75 A 87.25 7 0 0 0 640.75 143.75 Z"/>
+      <path d="M 640.75 143.75 V 176.25 A 87.25 7 0 0 0 815.25 176.25 V 143.75 A 87.25 7 0 0 0 640.75 143.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M 640.75 143.75 A 87.25 7 0 0 0 815.25 143.75" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <path transform="translate(652 152)" d="M 2.5 4 A 5.5 2 0 0 0 13.5 4 A 5.5 2 0 0 0 2.5 4 V 12 A 5.5 2 0 0 0 13.5 12 V 4 M 2.5 8 A 5.5 2 0 0 0 13.5 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text class="diagram-text" x="740" y="160" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Orders database</text>
+    </g>
+    <g data-node="order-events" data-kind="queue">
+      <path class="diagram-base" d="M 641.75 216.75 H 814.25 A 9 23.25 0 0 1 823.25 240 V 240 A 9 23.25 0 0 1 814.25 263.25 H 641.75 A 9 23.25 0 0 1 632.75 240 V 240 A 9 23.25 0 0 1 641.75 216.75 Z"/>
+      <path d="M 641.75 216.75 H 814.25 A 9 23.25 0 0 1 823.25 240 V 240 A 9 23.25 0 0 1 814.25 263.25 H 641.75 A 9 23.25 0 0 1 632.75 240 V 240 A 9 23.25 0 0 1 641.75 216.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M 814.25 216.75 A 9 23.25 0 0 0 805.25 240 V 240 A 9 23.25 0 0 0 814.25 263.25" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <path transform="translate(644 232)" d="M 1.5 3.5 H 14.5 M 1.5 12.5 H 14.5 M 4.5 6.5 V 9.5 M 8 6.5 V 9.5 M 11.5 6.5 V 9.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text class="diagram-text" x="731" y="240" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Order events</text>
+    </g>
+    <g data-node="stock-api" data-kind="service">
+      <path class="diagram-base" d="M 992.75 136.75 H 1151.25 A 8 8 0 0 1 1159.25 144.75 V 175.25 A 8 8 0 0 1 1151.25 183.25 H 992.75 A 8 8 0 0 1 984.75 175.25 V 144.75 A 8 8 0 0 1 992.75 136.75 Z"/>
+      <path d="M 992.75 136.75 H 1151.25 A 8 8 0 0 1 1159.25 144.75 V 175.25 A 8 8 0 0 1 1151.25 183.25 H 992.75 A 8 8 0 0 1 984.75 175.25 V 144.75 A 8 8 0 0 1 992.75 136.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path transform="translate(996 152)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text class="diagram-text" x="1084" y="160" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Stock API</text>
+    </g>
+    <g data-node="mailer" data-kind="worker">
+      <path class="diagram-base" d="M 996.75 256.75 H 1152.25 A 7 7 0 0 1 1159.25 263.75 V 291.25 A 7 7 0 0 1 1152.25 298.25 H 996.75 A 7 7 0 0 1 989.75 291.25 V 263.75 A 7 7 0 0 1 996.75 256.75 Z"/>
+      <path d="M 996.75 256.75 H 1152.25 A 7 7 0 0 1 1159.25 263.75 V 291.25 A 7 7 0 0 1 1152.25 298.25 H 996.75 A 7 7 0 0 1 989.75 291.25 V 263.75 A 7 7 0 0 1 996.75 256.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path class="diagram-base" d="M 991.75 261.75 H 1147.25 A 7 7 0 0 1 1154.25 268.75 V 296.25 A 7 7 0 0 1 1147.25 303.25 H 991.75 A 7 7 0 0 1 984.75 296.25 V 268.75 A 7 7 0 0 1 991.75 261.75 Z"/>
+      <path d="M 991.75 261.75 H 1147.25 A 7 7 0 0 1 1154.25 268.75 V 296.25 A 7 7 0 0 1 1147.25 303.25 H 991.75 A 7 7 0 0 1 984.75 296.25 V 268.75 A 7 7 0 0 1 991.75 261.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path transform="translate(996 272)" d="M 12.68 6.24 L 14.86 6.61 L 14.86 9.39 L 12.68 9.76 L 12.55 10.06 L 13.83 11.87 L 11.87 13.83 L 10.06 12.55 L 9.76 12.68 L 9.39 14.86 L 6.61 14.86 L 6.24 12.68 L 5.94 12.55 L 4.13 13.83 L 2.17 11.87 L 3.45 10.06 L 3.32 9.76 L 1.14 9.39 L 1.14 6.61 L 3.32 6.24 L 3.45 5.94 L 2.17 4.13 L 4.13 2.17 L 5.94 3.45 L 6.24 3.32 L 6.61 1.14 L 9.39 1.14 L 9.76 3.32 L 10.06 3.45 L 11.87 2.17 L 13.83 4.13 L 12.55 5.94 Z M 6 8 A 2 2 0 1 0 10 8 A 2 2 0 1 0 6 8 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text class="diagram-text" x="1081.5" y="280" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Mailer</text>
+    </g>
+    <g data-node="analytics" data-kind="worker">
+      <path class="diagram-base" d="M 1364.75 136.75 H 1520.25 A 7 7 0 0 1 1527.25 143.75 V 171.25 A 7 7 0 0 1 1520.25 178.25 H 1364.75 A 7 7 0 0 1 1357.75 171.25 V 143.75 A 7 7 0 0 1 1364.75 136.75 Z"/>
+      <path d="M 1364.75 136.75 H 1520.25 A 7 7 0 0 1 1527.25 143.75 V 171.25 A 7 7 0 0 1 1520.25 178.25 H 1364.75 A 7 7 0 0 1 1357.75 171.25 V 143.75 A 7 7 0 0 1 1364.75 136.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path class="diagram-base" d="M 1359.75 141.75 H 1515.25 A 7 7 0 0 1 1522.25 148.75 V 176.25 A 7 7 0 0 1 1515.25 183.25 H 1359.75 A 7 7 0 0 1 1352.75 176.25 V 148.75 A 7 7 0 0 1 1359.75 141.75 Z"/>
+      <path d="M 1359.75 141.75 H 1515.25 A 7 7 0 0 1 1522.25 148.75 V 176.25 A 7 7 0 0 1 1515.25 183.25 H 1359.75 A 7 7 0 0 1 1352.75 176.25 V 148.75 A 7 7 0 0 1 1359.75 141.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path transform="translate(1364 152)" d="M 12.68 6.24 L 14.86 6.61 L 14.86 9.39 L 12.68 9.76 L 12.55 10.06 L 13.83 11.87 L 11.87 13.83 L 10.06 12.55 L 9.76 12.68 L 9.39 14.86 L 6.61 14.86 L 6.24 12.68 L 5.94 12.55 L 4.13 13.83 L 2.17 11.87 L 3.45 10.06 L 3.32 9.76 L 1.14 9.39 L 1.14 6.61 L 3.32 6.24 L 3.45 5.94 L 2.17 4.13 L 4.13 2.17 L 5.94 3.45 L 6.24 3.32 L 6.61 1.14 L 9.39 1.14 L 9.76 3.32 L 10.06 3.45 L 11.87 2.17 L 13.83 4.13 L 12.55 5.94 Z M 6 8 A 2 2 0 1 0 10 8 A 2 2 0 1 0 6 8 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text class="diagram-text" x="1449.5" y="160" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Analytics</text>
+    </g>
+  </g>
+</svg>

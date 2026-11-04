@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { crowded } from "./fixtures/crowded.ts";
+import edges from "./fixtures/edges.ts";
 import everyKind from "./fixtures/every-kind.ts";
 import externalStatusCallout from "./fixtures/external-status-callout.ts";
 import { renderWithFont } from "./support/fonts.ts";
@@ -10,6 +11,8 @@ const fixtures = {
 	"every-kind": everyKind,
 	"external-status-callout": externalStatusCallout,
 	crowded: crowded(),
+	// Both Edge Kinds, junctions, and Edges that cross between zones and between regions.
+	edges,
 };
 
 describe("golden files", () => {
