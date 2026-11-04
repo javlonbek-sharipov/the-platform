@@ -4,6 +4,10 @@
  * outside each side of each Node, through the end of each Port's stub, and
  * once more on each side, outside the whole drawing. Where two lines cross is
  * a vertex, and a segment joins two neighboring vertices on one line.
+ *
+ * A segment is open only if it stays clear of every Node, border included. A
+ * crossing inside a Node, or on its border, has no open segment, so no route
+ * can reach it: the vertices that routes use all lie outside the Nodes.
  */
 
 import type { Box, Point, SceneNode } from "./scene.ts";

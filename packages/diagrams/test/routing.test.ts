@@ -240,15 +240,6 @@ describe("an Edge", () => {
 		const reversed: Diagram = { ...orders, edges: [...orders.edges].reverse() };
 		expect(routes(reversed)).toEqual(routes(orders));
 	});
-
-	test("records its two Ports: its source's output Port and its target's input Port", () => {
-		for (const scene of [sceneOf(shop), sceneOf(down(shop))]) {
-			for (const edge of scene.edges) {
-				expect(edge.fromPort).toEqual(nodeOf(scene, edge.from).output);
-				expect(edge.toPort).toEqual(nodeOf(scene, edge.to).input);
-			}
-		}
-	});
 });
 
 describe.each(fixtures)("every route in %s", (_, diagram) => {
@@ -257,6 +248,14 @@ describe.each(fixtures)("every route in %s", (_, diagram) => {
 		expect(scene.edges.map(({ id, fellBack }) => [id, fellBack])).toEqual(
 			diagram.edges.map(({ id }) => [id, false]),
 		);
+	});
+
+	test("records its Edge's two Ports: its source's output Port and its target's input Port", () => {
+		const scene = sceneOf(diagram);
+		for (const edge of scene.edges) {
+			expect(edge.fromPort).toEqual(nodeOf(scene, edge.from).output);
+			expect(edge.toPort).toEqual(nodeOf(scene, edge.to).input);
+		}
 	});
 
 	test("leaves and enters its Nodes at right angles to their sides, along its Ports' stubs", () => {
@@ -326,6 +325,22 @@ describe("an Edge that the search can't route", () => {
 	/** A budget so small that every search runs out. */
 	const tiny = { searchBudget: 1 };
 
+	/** The Edges of `orders` whose target lies ahead of their source, along each direction. */
+	const ahead: [Diagram, string[]][] = [
+		[
+			orders,
+			[
+				"web-app->gateway",
+				"gateway->orders-api",
+				"orders-api->orders-db",
+				"gateway->orders-db",
+				"orders-api->order-events",
+				"order-events->mailer",
+			],
+		],
+		[down(orders), ["orders-api->order-events"]],
+	];
+
 	test("still gets a route, and the core warns that it fell back", () => {
 		const { scene, diagnostics } = render(orders, tiny);
 		expect(scene?.edges.map(({ id, fellBack }) => [id, fellBack])).toEqual(
@@ -342,28 +357,23 @@ describe("an Edge that the search can't route", () => {
 	});
 
 	test("runs straight, jogs once halfway between its Ports, and runs on, when its target lies ahead", () => {
-		const ahead = [
-			"web-app->gateway",
-			"gateway->orders-api",
-			"orders-api->orders-db",
-			"gateway->orders-db",
-			"orders-api->order-events",
-			"order-events->mailer",
-		];
-		const { scene } = render(orders, tiny);
-		for (const { id, route, fromPort, toPort } of scene?.edges ?? []) {
-			if (ahead.includes(id)) {
-				expect(route.map(at), id).toEqual(jogHalfway(fromPort.point, toPort.point, "right"));
+		for (const [diagram, ids] of ahead) {
+			const { scene } = render(diagram, tiny);
+			for (const { id, route, fromPort, toPort } of scene?.edges ?? []) {
+				if (ids.includes(id)) {
+					expect(route.map(at), id).toEqual(
+						jogHalfway(fromPort.point, toPort.point, diagram.direction),
+					);
+				}
 			}
 		}
 	});
 
 	test("otherwise steps out of its source, goes back past both Nodes in a lane beyond them, and enters its target from the input side", () => {
-		for (const diagram of [orders, down(orders)]) {
+		for (const [diagram, ids] of ahead) {
 			const { scene } = render(diagram, tiny);
 			for (const { id, route, from, to, fromPort, toPort } of scene?.edges ?? []) {
-				const back = ["order-events->orders-api", "mailer-retries"].includes(id);
-				if (!back || scene === undefined) {
+				if (ids.includes(id) || scene === undefined) {
 					continue;
 				}
 				expect(route, id).toHaveLength(6);

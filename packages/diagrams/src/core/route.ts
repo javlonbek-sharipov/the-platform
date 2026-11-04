@@ -32,7 +32,10 @@ const bendCost = 40;
 /** The radius of a rounded corner, where both runs that meet there are long enough. */
 const cornerRadius = 8;
 
-/** Enough for any Diagram of a few hundred Nodes. */
+/**
+ * How many states one Edge's search may visit: a guard against a runaway
+ * search, far above what routes on Diagrams of a few hundred Nodes need.
+ */
 const defaultSearchBudget = 200_000;
 
 /** The heading of a stub, out of its side. */
@@ -150,8 +153,8 @@ function transposeBox({ x, y, width, height }: Box): Box {
 }
 
 /**
- * The route as a polyline: runs that take turns between horizontal and
- * vertical, each merging the steps it's made of.
+ * The route as a polyline: consecutive steps in the same direction merge into
+ * one run, so runs take turns between horizontal and vertical.
  */
 function polyline(points: Point[]): Point[] {
 	const kept: Point[] = [];
@@ -161,17 +164,19 @@ function polyline(points: Point[]): Point[] {
 			continue;
 		}
 		const beforeLast = kept.at(-2);
-		if (
-			last !== undefined &&
-			beforeLast !== undefined &&
-			((beforeLast.x === last.x && last.x === point.x) ||
-				(beforeLast.y === last.y && last.y === point.y))
-		) {
+		if (last !== undefined && beforeLast !== undefined && sameWay(beforeLast, last, point)) {
 			kept.pop();
 		}
 		kept.push(point);
 	}
 	return kept;
+}
+
+/** Whether the step from `b` to `c` goes the same way as the step from `a` to `b`. */
+function sameWay(a: Point, b: Point, c: Point): boolean {
+	return (
+		Math.sign(b.x - a.x) === Math.sign(c.x - b.x) && Math.sign(b.y - a.y) === Math.sign(c.y - b.y)
+	);
 }
 
 /**
