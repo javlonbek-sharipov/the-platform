@@ -50,7 +50,7 @@
 
 ## Comments
 
-**Implementation, 4 November 2026** (branch `t3/28fe9083`). Choices the spec left open are recorded in its "Decisions made during implementation".
+**Implementation, 4 November 2026** (branch `t3/diagram-text-fonts`). Choices the spec left open are recorded in its "Decisions made during implementation".
 
 - **Manual check, the font loads.** In headless Chrome 156, each subset loaded as a `FontFace`: the example's, all of Basic Latin and Latin-1 in both weights, and one with characters beyond the Basic Multilingual Plane. A broken font failed to load, so the check can fail.
 - **Manual check, drawn text matches measured text.** I inlined the example and a fixture of 19 titles into a page. For every title, `getComputedTextLength()` was within 0.011 px of the scene's measured width. Kerning-prone and ligature-prone titles such as `AVATAR`, `Typography` and `a -> b` drew at exactly their measured widths. The one exception was `Tokyo 東京`: Inter lacks the CJK characters, and the system font that drew them made each about 4.9 px wider than the average width it was measured at. Lint warns about that title (`glyph-missing`).
