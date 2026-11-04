@@ -21,13 +21,14 @@ export interface PngOptions {
 /**
  * Draws an engine-made SVG as a PNG, in one theme.
  *
- * resvg takes fonts only as files, and reads no `@font-face`, so the SVG's
- * own font faces, the subset of the bundled font that it embeds, are written
- * to a temporary folder and handed to resvg. Not the bundled files: resvg
- * would apply their contextual alternates, which it can't be told to skip,
- * and which the subset leaves out. Inter's turn `->` into an arrow, so the
- * PNG's text would no longer match the SVG's. With system fonts off, the
- * faces are all that resvg has, so every text falls back to their family.
+ * Its text is drawn in the SVG's own font faces: the subset of the bundled
+ * font that the SVG embeds. resvg reads no `@font-face` and takes fonts only
+ * as files, so the faces go into a temporary folder for it. The bundled files
+ * themselves won't do: resvg would apply their contextual alternates, which
+ * the subset leaves out and which resvg can't be told to skip. Inter's
+ * alternates turn `->` into an arrow, so the PNG's text would no longer match
+ * the SVG's. With system fonts off, the faces are all that resvg has, so
+ * every text falls back to their family.
  */
 export function drawPng(svg: string, { theme, scale }: PngOptions): Uint8Array {
 	const { drawn, faces } = forResvg(svg, theme);
@@ -90,14 +91,17 @@ function forResvg(svg: string, theme: Theme): { drawn: string; faces: Uint8Array
 		}
 	}
 	const chosen = theme === "light" ? rules : rules.map((it) => dark.get(it.selectors) ?? it);
-	const style = chosen.map(
-		({ selectors, declarations }) =>
-			`${selectors} { ${declarations.map(([property, value]) => `${property}: ${resolved(value)};`).join(" ")} }`,
-	);
+	const style = chosen.map(resolvedText).join("\n");
 	return {
-		drawn: `${svg.slice(0, start)}${open}\n${style.join("\n")}\n${close}${svg.slice(end + close.length)}`,
+		drawn: `${svg.slice(0, start)}${open}\n${style}\n${close}${svg.slice(end + close.length)}`,
 		faces,
 	};
+}
+
+/** A rule as text, with each `var()` in it resolved. */
+function resolvedText({ selectors, declarations }: Rule): string {
+	const body = declarations.map(([property, value]) => `${property}: ${resolved(value)};`);
+	return `${selectors} { ${body.join(" ")} }`;
 }
 
 /** The top-level blocks of a style sheet, each with what comes before its brace. */
