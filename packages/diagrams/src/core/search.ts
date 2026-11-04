@@ -1,8 +1,10 @@
 /**
  * The route search (spec: Edge routing, step 3): A* over states of (vertex,
  * heading) on the routing grid. A step costs its length, plus a fixed cost
- * when it bends, and a small cost for each Group border it crosses. U-turns
- * aren't allowed, and the heuristic is the Manhattan distance to the goal.
+ * when it bends, and a small cost for each Group border it crosses. Where
+ * routes negotiate for room (step 5), it also costs each segment's lasting
+ * history, and a penalty for a segment that's already full. U-turns aren't
+ * allowed, and the heuristic is the Manhattan distance to the goal.
  */
 
 import type { Grid } from "./grid.ts";
@@ -30,20 +32,44 @@ export interface SearchEnd {
 	heading: Heading;
 }
 
+/** A state the search may start from, and what starting there costs. */
+export interface SearchStart extends SearchEnd {
+	cost: number;
+}
+
 export interface SearchCosts {
 	bend: number;
 	/** The cost of crossing one Group border. */
 	crossing: number;
 	/** The most states the search may visit before it gives up. */
 	budget: number;
+	congestion?: Congestion;
 }
 
 /**
- * The cheapest path from `start` to `goal`, as its vertices in order, or
- * undefined if there's none within the budget.
+ * How crowded each segment of the grid is, by segment: the one east of vertex
+ * `v` at `2 * v`, and the one south of it at `2 * v + 1`.
+ */
+export interface Congestion {
+	/** A lasting cost on each segment, raised each time it ends a pass over capacity. */
+	history: Float64Array;
+	/** How many lanes use each segment so far. */
+	usage: Uint16Array;
+	/** How many lanes fit through each segment. */
+	capacity: Uint16Array;
+	/** The segments that the route's own lane group uses already, marked with `stamp`: it adds no lane there. */
+	own: Uint32Array;
+	stamp: number;
+	/** What stepping onto a segment that's already full costs. */
+	full: number;
+}
+
+/**
+ * The cheapest path from any of the `starts` to `goal`, as its vertices in
+ * order, or undefined if there's none within the budget.
  */
 export type Search = (
-	start: SearchEnd,
+	starts: SearchStart[],
 	goal: SearchEnd,
 	costs: SearchCosts,
 ) => number[] | undefined;
@@ -56,9 +82,17 @@ export type Search = (
  */
 export function searchOn(grid: Grid): Search {
 	const columns = grid.xs.length;
-	const states = 4 * columns * grid.ys.length;
-	const xOf = (vertex: number) => grid.xs[vertex % columns] ?? 0;
-	const yOf = (vertex: number) => grid.ys[(vertex - (vertex % columns)) / columns] ?? 0;
+	const vertices = columns * grid.ys.length;
+	const states = 4 * vertices;
+	/** Each vertex's coordinates, worked out once, since the search reads them at every step. */
+	const vertexX = new Float64Array(vertices);
+	const vertexY = new Float64Array(vertices);
+	for (let vertex = 0; vertex < vertices; vertex += 1) {
+		vertexX[vertex] = grid.xs[vertex % columns] ?? 0;
+		vertexY[vertex] = grid.ys[(vertex - (vertex % columns)) / columns] ?? 0;
+	}
+	const xOf = (vertex: number) => vertexX[vertex] ?? 0;
+	const yOf = (vertex: number) => vertexY[vertex] ?? 0;
 	/** The cost of the cheapest known path to each state, valid where `reached` holds this search. */
 	const best = new Float64Array(states);
 	/** The state before each state on that path, or -1 at the start. */
@@ -67,12 +101,8 @@ export function searchOn(grid: Grid): Search {
 	const reached = new Uint32Array(states);
 	let current = 0;
 
-	return (start, goal, costs) => {
-		const startHeading = headings.indexOf(start.heading);
+	return (starts, goal, costs) => {
 		const goalHeading = headings.indexOf(goal.heading);
-		if (start.vertex === goal.vertex && startHeading !== (goalHeading + 2) % 4) {
-			return [start.vertex];
-		}
 		current += 1;
 		const goalX = xOf(goal.vertex);
 		const goalY = yOf(goal.vertex);
@@ -88,8 +118,16 @@ export function searchOn(grid: Grid): Search {
 			queue.push(state, cost, cost + Math.abs(xOf(vertex) - goalX) + Math.abs(yOf(vertex) - goalY));
 		};
 
-		const first = 4 * start.vertex + startHeading;
-		reach(first, 0, -1);
+		// A start at the goal is a route already, unless it leaves the opposite
+		// way, and then the search goes on from it.
+		for (const start of starts) {
+			const heading = headings.indexOf(start.heading);
+			const arrival =
+				start.vertex === goal.vertex && heading !== goalHeading && heading !== (goalHeading + 2) % 4
+					? costs.bend
+					: 0;
+			reach(4 * start.vertex + heading, start.cost + arrival, -1);
+		}
 		let visits = 0;
 		for (let entry = queue.pop(); entry !== undefined; entry = queue.pop()) {
 			const { state, cost } = entry;
@@ -102,7 +140,7 @@ export function searchOn(grid: Grid): Search {
 			visits += 1;
 			const heading = state % 4;
 			const vertex = (state - heading) / 4;
-			if (vertex === goal.vertex && state !== first) {
+			if (vertex === goal.vertex && (parents[state] !== -1 || heading !== (goalHeading + 2) % 4)) {
 				return pathTo(state, parents);
 			}
 			for (let next = 0; next < 4; next++) {
@@ -118,7 +156,8 @@ export function searchOn(grid: Grid): Search {
 					Math.abs(xOf(neighbor) - xOf(vertex)) +
 					Math.abs(yOf(neighbor) - yOf(vertex)) +
 					(next === heading ? 0 : costs.bend) +
-					costs.crossing * crossingsOf(grid, vertex, next);
+					costs.crossing * crossingsOf(grid, vertex, next) +
+					(costs.congestion === undefined ? 0 : crowding(costs.congestion, vertex, neighbor));
 				if (neighbor === goal.vertex) {
 					if (next === (goalHeading + 2) % 4) {
 						continue;
@@ -130,6 +169,23 @@ export function searchOn(grid: Grid): Search {
 		}
 		return undefined;
 	};
+}
+
+/** The index of the segment between two neighboring vertices. */
+export function segmentBetween(a: number, b: number): number {
+	const low = Math.min(a, b);
+	return 2 * low + (Math.abs(a - b) === 1 ? 0 : 1);
+}
+
+/** What a step from one vertex to its neighbor costs for crowding. */
+function crowding(congestion: Congestion, from: number, to: number): number {
+	const segment = segmentBetween(from, to);
+	const others =
+		(congestion.usage[segment] ?? 0) - (congestion.own[segment] === congestion.stamp ? 1 : 0);
+	return (
+		(congestion.history[segment] ?? 0) +
+		(others >= (congestion.capacity[segment] ?? 0) ? congestion.full : 0)
+	);
 }
 
 function pathTo(end: number, parents: Int32Array): number[] {
@@ -179,21 +235,27 @@ function neighborOf(grid: Grid, vertex: number, heading: number): number | undef
  * for as long as it can, and finds the one whose bends come nearest its goal.
  * Last ties go to the state queued first, so the search is deterministic.
  *
- * Each entry lives at one index of four parallel lists.
+ * Each entry lives at one index of four parallel typed arrays, which grow as
+ * the queue does.
  */
 class Queue {
-	#states: number[] = [];
-	#costs: number[] = [];
-	#estimates: number[] = [];
-	#orders: number[] = [];
+	#states = new Int32Array(1024);
+	#costs = new Float64Array(1024);
+	#estimates = new Float64Array(1024);
+	#orders = new Float64Array(1024);
+	#size = 0;
 	#queued = 0;
 
 	push(state: number, cost: number, estimate: number): void {
-		let index = this.#states.length;
-		this.#states.push(state);
-		this.#costs.push(cost);
-		this.#estimates.push(estimate);
-		this.#orders.push(this.#queued++);
+		if (this.#size === this.#states.length) {
+			this.#grow();
+		}
+		let index = this.#size;
+		this.#size += 1;
+		this.#states[index] = state;
+		this.#costs[index] = cost;
+		this.#estimates[index] = estimate;
+		this.#orders[index] = this.#queued++;
 		while (index > 0) {
 			const parent = Math.floor((index - 1) / 2);
 			if (!this.#before(index, parent)) {
@@ -205,16 +267,13 @@ class Queue {
 	}
 
 	pop(): { state: number; cost: number } | undefined {
-		const size = this.#states.length;
+		const size = this.#size;
 		if (size === 0) {
 			return undefined;
 		}
 		const top = { state: this.#states[0] ?? 0, cost: this.#costs[0] ?? 0 };
 		this.#swap(0, size - 1);
-		this.#states.pop();
-		this.#costs.pop();
-		this.#estimates.pop();
-		this.#orders.pop();
+		this.#size -= 1;
 		for (let index = 0; ; ) {
 			const left = 2 * index + 1;
 			const right = left + 1;
@@ -253,9 +312,26 @@ class Queue {
 		swap(this.#estimates, a, b);
 		swap(this.#orders, a, b);
 	}
+
+	/** Doubles the room for queued states, keeping those queued. */
+	#grow(): void {
+		const room = 2 * this.#states.length;
+		const states = new Int32Array(room);
+		const costs = new Float64Array(room);
+		const estimates = new Float64Array(room);
+		const orders = new Float64Array(room);
+		states.set(this.#states);
+		costs.set(this.#costs);
+		estimates.set(this.#estimates);
+		orders.set(this.#orders);
+		this.#states = states;
+		this.#costs = costs;
+		this.#estimates = estimates;
+		this.#orders = orders;
+	}
 }
 
-function swap(list: number[], a: number, b: number): void {
+function swap(list: Int32Array | Float64Array, a: number, b: number): void {
 	const value = list[a] ?? 0;
 	list[a] = list[b] ?? 0;
 	list[b] = value;

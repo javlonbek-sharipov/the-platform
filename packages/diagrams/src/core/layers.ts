@@ -27,13 +27,22 @@ export interface Member {
 export interface Connection {
 	from: number;
 	to: number;
+	/** The lane group of the Edge it stands for: connections of one group share a lane. */
+	lane?: string;
 }
 
 export interface Spacing {
 	/** How far apart two members of one rank stay, at least. */
 	clearance: number;
-	/** How far apart two ranks are. */
+	/** How far apart two ranks are, at least. */
 	rankGap: number;
+	/**
+	 * How much more room a gap between ranks needs, beyond the stubs on both
+	 * sides of it, for each lane group of Edges that crosses it.
+	 */
+	laneSpacing: number;
+	/** The room that the stubs on both sides of a gap take together. */
+	stubs: number;
 	/** The step of the grid that every Ports' line and rank line snaps to. */
 	grid: number;
 }
@@ -58,7 +67,12 @@ export function arrange(
 	const vertices = layered(members, rank, kept);
 	const ranks = orderRanks(vertices);
 	const across = alignAcross(vertices, ranks, spacing);
-	const along = ranksAlong(vertices, ranks, spacing);
+	const along = ranksAlong(
+		vertices,
+		ranks,
+		gapsOf(rank, connections, ranks.length, spacing),
+		spacing,
+	);
 	const top = Math.min(...members.map((member, index) => (across[index] ?? 0) - member.before));
 	const shift = Math.floor(top / spacing.grid) * spacing.grid;
 	return members.map((_, index) => ({ x: along[index] ?? 0, y: (across[index] ?? 0) - shift }));
@@ -270,11 +284,40 @@ function crossings(ranks: number[][], lower: number[][]): number {
 }
 
 /**
- * Each vertex's rank line, along the rank axis: the ranks follow each other,
- * a gap apart, counting from the room each rank needs before and after its line.
+ * The gap after each rank (layout step 6): room for the stubs on both sides
+ * of it, and a lane for each lane group of Edges that crosses it, in either
+ * direction, but never less than the usual gap.
  */
-function ranksAlong(vertices: Vertex[], ranks: number[][], spacing: Spacing): number[] {
-	const { rankGap, grid } = spacing;
+function gapsOf(
+	rank: number[],
+	connections: Connection[],
+	count: number,
+	spacing: Spacing,
+): number[] {
+	const crossing = Array.from({ length: count }, () => new Set<string>());
+	connections.forEach(({ from, to, lane }, index) => {
+		const [low, high] = [rank[from] ?? 0, rank[to] ?? 0].sort((a, b) => a - b);
+		for (let gap = low ?? 0; gap < (high ?? 0); gap += 1) {
+			crossing[gap]?.add(lane ?? `${index}`);
+		}
+	});
+	return crossing.map((lanes) =>
+		Math.max(spacing.rankGap, spacing.stubs + lanes.size * spacing.laneSpacing),
+	);
+}
+
+/**
+ * Each vertex's rank line, along the rank axis: the ranks follow each other,
+ * each gap apart, counting from the room each rank needs before and after its
+ * line.
+ */
+function ranksAlong(
+	vertices: Vertex[],
+	ranks: number[][],
+	gaps: number[],
+	spacing: Spacing,
+): number[] {
+	const { grid } = spacing;
 	const along: number[] = vertices.map(() => 0);
 	let line = 0;
 	let previousAfter = 0;
@@ -284,7 +327,8 @@ function ranksAlong(vertices: Vertex[], ranks: number[][], spacing: Spacing): nu
 			...members.map((vertex) => (vertex?.depth ?? 0) / 2 + (vertex?.lead ?? 0)),
 		);
 		const after = Math.max(...members.map((vertex) => (vertex?.depth ?? 0) / 2));
-		line = snap(index === 0 ? before : line + previousAfter + rankGap + before, grid);
+		const gap = gaps[index - 1] ?? spacing.rankGap;
+		line = snap(index === 0 ? before : line + previousAfter + gap + before, grid);
 		previousAfter = after;
 		for (const vertex of rank) {
 			along[vertex] = line;

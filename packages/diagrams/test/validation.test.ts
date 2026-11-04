@@ -369,6 +369,29 @@ describe("validation", () => {
 		]);
 	});
 
+	test("reports an Edge that keeps its default id when another Edge joins the same two Nodes, and asks for explicit ids", () => {
+		const diagram = shopJson();
+		diagram.edges.push({ id: "shop-events", kind: "message", from: "web-app", to: "shop-api" });
+
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "default-edge-id",
+				message:
+					"Edge `web-app->shop-api` keeps the default id, which Edge `shop-events` would get too, since both join `web-app` to `shop-api`. Give each Edge between the same two Nodes an id of its own.",
+				pointer: "/edges/0/id",
+			},
+		]);
+	});
+
+	test("accepts two Edges between the same two Nodes once both have ids of their own", () => {
+		const diagram = shopJson();
+		diagram.edges[0] = { id: "web-app-calls", kind: "call", from: "web-app", to: "shop-api" };
+		diagram.edges.push({ id: "shop-events", kind: "message", from: "web-app", to: "shop-api" });
+
+		expect(render(diagram).diagnostics).toEqual([]);
+	});
+
 	test("reports a Node id that isn't lowercase kebab-case", () => {
 		const diagram = shopJson();
 		diagram.nodes[2] = { id: "Shop_DB", kind: "database", title: "Shop database" };

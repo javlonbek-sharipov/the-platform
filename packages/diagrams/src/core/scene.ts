@@ -161,6 +161,13 @@ export interface Scene {
 	clearance: number;
 	/** The step of the grid that layout snaps every position to. */
 	grid: number;
+	/**
+	 * How Edges that share a corridor spread into lanes: the spacing between
+	 * neighboring lanes where there's room, the least they squeeze to in a
+	 * narrow corridor, and how far every lane keeps from the corridor's sides.
+	 * A corridor holds as many lanes as its width divided by the spacing.
+	 */
+	lanes: { spacing: number; minimum: number; padding: number };
 	nodes: SceneNode[];
 	/** The Groups, in model order. */
 	groups: SceneGroup[];

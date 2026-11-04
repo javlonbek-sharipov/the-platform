@@ -1590,6 +1590,68 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
    - resvg takes `dominant-baseline` only from an element's parent, but the SVG sets it on the group around all Nodes, and on the one around all Groups (since ticket 06), two levels above each text. So a rule sets it on each text inside an element that has it, Group titles included. Without that rule, every text sat 5 px high.
 8. **Tests read PNGs with their own decoder,** `test/support/png.ts`, written from the PNG specification. They check sizes from the header, the theme from the background's pixels, and where each text's ink lies: across, the span that Inter's advance widths give, and up and down, capitals centered on their point, as browsers draw them.
 
+**Ticket 09**
+
+1. **Default Edge ids.** This settles the Rules' "both must be given ids".
+   - An Edge whose id is its default name keeps the default. The default name is its two Nodes' ids joined by `->`, whatever their Rows. Keeping it is the error `default-edge-id` when another Edge joins the same two Nodes. The error is reported at the Edge that keeps it, and names the other Edge.
+   - Two Edges that both keep it are still a `duplicate-id` error.
+2. **Bundles** live in `src/core/bundles.ts`, which layout and the router share.
+   - An Edge's lane group is its bundle: Edges of one Kind into one Port.
+   - In each bundle, the second Edge between one pair of Ports goes into a second group, and so on, so parallel Edges never share a lane.
+   - The parameter is `render(diagram, { bundle })`, which takes one of three values:
+     - `"target"` is the default, and the architecture Notation's choice;
+     - `"source"` bundles Edges out of one Port, as the data-model Notation will want;
+     - `"none"` bundles nothing.
+3. **Trunks.**
+   - A later Edge of a group starts its backward search at any vertex of the group's earlier routes. With `"source"`, it searches forward from them.
+   - Joining a trunk from behind costs nothing, and from the side a bend. Head-on isn't allowed.
+   - Joining also costs the Group borders that the rest of the trunk crosses, as crossing costs.
+   - A route between two Nodes of one Group joins a trunk only inside the innermost Group that holds both, so that it stays inside it (ticket 06).
+4. **Capacity.**
+   - A segment's free width runs from the nearest Node, tag, Group label or same-way Group border on one side to the nearest on the other, over its length.
+   - Its capacity is the width divided by the lane spacing, rounded down, and 1,000 where nothing bounds it.
+5. **Negotiation.**
+   - There are at most five passes.
+   - Stepping onto a segment already full of other groups' lanes costs 48.
+   - Each pass that leaves a segment over capacity adds 48 to its lasting history.
+   - Each pass also nudges its routes. A set that nudging squeezes below the minimum spacing, or can't fit in its limits at all, counts as over capacity too, and the segments beneath it gain history. The grid's capacity can't see what makes a corridor too narrow for its lanes: one-sided limits, a neighboring line's lanes, a junction.
+   - The pass that leaves the least over capacity wins.
+   - Edges are routed in the order of their lane group's key, then their id.
+6. **Lanes.**
+   - Lanes are 8 px apart where there's room, never less than 4, and at least 8 from the sides of their corridor: Nodes, tags, Group labels and same-way Group borders. The narrowest corridor, a clearance wide, holds four.
+   - The scene states this as `lanes: { spacing, minimum, padding }`.
+7. **Nudging.**
+   - A stretch is one lane group's runs on one line, joined where they overlap or meet.
+   - An overlap set is the stretches of a line that overlap, or meet at a point where either one's corner can move, joined transitively.
+   - A set is sorted by limits first: a stretch that must keep to one side of the line goes on that side. Then two stretches are compared by walking both routes along their shared path until they part. The one that turns left there runs on the left all along. Last ties go by group key.
+   - Each stretch takes the lowest lane above every earlier stretch it overlaps, so stretches that don't overlap may share a lane.
+   - Lanes are spaced evenly, centered on the line or on the stretch that would most rather keep it. Each lane goes as near its place as its own limits allow.
+   - Neighboring lines share the room between them by what each set needs at the minimum spacing, with the rest split by what each would use at the preferred spacing. Lines too close for that are placed as one set, the lower line's lanes below the upper line's.
+   - Sorting is an insertion sort, so it gives the same order in every JavaScript engine even when comparisons disagree.
+8. **Stubs.**
+   - A route that turns off at a stub's end may cut into its stub, leaving at least 8 px of its 16. This replaces ticket 03's test that every route passes its stub's end.
+   - Every Port in use is an obstacle to other Ports' lanes. A lane beside its stub keeps to the stub's far end or beyond. Where that would squeeze a set below the minimum spacing, the set keeps only the hard limits, and crosses the stubs.
+9. **Junctions.**
+   - A Port's junction is the stretch of its stub's line from the stub's end out to where the farthest of its Edges turns off or jogs.
+   - It's fixed at the stub's height, and only the Port's own Edges use it.
+   - A stretch made only of the Port's own Edges' first runs, or last runs, holds the junction, so that it needn't jog, unless it also passes another Port's junction.
+   - Nudging runs up to three rounds, each with the junctions the round before reached, until none reaches further.
+10. **Jogs.**
+    - A first or last run that carries its stub straight on keeps the stub's line where it can: a route straight from stub to stub first, then a junction's holder. Otherwise it jogs.
+    - At one Port, the jog to the farthest lane comes first, at the stub's end, and each nearer lane jogs 4 px further out. Every jog keeps 4 px past the Port's Edges that turn off to the same side, and clear of every other route's runs.
+    - A lane group's routes share one jog.
+11. **Gaps between ranks.** Each is the usual 96 px or more. It holds a clearance, for the stubs on both sides, and 8 px for each lane group whose Edges cross it, in either direction. Ticket 10 adds labels in `gapsOf` in `src/core/layers.ts`.
+12. **Shared stretches in tests.** Edges that share a Port may share its junction: the stub's line on both Edges' first runs out of it, or last runs into it. Every other shared stretch between two bundles fails the property.
+13. **The crowded fixture** is `test/fixtures/crowded.ts`, an online shop.
+    - It has 59 Nodes, 148 Edges and 10 Groups, nested up to region › zone › system.
+    - The API gateway fans out to 14 services in the EU region, two ranks on. Layout counts the region as one block there, so the whole fan-out passes the rank between through one corridor.
+    - Its golden file is `crowded.svg`.
+14. **Speed.**
+    - `pnpm bench` runs `packages/diagrams/scripts/benchmark.ts` in plain Node, without Vitest's module runner, whose export getters skew the timings. It reports 86 ms median drawn `right` and 132 ms drawn `down`.
+    - The suite's limit is 3 s.
+    - The search reads each vertex's coordinates from typed arrays, and keeps its queue in typed arrays that grow.
+15. **Rules added:** `default-edge-id`.
+
 ### References
 
 **Routing and layout papers**

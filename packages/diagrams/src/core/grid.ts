@@ -13,6 +13,11 @@
  * lie outside them. A segment along a Group's border is closed too, so that
  * routes cross Group borders but never run along them. The grid counts the
  * borders that each segment crosses, so that crossing one can cost a little.
+ *
+ * Each segment also has a capacity (spec: Edge routing, step 2): its free
+ * width, from the nearest obstacle or Group border on one side of it to the
+ * nearest on the other, divided by the lane spacing. That's how many lanes
+ * fit through it side by side.
  */
 
 import type { Box, Point, SceneGroup, SceneNode } from "./scene.ts";
@@ -33,9 +38,22 @@ export interface Grid {
 	crossEast: Uint16Array;
 	/** How many Group borders the segment south of each vertex crosses, by vertex. */
 	crossSouth: Uint16Array;
+	/**
+	 * How many lanes fit through each segment: the one east of vertex `v` at
+	 * `2 * v`, and the one south of it at `2 * v + 1`.
+	 */
+	capacity: Uint16Array;
 }
 
-export function buildGrid(nodes: SceneNode[], groups: SceneGroup[], clearance: number): Grid {
+/** The most lanes a segment counts as holding, which open space beyond every obstacle has. */
+const roomy = 1000;
+
+export function buildGrid(
+	nodes: SceneNode[],
+	groups: SceneGroup[],
+	clearance: number,
+	laneSpacing: number,
+): Grid {
 	const half = clearance / 2;
 	// A callout's tag sits above its Node, where layout leaves room for it, and
 	// is in the way of routes as the Node is. So is a Group's label.
@@ -74,6 +92,7 @@ export function buildGrid(nodes: SceneNode[], groups: SceneGroup[], clearance: n
 		openSouth: new Uint8Array(xs.size * ys.size),
 		crossEast: new Uint16Array(xs.size * ys.size),
 		crossSouth: new Uint16Array(xs.size * ys.size),
+		capacity: new Uint16Array(2 * xs.size * ys.size),
 	};
 	const columns = grid.xs.length;
 	grid.ys.forEach((y, j) => {
@@ -110,7 +129,82 @@ export function buildGrid(nodes: SceneNode[], groups: SceneGroup[], clearance: n
 			grid.crossSouth[j * columns + i] = count;
 		});
 	});
+	measureCapacity(grid, boxes, borders, laneSpacing);
 	return grid;
+}
+
+/**
+ * Sets each segment's capacity: its free width across it, divided by the lane
+ * spacing. The free width runs from the nearest obstacle on one side to the
+ * nearest on the other, among those beside the segment along its length:
+ * boxes, and the sides of Group boxes that run the same way.
+ */
+function measureCapacity(grid: Grid, boxes: Box[], borders: Box[], laneSpacing: number): void {
+	const columns = grid.xs.length;
+	for (const horizontal of [true, false]) {
+		const lines = horizontal ? grid.ys : grid.xs;
+		const stops = horizontal ? grid.xs : grid.ys;
+		const across = (box: Box): [number, number] =>
+			horizontal ? [box.y, box.y + box.height] : [box.x, box.x + box.width];
+		const along = (box: Box): [number, number] =>
+			horizontal ? [box.x, box.x + box.width] : [box.y, box.y + box.height];
+		lines.forEach((line, j) => {
+			const low = new Float64Array(stops.length).fill(Number.NEGATIVE_INFINITY);
+			const high = new Float64Array(stops.length).fill(Number.POSITIVE_INFINITY);
+			const bound = (start: number, end: number, side: number) => {
+				for (let i = firstGapAfter(stops, start); i + 1 < stops.length; i += 1) {
+					if ((stops[i] ?? 0) >= end) {
+						break;
+					}
+					if (side <= line) {
+						low[i] = Math.max(low[i] ?? 0, side);
+					}
+					if (side >= line) {
+						high[i] = Math.min(high[i] ?? 0, side);
+					}
+				}
+			};
+			for (const box of boxes) {
+				const [near, far] = across(box);
+				const [start, end] = along(box);
+				if (far <= line) {
+					bound(start, end, far);
+				} else if (near >= line) {
+					bound(start, end, near);
+				}
+			}
+			for (const box of borders) {
+				const [start, end] = along(box);
+				for (const side of across(box)) {
+					if (side !== line) {
+						bound(start, end, side);
+					}
+				}
+			}
+			for (let i = 0; i + 1 < stops.length; i += 1) {
+				const width = (high[i] ?? 0) - (low[i] ?? 0);
+				const vertex = horizontal ? j * columns + i : i * columns + j;
+				grid.capacity[2 * vertex + (horizontal ? 0 : 1)] = Number.isFinite(width)
+					? Math.min(roomy, Math.floor(width / laneSpacing))
+					: roomy;
+			}
+		});
+	}
+}
+
+/** The index of the first gap between neighboring stops that ends after `position`. */
+function firstGapAfter(stops: number[], position: number): number {
+	let low = 0;
+	let high = stops.length - 1;
+	while (low < high) {
+		const middle = (low + high) >> 1;
+		if ((stops[middle + 1] ?? 0) <= position) {
+			low = middle + 1;
+		} else {
+			high = middle;
+		}
+	}
+	return low;
 }
 
 /**

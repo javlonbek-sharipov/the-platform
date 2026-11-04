@@ -15,6 +15,7 @@
  */
 
 import { type Diagram, endNode } from "../authoring/model.ts";
+import { type Bundling, laneGroups } from "./bundles.ts";
 import { arrange, type Connection, type Member } from "./layers.ts";
 import { faceOf, frameOf, type NodeFrame, partsOf, rowHeight } from "./nodes.ts";
 import type { Box, Point, SceneGroup, SceneNode, ScenePort, Side } from "./scene.ts";
@@ -69,8 +70,14 @@ interface Block extends Level {
 	tagRoom: number;
 }
 
-export function layOut(diagram: Diagram): Layout {
+/** The spacing of lanes, as the router spaces them where there's room. */
+const laneSpacing = 8;
+
+export function layOut(diagram: Diagram, bundle: Bundling = "target"): Layout {
 	const down = diagram.direction === "down";
+	// Each Edge's lane group, so that each gap between ranks leaves room for a
+	// lane for each group that crosses it.
+	const laneOf = laneGroups(diagram, bundle);
 	const groupsById = new Map(diagram.groups.map((group) => [group.id, group]));
 	// A Node is as tall as its Kind's header and its Rows' bands together.
 	const frames = new Map(diagram.nodes.map((node) => [node.id, frameOf(node)]));
@@ -146,7 +153,7 @@ export function layOut(diagram: Diagram): Layout {
 			if (from === undefined || to === undefined) {
 				continue;
 			}
-			connections.push({ from, to });
+			connections.push({ from, to, lane: laneOf.get(edge.id) ?? edge.id });
 			if (from !== to) {
 				anchors.set(from, anchors.get(from) ?? fromNode);
 				anchors.set(to, anchors.get(to) ?? toNode);
@@ -175,7 +182,13 @@ export function layOut(diagram: Diagram): Layout {
 					}
 				: { depth: block.width, before: ports, after: breadth - ports };
 		});
-		const placements = arrange(measured, connections, { clearance, rankGap, grid });
+		const placements = arrange(measured, connections, {
+			clearance,
+			rankGap,
+			grid,
+			laneSpacing,
+			stubs: 2 * stubLength,
+		});
 
 		const level: Level = { width: 0, height: 0, nodes: new Map(), groups: new Map() };
 		blocks.forEach((block, member) => {

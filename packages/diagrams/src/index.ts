@@ -27,6 +27,7 @@ export type {
 	Row,
 	RowEnd,
 } from "./authoring/model.ts";
+export type { Bundling } from "./core/bundles.ts";
 export type { Diagnostic, Severity } from "./core/diagnostics.ts";
 export type { RenderOptions, RenderResult } from "./core/render.ts";
 export { render } from "./core/render.ts";

@@ -4,9 +4,10 @@
  * errors, it also returns the scene and the SVG.
  */
 
+import type { Bundling } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { clearance, grid, layOut, margin } from "./layout.ts";
-import { route } from "./route.ts";
+import { lanes, route } from "./route.ts";
 import type { Box, Scene, SceneEdge } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
 import { type FontData, textDiagnostics } from "./text.ts";
@@ -19,6 +20,13 @@ export interface RenderResult {
 }
 
 export interface RenderOptions {
+	/**
+	 * Which Edges share a trunk: those of one Kind into one Port (`target`,
+	 * which the architecture Notation uses and the default), those of one Kind
+	 * out of one Port (`source`), or none. A later Notation may bundle
+	 * differently, and tests compare the three.
+	 */
+	bundle?: Bundling;
 	/**
 	 * Gives the SVG the bundled font's glyphs that it draws. Without it, the
 	 * SVG embeds no font, which suits callers that only look at the scene.
@@ -38,7 +46,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		return { diagnostics: validation.diagnostics };
 	}
 	const model = validation.diagram;
-	const { nodes, groups } = layOut(model);
+	const { nodes, groups } = layOut(model, options.bundle);
 	const { edges, diagnostics } = route(model, nodes, groups, options);
 	const scene: Scene = {
 		bounds: boundsOf(
@@ -52,6 +60,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		),
 		clearance,
 		grid,
+		lanes,
 		nodes,
 		groups,
 		edges,
