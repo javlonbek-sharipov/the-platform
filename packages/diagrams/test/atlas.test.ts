@@ -1,4 +1,4 @@
-import { rm, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { git, runCli, sampleAtlas, sampleConfig, shopModule } from "./support/atlas.ts";
@@ -233,6 +233,64 @@ describe("ids across the Atlas", () => {
 				`docs/billing.diagram.ts:4:4: error: Node \`payments-api\` has the title \`Payments\` here, but \`Payments API\` on the Diagram \`docs/shop\`. ${rule}\n` +
 				`docs/shop.diagram.ts:4:4: error: Node \`payments-api\` has the title \`Payments API\` here, but \`Payments\` on the Diagram \`docs/billing\`. ${rule}\n` +
 				"Checked 2 Diagrams: 2 errors.\n",
+			stderr: "",
+		});
+	});
+});
+
+describe("shared definitions", () => {
+	/** A shared module that defines the Payments API once, as a plain object. */
+	const sharedNodes = (
+		title: string,
+	) => `import type { ArchitectureNode } from "@the-platform/diagrams";
+
+export const paymentsApi = {
+	id: "payments-api",
+	kind: "service",
+	title: ${JSON.stringify(title)},
+	links: [{ doc: "docs/payments.md", section: "Refunds" }],
+} satisfies ArchitectureNode;
+`;
+	/** A Diagram in which a service of its own calls the shared Payments API. */
+	const caller = (name: string) => `import { architecture } from "@the-platform/diagrams";
+import { paymentsApi } from "./shared/nodes.ts";
+
+export default architecture({ title: "${name}" }, (d) => {
+	const api = d.node({ id: "${name.toLowerCase()}-api", kind: "service", title: "${name} API" });
+	d.edge(api, d.node(paymentsApi), { kind: "call" });
+});
+`;
+
+	test("renaming a shared Node in its one place renames it on every Diagram, and lint still passes", async () => {
+		const atlas = await sampleAtlas({
+			"docs/payments.md": "# Payments\n\n## Refunds\n",
+			"docs/shared/nodes.ts": sharedNodes("Payments API"),
+			"docs/billing.diagram.ts": caller("Billing"),
+			"docs/shop.diagram.ts": caller("Shop"),
+		});
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+		expect((await runCli(["lint"], atlas)).stdout).toBe("Checked 2 Diagrams: no errors.\n");
+
+		await writeFile(join(atlas, "docs/shared/nodes.ts"), sharedNodes("Payments service"));
+
+		expect((await runCli(["lint"], atlas)).stdout).toBe(
+			"docs/billing.diagram.svg: error: The SVG no longer matches its source. Run `diagrams render`. (svg-out-of-date)\n" +
+				"docs/shop.diagram.svg: error: The SVG no longer matches its source. Run `diagrams render`. (svg-out-of-date)\n" +
+				"Checked 2 Diagrams: 2 errors.\n",
+		);
+		expect(await runCli(["render"], atlas)).toEqual({
+			code: 0,
+			stdout: "Wrote docs/billing.diagram.svg\nWrote docs/shop.diagram.svg\n",
+			stderr: "",
+		});
+		for (const svg of ["docs/billing.diagram.svg", "docs/shop.diagram.svg"]) {
+			const drawn = await readFile(join(atlas, svg), "utf8");
+			expect(drawn).toContain(">Payments service</text>");
+			expect(drawn).not.toContain("Payments API");
+		}
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 0,
+			stdout: "Checked 2 Diagrams: no errors.\n",
 			stderr: "",
 		});
 	});
