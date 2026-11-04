@@ -289,6 +289,20 @@ describe("the SVG", () => {
 		expect(nodeGroup(render(database("right", 0)).svg ?? "", "orders-db")).not.toContain("<line");
 	});
 
+	test("marks each end of an Edge attached to a Row with the Row's name, after its Node's id", () => {
+		const svg = render(attached("right")).svg ?? "";
+		const hooks = [...svg.matchAll(/<g (data-edge="[^"]*"[^>]*)>/g)].map(([, attributes]) =>
+			attributes?.replaceAll("&gt;", ">"),
+		);
+		expect(hooks).toEqual([
+			'data-edge="orders-api->order-events" data-kind="message" data-from="orders-api" data-to="order-events" data-to-row="order-placed"',
+			'data-edge="order-events->payments-api" data-kind="message" data-from="order-events" data-from-row="order-placed" data-to="payments-api"',
+			'data-edge="payments-api->order-events" data-kind="message" data-from="payments-api" data-to="order-events" data-to-row="order-paid"',
+			'data-edge="orders-api->orders-db" data-kind="call" data-from="orders-api" data-to="orders-db" data-to-row="orders"',
+			'data-edge="payments-api->orders-db" data-kind="call" data-from="payments-api" data-to="orders-db" data-to-row="payments"',
+		]);
+	});
+
 	test("asks for the regular weight's glyphs for the characters that Rows draw", () => {
 		const weights: Record<string, string> = {};
 		render(database("right", 3), {

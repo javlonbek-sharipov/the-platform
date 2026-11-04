@@ -86,8 +86,12 @@ export interface SceneEdge {
 	kind: string;
 	/** The id of the Node that the route leaves. */
 	from: string;
+	/** The name of the Row it leaves from, when the Edge starts at one. */
+	fromRow?: string;
 	/** The id of the Node that the route enters. */
 	to: string;
+	/** The name of the Row it enters at, when the Edge ends at one. */
+	toRow?: string;
 	/**
 	 * The Port the route leaves: the `from` Node's output Port, or, when the
 	 * Edge starts at one of its Rows, that Row's output Port.
