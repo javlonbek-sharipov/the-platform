@@ -12,7 +12,7 @@
 - 07 Architecture Nodes look like what they are
 - 10 Edge labels, rates and hops
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Spec:**
 
@@ -65,3 +65,5 @@
 - **Merging ticket 14.** It had added a Node's `technology` to the model, its validation and its schema, as this ticket had to the model and validation. I kept ticket 14's check and its tests, which cover mine, and dropped my copies. Its every-field fixture's database, "Orders database" with `postgres`, now has a logo that shortens its title, so the fixture calls it "Orders DB".
 - **For ticket 15.** The package exports the logo table as `technologies`, and the types `KnownTechnology` and `Technology`. The skill can list the slugs that have a logo, and should say that any other slug works, drawn by name.
 - **For ticket 16.** A label's width now counts its logo and the gap after it, in `labelWidth` in `src/core/text.ts`. Placement itself is unchanged.
+
+Merged into diagram-engine in ad5f8da.
