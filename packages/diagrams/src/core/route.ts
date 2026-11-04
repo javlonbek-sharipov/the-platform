@@ -10,7 +10,7 @@ import type { Diagnostic } from "./diagnostics.ts";
 import { buildGrid, type Grid, pointOf, vertexAt } from "./grid.ts";
 import { clearance } from "./layout.ts";
 import type { Box, Point, RoutePoint, SceneEdge, SceneNode, ScenePort, Side } from "./scene.ts";
-import { type Heading, opposite, search } from "./search.ts";
+import { type Heading, opposite, type Search, searchOn } from "./search.ts";
 
 export interface RouteOptions {
 	/**
@@ -34,9 +34,9 @@ const cornerRadius = 8;
 
 /**
  * How many states one Edge's search may visit: a guard against a runaway
- * search, far above what routes on Diagrams of a few hundred Nodes need.
+ * search, set well above what routes on Diagrams of a few hundred Nodes need.
  */
-const defaultSearchBudget = 200_000;
+const defaultSearchBudget = 1_000_000;
 
 /** The heading of a stub, out of its side. */
 const outOf: Record<Side, Heading> = {
@@ -49,6 +49,7 @@ const outOf: Record<Side, Heading> = {
 export function route(diagram: Diagram, nodes: SceneNode[], options: RouteOptions = {}): Routing {
 	const byId = new Map(nodes.map((node) => [node.id, node]));
 	const grid = buildGrid(nodes, clearance);
+	const search = searchOn(grid);
 	const budget = options.searchBudget ?? defaultSearchBudget;
 	// Edges are routed in a stable order, by id, so that no route depends on
 	// the order the Diagram declares its Edges in.
@@ -59,7 +60,7 @@ export function route(diagram: Diagram, nodes: SceneNode[], options: RouteOption
 		if (from === undefined || to === undefined) {
 			throw new Error(`Edge ${edge.id} ends at a Node that validation should have rejected`);
 		}
-		const found = searchRoute(grid, from.output, to.input, budget);
+		const found = searchRoute(grid, search, from.output, to.input, budget);
 		routed.set(edge.id, {
 			id: edge.id,
 			kind: edge.kind,
@@ -96,6 +97,7 @@ export function route(diagram: Diagram, nodes: SceneNode[], options: RouteOption
  */
 function searchRoute(
 	grid: Grid,
+	search: Search,
 	fromPort: ScenePort,
 	toPort: ScenePort,
 	budget: number,
@@ -106,7 +108,6 @@ function searchRoute(
 		return undefined;
 	}
 	const path = search(
-		grid,
 		{ vertex: start, heading: outOf[toPort.side] },
 		{ vertex: goal, heading: opposite[outOf[fromPort.side]] },
 		{ bend: bendCost, budget },

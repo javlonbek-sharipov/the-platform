@@ -1329,7 +1329,9 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
    - A segment is open only if it misses every Node, border included, so no route runs along a Node's side. A crossing inside a Node, or on its border, has no open segment, so no route can reach it.
 3. **The search.**
    - A bend costs 40. A corner's radius is at most 8.
-   - A search may visit 200,000 states. `render(diagram, { searchBudget })` changes that, which is how tests force the fallback. On a synthetic Diagram of 300 Nodes and 750 Edges, no search visited 5,000.
+   - A search may visit 1,000,000 states. `render(diagram, { searchBudget })` changes that, which is how tests force the fallback.
+   - A search keeps its working memory in typed arrays sized to the grid, allocated once per Diagram.
+   - On a synthetic Diagram of 300 Nodes and 750 random Edges, rendering took about 3 s. The longest search visited about 200,000 states, in 45 ms. Most of the time goes to Edges that run against the direction and go around long columns of Nodes.
    - The search runs backward, from the target's stub to the source's. When two states have the same estimate, it takes the one whose path has come further, and then the one queued first, with steps queued east, south, west, north.
    - Together, those choices find, among routes that cost the same, the one that bends nearest its source. So Edges from one Port fork just past its stub, and Edges into one Port merge into a trunk before it. For bundling (ticket 09), a later Edge can start its search anywhere on the trunk, instead of ending it there.
    - Edges are routed in order of id. Ticket 09 sorts by bundle key first.

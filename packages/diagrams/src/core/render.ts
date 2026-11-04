@@ -20,7 +20,7 @@ export interface RenderResult {
 export interface RenderOptions {
 	/**
 	 * How many states each Edge's route search may visit. An Edge whose search
-	 * runs out falls back to a simple route, with a warning. The default is far
+	 * runs out falls back to a simple route, with a warning. The default is well
 	 * above what routes on Diagrams of a few hundred Nodes need.
 	 */
 	searchBudget?: number;

@@ -10,6 +10,7 @@ import type { Grid } from "./grid.ts";
 /** Which way a route travels along a grid line. */
 export type Heading = "east" | "south" | "west" | "north";
 
+/** The headings in the order the search tries them, which settles its last ties. */
 const headings: readonly Heading[] = ["east", "south", "west", "north"];
 
 export const opposite: Record<Heading, Heading> = {
@@ -39,135 +40,143 @@ export interface SearchCosts {
  * The cheapest path from `start` to `goal`, as its vertices in order, or
  * undefined if there's none within the budget.
  */
-export function search(
-	grid: Grid,
+export type Search = (
 	start: SearchEnd,
 	goal: SearchEnd,
 	costs: SearchCosts,
-): number[] | undefined {
-	if (start.vertex === goal.vertex && start.heading !== opposite[goal.heading]) {
-		return [start.vertex];
-	}
+) => number[] | undefined;
+
+/**
+ * A search over one grid. Its working memory lasts from one search to the
+ * next, so that routing many Edges allocates it only once.
+ *
+ * A state is a number: its vertex times four, plus the index of its heading.
+ */
+export function searchOn(grid: Grid): Search {
 	const columns = grid.xs.length;
+	const states = 4 * columns * grid.ys.length;
 	const xOf = (vertex: number) => grid.xs[vertex % columns] ?? 0;
 	const yOf = (vertex: number) => grid.ys[(vertex - (vertex % columns)) / columns] ?? 0;
-	const goalX = xOf(goal.vertex);
-	const goalY = yOf(goal.vertex);
-	const estimate = (vertex: number) =>
-		Math.abs(xOf(vertex) - goalX) + Math.abs(yOf(vertex) - goalY);
+	/** The cost of the cheapest known path to each state, valid where `reached` holds this search. */
+	const best = new Float64Array(states);
+	/** The state before each state on that path, or -1 at the start. */
+	const parents = new Int32Array(states);
+	/** Which search last reached each state, so that no search has to clear the others' memory. */
+	const reached = new Uint32Array(states);
+	let current = 0;
 
-	const best = new Map<string, number>();
-	const parents = new Map<string, State>();
-	const queue = new Queue();
-	const reach = (state: State, cost: number, parent?: State) => {
-		const key = keyOf(state);
-		if (cost >= (best.get(key) ?? Number.POSITIVE_INFINITY)) {
-			return;
+	return (start, goal, costs) => {
+		const startHeading = headings.indexOf(start.heading);
+		const goalHeading = headings.indexOf(goal.heading);
+		if (start.vertex === goal.vertex && startHeading !== (goalHeading + 2) % 4) {
+			return [start.vertex];
 		}
-		best.set(key, cost);
-		if (parent !== undefined) {
-			parents.set(key, parent);
-		}
-		queue.push({ state, cost, estimate: cost + estimate(state.vertex) });
-	};
+		current += 1;
+		const goalX = xOf(goal.vertex);
+		const goalY = yOf(goal.vertex);
+		const queue = new Queue();
+		const reach = (state: number, cost: number, parent: number) => {
+			if (reached[state] === current && cost >= (best[state] ?? 0)) {
+				return;
+			}
+			reached[state] = current;
+			best[state] = cost;
+			parents[state] = parent;
+			const vertex = (state - (state % 4)) / 4;
+			queue.push(state, cost, cost + Math.abs(xOf(vertex) - goalX) + Math.abs(yOf(vertex) - goalY));
+		};
 
-	reach({ vertex: start.vertex, heading: start.heading }, 0);
-	let visits = 0;
-	for (let entry = queue.pop(); entry !== undefined; entry = queue.pop()) {
-		const { state, cost } = entry;
-		if (cost > (best.get(keyOf(state)) ?? Number.POSITIVE_INFINITY)) {
-			continue;
-		}
-		if (visits === costs.budget) {
-			return undefined;
-		}
-		visits += 1;
-		if (state.vertex === goal.vertex && parents.has(keyOf(state))) {
-			return pathTo(state, parents);
-		}
-		for (const heading of headings) {
-			if (heading === opposite[state.heading]) {
+		const first = 4 * start.vertex + startHeading;
+		reach(first, 0, -1);
+		let visits = 0;
+		for (let entry = queue.pop(); entry !== undefined; entry = queue.pop()) {
+			const { state, cost } = entry;
+			if (cost > (best[state] ?? 0)) {
 				continue;
 			}
-			const next = neighbor(grid, state.vertex, heading);
-			if (next === undefined) {
-				continue;
+			if (visits === costs.budget) {
+				return undefined;
 			}
-			let nextCost =
-				cost +
-				Math.abs(xOf(next) - xOf(state.vertex)) +
-				Math.abs(yOf(next) - yOf(state.vertex)) +
-				(heading === state.heading ? 0 : costs.bend);
-			if (next === goal.vertex) {
-				if (heading === opposite[goal.heading]) {
+			visits += 1;
+			const heading = state % 4;
+			const vertex = (state - heading) / 4;
+			if (vertex === goal.vertex && state !== first) {
+				return pathTo(state, parents);
+			}
+			for (let next = 0; next < 4; next++) {
+				if (next === (heading + 2) % 4) {
 					continue;
 				}
-				nextCost += heading === goal.heading ? 0 : costs.bend;
+				const neighbor = neighborOf(grid, vertex, next);
+				if (neighbor === undefined) {
+					continue;
+				}
+				let nextCost =
+					cost +
+					Math.abs(xOf(neighbor) - xOf(vertex)) +
+					Math.abs(yOf(neighbor) - yOf(vertex)) +
+					(next === heading ? 0 : costs.bend);
+				if (neighbor === goal.vertex) {
+					if (next === (goalHeading + 2) % 4) {
+						continue;
+					}
+					nextCost += next === goalHeading ? 0 : costs.bend;
+				}
+				reach(4 * neighbor + next, nextCost, state);
 			}
-			reach({ vertex: next, heading }, nextCost, state);
 		}
-	}
-	return undefined;
+		return undefined;
+	};
 }
 
-interface State {
-	vertex: number;
-	heading: Heading;
-}
-
-function keyOf({ vertex, heading }: State): string {
-	return `${vertex} ${heading}`;
-}
-
-function pathTo(end: State, parents: Map<string, State>): number[] {
+function pathTo(end: number, parents: Int32Array): number[] {
 	const vertices: number[] = [];
-	for (let state: State | undefined = end; state !== undefined; state = parents.get(keyOf(state))) {
-		vertices.push(state.vertex);
+	for (let state = end; state >= 0; state = parents[state] ?? -1) {
+		vertices.push((state - (state % 4)) / 4);
 	}
 	return vertices.reverse();
 }
 
-function neighbor(grid: Grid, vertex: number, heading: Heading): number | undefined {
+/** The neighbor of a vertex in a heading's index, if the segment to it is open. */
+function neighborOf(grid: Grid, vertex: number, heading: number): number | undefined {
 	const columns = grid.xs.length;
 	switch (heading) {
-		case "east":
+		case 0:
 			return grid.openEast[vertex] === 1 ? vertex + 1 : undefined;
-		case "west":
-			return vertex % columns > 0 && grid.openEast[vertex - 1] === 1 ? vertex - 1 : undefined;
-		case "south":
+		case 1:
 			return grid.openSouth[vertex] === 1 ? vertex + columns : undefined;
-		case "north":
+		case 2:
+			return vertex % columns > 0 && grid.openEast[vertex - 1] === 1 ? vertex - 1 : undefined;
+		default:
 			return vertex >= columns && grid.openSouth[vertex - columns] === 1
 				? vertex - columns
 				: undefined;
 	}
 }
 
-interface Entry {
-	state: State;
-	/** The cost of the cheapest known path to the state. */
-	cost: number;
-	/** That cost, plus the heuristic's estimate of the rest. */
-	estimate: number;
-	/** When the entry was queued, which settles the last ties. */
-	order: number;
-}
-
 /**
- * A binary heap of entries, cheapest estimate first. Ties go to the costlier
- * path so far, which is the one that has come further. So, among routes that
- * cost the same, the search keeps going straight from its start for as long
- * as it can, and finds the one whose bends come nearest its goal. Last ties go
- * to the entry queued first, so the search is deterministic.
+ * A binary heap of queued states, cheapest estimate first. Ties go to the
+ * costlier path so far, which is the one that has come further. So, among
+ * routes that cost the same, the search keeps going straight from its start
+ * for as long as it can, and finds the one whose bends come nearest its goal.
+ * Last ties go to the state queued first, so the search is deterministic.
+ *
+ * Each entry lives at one index of four parallel lists.
  */
 class Queue {
-	#entries: Entry[] = [];
+	#states: number[] = [];
+	#costs: number[] = [];
+	#estimates: number[] = [];
+	#orders: number[] = [];
 	#queued = 0;
 
-	push(entry: Omit<Entry, "order">): void {
-		const entries = this.#entries;
-		entries.push({ ...entry, order: this.#queued++ });
-		for (let index = entries.length - 1; index > 0; ) {
+	push(state: number, cost: number, estimate: number): void {
+		let index = this.#states.length;
+		this.#states.push(state);
+		this.#costs.push(cost);
+		this.#estimates.push(estimate);
+		this.#orders.push(this.#queued++);
+		while (index > 0) {
 			const parent = Math.floor((index - 1) / 2);
 			if (!this.#before(index, parent)) {
 				break;
@@ -177,54 +186,59 @@ class Queue {
 		}
 	}
 
-	pop(): Entry | undefined {
-		const entries = this.#entries;
-		const first = entries[0];
-		const last = entries.pop();
-		if (first === undefined || last === undefined || entries.length === 0) {
-			return first;
+	pop(): { state: number; cost: number } | undefined {
+		const size = this.#states.length;
+		if (size === 0) {
+			return undefined;
 		}
-		entries[0] = last;
+		const top = { state: this.#states[0] ?? 0, cost: this.#costs[0] ?? 0 };
+		this.#swap(0, size - 1);
+		this.#states.pop();
+		this.#costs.pop();
+		this.#estimates.pop();
+		this.#orders.pop();
 		for (let index = 0; ; ) {
 			const left = 2 * index + 1;
 			const right = left + 1;
-			let smallest = index;
-			if (left < entries.length && this.#before(left, smallest)) {
-				smallest = left;
+			let first = index;
+			if (left < size - 1 && this.#before(left, first)) {
+				first = left;
 			}
-			if (right < entries.length && this.#before(right, smallest)) {
-				smallest = right;
+			if (right < size - 1 && this.#before(right, first)) {
+				first = right;
 			}
-			if (smallest === index) {
-				return first;
+			if (first === index) {
+				return top;
 			}
-			this.#swap(index, smallest);
-			index = smallest;
+			this.#swap(index, first);
+			index = first;
 		}
 	}
 
 	#before(a: number, b: number): boolean {
-		const x = this.#entries[a];
-		const y = this.#entries[b];
-		if (x === undefined || y === undefined) {
-			return false;
+		const estimateA = this.#estimates[a] ?? 0;
+		const estimateB = this.#estimates[b] ?? 0;
+		if (estimateA !== estimateB) {
+			return estimateA < estimateB;
 		}
-		if (x.estimate !== y.estimate) {
-			return x.estimate < y.estimate;
+		const costA = this.#costs[a] ?? 0;
+		const costB = this.#costs[b] ?? 0;
+		if (costA !== costB) {
+			return costA > costB;
 		}
-		if (x.cost !== y.cost) {
-			return x.cost > y.cost;
-		}
-		return x.order < y.order;
+		return (this.#orders[a] ?? 0) < (this.#orders[b] ?? 0);
 	}
 
 	#swap(a: number, b: number): void {
-		const entries = this.#entries;
-		const x = entries[a];
-		const y = entries[b];
-		if (x !== undefined && y !== undefined) {
-			entries[a] = y;
-			entries[b] = x;
-		}
+		swap(this.#states, a, b);
+		swap(this.#costs, a, b);
+		swap(this.#estimates, a, b);
+		swap(this.#orders, a, b);
 	}
+}
+
+function swap(list: number[], a: number, b: number): void {
+	const value = list[a] ?? 0;
+	list[a] = list[b] ?? 0;
+	list[b] = value;
 }
