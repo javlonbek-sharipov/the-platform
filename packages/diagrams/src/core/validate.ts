@@ -74,6 +74,16 @@ export function validate(input: unknown): Validation {
 				),
 			);
 		}
+		// A slug without a logo is drawn as its name, which isn't an error.
+		if (node.technology !== undefined && !slugPattern.test(node.technology)) {
+			diagnostics.push(
+				error(
+					"technology-format",
+					`Node \`${node.id}\` has the Technology \`${node.technology}\`, which isn't a slug. Write a Technology as lowercase words joined by hyphens, such as \`postgres\` or \`go\`.`,
+					`/nodes/${index}/technology`,
+				),
+			);
+		}
 		if (node.status !== undefined && !statuses.includes(node.status)) {
 			diagnostics.push(
 				error(
@@ -513,7 +523,12 @@ function checkShape(input: unknown): Diagnostic[] {
 	checkList(input.nodes, "/nodes", (node, at) => {
 		checkStrings(node, at, ["id", "kind", "title"]);
 		if (isObject(node)) {
-			const { external, status, callout } = node;
+			const { technology, external, status, callout } = node;
+			check(
+				technology === undefined || typeof technology === "string",
+				`${at}/technology`,
+				"a string",
+			);
 			check(
 				external === undefined || typeof external === "boolean",
 				`${at}/external`,

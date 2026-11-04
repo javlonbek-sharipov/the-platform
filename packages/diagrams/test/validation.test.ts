@@ -837,6 +837,48 @@ describe("validation", () => {
 		}
 	});
 
+	test("accepts a Node's Technology written as a slug, whether or not it has a logo", () => {
+		for (const technology of ["postgres", "our-own-db", "s3"]) {
+			const diagram = shopJson();
+			diagram.nodes[2] = { ...diagram.nodes[2], technology } as (typeof diagram.nodes)[number];
+
+			expect(render(diagram).diagnostics, technology).toEqual([]);
+		}
+	});
+
+	test("reports a Node's Technology that isn't written as a slug", () => {
+		for (const technology of ["PostgreSQL", "node.js", "google cloud", ""]) {
+			const diagram = shopJson();
+			diagram.nodes[2] = { ...diagram.nodes[2], technology } as (typeof diagram.nodes)[number];
+
+			expect(render(diagram).diagnostics, technology).toEqual([
+				{
+					severity: "error",
+					rule: "technology-format",
+					message: `Node \`shop-db\` has the Technology \`${technology}\`, which isn't a slug. Write a Technology as lowercase words joined by hyphens, such as \`postgres\` or \`go\`.`,
+					pointer: "/nodes/2/technology",
+				},
+			]);
+		}
+	});
+
+	test("reports a Node's Technology that isn't a string", () => {
+		const diagram = shopJson();
+		diagram.nodes[2] = {
+			...diagram.nodes[2],
+			technology: ["postgres"],
+		} as unknown as (typeof diagram.nodes)[number];
+
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "model-shape",
+				message: "`/nodes/2/technology` must be a string.",
+				pointer: "/nodes/2/technology",
+			},
+		]);
+	});
+
 	test("reports an Edge's label, Technology or rate that isn't shaped like one", () => {
 		const cases: [field: string, value: unknown, what: string][] = [
 			["label", "", "a string with some text in it"],

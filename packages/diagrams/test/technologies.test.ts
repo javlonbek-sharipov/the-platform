@@ -11,6 +11,7 @@ import {
 	architecture,
 	architectureNodeKinds,
 	type Box,
+	render,
 	type SceneText,
 	technologies,
 } from "../src/index.ts";
@@ -184,6 +185,30 @@ describe("a Node with a Technology", () => {
 		);
 		const texts = descendants(group).filter((element) => element.name === "text");
 		expect(texts.map((text) => text.text)).toEqual(["Orders DB", "PostgreSQL"]);
+	});
+
+	test("shows a slug that has no logo as its name, giving the title the logo's room, and isn't an error", () => {
+		// `constructor` names no Technology, though every JavaScript object has one.
+		for (const slug of ["our-own-bus", "constructor"]) {
+			const diagram = architecture({ title: "Orders" }, (d) => {
+				d.node({ id: "plain", kind: "service", title: "Orders API" });
+				d.node({ id: "own", kind: "service", title: "Orders API", technology: slug });
+			});
+			const { diagnostics } = render(diagram);
+			expect(diagnostics, slug).toEqual([]);
+
+			const drawn = draw(diagram);
+			const plain = nodeOf(drawn.scene, "plain");
+			const own = nodeOf(drawn.scene, "own");
+			expect(own.technology?.text, slug).toBe(slug);
+			expect(own.logo, slug).toBeUndefined();
+			// The title is centered across the header as a title without a Technology is.
+			expect(own.title.point.x - own.box.x).toBe(plain.title.point.x - plain.box.x);
+			const group = groupOf(drawn, "own");
+			expect(descendants(group).some((element) => element.name === "svg")).toBe(false);
+			const texts = descendants(group).filter((element) => element.name === "text");
+			expect(texts.map((text) => text.text)).toEqual(["Orders API", slug]);
+		}
 	});
 
 	test("keeps its title, its Technology's name and the logo clear of its outline, in every Kind", () => {
