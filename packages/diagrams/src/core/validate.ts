@@ -3,7 +3,16 @@
  * generated JSON has no types, so everything they prevent is checked here.
  */
 
-import { type Diagram, endNode, type Link } from "../authoring/model.ts";
+import {
+	type Diagram,
+	type Edge,
+	endNode,
+	type Group,
+	type Link,
+	type Node,
+	type Row,
+	type RowEnd,
+} from "../authoring/model.ts";
 import {
 	architectureEdgeKinds,
 	architectureGroupKinds,
@@ -35,6 +44,65 @@ const slugPattern = new RegExp(`^${kebabCase}$`);
 const ratePattern = /^[0-9]+(?:\.[0-9]+)?[kM]?\/(?:s|min|h)$/;
 
 const directions: unknown[] = [undefined, "right", "down"];
+
+/**
+ * The fields of one of the model's types, in the model's order. The type
+ * checker makes the list name every field of the type and no other, so a
+ * field added to the model can't be left out of validation.
+ */
+function fieldsOf<T>(fields: Record<keyof T, true>): readonly string[] {
+	return Object.keys(fields);
+}
+
+/**
+ * Every field that a version-1 model may have. Any other is an error, as the
+ * types make it one, so that a misspelled field is never silently ignored.
+ */
+const fields = {
+	diagram: fieldsOf<Diagram>({
+		version: true,
+		notation: true,
+		id: true,
+		title: true,
+		direction: true,
+		members: true,
+		nodes: true,
+		groups: true,
+		edges: true,
+		walkthroughs: true,
+	}),
+	node: fieldsOf<Node>({
+		id: true,
+		kind: true,
+		title: true,
+		technology: true,
+		external: true,
+		status: true,
+		rows: true,
+		links: true,
+		callout: true,
+	}),
+	row: fieldsOf<Row>({ name: true, value: true }),
+	group: fieldsOf<Group>({
+		id: true,
+		kind: true,
+		title: true,
+		members: true,
+		description: true,
+		links: true,
+	}),
+	edge: fieldsOf<Edge>({
+		id: true,
+		kind: true,
+		from: true,
+		to: true,
+		label: true,
+		technology: true,
+		rate: true,
+	}),
+	rowEnd: fieldsOf<RowEnd>({ node: true, row: true }),
+	link: fieldsOf<Link>({ id: true, doc: true, section: true, label: true }),
+};
 
 export function validate(input: unknown): Validation {
 	const shape = checkShape(input);
@@ -74,16 +142,6 @@ export function validate(input: unknown): Validation {
 				),
 			);
 		}
-		// A slug without a logo is drawn as its name, which isn't an error.
-		if (node.technology !== undefined && !slugPattern.test(node.technology)) {
-			diagnostics.push(
-				error(
-					"technology-format",
-					`Node \`${node.id}\` has the Technology \`${node.technology}\`, which isn't a slug. Write a Technology as lowercase words joined by hyphens, such as \`postgres\` or \`go\`.`,
-					`/nodes/${index}/technology`,
-				),
-			);
-		}
 		if (node.status !== undefined && !statuses.includes(node.status)) {
 			diagnostics.push(
 				error(
@@ -93,6 +151,9 @@ export function validate(input: unknown): Validation {
 				),
 			);
 		}
+		diagnostics.push(
+			...checkTechnology(`Node \`${node.id}\``, node.technology, `/nodes/${index}/technology`),
+		);
 		const rowNames = new Set<string>();
 		node.rows?.forEach((row, rowIndex) => {
 			if (rowNames.has(row.name)) {
@@ -215,16 +276,9 @@ export function validate(input: unknown): Validation {
 				),
 			);
 		}
-		// A slug without a logo is drawn as its name, which isn't an error.
-		if (edge.technology !== undefined && !slugPattern.test(edge.technology)) {
-			diagnostics.push(
-				error(
-					"technology-format",
-					`Edge \`${edge.id}\` has the Technology \`${edge.technology}\`, which isn't a slug. Write a Technology as lowercase words joined by hyphens, such as \`postgres\` or \`grpc\`.`,
-					`/edges/${index}/technology`,
-				),
-			);
-		}
+		diagnostics.push(
+			...checkTechnology(`Edge \`${edge.id}\``, edge.technology, `/edges/${index}/technology`),
+		);
 		if (edge.rate !== undefined && !ratePattern.test(edge.rate)) {
 			diagnostics.push(
 				error(
@@ -236,7 +290,11 @@ export function validate(input: unknown): Validation {
 		}
 	});
 
-	diagnostics.push(...checkDefaultEdgeIds(diagram), ...checkNesting(diagram));
+	diagnostics.push(
+		...checkDefaultEdgeIds(diagram),
+		...checkNesting(diagram),
+		...checkCharacters(diagram),
+	);
 
 	return diagnostics.some((diagnostic) => diagnostic.severity === "error")
 		? { diagnostics }
@@ -268,6 +326,157 @@ function checkDefaultEdgeIds(diagram: Diagram): Diagnostic[] {
 			),
 		];
 	});
+}
+
+/**
+ * A Technology must be a slug. Any slug is valid: one without a logo is drawn
+ * as its name, which isn't an error. `owner` is the Node or Edge that has it.
+ */
+function checkTechnology(
+	owner: string,
+	technology: string | undefined,
+	pointer: string,
+): Diagnostic[] {
+	return technology === undefined || slugPattern.test(technology)
+		? []
+		: [
+				error(
+					"technology-format",
+					`${owner} has the Technology \`${technology}\`, which isn't a slug. Write a Technology as lowercase words joined by hyphens, such as \`postgres\` or \`grpc\`.`,
+					pointer,
+				),
+			];
+}
+
+/** A piece of text in the model: how a message names it, the text, and where it is. */
+type PlacedText = [where: string, text: string | undefined, pointer: string];
+
+/**
+ * Every text in the model must be one that an SVG can hold. XML forbids some
+ * characters even written as character references, so no escaping could
+ * write them: control characters other than tabs and line breaks, halves of
+ * surrogate pairs on their own, and U+FFFE and U+FFFF. Ids, Kinds and the
+ * other fields that have formats of their own can't hold them anyway.
+ */
+function checkCharacters(diagram: Diagram): Diagnostic[] {
+	const linkTexts = (owner: string, links: Link[] | undefined, pointer: string) =>
+		(links ?? []).flatMap((link, index): PlacedText[] => {
+			const named = `${owner}'s Link to \`${shown(link.id ?? link.doc ?? "")}\``;
+			const at = `${pointer}/links/${index}`;
+			return [
+				[`the document of ${named}`, link.doc, `${at}/doc`],
+				[`the section of ${named}`, link.section, `${at}/section`],
+				[`the label of ${named}`, link.label, `${at}/label`],
+			];
+		});
+	const texts: PlacedText[] = [
+		["the Diagram's id", diagram.id, "/id"],
+		["the Diagram's title", diagram.title, "/title"],
+		...diagram.nodes.flatMap((node, index): PlacedText[] => {
+			const named = `Node \`${shown(node.id)}\``;
+			const at = `/nodes/${index}`;
+			return [
+				[`${named}'s title`, node.title, `${at}/title`],
+				[`${named}'s callout`, node.callout, `${at}/callout`],
+				...(node.rows ?? []).flatMap((row, rowIndex) =>
+					(["name", "value"] as const).map(
+						(field): PlacedText => [
+							`the ${field} of ${named}'s Row \`${shown(row.name)}\``,
+							row[field],
+							`${at}/rows/${rowIndex}/${field}`,
+						],
+					),
+				),
+				...linkTexts(named, node.links, at),
+			];
+		}),
+		...diagram.groups.flatMap((group, index): PlacedText[] => {
+			const named = `Group \`${shown(group.id)}\``;
+			const at = `/groups/${index}`;
+			return [
+				[`${named}'s title`, group.title, `${at}/title`],
+				[`${named}'s description`, group.description, `${at}/description`],
+				...linkTexts(named, group.links, at),
+			];
+		}),
+		...diagram.edges.flatMap((edge, index): PlacedText[] => {
+			const named = `Edge \`${shown(edge.id)}\``;
+			const at = `/edges/${index}`;
+			const rows = (
+				[
+					["from", "starts"],
+					["to", "ends"],
+				] as const
+			).flatMap(([field, verb]): PlacedText[] => {
+				const end = edge[field];
+				return typeof end === "string"
+					? []
+					: [[`the Row that ${named} ${verb} at`, end.row, `${at}/${field}/row`]];
+			});
+			return [[`${named}'s label`, edge.label, `${at}/label`], ...rows];
+		}),
+	];
+	return texts.flatMap(([where, text, pointer]) => {
+		const found = [...new Set(text ?? "")].filter((character) => !writable(character));
+		const [first] = found;
+		if (first === undefined) {
+			return [];
+		}
+		const subject = `${where.charAt(0).toUpperCase()}${where.slice(1)}`;
+		return [
+			error(
+				"invalid-character",
+				found.length === 1
+					? `${subject} has ${unwritableKind(first)}, ${codePointOf(first)}, which an SVG can't hold. Remove it.`
+					: `${subject} has characters that an SVG can't hold: ${list(found.map(codePointOf))}. Remove them.`,
+				pointer,
+			),
+		];
+	});
+}
+
+/**
+ * Whether XML, and so an SVG, can hold the character: every character but
+ * the control characters other than tab, line feed and carriage return; the
+ * halves of surrogate pairs, on their own; and U+FFFE and U+FFFF.
+ */
+function writable(character: string): boolean {
+	const code = character.codePointAt(0) ?? 0;
+	return (
+		(code >= 0x20 || code === 0x09 || code === 0x0a || code === 0x0d) &&
+		(code < 0xd800 || code > 0xdfff) &&
+		code !== 0xfffe &&
+		code !== 0xffff
+	);
+}
+
+/** What kind of character an SVG can't hold this one is, for a message. */
+function unwritableKind(character: string): string {
+	const code = character.codePointAt(0) ?? 0;
+	return code < 0x20
+		? "a control character"
+		: code >= 0xd800 && code <= 0xdfff
+			? "an unpaired surrogate"
+			: "a noncharacter";
+}
+
+/** The text with each character that an SVG can't hold written as an escape, such as `\u0007`. */
+function shown(text: string): string {
+	return [...text]
+		.map((character) =>
+			writable(character) ? character : `\\u${hexOf(character.codePointAt(0) ?? 0)}`,
+		)
+		.join("");
+}
+
+/** `U+0007` */
+function codePointOf(character: string): string {
+	return `U+${hexOf(character.codePointAt(0) ?? 0)}`;
+}
+
+/** A code point as at least four uppercase hex digits. */
+function hexOf(code: number): string {
+	return code.toString(16).toUpperCase().padStart(4, "0");
 }
 
 /** A Link to an id must name it as the model writes ids. `owner` is the Node or Group that has the Links. */
@@ -406,7 +615,8 @@ function checkCycles(diagram: Diagram, parents: Map<string, string | undefined>)
 
 /**
  * Checks that the input is a version-1 model of the architecture Notation,
- * with every field of the right type, so the rules after it can read it.
+ * with every field of the right type and no field that the model doesn't
+ * have, so the rules after it can read it.
  */
 function checkShape(input: unknown): Diagnostic[] {
 	if (!isObject(input)) {
@@ -461,7 +671,33 @@ function checkShape(input: unknown): Diagnostic[] {
 			check(false, pointer, "an object");
 		}
 	};
+	/**
+	 * Reports each field of `value` that `thing` doesn't have, listing those it
+	 * does. `alsoRead` holds fields that a later check reports in its own words.
+	 */
+	const checkFields = (
+		value: Record<string, unknown>,
+		pointer: string,
+		thing: string,
+		known: readonly string[],
+		alsoRead: readonly string[] = [],
+	) => {
+		for (const field of Object.keys(value)) {
+			if (!known.includes(field) && !alsoRead.includes(field)) {
+				const at = `${pointer}/${pointerSegment(field)}`;
+				const listed = list(known.map((name) => `\`${name}\``));
+				diagnostics.push(
+					error(
+						"model-shape",
+						`\`${at}\` must be left out: ${thing} has no such field. Its fields are ${listed}.`,
+						at,
+					),
+				);
+			}
+		}
+	};
 
+	checkFields(input, "", "a Diagram", fields.diagram);
 	check(input.id === undefined || typeof input.id === "string", "/id", "a string");
 	check(typeof input.title === "string", "/title", "a string");
 	check(directions.includes(input.direction), "/direction", "`right` or `down`");
@@ -477,6 +713,8 @@ function checkShape(input: unknown): Diagnostic[] {
 			check(false, at, "an object");
 			return;
 		}
+		// A Link to a glossary term is reported below, as a Link without a target.
+		checkFields(link, at, "a Link", fields.link, ["term"]);
 		const targets = ["id", "doc", "term"].filter((field) => link[field] !== undefined);
 		const [target] = targets;
 		if (target === undefined || target === "term" || targets.length > 1) {
@@ -506,6 +744,9 @@ function checkShape(input: unknown): Diagnostic[] {
 
 	/** A Row has a name, and may have a value. */
 	const checkRow = (row: unknown, at: string) => {
+		if (isObject(row)) {
+			checkFields(row, at, "a Row", fields.row);
+		}
 		checkStrings(row, at, ["name"]);
 		if (isObject(row)) {
 			check(row.value === undefined || typeof row.value === "string", `${at}/value`, "a string");
@@ -514,6 +755,7 @@ function checkShape(input: unknown): Diagnostic[] {
 	/** An Edge end is a Node's id, or an object that names a Node and one of its Rows. */
 	const checkEnd = (end: unknown, at: string) => {
 		if (isObject(end)) {
+			checkFields(end, at, "an Edge end at a Row", fields.rowEnd);
 			checkStrings(end, at, ["node", "row"]);
 		} else {
 			check(typeof end === "string", at, "a Node's id, or an object with `node` and `row`");
@@ -521,6 +763,9 @@ function checkShape(input: unknown): Diagnostic[] {
 	};
 
 	checkList(input.nodes, "/nodes", (node, at) => {
+		if (isObject(node)) {
+			checkFields(node, at, "a Node", fields.node);
+		}
 		checkStrings(node, at, ["id", "kind", "title"]);
 		if (isObject(node)) {
 			const { technology, external, status, callout } = node;
@@ -549,6 +794,9 @@ function checkShape(input: unknown): Diagnostic[] {
 		}
 	});
 	checkList(input.groups, "/groups", (group, at) => {
+		if (isObject(group)) {
+			checkFields(group, at, "a Group", fields.group);
+		}
 		checkStrings(group, at, ["id", "kind", "title"]);
 		if (isObject(group)) {
 			check(
@@ -565,6 +813,9 @@ function checkShape(input: unknown): Diagnostic[] {
 		}
 	});
 	checkList(input.edges, "/edges", (edge, at) => {
+		if (isObject(edge)) {
+			checkFields(edge, at, "an Edge", fields.edge);
+		}
 		checkStrings(edge, at, ["id", "kind"]);
 		if (isObject(edge)) {
 			const { label, technology, rate } = edge;
@@ -583,8 +834,22 @@ function checkShape(input: unknown): Diagnostic[] {
 			check(rate === undefined || typeof rate === "string", `${at}/rate`, "a string");
 		}
 	});
-	checkList(input.walkthroughs, "/walkthroughs", () => {});
+	// Walkthroughs come in slice 4. Until then, one would be dropped unseen.
+	if (Array.isArray(input.walkthroughs)) {
+		check(
+			input.walkthroughs.length === 0,
+			"/walkthroughs",
+			"an empty list: this engine doesn't play Walkthroughs yet",
+		);
+	} else {
+		check(false, "/walkthroughs", "a list");
+	}
 	return diagnostics;
+}
+
+/** A field's name as one segment of a JSON Pointer, escaped as RFC 6901 says. */
+function pointerSegment(field: string): string {
+	return field.replaceAll("~", "~0").replaceAll("/", "~1");
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

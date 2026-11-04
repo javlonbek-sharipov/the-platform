@@ -62,6 +62,6 @@
 - **What Simple Icons leaves out.** No AWS, Azure, Oracle or IBM icons exist, and Kafka, Cassandra, Pulsar, Rust, PHP, Ruby, JavaScript, Deno and OpenJDK carry licenses other than CC0. Those slugs work, drawn by name. Nobody has checked the logos against each brand's guidelines, which Simple Icons asks its users to follow.
 - **Merging ticket 11.** Its description named a Technology by its slug. It now gives the display name, for Nodes as well as Edges. Its every-fixture tests now cover `test/fixtures/technologies.ts` too, and the golden file was redrawn in its look.
 - **Speed.** `pnpm bench`: 78 ms median drawn right, 105 ms drawn down.
-- **For ticket 14.** Nodes gained an optional `technology`, a string checked as an Edge's is (`technology-format`). The schema should take it, written after `title`.
+- **Merging ticket 14.** It had added a Node's `technology` to the model, its validation and its schema, as this ticket had to the model and validation. I kept ticket 14's check and its tests, which cover mine, and dropped my copies. Its every-field fixture's database, "Orders database" with `postgres`, now has a logo that shortens its title, so the fixture calls it "Orders DB".
 - **For ticket 15.** The package exports the logo table as `technologies`, and the types `KnownTechnology` and `Technology`. The skill can list the slugs that have a logo, and should say that any other slug works, drawn by name.
 - **For ticket 16.** A label's width now counts its logo and the gap after it, in `labelWidth` in `src/core/text.ts`. Placement itself is unchanged.

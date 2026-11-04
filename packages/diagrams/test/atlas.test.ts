@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from "node:fs";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
@@ -493,5 +494,99 @@ describe("lint's output", () => {
 				"docs/billing.diagram.ts:4:4: error: Node `payments-api` has a Link to `refunds-api`, which no Diagram in the Atlas draws. (broken-link)\n" +
 				"Checked 1 Diagram: 3 errors.\n",
 		);
+	});
+});
+
+describe("generated Diagrams", () => {
+	/** A diagram module that default-exports the JSON file beside it, as a generator would write it. */
+	const jsonModule = (file: string) =>
+		`import model from "./${file}" with { type: "json" };\n\nexport default model;\n`;
+	/** Generated JSON with every field the engine reads, whose Links lead to `docs/orders.md`. */
+	const orders = readFileSync(new URL("./fixtures/every-field.json", import.meta.url), "utf8");
+	const ordersDoc = "# Orders\n\n## Placing an order\n\n## Where it runs\n";
+
+	test("a module that default-exports an imported JSON file renders and lints like any other Diagram", async () => {
+		const atlas = await sampleAtlas({
+			"docs/orders.diagram.ts": jsonModule("orders.json"),
+			"docs/orders.json": orders,
+			"docs/orders.md": ordersDoc,
+			"docs/shop.diagram.ts": shopModule(),
+		});
+
+		expect(await runCli(["render"], atlas)).toEqual({
+			code: 0,
+			stdout: "Wrote docs/orders.diagram.svg\nWrote docs/shop.diagram.svg\n",
+			stderr: "",
+		});
+		const svg = await readFile(join(atlas, "docs/orders.diagram.svg"), "utf8");
+		expect(svg).toContain('<g data-edge="charges" data-kind="message"');
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 0,
+			stdout: "Checked 2 Diagrams: no errors.\n",
+			stderr: "",
+		});
+
+		// Editing the JSON leaves its SVG out of date, as editing a module would.
+		await writeFile(join(atlas, "docs/orders.json"), orders.replace('"Orders API"', '"Order API"'));
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 1,
+			stdout:
+				"docs/orders.diagram.svg: error: The SVG no longer matches its source. Run `diagrams render`. (svg-out-of-date)\n" +
+				"Checked 2 Diagrams: 1 error.\n",
+			stderr: "",
+		});
+	});
+
+	test("render and lint report a generated Diagram's errors at its module, and draw nothing for it", async () => {
+		const atlas = await sampleAtlas({
+			"docs/orders.diagram.ts": jsonModule("orders.json"),
+			"docs/orders.json": orders
+				.replace('"title": "Orders API"', '"title": "Orders\\u0007API"')
+				.replace('"label": "Places orders"', '"lable": "Places orders"'),
+			"docs/orders.md": ordersDoc,
+		});
+		const messages =
+			"docs/orders.diagram.ts: error: `/edges/1/lable` must be left out: an Edge has no such field. Its fields are `id`, `kind`, `from`, `to`, `label`, `technology` and `rate`. (model-shape)\n";
+
+		expect(await runCli(["render"], atlas)).toEqual({ code: 1, stdout: messages, stderr: "" });
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 1,
+			stdout: `${messages}Checked 1 Diagram: 1 error.\n`,
+			stderr: "",
+		});
+
+		await writeFile(
+			join(atlas, "docs/orders.json"),
+			orders.replace('"title": "Orders API"', '"title": "Orders\\u0007API"'),
+		);
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 1,
+			stdout:
+				"docs/orders.diagram.ts: error: Node `orders-api`'s title has a control character, U+0007, which an SVG can't hold. Remove it. (invalid-character)\n" +
+				"Checked 1 Diagram: 1 error.\n",
+			stderr: "",
+		});
+		expect(existsSync(join(atlas, "docs/orders.diagram.svg"))).toBe(false);
+	});
+
+	test("lint checks a generated Diagram's ids against the rest of the Atlas", async () => {
+		const atlas = await sampleAtlas({
+			"docs/orders.diagram.ts": jsonModule("orders.json"),
+			"docs/orders.json": orders.replace('"title": "Web app"', '"title": "Web shop"'),
+			"docs/orders.md": ordersDoc,
+			"docs/shop.diagram.ts": shopModule(),
+		});
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+
+		const rule =
+			"An id names one thing across the Atlas, so give it one title: define the Node once, in a shared module. (title-conflict)";
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 1,
+			stdout:
+				`docs/orders.diagram.ts: error: Node \`web-app\` has the title \`Web shop\` here, but \`Web app\` on the Diagram \`docs/shop\`. ${rule}\n` +
+				`docs/shop.diagram.ts:4:16: error: Node \`web-app\` has the title \`Web app\` here, but \`Web shop\` on the Diagram \`docs/orders\`. ${rule}\n` +
+				"Checked 2 Diagrams: 2 errors.\n",
+			stderr: "",
+		});
 	});
 });

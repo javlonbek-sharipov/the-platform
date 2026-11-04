@@ -1732,7 +1732,7 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
    - CC0 waives no trademarks. Simple Icons asks its users to follow each brand's guidelines. Drawing every logo in one theme color is the spec's choice, and nobody has checked it against each brand's guidelines.
 3. **The starting set** has 57 Technologies: 15 databases and other stores, 4 message brokers, 15 languages, 6 runtimes, 11 clouds, 5 gateways and proxies, and GraphQL. The table is 60 KB of source, and an SVG carries only the logos it draws.
 4. **A Node's Technology.**
-   - Nodes take `technology`, written after `title`, and checked as an Edge's is: `technology-format` at `/nodes/<n>/technology`, or `model-shape` when it isn't a string.
+   - The builder takes a Node's `technology`, and writes it after `title`. The model, its validation and its schema have it from ticket 14 (its decision 3).
    - The header holds the badge, the title, the logo and the status mark, in that order. The logo is 16 px square, the badge's size, level with the header's middle, and ends where the face does or 8 px before the status mark. The title's room ends 8 px before the logo, so a title is shortened before it would touch it.
    - The Technology's name is Inter Regular at 11 px, in `--diagram-muted`, centered below the title in the title's room: its display name, or its slug when it has no logo. With it, the title rises 7 px above the header's middle and the name sits 8 px below it. The badge, the logo, the status mark and the header Ports stay level with the middle.
    - An outline's `inset.top` says how far below the header's top its face starts: past a cylinder's lid (16 px), a window's title bar (9 px) or a chip's pins (5 px). A risen title keeps its em box below that line, so a database's title sits under its lid, and the name 15 px below the title. Found by looking: the risen title crossed the lid's front edge. A test now checks that no stroke of any Kind's outline crosses the title, the name or the logo.
@@ -1747,6 +1747,30 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
 8. **The description** names a Technology by its display name: after an Edge's ` over `, as in "Orders API calls Orders DB over PostgreSQL", and among a Node's facts, after its Kind, as in `Orders API (service, Go)`. This changes ticket 11's decision 7. A screen reader can't read a logo, and the root's `role="img"` hides the name's text.
 9. **The test SVG reader** in `test/support/svg.ts` reads the whole grammar of path data: curves, smooth curves, quadratic curves, commands repeated without their letter, and numbers and arc flags written without separators. It runs each closed subpath's outline back to its start, and maps nested `<svg>` viewports that scale both ways alike.
 10. **Speed.** `pnpm bench` reported 78 ms median drawn `right` and 105 ms drawn `down`, about what ticket 11 left. The crowded fixture has no Technologies.
+
+**Ticket 14**
+
+1. **The schema.**
+   - It's `packages/diagrams/diagram.schema.json`, JSON Schema draft 2020-12, written by hand. The package exports it as `@the-platform/diagrams/diagram.schema.json`.
+   - It has no `$id`, since the package's public name is chosen at the first publish. Its `$defs` name each object, `node`, `row`, `group`, `edge`, `end`, `rowEnd`, `link`, `idLink` and `docLink`, so that a tool can point at one.
+   - Its root `description` lists the rules that JSON Schema can't express, each by the name it's reported under: `duplicate-id`, `duplicate-row`, `edge-end`, `nesting` and `default-edge-id` from validation, and `kind-conflict`, `title-conflict` and `broken-link` from lint.
+2. **Fields the model doesn't have are errors.**
+   - The schema closes every object, and validation rejects such a field as `model-shape`, at the field, and lists the fields its object has: "`/edges/1/lable` must be left out: an Edge has no such field. Its fields are `id`, `kind`, `from`, `to`, `label`, `technology` and `rate`." The types forbid such a field, so validation does too, and a misspelled field is never silently ignored.
+   - Each object's fields are listed in `validate.ts` with `fieldsOf<T>`, which takes an object with one `true` per field, so that the type checker holds the list to the model's type.
+   - A pointer escapes `~` and `/` in a field's name, as RFC 6901 says.
+   - Fields of the spec's model that the engine doesn't read yet are rejected too: a Diagram's or a Node's `description`, and Walkthroughs, whose list must be empty ("`/walkthroughs` must be an empty list: this engine doesn't play Walkthroughs yet."). The slice that reads each one adds it to the model, validation and the schema. Term Links stay rejected as ticket 05 decided, with its message.
+3. **A Node's Technology.** The model's Node has `technology`, a slug, which validation checks as it checks an Edge's (`technology-format`). Ticket 12 adds it to the authoring API, and draws it.
+4. **Text that an SVG can hold.**
+   - XML can't hold some characters even as character references, so no escaping writes them: U+0000 to U+001F other than tab, line feed and carriage return, a half of a surrogate pair on its own, and U+FFFE and U+FFFF. Every field that holds text must leave them out: the Diagram's id and title, a Node's title and callout, a Row's name and value, a Group's title and description, a Link's `doc`, `section` and `label`, an Edge's label, and the Row that an Edge end names. Other fields have formats that leave them out already.
+   - The rule is `invalid-character`, at the field. The message names the field and each character by its code point, as in "Node `api`'s title has a control character, U+0007, which an SVG can't hold. Remove it.", or "…has characters that an SVG can't hold: U+001B and U+0007. Remove them." A Row's name or a Link's target in a message shows such characters as escapes, `\u0007`, never raw.
+   - Its errors come after those of the other rules. Characters that XML allows but discourages, such as DEL and the C1 controls, stay valid, with the usual `glyph-missing` warning.
+   - In the schema, `$defs/text` is a pattern that leaves those characters out. JSON Schema's patterns are ECMA-262 regular expressions with Unicode semantics, as Ajv runs them, so an emoji's surrogate pair passes and half of one doesn't.
+5. **Checking the schema.**
+   - Ajv 8.20.0 (MIT, with dependencies under MIT and BSD-3-Clause) is a dev dependency of the repo root. `test/support/schema.ts` compiles the schema in strict mode, which rejects any keyword Ajv doesn't know or would ignore, with every error reported. It names each problem by its JSON Pointer, and a missing or extra field by the field's own pointer, as the core's diagnostics do.
+   - `test/fixtures/every-field.json` is generated JSON with every field the engine reads. `everyFixture()` lists JSON fixtures too, so the properties that ticket 11 checks over every fixture cover it.
+   - Broken models must fail the schema at the pointer where the core reports its error. Each object must allow the fields that the core's message lists, no more and no fewer, and the schema's Kinds and statuses must be the Notation's.
+6. **`resolveJsonModule`** is set in `tsconfig.json`, since TypeScript doesn't document its default under `nodenext`.
+7. **Rules added:** `invalid-character`.
 
 **Orchestrator**
 
