@@ -1,0 +1,3 @@
+# Draw aggregates as Nodes, not Groups
+
+On an aggregate diagram, each aggregate is one Node of Kind `aggregate`, and its Rows list the entities, value objects, and invariants inside it. Many DDD drawings show an aggregate as a boundary instead. As a Group, though, the aggregate and its root entity would need the same id on one Diagram, and references from other aggregates would end at a Group, which Edges never do. As a Node, the aggregate stands for its root, so other aggregates refer to it through the root, as DDD requires. An aggregate's individual entities and fields belong on a data-model Diagram.
