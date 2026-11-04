@@ -496,6 +496,44 @@ describe.each(directions)("the labels in each fixture, laid out %s", (direction)
 			}
 		});
 
+		test("shorten a label only when no run of its Edge's own holds it in full, clear of everything", () => {
+			const { gap, margin } = scene.labelSpacing;
+			for (const edge of placed) {
+				const label = edge.label;
+				const model = diagram.edges.find(({ id }) => id === edge.id);
+				if (label === undefined || model === undefined) {
+					continue;
+				}
+				// What the ellipsis cut off each text, measured in full from the font.
+				const cut = [
+					[label.text, model.label?.replace(/\s+/g, " ").trim()],
+					[label.technology, model.technology],
+					[label.rate, model.rate],
+				].flatMap(([text, full]) =>
+					typeof text === "object" && text?.shortened && typeof full === "string"
+						? [widthInInterRegular(full, text.size) - text.width]
+						: [],
+				);
+				if (cut.length === 0) {
+					continue;
+				}
+				// A box this wide holds the label in full, at most.
+				const whole = { ...label.box, width: label.box.width + cut.reduce((a, b) => a + b, 0) };
+				for (const stretch of ownStretches(scene, edge)) {
+					for (const side of [-1, 1] as const) {
+						const candidate = besideAt(stretch, whole, gap, side);
+						const extent = stretch.horizontal ? candidate.width : candidate.height;
+						if (extent <= stretch.high - stretch.low) {
+							expect(
+								coveredBy(scene, grown(candidate, margin), edge).length,
+								`${edge.id} could sit in full beside its run on ${stretch.horizontal ? "y" : "x"} = ${stretch.line}`,
+							).toBeGreaterThan(0);
+						}
+					}
+				}
+			}
+		});
+
 		test("stay clear of every Node, tag, Port stub, Group label and other label", () => {
 			for (const edge of placed) {
 				expect(coveredBy(scene, edge.label?.box ?? scene.bounds, edge), edge.id).toEqual([]);
@@ -640,6 +678,100 @@ describe("the gap between two ranks", () => {
 		const gap = (from: string, to: string) => box(to).x - (box(from).x + box(from).width);
 		expect(gap("shop-api", "shop-db")).toBeLessThan(gap("web-app", "shop-api"));
 		expect(gap("shop-api", "shop-db")).toBe(96);
+	});
+});
+
+describe("a label too long for its run", () => {
+	const long = "Sends every order the shopper places on to the payments service";
+
+	test.each(directions)(
+		"is shortened with an ellipsis, keeping as much as fits, and lint warns, laid out %s",
+		(direction) => {
+			const diagram = chain(direction, long);
+			const before = structuredClone(diagram);
+			const { scene, diagnostics } = render(diagram);
+			const label = edgeOf(scene ?? ({ edges: [] } as unknown as Scene), "web-app->shop-api").label;
+			const text = label?.text;
+			if (label === undefined || text === undefined) {
+				throw new Error("expected the label's text");
+			}
+
+			expect(text.shortened).toBe(true);
+			expect(text.text).toMatch(/\S…$/);
+			const kept = text.text.slice(0, -1);
+			expect(long.startsWith(kept)).toBe(true);
+			expect(text.width).toBeCloseTo(widthInInterRegular(text.text, text.size), 9);
+			expect(contains(label.box, textBox(text))).toBe(true);
+			// One more word character, with any space before it, no longer fits.
+			const longer = kept + (long.slice(kept.length).match(/^\s*\S/)?.[0] ?? "");
+			const shortenedAs = (text: string) =>
+				render(chain(direction, text)).scene?.edges[0]?.label?.text?.shortened;
+			expect(shortenedAs(`${kept}…`), `${kept}… fits`).toBe(false);
+			expect(shortenedAs(`${longer}…`), `${longer}… doesn't fit`).toBe(true);
+			// The model keeps the label in full.
+			expect(diagram).toEqual(before);
+			expect(diagnostics).toEqual([
+				{
+					severity: "warning",
+					rule: "text-shortened",
+					message: `Edge \`web-app->shop-api\`'s label is too long for its run, so it's shortened to \`${text.text}\`. Choose a shorter label to show it in full.`,
+					pointer: "/edges/0/label",
+				},
+			]);
+		},
+	);
+
+	test("has its Technology shortened before its rate, as a Row's name is before its value", () => {
+		const diagram = architecture({ title: "Streams" }, (d) => {
+			const api = d.node({ id: "orders-api", kind: "service", title: "Orders API" });
+			const stream = d.node({ id: "order-stream", kind: "queue", title: "Order stream" });
+			d.edge(api, stream, {
+				kind: "message",
+				label: "Publishes",
+				technology: "amazon-managed-streaming-for-apache-kafka-serverless",
+				rate: "2k/s",
+			});
+		});
+		const { scene, diagnostics } = render(diagram);
+		const label = scene?.edges[0]?.label;
+		const { technology, rate } = label ?? {};
+		if (label === undefined || technology === undefined || rate === undefined) {
+			throw new Error("expected a Technology and a rate");
+		}
+
+		expect(technology.shortened).toBe(true);
+		expect(technology.text).toMatch(/^amazon-managed-.*…$/);
+		expect(rate).toMatchObject({ text: "2k/s", shortened: false });
+		for (const text of [technology, rate]) {
+			expect(contains(label.box, textBox(text)), text.text).toBe(true);
+		}
+		expect(technology.point.x + technology.width / 2).toBeLessThan(rate.point.x - rate.width / 2);
+		expect(diagnostics).toEqual([
+			{
+				severity: "warning",
+				rule: "text-shortened",
+				message: `Edge \`orders-api->order-stream\`'s Technology is too long for its run, so it's shortened to \`${technology.text}\`. Choose a shorter slug to show it in full.`,
+				pointer: "/edges/0/technology",
+			},
+		]);
+	});
+
+	test("with characters the bundled font lacks makes lint warn, naming the Edge and the characters", () => {
+		const diagram = architecture({ title: "Offices" }, (d) => {
+			const api = d.node({ id: "orders-api", kind: "service", title: "Orders API" });
+			const tokyo = d.node({ id: "tokyo-api", kind: "service", title: "Tokyo API" });
+			d.edge(api, tokyo, { kind: "call", label: "Ships to 東京" });
+		});
+
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "warning",
+				rule: "glyph-missing",
+				message:
+					"Edge `orders-api->tokyo-api`'s label has characters that the bundled font lacks: 東 (U+6771) and 京 (U+4EAC). They're measured at an average width, and drawn in a fallback font.",
+				pointer: "/edges/0/label",
+			},
+		]);
 	});
 });
 

@@ -67,7 +67,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		nodes,
 		groups,
 		edges,
-		diagnostics: [...textDiagnostics(model, nodes, groups), ...diagnostics],
+		diagnostics: [...textDiagnostics(model, nodes, groups, edges), ...diagnostics],
 	};
 	return {
 		diagnostics: [...validation.diagnostics, ...scene.diagnostics],

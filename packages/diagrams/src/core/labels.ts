@@ -10,10 +10,11 @@
  * it tries the next-longest run, and so on. When no run has room, it goes to
  * the route's midpoint, with a warning.
  *
- * Labels are placed in two passes, each in the order of their Edges' ids. The
- * first places each label only where it also covers no route and no Group's
- * border, so that it hides nothing. The second places the rest wherever they
- * cover nothing else.
+ * Labels are placed in three passes, each in the order of their Edges' ids.
+ * The first places each label in full, and only where it also covers no
+ * route and no Group's border, so that it hides nothing. The second places
+ * the rest in full wherever they cover nothing else, and the third shortened,
+ * if they must be, to fit the run.
  */
 
 import type { Direction, Edge } from "../authoring/model.ts";
@@ -145,18 +146,29 @@ export function placeLabels(
 						return box === undefined ? [] : [box];
 					}),
 				);
-			return [{ edge, index, content, scene, candidates }];
+			const { width } = labelBoxSize(content, labelWidth(content));
+			return [{ edge, index, content, scene, candidates, width }];
 		})
 		.sort((a, b) => compareText(a.edge.id, b.edge.id));
 
+	// The first pass places labels in full where they hide nothing, the second
+	// in full wherever they cover nothing else, and the third shortened if need be.
+	const passes = [
+		{ hiding: false, shortened: false },
+		{ hiding: true, shortened: false },
+		{ hiding: true, shortened: true },
+	];
 	const boxes = new Map<string, Box>();
-	for (const clean of [true, false]) {
-		for (const { edge, candidates } of wanted) {
+	for (const { hiding, shortened } of passes) {
+		for (const { edge, candidates, width } of wanted) {
 			if (boxes.has(edge.id)) {
 				continue;
 			}
 			const box = candidates.find(
-				(candidate) => !covers(candidate) && !(clean && hides(candidate)),
+				(candidate) =>
+					(shortened || candidate.width >= width) &&
+					!covers(candidate) &&
+					(hiding || !hides(candidate)),
 			);
 			if (box !== undefined) {
 				boxes.set(edge.id, box);
