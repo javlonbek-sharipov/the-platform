@@ -236,6 +236,67 @@ describe("validation", () => {
 		]);
 	});
 
+	test("accepts Links to ids and to documents, with sections and labels", () => {
+		const diagram = shopJson();
+		diagram.nodes[1] = {
+			...diagram.nodes[1],
+			links: [
+				{ id: "payments-api" },
+				{ doc: "docs/shop.md", section: "Checkout", label: "How checkout works" },
+			],
+		} as (typeof diagram.nodes)[number];
+
+		expect(render(diagram).diagnostics).toEqual([]);
+	});
+
+	test("reports Links that aren't shaped like Links", () => {
+		const diagram = shopJson();
+		diagram.nodes[0] = { ...diagram.nodes[0], links: { id: "shop-api" } } as never;
+		diagram.nodes[1] = {
+			...diagram.nodes[1],
+			links: [
+				"shop-db",
+				{ label: "Nowhere" },
+				{ id: "shop-db", doc: "docs/shop.md" },
+				{ id: 7 },
+				{ doc: "docs/shop.md", label: 7 },
+				{ id: "shop-db", section: "Storage" },
+				{ doc: "docs/shop.md", section: ["Checkout"] },
+			],
+		} as never;
+
+		expect(render(diagram).diagnostics).toEqual(
+			[
+				["/nodes/0/links", "`/nodes/0/links` must be a list."],
+				["/nodes/1/links/0", "`/nodes/1/links/0` must be an object."],
+				["/nodes/1/links/1", "`/nodes/1/links/1` must have exactly one of `id` and `doc`."],
+				["/nodes/1/links/2", "`/nodes/1/links/2` must have exactly one of `id` and `doc`."],
+				["/nodes/1/links/3/id", "`/nodes/1/links/3/id` must be a string."],
+				["/nodes/1/links/4/label", "`/nodes/1/links/4/label` must be a string."],
+				[
+					"/nodes/1/links/5/section",
+					"`/nodes/1/links/5/section` must be left out: only a Link to a document has sections.",
+				],
+				["/nodes/1/links/6/section", "`/nodes/1/links/6/section` must be a string."],
+			].map(([pointer, message]) => ({ severity: "error", rule: "model-shape", message, pointer })),
+		);
+	});
+
+	test("reports a Link to an id that isn't lowercase kebab-case", () => {
+		const diagram = shopJson();
+		diagram.nodes[1] = { ...diagram.nodes[1], links: [{ id: "Payments API" }] } as never;
+
+		expect(render(diagram).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "id-format",
+				message:
+					"Node `shop-api` has a Link to `Payments API`, which isn't a lowercase kebab-case id. Write ids like `payments-api`.",
+				pointer: "/nodes/1/links/0/id",
+			},
+		]);
+	});
+
 	test("accepts ids with digits, and context namespaces", () => {
 		const diagram = shopJson();
 		diagram.nodes[2] = { id: "billing/s3-archive", kind: "storage", title: "Archive" };

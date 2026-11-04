@@ -2,7 +2,7 @@
 
 import type { ArchitectureEdgeKind, ArchitectureNodeKind } from "../notations/architecture.ts";
 import { callerOf, type Declarations, declarationsKey } from "./declarations.ts";
-import type { Diagram, Edge, Node } from "./model.ts";
+import type { Diagram, Edge, Link, Node } from "./model.ts";
 
 export interface ArchitectureOptions {
 	/** Only for Diagrams built outside the Atlas, which assigns ids from paths. */
@@ -10,10 +10,16 @@ export interface ArchitectureOptions {
 	title: string;
 }
 
+/**
+ * A Node to declare. It's a plain object, so a Node can be defined once in a
+ * shared module, with `satisfies ArchitectureNode`, and declared on several
+ * Diagrams.
+ */
 export interface ArchitectureNode {
 	id: string;
 	kind: ArchitectureNodeKind;
 	title: string;
+	links?: readonly Link[];
 }
 
 /** What a Node declaration returns. Later calls accept it in place of the id. */
@@ -61,9 +67,14 @@ export function architecture(
 	declare("", architecture);
 
 	const builder: ArchitectureBuilder = {
-		node({ id, kind, title }) {
+		node({ id, kind, title, links }) {
 			declare(`/nodes/${nodes.length}`, builder.node);
-			nodes.push({ id, kind, title });
+			nodes.push({
+				id,
+				kind,
+				title,
+				...(links === undefined ? {} : { links: links.map((link) => ({ ...link })) }),
+			});
 			members.push(id);
 			return Object.freeze({ id });
 		},
