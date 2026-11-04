@@ -12,9 +12,9 @@
  *
  * A route's first run starts at its source's Port, along the Port's stub, and
  * its last run ends at its target's. A run that turns away from a stub's end
- * keeps to the outer side of it, so that the stub stays whole. A first or
- * last run that carries on straight past the stub keeps the stub's line where
- * it can, and otherwise jogs to its lane at the stub's end.
+ * may cut into the stub, leaving at least the padding of it. A first or last
+ * run that carries on straight past the stub keeps the stub's line where it
+ * can, and otherwise jogs to its lane at or past the stub's end.
  */
 
 import type { Box, Point, ScenePort } from "./scene.ts";
@@ -36,6 +36,11 @@ export interface Corridors {
 	obstacles: Box[];
 	/** Group boxes, whose borders lanes keep clear of too. */
 	borders: Box[];
+	/**
+	 * The Ports that Edges use. Each one's stub is an obstacle to the lanes of
+	 * other Ports: a lane beside it keeps to its far end, or beyond.
+	 */
+	ports: ScenePort[];
 }
 
 export interface LaneSpacing {
@@ -81,10 +86,15 @@ interface Stretch {
 	/** Whether its corners at its low and high ends stay put, being where it leaves a stub. */
 	fixedLow: boolean;
 	fixedHigh: boolean;
-	/** Where its lane may go, across the line. */
+	/** Where its lane may go, across the line, keeping clear of other Ports' stubs. */
 	lowest: number;
 	highest: number;
+	/** Where its lane may go at most: clear of obstacles and Group borders, if not of stubs. */
+	hardLowest: number;
+	hardHighest: number;
 	offset: number;
+	/** Whether its set's lanes had to squeeze closer than the minimum spacing. */
+	squeezed: boolean;
 }
 
 /**
@@ -93,13 +103,31 @@ interface Stretch {
  */
 const rounds = 3;
 
-export function nudge(routes: NudgeRoute[], corridors: Corridors, lanes: LaneSpacing): Point[][] {
+/** A stretch of a grid line whose lanes had to squeeze closer than the minimum spacing. */
+export interface Squeeze {
+	horizontal: boolean;
+	line: number;
+	low: number;
+	high: number;
+}
+
+export interface Nudged {
+	/** Each route's corners, offset into its lanes, in the order of the routes given. */
+	routes: Point[][];
+	/** Where lanes squeezed closer than the minimum spacing: corridors that hold more lanes than fit. */
+	squeezed: Squeeze[];
+}
+
+export function nudge(routes: NudgeRoute[], corridors: Corridors, lanes: LaneSpacing): Nudged {
 	const runs = routes.map(runsOf);
 	let junctions = new Map<string, Junction>();
 	let offsetOf = (_: Run) => 0;
 	let jogs = new Map<string, Jog>();
+	let squeezed: Squeeze[] = [];
 	for (let round = 0; round < rounds; round += 1) {
-		const offsets = arrange(routes, runs, [...junctions.values()], corridors, lanes);
+		const arranged = arrange(routes, runs, [...junctions.values()], corridors, lanes);
+		const { offsets } = arranged;
+		squeezed = arranged.squeezed;
 		offsetOf = (run: Run) => offsets.get(run) ?? 0;
 		jogs = jogsOf(routes, runs, offsetOf);
 		placeJogs(jogs, routes, runs, offsetOf, lanes);
@@ -110,14 +138,17 @@ export function nudge(routes: NudgeRoute[], corridors: Corridors, lanes: LaneSpa
 		}
 		junctions = reached;
 	}
-	return routes.map((route, index) =>
-		offsetRoute(
-			route,
-			runs[index] ?? [],
-			offsetOf,
-			(end) => jogs.get(`${index} ${end}`)?.along ?? 0,
+	return {
+		routes: routes.map((route, index) =>
+			offsetRoute(
+				route,
+				runs[index] ?? [],
+				offsetOf,
+				(end) => jogs.get(`${index} ${end}`)?.along ?? 0,
+			),
 		),
-	);
+		squeezed,
+	};
 }
 
 /**
@@ -146,7 +177,7 @@ function arrange(
 	junctions: Junction[],
 	corridors: Corridors,
 	lanes: LaneSpacing,
-): Map<Run, number> {
+): { offsets: Map<Run, number>; squeezed: Squeeze[] } {
 	// A junction is a stretch of its own, with a run that stands for the stub's
 	// line from the Port out to its reach, unless a stretch of the Port's own
 	// Edges carries the stub straight through it, and then that one holds it.
@@ -207,7 +238,10 @@ function arrange(
 			fixedHigh: true,
 			lowest: run.line,
 			highest: run.line,
+			hardLowest: run.line,
+			hardHighest: run.line,
 			offset: 0,
+			squeezed: false,
 		};
 		holder.low = Math.min(holder.low, run.low);
 		holder.high = Math.max(holder.high, run.high);
@@ -220,8 +254,9 @@ function arrange(
 	for (const stretch of stretches) {
 		limit(stretch, stretches, runs, routes, corridors, lanes);
 	}
-	for (const set of overlapSets(stretches)) {
-		place(sortSet(set, allRuns), lanes);
+	const sorted = overlapSets(stretches).map((set) => sortSet(set, allRuns));
+	for (const group of shareRoom(sorted, lanes)) {
+		place(group, lanes);
 	}
 	const offsets = new Map<Run, number>();
 	for (const stretch of stretches) {
@@ -229,7 +264,10 @@ function arrange(
 			offsets.set(run, stretch.offset);
 		}
 	}
-	return offsets;
+	const squeezed = stretches
+		.filter((stretch) => stretch.squeezed && stretch.runs.length > 0 && !stretch.fixed)
+		.map(({ horizontal, line, low, high }) => ({ horizontal, line, low, high }));
+	return { offsets, squeezed };
 }
 
 /** Whether a run is one that a Port's Edge takes through the Port's junction: its first run out of the Port, or its last run in. */
@@ -354,7 +392,10 @@ function stretchesOf(runs: Run[], routes: NudgeRoute[]): Stretch[] {
 					fixedHigh: false,
 					lowest: run.line,
 					highest: run.line,
+					hardLowest: run.line,
+					hardHighest: run.line,
 					offset: 0,
+					squeezed: false,
 				};
 				stretches.push(current);
 			}
@@ -374,9 +415,9 @@ function stubsCarried(run: Run, routes: NudgeRoute[]): number {
 
 /**
  * Where a stretch's lane may go across its line: clear of every obstacle and
- * Group border beside it, by the padding, and on its own side of the middle
- * between its line and any other line whose stretches run beside it. A
- * stretch that turns away from a stub's end keeps to the stub's outer side.
+ * Group border beside it, by the padding. A stretch that turns away from a
+ * stub's end has the stub's Node beside it, so it may cut into the stub, but
+ * leaves at least the padding of it.
  */
 function limit(
 	stretch: Stretch,
@@ -390,6 +431,8 @@ function limit(
 	if (stretch.fixed) {
 		stretch.lowest = line;
 		stretch.highest = line;
+		stretch.hardLowest = line;
+		stretch.hardHighest = line;
 		stretch.fixedLow = true;
 		stretch.fixedHigh = true;
 		return;
@@ -423,28 +466,27 @@ function limit(
 			}
 		}
 	}
-	for (const other of stretches) {
+	stretch.hardLowest = Math.min(below, line);
+	stretch.hardHighest = Math.max(above, line);
+	// A stub across the line, within the stretch's span, keeps the lane at its
+	// far end or beyond, unless the stretch belongs to an Edge at that Port,
+	// which may cut into its own stub as far as the padding.
+	for (const port of corridors.ports) {
+		const stubAcross = horizontal ? port.point.x === port.stub.x : port.point.y === port.stub.y;
+		const at = horizontal ? port.point.x : port.point.y;
 		if (
-			other.horizontal === horizontal &&
-			other.line !== line &&
-			other.group !== stretch.group &&
-			other.low <= high &&
-			other.high >= low
+			!stubAcross ||
+			at < low ||
+			at > high ||
+			stretch.runs.some((run) => atPort(run, port, routes))
 		) {
-			const middle = (line + other.line) / 2;
-			if (other.line < line) {
-				below = Math.max(below, middle + lanes.minimum / 2);
-			} else {
-				above = Math.min(above, middle - lanes.minimum / 2);
-			}
+			continue;
 		}
-	}
-	for (const run of stretch.runs) {
-		const outward = stubSide(run, runs[run.route] ?? [], routes[run.route]);
-		if (outward > 0) {
-			below = Math.max(below, line);
-		} else if (outward < 0) {
-			above = Math.min(above, line);
+		const [near, far] = horizontal ? [port.point.y, port.stub.y] : [port.point.x, port.stub.x];
+		if (Math.max(near, far) <= line) {
+			below = Math.max(below, Math.max(near, far));
+		} else if (Math.min(near, far) >= line) {
+			above = Math.min(above, Math.min(near, far));
 		}
 	}
 	stretch.lowest = Math.min(below, line);
@@ -457,26 +499,13 @@ function limit(
 		.every((run) => leavesStubAt(run, high, runs[run.route] ?? []));
 }
 
-/**
- * For a run that turns away from the end of a stub on its own, which way
- * along the stub its lane must keep, so that the stub stays whole: 1 toward
- * higher coordinates, -1 toward lower ones, or 0 when it doesn't touch a stub.
- */
-function stubSide(run: Run, routeRuns: Run[], route: NudgeRoute | undefined): number {
-	if (route === undefined) {
-		return 0;
-	}
-	const before = routeRuns[run.index - 1];
-	const after = routeRuns[run.index + 1];
-	if (before?.stubOnly === true && before.index === 0) {
-		const { point, stub } = route.fromPort;
-		return Math.sign(run.horizontal ? stub.y - point.y : stub.x - point.x);
-	}
-	if (after?.stubOnly === true) {
-		const { point, stub } = route.toPort;
-		return Math.sign(run.horizontal ? stub.y - point.y : stub.x - point.x);
-	}
-	return 0;
+/** Whether a run belongs to an Edge that leaves or enters at a Port. */
+function atPort(run: Run, port: ScenePort, routes: NudgeRoute[]): boolean {
+	const route = routes[run.route];
+	return (
+		route !== undefined &&
+		(same(route.fromPort.point, port.point) || same(route.toPort.point, port.point))
+	);
 }
 
 /** Whether a run meets a stub on its own at the given end, where its corner can't move along it. */
@@ -488,9 +517,9 @@ function leavesStubAt(run: Run, end: number, routeRuns: Run[]): boolean {
 }
 
 /**
- * The overlap sets on each line: stretches whose spans overlap, or meet at a
- * point where either one's corner can move, together with every stretch that
- * overlaps those.
+ * The overlap sets on each line: stretches that overlap, or meet at a point
+ * where either one's corner can move, together with every stretch that
+ * overlaps those, in the order of their starts along the line.
  */
 function overlapSets(stretches: Stretch[]): Stretch[][] {
 	const byLine = new Map<string, Stretch[]>();
@@ -501,31 +530,28 @@ function overlapSets(stretches: Stretch[]): Stretch[][] {
 	const sets: Stretch[][] = [];
 	for (const lineStretches of byLine.values()) {
 		lineStretches.sort((a, b) => a.low - b.low || a.high - b.high);
-		let set: Stretch[] = [];
-		let reach = Number.NEGATIVE_INFINITY;
-		let fixedAtReach = false;
-		for (const stretch of lineStretches) {
-			const joins =
-				set.length > 0 &&
-				(stretch.low < reach || (stretch.low === reach && !(fixedAtReach && stretch.fixedLow)));
-			if (!joins) {
-				if (set.length > 0) {
-					sets.push(set);
+		const root = lineStretches.map((_, index) => index);
+		const find = (index: number): number => {
+			let at = index;
+			while (root[at] !== at) {
+				at = root[at] ?? at;
+			}
+			return at;
+		};
+		lineStretches.forEach((a, i) => {
+			for (let j = i + 1; j < lineStretches.length; j += 1) {
+				const b = lineStretches[j];
+				if (b !== undefined && overlaps(a, b)) {
+					root[find(j)] = find(i);
 				}
-				set = [];
-				reach = Number.NEGATIVE_INFINITY;
 			}
-			set.push(stretch);
-			if (stretch.high > reach) {
-				reach = stretch.high;
-				fixedAtReach = stretch.fixedHigh;
-			} else if (stretch.high === reach) {
-				fixedAtReach = fixedAtReach && stretch.fixedHigh;
-			}
-		}
-		if (set.length > 0) {
-			sets.push(set);
-		}
+		});
+		const byRoot = new Map<number, Stretch[]>();
+		lineStretches.forEach((stretch, index) => {
+			const key = find(index);
+			byRoot.set(key, [...(byRoot.get(key) ?? []), stretch]);
+		});
+		sets.push(...byRoot.values());
 	}
 	return sets;
 }
@@ -677,16 +703,11 @@ function turnAt(next: Run | undefined, step: number, heading: Point): number {
 }
 
 /**
- * Spaces a sorted overlap set into lanes. Walking the set from its lowest
- * stretch, each stretch takes the lowest lane above every earlier stretch it
- * overlaps, so stretches that don't overlap may share a lane. The lanes are
- * spaced evenly, at the preferred spacing where every stretch's limits allow,
- * squeezed to fit where they don't. They're centered on the line, or keep on
- * it the lane of the stretch that would most rather keep the line: a Port's
- * junction, then a route that runs straight from stub to stub.
+ * The lane of each stretch of a sorted overlap set. Walking the set from its
+ * lowest stretch, each one takes the lowest lane above every earlier stretch
+ * it overlaps, so stretches that don't overlap may share a lane.
  */
-function place(sorted: Stretch[], lanes: LaneSpacing): void {
-	const line = sorted[0]?.line ?? 0;
+function lanesOf(sorted: Stretch[]): number[] {
 	const laneOf: number[] = [];
 	sorted.forEach((stretch, index) => {
 		let lane = 0;
@@ -698,7 +719,37 @@ function place(sorted: Stretch[], lanes: LaneSpacing): void {
 		}
 		laneOf.push(lane);
 	});
+	return laneOf;
+}
+
+/**
+ * Where a sorted overlap set's lanes go: the first lane's position across
+ * the line, and the gap between neighboring lanes, which is at most `widest`.
+ * The lanes are spaced evenly, as far apart as every stretch's limits allow,
+ * up to `widest`. They're centered on the line, or keep on it the lane of the
+ * stretch that would most rather keep the line: a Port's junction, then a
+ * route that runs straight from stub to stub.
+ */
+function spread(
+	sorted: Stretch[],
+	laneOf: number[],
+	widest: number,
+	lanes: LaneSpacing,
+): { positions: number[]; gap: number; feasible: boolean } {
+	const line = sorted[0]?.line ?? 0;
 	const count = Math.max(0, ...laneOf) + 1;
+	// The lanes center on the line, or for sets of several lines, on the mean
+	// of their lines, each lane weighing as one.
+	const center = (() => {
+		const lineOf = new Map<number, number>();
+		sorted.forEach((stretch, index) => {
+			lineOf.set(laneOf[index] ?? 0, stretch.line);
+		});
+		const lines = [...lineOf.values()];
+		return lines.length === 0
+			? line
+			: lines.reduce((total, value) => total + value, 0) / lines.length;
+	})();
 	const lowest = new Array<number>(count).fill(Number.NEGATIVE_INFINITY);
 	const highest = new Array<number>(count).fill(Number.POSITIVE_INFINITY);
 	sorted.forEach((stretch, index) => {
@@ -712,23 +763,177 @@ function place(sorted: Stretch[], lanes: LaneSpacing): void {
 			room = Math.min(room, ((highest[j] ?? line) - (lowest[i] ?? line)) / (j - i));
 		}
 	}
-	let gap = Math.min(lanes.spacing, room);
-	if (!(gap > 0)) {
-		gap = lanes.minimum;
-	}
-	let first = Number.NEGATIVE_INFINITY;
-	let last = Number.POSITIVE_INFINITY;
-	for (let lane = 0; lane < count; lane += 1) {
-		first = Math.max(first, (lowest[lane] ?? line) - lane * gap);
-		last = Math.min(last, (highest[lane] ?? line) - lane * gap);
-	}
+	const feasible = room > 0;
+	const gap = feasible ? Math.min(widest, room) : lanes.minimum;
 	const most = Math.max(...sorted.map((stretch) => stretch.pinned));
 	const keeper = most > 0 ? sorted.findIndex((stretch) => stretch.pinned === most) : -1;
-	const wanted = keeper >= 0 ? line - (laneOf[keeper] ?? 0) * gap : line - ((count - 1) * gap) / 2;
-	const start = first <= last ? Math.min(Math.max(wanted, first), last) : wanted;
-	sorted.forEach((stretch, index) => {
-		stretch.offset = start + (laneOf[index] ?? 0) * gap - line;
+	const wanted =
+		keeper >= 0
+			? (sorted[keeper]?.line ?? line) - (laneOf[keeper] ?? 0) * gap
+			: center - ((count - 1) * gap) / 2;
+	// Each lane goes as near its place in the evenly spaced set as its limits
+	// allow, keeping at least the gap from the lanes on either side: past the
+	// lower limits of the lanes below it, and short of the upper limits of the
+	// lanes above it, each as far as the gap requires.
+	const floor: number[] = [];
+	const ceiling: number[] = [];
+	for (let lane = 0; lane < count; lane += 1) {
+		floor.push(
+			Math.max(floor[lane - 1] ?? Number.NEGATIVE_INFINITY, (lowest[lane] ?? line) - lane * gap),
+		);
+	}
+	for (let lane = count - 1; lane >= 0; lane -= 1) {
+		ceiling[lane] = Math.min(
+			ceiling[lane + 1] ?? Number.POSITIVE_INFINITY,
+			(highest[lane] ?? line) - lane * gap,
+		);
+	}
+	const positions = floor.map((low, lane) => {
+		const high = ceiling[lane] ?? Number.POSITIVE_INFINITY;
+		return lane * gap + (low <= high ? Math.min(Math.max(wanted, low), high) : wanted);
 	});
+	return { positions, gap, feasible };
+}
+
+/**
+ * Spaces a group of sorted overlap sets into lanes, at the preferred spacing
+ * where there's room. A group is one set, or sets of neighboring lines too
+ * close for their lanes, which are placed as one: the lower line's lanes
+ * below the upper line's. Where keeping clear of other Ports' stubs would
+ * squeeze the lanes below the minimum spacing, they keep clear only of
+ * obstacles and borders, and cross those stubs instead.
+ */
+function place(group: Stretch[][], lanes: LaneSpacing): void {
+	const sets = [...group].sort((a, b) => (a[0]?.line ?? 0) - (b[0]?.line ?? 0));
+	const sorted = sets.flat();
+	const laneOf: number[] = [];
+	let base = 0;
+	for (const set of sets) {
+		const own = lanesOf(set);
+		laneOf.push(...own.map((lane) => lane + base));
+		base += Math.max(0, ...own) + 1;
+	}
+	let placed = spread(sorted, laneOf, lanes.spacing, lanes);
+	const fits = (result: typeof placed) => result.feasible && result.gap >= lanes.minimum;
+	if (!fits(placed) && laneOf.some((lane) => lane > 0)) {
+		const soft = sorted.map(({ lowest, highest }) => [lowest, highest] as const);
+		for (const stretch of sorted) {
+			stretch.lowest = stretch.hardLowest;
+			stretch.highest = stretch.hardHighest;
+		}
+		const hard = spread(sorted, laneOf, lanes.spacing, lanes);
+		// A placement that keeps every limit beats one that doesn't, then the
+		// wider spacing wins.
+		const better = hard.feasible !== placed.feasible ? hard.feasible : hard.gap > placed.gap;
+		if (better) {
+			placed = hard;
+		} else {
+			sorted.forEach((stretch, index) => {
+				[stretch.lowest, stretch.highest] = soft[index] ?? [stretch.lowest, stretch.highest];
+			});
+		}
+	}
+	const { positions } = placed;
+	const squeezed = !fits(placed) && laneOf.some((lane) => lane > 0);
+	sorted.forEach((stretch, index) => {
+		stretch.offset = (positions[laneOf[index] ?? 0] ?? stretch.line) - stretch.line;
+		stretch.squeezed = squeezed;
+	});
+}
+
+/** How far a sorted overlap set's lanes reach below and above its line, with gaps of at most `widest`. */
+function reachOf(sorted: Stretch[], widest: number, lanes: LaneSpacing): [number, number] {
+	const line = sorted[0]?.line ?? 0;
+	const laneOf = lanesOf(sorted);
+	const { positions } = spread(sorted, laneOf, widest, lanes);
+	return [Math.max(0, line - Math.min(...positions)), Math.max(0, Math.max(...positions) - line)];
+}
+
+/**
+ * Shares the room between the lanes of neighboring lines. Where two overlap
+ * sets on different lines run beside each other, a boundary between them
+ * keeps the lanes of each to its own side, the minimum spacing apart. It
+ * leaves each set the room it needs at the minimum spacing, and shares what's
+ * left as each would use it at the preferred spacing. Where even the minimum
+ * doesn't fit, each gets room in proportion to its need.
+ */
+function shareRoom(sets: Stretch[][], lanes: LaneSpacing): Stretch[][][] {
+	const span = (set: Stretch[]): [number, number] => [
+		Math.min(...set.map((stretch) => stretch.low)),
+		Math.max(...set.map((stretch) => stretch.high)),
+	];
+	const needs = sets.map((set) => ({
+		least: reachOf(set, lanes.minimum, lanes),
+		most: reachOf(set, lanes.spacing, lanes),
+		span: span(set),
+	}));
+	const bounds: [number, number][] = sets.map(() => [
+		Number.NEGATIVE_INFINITY,
+		Number.POSITIVE_INFINITY,
+	]);
+	const root = sets.map((_, index) => index);
+	const find = (index: number): number => {
+		let at = index;
+		while (root[at] !== at) {
+			at = root[at] ?? at;
+		}
+		return at;
+	};
+	sets.forEach((lower, i) => {
+		sets.forEach((upper, j) => {
+			const [a, b] = [lower[0], upper[0]];
+			const [needA, needB] = [needs[i], needs[j]];
+			if (
+				a === undefined ||
+				b === undefined ||
+				needA === undefined ||
+				needB === undefined ||
+				a.horizontal !== b.horizontal ||
+				a.line >= b.line ||
+				needA.span[0] > needB.span[1] ||
+				needB.span[0] > needA.span[1] ||
+				a.group === b.group
+			) {
+				return;
+			}
+			const distance = b.line - a.line;
+			const [leastA, leastB] = [needA.least[1], needB.least[0]];
+			const [mostA, mostB] = [needA.most[1], needB.most[0]];
+			const slack = distance - lanes.minimum - leastA - leastB;
+			if (slack < 0) {
+				// Too close for their lanes even at the minimum spacing: they're placed
+				// as one, the lower line's lanes below the upper line's.
+				root[find(j)] = find(i);
+				return;
+			}
+			const [wantA, wantB] = [mostA - leastA, mostB - leastB];
+			const share = wantA + wantB > 0 ? wantA / (wantA + wantB) : 0.5;
+			const boundA = a.line + leastA + slack * share;
+			const below = bounds[i];
+			const above = bounds[j];
+			if (below !== undefined && above !== undefined) {
+				below[1] = Math.min(below[1], Math.max(a.line, boundA));
+				above[0] = Math.max(above[0], Math.min(b.line, boundA + lanes.minimum));
+			}
+		});
+	});
+	sets.forEach((set, index) => {
+		const [low, high] = bounds[index] ?? [Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY];
+		for (const stretch of set) {
+			if (!stretch.fixed) {
+				stretch.lowest = Math.max(stretch.lowest, Math.min(low, stretch.line));
+				stretch.highest = Math.min(stretch.highest, Math.max(high, stretch.line));
+				stretch.hardLowest = Math.max(stretch.hardLowest, Math.min(low, stretch.line));
+				stretch.hardHighest = Math.min(stretch.hardHighest, Math.max(high, stretch.line));
+			}
+		}
+	});
+	const groups = new Map<number, Stretch[][]>();
+	sets.forEach((set, index) => {
+		const key = find(index);
+		groups.set(key, [...(groups.get(key) ?? []), set]);
+	});
+	return [...groups.values()];
 }
 
 /**

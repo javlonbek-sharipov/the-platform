@@ -4,9 +4,10 @@
  * errors, it also returns the scene and the SVG.
  */
 
+import type { Bundling } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { clearance, grid, layOut, margin } from "./layout.ts";
-import { type Bundling, lanes, route } from "./route.ts";
+import { lanes, route } from "./route.ts";
 import type { Box, Scene, SceneEdge } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
 import { type FontData, textDiagnostics } from "./text.ts";
@@ -45,7 +46,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		return { diagnostics: validation.diagnostics };
 	}
 	const model = validation.diagram;
-	const { nodes, groups } = layOut(model);
+	const { nodes, groups } = layOut(model, options.bundle);
 	const { edges, diagnostics } = route(model, nodes, groups, options);
 	const scene: Scene = {
 		bounds: boundsOf(

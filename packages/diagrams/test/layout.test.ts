@@ -424,6 +424,27 @@ describe.each(directions)("a Diagram laid out %s", (direction) => {
 		expect(across(reversed, "orders-db")).toBe(across(targets, "orders-search"));
 	});
 
+	test("leaves room in the gap between two ranks for a lane for each bundle of Edges that spans it", () => {
+		/** The gap along the direction between the source's rank and its targets'. */
+		const gapAfter = (scene: Scene, source: string, target: string) =>
+			start(boxOf(scene, target), rank) - end(boxOf(scene, source), rank);
+		const targets = Array.from({ length: 20 }, (_, index) => `worker-${index + 1}`);
+		const wide = sceneOf(fanOut(direction, targets));
+		const narrow = sceneOf(chain(direction));
+		// Each Edge of the fan goes into its own Port, so each needs a lane of its
+		// own, beyond the stubs at both ends.
+		expect(gapAfter(wide, "orders-api", "worker-1")).toBeGreaterThanOrEqual(
+			2 * (wide.clearance / 2) + targets.length * wide.lanes.spacing,
+		);
+		// A chain needs only one lane in each gap, which the usual gap holds.
+		expect(gapAfter(narrow, "web-app", "shop-api")).toBe(
+			gapAfter(sceneOf(chain(direction)), "shop-api", "shop-db"),
+		);
+		expect(gapAfter(narrow, "web-app", "shop-api")).toBeLessThan(
+			gapAfter(wide, "orders-api", "worker-1"),
+		);
+	});
+
 	test("keeps a chain straight", () => {
 		const scene = sceneOf(chain(direction));
 		expect(straight(scene, "web-app", "shop-api")).toBe(true);

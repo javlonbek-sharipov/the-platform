@@ -593,6 +593,68 @@ function overfullCorridors(scene: Scene): string[] {
 	return found;
 }
 
+/**
+ * Where lanes run too close: two Edges of different bundles running side by
+ * side, closer than the minimum spacing, other than in the junction of a Port
+ * they share, or a lane closer than the padding to a box beside it.
+ */
+function tooClose(scene: Scene): string[] {
+	const found: string[] = [];
+	const { minimum, padding } = scene.lanes;
+	const across = ([a]: [Point, Point], horizontal: boolean) => (horizontal ? a.y : a.x);
+	const span = ([a, b]: [Point, Point], horizontal: boolean) =>
+		horizontal
+			? [Math.min(a.x, b.x), Math.max(a.x, b.x)]
+			: [Math.min(a.y, b.y), Math.max(a.y, b.y)];
+	const overlap = (p: number[], q: number[]) =>
+		Math.min(p[1] ?? 0, q[1] ?? 0) - Math.max(p[0] ?? 0, q[0] ?? 0);
+	scene.edges.forEach((a, index) => {
+		for (const b of scene.edges.slice(index + 1)) {
+			if (sameBundle(a, b)) {
+				continue;
+			}
+			segmentsOf(a.route).forEach((first, i) => {
+				segmentsOf(b.route).forEach((second, j) => {
+					const horizontal = first[0].y === first[1].y;
+					if (horizontal !== (second[0].y === second[1].y) || inJunction(a, b, [i, j])) {
+						return;
+					}
+					const gap = Math.abs(across(first, horizontal) - across(second, horizontal));
+					if (
+						gap >= sameLane &&
+						gap < minimum - 1e-9 &&
+						overlap(span(first, horizontal), span(second, horizontal)) > sameLane
+					) {
+						found.push(`${a.id} and ${b.id} run ${gap} apart`);
+					}
+				});
+			});
+		}
+	});
+	const boxes = [
+		...scene.nodes.flatMap(({ box, callout }) =>
+			callout === undefined ? [box] : [box, callout.tag],
+		),
+		...scene.groups.map(({ label }) => label),
+	];
+	for (const { id, route } of scene.edges) {
+		for (const segment of segmentsOf(route)) {
+			const horizontal = segment[0].y === segment[1].y;
+			for (const box of boxes) {
+				const sides = horizontal ? [box.y, box.y + box.height] : [box.x, box.x + box.width];
+				const along = horizontal ? [box.x, box.x + box.width] : [box.y, box.y + box.height];
+				const distance = Math.min(
+					...sides.map((side) => Math.abs(side - across(segment, horizontal))),
+				);
+				if (overlap(span(segment, horizontal), along) > 0 && distance < padding) {
+					found.push(`${id} runs ${distance} from a box at (${box.x}, ${box.y})`);
+				}
+			}
+		}
+	}
+	return found;
+}
+
 describe.each(fixtures)("every route in %s", (_, diagram) => {
 	test("exists, one for each Edge, and none of them fell back", () => {
 		const scene = sceneOf(diagram);
@@ -610,14 +672,26 @@ describe.each(fixtures)("every route in %s", (_, diagram) => {
 		}
 	});
 
-	test("leaves and enters its Nodes at right angles to their sides, along its Ports' stubs", () => {
-		for (const { id, route, fromPort, toPort } of sceneOf(diagram).edges) {
+	test("leaves and enters its Nodes at right angles to their sides, straight along its Ports' stubs for at least the lane padding", () => {
+		const scene = sceneOf(diagram);
+		for (const { id, route, fromPort, toPort } of scene.edges) {
 			const [first, second] = route;
-			expect(first && at(first)).toEqual(fromPort.point);
-			expect(onSegment(fromPort.stub, first, second), `${id} leaves off its stub`).toBe(true);
 			const [beforeLast, last] = route.slice(-2);
+			expect(first && at(first)).toEqual(fromPort.point);
 			expect(last && at(last)).toEqual(toPort.point);
-			expect(onSegment(toPort.stub, beforeLast, last), `${id} enters off its stub`).toBe(true);
+			for (const [port, near, far, end] of [
+				[fromPort, first, second, "leaves"],
+				[toPort, last, beforeLast, "enters"],
+			] as const) {
+				// The run along the stub heads straight out of the Port's side.
+				const normal = outward[port.side];
+				const length =
+					((far?.x ?? 0) - (near?.x ?? 0)) * normal.x + ((far?.y ?? 0) - (near?.y ?? 0)) * normal.y;
+				const across =
+					((far?.x ?? 0) - (near?.x ?? 0)) * normal.y - ((far?.y ?? 0) - (near?.y ?? 0)) * normal.x;
+				expect(across, `${id} ${end} at a slant`).toBe(0);
+				expect(length, `${id} ${end} too short a stub`).toBeGreaterThanOrEqual(scene.lanes.padding);
+			}
 		}
 	});
 
@@ -671,6 +745,10 @@ describe.each(fixtures)("every route in %s", (_, diagram) => {
 				}),
 		);
 		expect(parted).toEqual([]);
+	});
+
+	test("keeps at least the minimum spacing from the lanes beside it, and the padding from boxes beside it", () => {
+		expect(tooClose(sceneOf(diagram))).toEqual([]);
 	});
 
 	test("shares every corridor with no more lanes than its width holds at the lane spacing", () => {

@@ -6,10 +6,11 @@
  */
 
 import { type Diagram, endNode, type RowEnd } from "../authoring/model.ts";
+import { type Bundling, compareText, laneGroups } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { buildGrid, type Grid, pointOf, vertexAt } from "./grid.ts";
 import { clearance } from "./layout.ts";
-import { type NudgeRoute, nudge } from "./nudge.ts";
+import { type Corridors, type Nudged, type NudgeRoute, nudge, type Squeeze } from "./nudge.ts";
 import type {
 	Box,
 	Point,
@@ -30,13 +31,6 @@ import {
 	searchOn,
 	segmentBetween,
 } from "./search.ts";
-
-/**
- * Which Edges share a trunk (spec: Edge routing, step 4): those of one Kind
- * that go into one Port, those of one Kind that leave one Port, or none.
- * Parallel Edges never share one.
- */
-export type Bundling = "target" | "source" | "none";
 
 export interface RouteOptions {
 	/** Which Edges share a trunk. The architecture Notation bundles by target. */
@@ -91,38 +85,29 @@ const passes = 5;
 const fullCost = 48;
 const historyCost = 48;
 
-/**
- * Each Edge's lane group: the Edges that may share a lane, which is a bundle
- * (spec: Edge routing, step 4). A bundle is the Edges of one Kind that go into
- * one Port, or that leave one Port, or each Edge on its own. Parallel Edges,
- * which join the same pair of Ports, never share one: the second Edge between
- * two Ports in a bundle goes into a second group, and so on.
- */
-function laneGroups(diagram: Diagram, bundle: Bundling): Map<string, string> {
-	const groups = new Map<string, string>();
-	const taken = new Map<string, number>();
-	const port = (end: string | RowEnd) => (typeof end === "string" ? [end] : [end.node, end.row]);
-	for (const edge of [...diagram.edges].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
-		const [shared, other] =
-			bundle === "source" ? [port(edge.from), port(edge.to)] : [port(edge.to), port(edge.from)];
-		const key = bundle === "none" ? edge.id : JSON.stringify([edge.kind, ...shared]);
-		const pair = JSON.stringify([key, ...other]);
-		const index = taken.get(pair) ?? 0;
-		taken.set(pair, index + 1);
-		groups.set(edge.id, JSON.stringify([key, index]));
-	}
-	return groups;
-}
-
 /** How many Group borders the segment between two neighboring vertices crosses. */
 function bordersBetween(grid: Grid, a: number, b: number): number {
 	const low = Math.min(a, b);
 	return (Math.abs(a - b) === 1 ? grid.crossEast[low] : grid.crossSouth[low]) ?? 0;
 }
 
-/** Orders text by UTF-16 code units, as ids are compared everywhere in the core. */
-function compareText(a: string, b: string): number {
-	return a < b ? -1 : a > b ? 1 : 0;
+/** The grid segments that lie along a stretch of one of the grid's lines. */
+function segmentsAlong(grid: Grid, { horizontal, line, low, high }: Squeeze): number[] {
+	const columns = grid.xs.length;
+	const lines = horizontal ? grid.ys : grid.xs;
+	const stops = horizontal ? grid.xs : grid.ys;
+	const at = lines.indexOf(line);
+	if (at < 0) {
+		return [];
+	}
+	return stops.flatMap((stop, index) => {
+		const next = stops[index + 1];
+		if (next === undefined || stop < low || next > high) {
+			return [];
+		}
+		const vertex = horizontal ? at * columns + index : index * columns + at;
+		return [2 * vertex + (horizontal ? 0 : 1)];
+	});
 }
 
 /** The heading of a stub, out of its side. */
@@ -212,10 +197,54 @@ export function route(
 		stamp: 0,
 		full: fullCost,
 	};
-	// Every Edge is routed, then each segment left over capacity gains a
-	// lasting cost, and every Edge is routed again, until none is over or the
-	// passes run out. The pass that left the least over capacity wins.
-	let best = new Map<string, number[] | undefined>();
+	const corridors: Corridors = {
+		obstacles: [
+			...nodes.flatMap(({ box, callout }) => (callout === undefined ? [box] : [box, callout.tag])),
+			...groups.map(({ label }) => label),
+		],
+		borders: groups.map(({ box }) => box),
+		ports: [
+			...new Map(
+				[...ends.values()].flatMap(({ fromPort, toPort }) => [
+					[`${fromPort.point.x} ${fromPort.point.y}`, fromPort] as const,
+					[`${toPort.point.x} ${toPort.point.y}`, toPort] as const,
+				]),
+			).values(),
+		],
+	};
+	/** The routes of a pass as the nudging takes them, with the ids of their Edges. */
+	const routesOf = (paths: Map<string, number[] | undefined>) => {
+		const ids: string[] = [];
+		const routes: NudgeRoute[] = [];
+		for (const edge of order) {
+			const { fromPort, toPort } = ends.get(edge.id) ?? {};
+			const vertices = paths.get(edge.id);
+			if (fromPort !== undefined && toPort !== undefined && vertices !== undefined) {
+				ids.push(edge.id);
+				routes.push({
+					points: polyline([
+						fromPort.point,
+						...vertices.map((vertex) => pointOf(grid, vertex)),
+						toPort.point,
+					]),
+					fromPort,
+					toPort,
+					group: groupOf.get(edge.id) ?? edge.id,
+				});
+			}
+		}
+		return { ids, routes };
+	};
+	// Every Edge is routed, and its route spread into lanes. Then each segment
+	// left over capacity gains a lasting cost, as does each segment where lanes
+	// had to squeeze closer than the minimum spacing, and every Edge is routed
+	// again, until none is over or the passes run out. The pass that left the
+	// least over capacity wins.
+	let best = {
+		paths: new Map<string, number[] | undefined>(),
+		ids: [] as string[],
+		nudged: { routes: [], squeezed: [] } as Nudged,
+	};
 	let leastOver = Number.POSITIVE_INFINITY;
 	for (let pass = 0; pass < passes; pass += 1) {
 		congestion.usage.fill(0);
@@ -274,8 +303,16 @@ export function route(
 				congestion.history[segment] = (congestion.history[segment] ?? 0) + historyCost;
 			}
 		});
+		const { ids, routes } = routesOf(paths);
+		const nudged = nudge(routes, corridors, lanes);
+		for (const squeeze of nudged.squeezed) {
+			over += 1;
+			for (const segment of segmentsAlong(grid, squeeze)) {
+				congestion.history[segment] = (congestion.history[segment] ?? 0) + historyCost;
+			}
+		}
 		if (over < leastOver) {
-			best = paths;
+			best = { paths, ids, nudged };
 			leastOver = over;
 		}
 		if (over === 0) {
@@ -283,26 +320,17 @@ export function route(
 		}
 	}
 	const routed = new Map<string, SceneEdge>();
-	const found = new Map<string, NudgeRoute>();
 	for (const edge of order) {
 		const { from, to, fromPort, toPort } = ends.get(edge.id) ?? {};
 		if (from === undefined || to === undefined || fromPort === undefined || toPort === undefined) {
 			continue;
 		}
-		const vertices = best.get(edge.id);
+		const vertices = best.paths.get(edge.id);
 		const path = vertices && [
 			fromPort.point,
 			...vertices.map((vertex) => pointOf(grid, vertex)),
 			toPort.point,
 		];
-		if (path !== undefined) {
-			found.set(edge.id, {
-				points: polyline(path),
-				fromPort,
-				toPort,
-				group: groupOf.get(edge.id) ?? edge.id,
-			});
-		}
 		routed.set(edge.id, {
 			id: edge.id,
 			kind: edge.kind,
@@ -316,26 +344,11 @@ export function route(
 			fellBack: path === undefined,
 		});
 	}
-	// Routes that share a grid line spread apart into lanes. Fallback routes
-	// keep to their simple shapes.
-	const searched = [...found.entries()];
-	const nudged = nudge(
-		searched.map(([, route]) => route),
-		{
-			obstacles: [
-				...nodes.flatMap(({ box, callout }) =>
-					callout === undefined ? [box] : [box, callout.tag],
-				),
-				...groups.map(({ label }) => label),
-			],
-			borders: groups.map(({ box }) => box),
-		},
-		lanes,
-	);
-	searched.forEach(([id], index) => {
-		const edge = routed.get(id);
-		const points = nudged[index];
-		if (edge !== undefined && points !== undefined) {
+	// Routes that share a grid line spread apart into lanes, as the winning
+	// pass placed them. Fallback routes keep to their simple shapes.
+	best.nudged.routes.forEach((points, index) => {
+		const edge = routed.get(best.ids[index] ?? "");
+		if (edge !== undefined) {
 			edge.route = roundCorners(polyline(points));
 		}
 	});
