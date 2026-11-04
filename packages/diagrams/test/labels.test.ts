@@ -12,7 +12,7 @@ import {
 	type SceneText,
 } from "../src/index.ts";
 import { crowded } from "./fixtures/crowded.ts";
-import { groupFixtures } from "./fixtures/groups.ts";
+import { groupFixtures, twoRegions } from "./fixtures/groups.ts";
 import { labeled } from "./fixtures/labeled.ts";
 import { computedStyle, descendants, type Element, parseSvg, rulesOf } from "./support/svg.ts";
 import { advanceOf, bundledFont, characterMap, unitsPerEm } from "./support/truetype.ts";
@@ -665,6 +665,28 @@ function halfwayAlong(route: Point[]): { point: Point; horizontal: boolean } {
 	}
 	throw new Error("expected a route with some length");
 }
+
+describe("the two-regions fixture, with every Edge labeled", () => {
+	test.each(directions)(
+		"places every label beside a run of its own, with no label-placement warning, laid out %s",
+		(direction) => {
+			// The EU API calls the US database too. Riding that Edge's trunk, the US
+			// API's Edge to its database would be all trunk past its stub.
+			const { scene, diagnostics } = render(labeled(twoRegions(direction)));
+			if (scene === undefined) {
+				throw new Error("expected a scene");
+			}
+			expect(diagnostics.filter(({ rule }) => rule === "label-placement")).toEqual([]);
+			for (const edge of scene.edges) {
+				const box = edge.label?.box ?? scene.bounds;
+				expect(
+					ownStretches(scene, edge).some((stretch) => besideStretch(box, stretch)),
+					edge.id,
+				).toBe(true);
+			}
+		},
+	);
+});
 
 describe("an Edge's label with no room beside a run of its own", () => {
 	/**
