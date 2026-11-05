@@ -17,6 +17,7 @@ import { Selection, type SelectionTarget } from "./selection.ts";
 import type { Shown } from "./stage.ts";
 import { styles } from "./styles.ts";
 import { boundsOf, fetchSvg } from "./svg.ts";
+import { SvgTransition, sameDiagram } from "./transitions.ts";
 
 /**
  * The most a component gets high when the page gives it no height: most of
@@ -62,8 +63,13 @@ export class PlatformDiagram extends HTMLElement {
 	#live = false;
 	/** Stops the `src` on its way, when another takes its place or the element leaves the page. */
 	#loading: AbortController | undefined;
+	#transition: SvgTransition | undefined;
+	readonly #reduced = matchMedia("(prefers-reduced-motion: reduce)");
+	readonly #motionChanged = () => {
+		if (this.motion === "off" || this.#reduced.matches) this.#transition?.finish();
+	};
 
-	static readonly observedAttributes = ["src"];
+	static readonly observedAttributes = ["src", "motion"];
 
 	/** The reader's persistent selection. Hover leaves it unchanged. */
 	get selection(): SelectionTarget | undefined {
@@ -132,6 +138,7 @@ export class PlatformDiagram extends HTMLElement {
 	}
 
 	connectedCallback(): void {
+		this.#reduced.addEventListener("change", this.#motionChanged);
 		if (!this.#take()) {
 			// Back in a page, with the SVG it had on its stage when it left.
 			this.#tell();
@@ -143,6 +150,8 @@ export class PlatformDiagram extends HTMLElement {
 	}
 
 	disconnectedCallback(): void {
+		this.#transition?.finish();
+		this.#reduced.removeEventListener("change", this.#motionChanged);
 		this.#live = false;
 		this.#loading?.abort();
 		this.#children.disconnect();
@@ -186,7 +195,11 @@ export class PlatformDiagram extends HTMLElement {
 		return true;
 	}
 
-	attributeChangedCallback(_name: string, _before: string | null, value: string | null): void {
+	attributeChangedCallback(name: string, _before: string | null, value: string | null): void {
+		if (name === "motion") {
+			this.#motionChanged();
+			return;
+		}
 		// Before the element is in a page, `connectedCallback` is still to come, and loads the `src`.
 		if (this.#live) {
 			void this.#load(value);
@@ -224,12 +237,23 @@ export class PlatformDiagram extends HTMLElement {
 	/** Puts a Diagram's SVG on the stage, in place of the one before it. */
 	#show(svg: SVGSVGElement): void {
 		const bounds = boundsOf(svg);
+		const same = this.#svg !== undefined && sameDiagram(this.#svg, svg);
+		const transition: SvgTransition | undefined =
+			this.#svg !== undefined && this.motion !== "off" && !this.#reduced.matches && same
+				? new SvgTransition(this.#svg, svg, () => {
+						if (this.#transition === transition) this.#transition = undefined;
+					})
+				: undefined;
+		this.#transition?.finish();
+		this.#transition = transition;
 		svg.style.height = `min(${huggingHeight(bounds)}, ${tallest})`;
 		this.#untell();
 		this.#svg = svg;
 		this.#stage.replaceChildren(svg);
-		this.#camera.frame(bounds);
+		transition?.prepare();
+		this.#camera.frame(bounds, same);
 		this.#tell();
+		transition?.play();
 	}
 
 	/** Tells the parts of the SVG on the stage. */

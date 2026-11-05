@@ -4,15 +4,58 @@
  * stripping, and posts back its default export as JSON.
  */
 
+import { registerHooks } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parentPort, workerData } from "node:worker_threads";
 import { type Declarations, declarationsKey, framePosition } from "../authoring/declarations.ts";
 import { unknownOptionsOf } from "../authoring/options.ts";
-import type { LoadResult, Place } from "./load.ts";
+import type { LoadMessage, LoadResult, Place } from "./load.ts";
+
+const imports = new Map<string, Set<string>>();
+const reported = new Set<string>();
+function dependency(parent: string | undefined, url: string): void {
+	if (!url.startsWith("file:")) return;
+	if (parent !== undefined) {
+		const children = imports.get(parent) ?? new Set<string>();
+		children.add(url);
+		imports.set(parent, children);
+	}
+	const file = fileURLToPath(url);
+	if (!reported.has(file)) {
+		reported.add(file);
+		post({ type: "dependency", file });
+	}
+}
+
+const hooks = registerHooks({
+	resolve(specifier, context, nextResolve) {
+		try {
+			const result = nextResolve(specifier, context);
+			dependency(context.parentURL, result.url);
+			return result;
+		} catch (error) {
+			const url = (error as { url?: string }).url;
+			if (url !== undefined) dependency(context.parentURL, url);
+			throw error;
+		}
+	},
+});
+
+function dependenciesOf(module: string): string[] {
+	const urls = new Set([pathToFileURL(module).href]);
+	for (const url of urls) for (const child of imports.get(url) ?? []) urls.add(child);
+	return [...urls].map((url) => fileURLToPath(url)).sort();
+}
+
+function post(message: LoadMessage): void {
+	parentPort?.postMessage(message);
+}
 
 for (const module of workerData as string[]) {
-	parentPort?.postMessage(await loadModule(module));
+	const result = await loadModule(module);
+	post({ type: "result", result: { ...result, dependencies: dependenciesOf(module) } });
 }
+hooks.deregister();
 
 async function loadModule(module: string): Promise<LoadResult> {
 	let exports: { default?: unknown };
@@ -20,18 +63,25 @@ async function loadModule(module: string): Promise<LoadResult> {
 		exports = await import(pathToFileURL(module).href);
 	} catch (error) {
 		const at = thrownAt(error, module);
-		return { module, failed: "import", reason: messageOf(error), ...(at && { at }) };
+		return {
+			module,
+			dependencies: [],
+			failed: "import",
+			reason: messageOf(error),
+			...(at && { at }),
+		};
 	}
 	try {
 		const json = JSON.stringify(exports.default);
 		return {
 			module,
+			dependencies: [],
 			json,
 			declarations: declarationsOf(exports.default),
 			unknownOptions: unknownOptionsOf(exports.default),
 		};
 	} catch (error) {
-		return { module, failed: "json", reason: messageOf(error) };
+		return { module, dependencies: [], failed: "json", reason: messageOf(error) };
 	}
 }
 
