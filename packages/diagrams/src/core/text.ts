@@ -7,7 +7,7 @@
 
 import type { Diagram, Row } from "../authoring/model.ts";
 import { technologyOf } from "../notations/architecture.ts";
-import { type Diagnostic, list } from "./diagnostics.ts";
+import { codePointOf, type Diagnostic, list } from "./diagnostics.ts";
 import { fontMetrics } from "./font-metrics.ts";
 import type {
 	Box,
@@ -18,6 +18,7 @@ import type {
 	SceneNode,
 	SceneText,
 } from "./scene.ts";
+import { type ModelText, textsOf } from "./texts.ts";
 
 /** The weights that text is drawn in: regular for Rows and labels, and semibold for titles. */
 export type FontWeight = "regular" | "semibold";
@@ -403,9 +404,9 @@ export function rowTextsOf(node: SceneNode): SceneText[] {
 
 /**
  * A warning for each piece of text with characters that the font lacks, and
- * for each one shortened: every Node's title, its Rows' names and values, and
- * its callout, then every Group's title, then every Edge's label, Technology
- * and rate.
+ * for each one shortened: every Node's title, Technology, Rows' names and
+ * values, and callout, then every Group's title, then every Edge's label,
+ * Technology and rate, as the model holds them.
  */
 export function textDiagnostics(
 	diagram: Diagram,
@@ -413,119 +414,92 @@ export function textDiagnostics(
 	groups: SceneGroup[],
 	edges: SceneEdge[],
 ): Diagnostic[] {
-	const drawn = new Map(nodes.map((node) => [node.id, node]));
-	const groupTitles = diagram.groups.map((group, index): CheckedText => {
-		const named = `Group \`${group.id}\``;
-		return {
-			source: group.title,
-			// The scene keeps the model's order.
-			drawn: groups[index]?.title,
-			weight: "semibold",
-			pointer: `/groups/${index}/title`,
-			lacking: (some) => `${named}'s title has ${some} that the bundled font lacks`,
-			shortened: (text) =>
-				`${named}'s title is too wide for its Group, so it's shortened to \`${text}\`. Choose a shorter title to show it in full.`,
-		};
+	// The scene keeps the model's order.
+	return textsOf(diagram).flatMap((text) => {
+		const checked = checkedText(text, nodes, groups, edges);
+		return checked === undefined ? [] : warningsAbout(checked);
 	});
-	const nodeTexts = diagram.nodes.flatMap((node, index) => {
-		const scene = drawn.get(node.id);
-		const named = `Node \`${node.id}\``;
-		const title: CheckedText = {
-			source: node.title,
-			drawn: scene?.title,
-			weight: "semibold",
-			pointer: `/nodes/${index}/title`,
-			lacking: (some) => `${named}'s title has ${some} that the bundled font lacks`,
-			shortened: (text) =>
-				`${named}'s title is too wide for its Node, so it's shortened to \`${text}\`. Choose a shorter title to show it in full.`,
-		};
-		const technology: CheckedText[] =
-			node.technology === undefined
-				? []
-				: [
-						{
-							...technologyText(named, technologyOf(node.technology), "too wide for its Node"),
-							drawn: scene?.technology,
-							pointer: `/nodes/${index}/technology`,
-						},
-					];
-		const rows = (node.rows ?? []).flatMap((row, at) => {
-			const rowNamed = `${named}'s Row \`${collapseSpaces(row.name)}\``;
-			return (["name", "value"] as const).flatMap((field): CheckedText[] => {
-				const source = row[field];
-				return source === undefined
-					? []
-					: [
-							{
-								source,
-								drawn: scene?.rows[at]?.[field],
-								weight: "regular",
-								pointer: `/nodes/${index}/rows/${at}/${field}`,
-								lacking: (some) =>
-									`${rowNamed} has ${some} in its ${field} that the bundled font lacks`,
-								shortened: (text) =>
-									`${rowNamed} is too wide for its Node, so its ${field} is shortened to \`${text}\`. Choose a shorter name or value to show it in full.`,
-							},
-						];
-			});
-		});
-		const callout: CheckedText[] =
-			node.callout === undefined
-				? []
-				: [
-						{
-							source: node.callout,
-							drawn: scene?.callout?.text,
-							weight: "semibold",
-							pointer: `/nodes/${index}/callout`,
-							lacking: (some) => `${named}'s callout has ${some} that the bundled font lacks`,
-							shortened: (text) =>
-								`${named}'s callout is too wide for its tag, so it's shortened to \`${text}\`. Choose a shorter callout to show it in full.`,
-						},
-					];
-		return [title, ...technology, ...rows, ...callout].flatMap(warningsAbout);
-	});
-	const labels = new Map(edges.map((edge) => [edge.id, edge.label]));
-	const edgeTexts = diagram.edges.flatMap((edge, index) => {
-		const named = `Edge \`${edge.id}\``;
-		const label = labels.get(edge.id);
-		const own = (
-			field: "label" | "rate",
-			drawn: SceneText | undefined,
-			advice: string,
-		): CheckedText[] => {
-			const source = edge[field];
-			return source === undefined
-				? []
-				: [
-						{
-							source,
-							drawn,
-							weight: "regular",
-							pointer: `/edges/${index}/${field}`,
-							lacking: (some) => `${named}'s ${field} has ${some} that the bundled font lacks`,
-							shortened: (text) =>
-								`${named}'s ${field} is too long for its run, so it's shortened to \`${text}\`. ${advice}`,
-						},
-					];
-		};
-		const technology: CheckedText[] =
-			edge.technology === undefined
-				? []
-				: [
-						{
-							...technologyText(named, technologyOf(edge.technology), "too long for its run"),
-							drawn: label?.technology,
-							pointer: `/edges/${index}/technology`,
-						},
-					];
-		return [
-			...own("label", label?.text, "Choose a shorter label to show it in full."),
-			...technology,
-			...own("rate", label?.rate, "Write it with `k` or `M` to show it in full."),
-		];
-	});
-	return [...nodeTexts, ...groupTitles.flatMap(warningsAbout), ...edgeTexts.flatMap(warningsAbout)];
+}
+
+/** A text of the model that the scene draws, as its warnings check and word it; none for one it doesn't draw. */
+function checkedText(
+	{ owner, field, text, pointer }: ModelText,
+	nodes: SceneNode[],
+	groups: SceneGroup[],
+	edges: SceneEdge[],
+): CheckedText | undefined {
+	if (owner.thing === "Diagram") {
+		return undefined;
+	}
+	const named = `${owner.thing} \`${owner.id}\``;
+	const node = owner.thing === "Node" ? nodes[owner.index] : undefined;
+	const label = owner.thing === "Edge" ? edges[owner.index]?.label : undefined;
+	switch (field.name) {
+		case "title":
+			return owner.thing === "Edge"
+				? undefined
+				: {
+						source: text,
+						drawn: owner.thing === "Node" ? node?.title : groups[owner.index]?.title,
+						weight: "semibold",
+						pointer,
+						lacking: (some) => `${named}'s title has ${some} that the bundled font lacks`,
+						shortened: (drawn) =>
+							`${named}'s title is too wide for its ${owner.thing}, so it's shortened to \`${drawn}\`. Choose a shorter title to show it in full.`,
+					};
+		case "technology":
+			return {
+				...technologyText(
+					named,
+					technologyOf(text),
+					owner.thing === "Node" ? "too wide for its Node" : "too long for its run",
+				),
+				drawn: owner.thing === "Node" ? node?.technology : label?.technology,
+				pointer,
+			};
+		case "row name":
+		case "row value": {
+			const part = field.name === "row name" ? "name" : "value";
+			const rowNamed = `${named}'s Row \`${collapseSpaces(field.row)}\``;
+			return {
+				source: text,
+				drawn: node?.rows[field.rowIndex]?.[part],
+				weight: "regular",
+				pointer,
+				lacking: (some) => `${rowNamed} has ${some} in its ${part} that the bundled font lacks`,
+				shortened: (drawn) =>
+					`${rowNamed} is too wide for its Node, so its ${part} is shortened to \`${drawn}\`. Choose a shorter name or value to show it in full.`,
+			};
+		}
+		case "callout":
+			return {
+				source: text,
+				drawn: node?.callout?.text,
+				weight: "semibold",
+				pointer,
+				lacking: (some) => `${named}'s callout has ${some} that the bundled font lacks`,
+				shortened: (drawn) =>
+					`${named}'s callout is too wide for its tag, so it's shortened to \`${drawn}\`. Choose a shorter callout to show it in full.`,
+			};
+		case "label":
+		case "rate": {
+			const advice =
+				field.name === "label"
+					? "Choose a shorter label to show it in full."
+					: "Write it with `k` or `M` to show it in full.";
+			return {
+				source: text,
+				drawn: field.name === "label" ? label?.text : label?.rate,
+				weight: "regular",
+				pointer,
+				lacking: (some) => `${named}'s ${field.name} has ${some} that the bundled font lacks`,
+				shortened: (drawn) =>
+					`${named}'s ${field.name} is too long for its run, so it's shortened to \`${drawn}\`. ${advice}`,
+			};
+		}
+		default:
+			return undefined;
+	}
 }
 
 /**
@@ -592,11 +566,6 @@ function warningsAbout(text: CheckedText): Diagnostic[] {
 /** Each character in the text that the font lacks, once, in order. */
 function missingCharacters(text: string, weight: FontWeight): string[] {
 	return [...new Set(text)].filter((character) => !hasCharacter(character, weight));
-}
-
-/** `U+6771` */
-function codePointOf(character: string): string {
-	return `U+${(character.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}`;
 }
 
 /**

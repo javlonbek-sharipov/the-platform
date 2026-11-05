@@ -20,7 +20,8 @@ import {
 	architectureNodeKinds,
 	architectureStatuses,
 } from "../notations/architecture.ts";
-import { type Diagnostic, list, pointerSegment } from "./diagnostics.ts";
+import { codePointOf, type Diagnostic, list, pointerSegment } from "./diagnostics.ts";
+import { type TextField, type TextOwner, textsOf } from "./texts.ts";
 
 export interface Validation {
 	diagnostics: Diagnostic[];
@@ -351,82 +352,24 @@ function checkTechnology(
 			];
 }
 
-/** A piece of text in the model: how a message names it, the text, and where it is. */
-type PlacedText = [where: string, text: string | undefined, pointer: string];
-
 /**
  * Every text in the model must be one that an SVG can hold. XML forbids some
  * characters even written as character references, so no escaping could
  * write them: control characters other than tabs and line breaks, halves of
- * surrogate pairs on their own, and U+FFFE and U+FFFF. Ids, Kinds and the
- * other fields that have formats of their own can't hold them anyway.
+ * surrogate pairs on their own, and U+FFFE and U+FFFF. A Technology and a
+ * rate have formats that leave them out already, as ids and Kinds do.
  */
 function checkCharacters(diagram: Diagram): Diagnostic[] {
-	const linkTexts = (owner: string, links: Link[] | undefined, pointer: string) =>
-		(links ?? []).flatMap((link, index): PlacedText[] => {
-			const named = `${owner}'s Link to \`${shown(link.id ?? link.doc ?? "")}\``;
-			const at = `${pointer}/links/${index}`;
-			return [
-				[`the document of ${named}`, link.doc, `${at}/doc`],
-				[`the section of ${named}`, link.section, `${at}/section`],
-				[`the label of ${named}`, link.label, `${at}/label`],
-			];
-		});
-	const texts: PlacedText[] = [
-		["the Diagram's id", diagram.id, "/id"],
-		["the Diagram's title", diagram.title, "/title"],
-		["the Diagram's description", diagram.description, "/description"],
-		...diagram.nodes.flatMap((node, index): PlacedText[] => {
-			const named = `Node \`${shown(node.id)}\``;
-			const at = `/nodes/${index}`;
-			return [
-				[`${named}'s title`, node.title, `${at}/title`],
-				[`${named}'s callout`, node.callout, `${at}/callout`],
-				...(node.rows ?? []).flatMap((row, rowIndex) =>
-					(["name", "value"] as const).map(
-						(field): PlacedText => [
-							`the ${field} of ${named}'s Row \`${shown(row.name)}\``,
-							row[field],
-							`${at}/rows/${rowIndex}/${field}`,
-						],
-					),
-				),
-				[`${named}'s description`, node.description, `${at}/description`],
-				...linkTexts(named, node.links, at),
-			];
-		}),
-		...diagram.groups.flatMap((group, index): PlacedText[] => {
-			const named = `Group \`${shown(group.id)}\``;
-			const at = `/groups/${index}`;
-			return [
-				[`${named}'s title`, group.title, `${at}/title`],
-				[`${named}'s description`, group.description, `${at}/description`],
-				...linkTexts(named, group.links, at),
-			];
-		}),
-		...diagram.edges.flatMap((edge, index): PlacedText[] => {
-			const named = `Edge \`${shown(edge.id)}\``;
-			const at = `/edges/${index}`;
-			const rows = (
-				[
-					["from", "starts"],
-					["to", "ends"],
-				] as const
-			).flatMap(([field, verb]): PlacedText[] => {
-				const end = edge[field];
-				return typeof end === "string"
-					? []
-					: [[`the Row that ${named} ${verb} at`, end.row, `${at}/${field}/row`]];
-			});
-			return [[`${named}'s label`, edge.label, `${at}/label`], ...rows];
-		}),
-	];
-	return texts.flatMap(([where, text, pointer]) => {
-		const found = [...new Set(text ?? "")].filter((character) => !writable(character));
+	return textsOf(diagram).flatMap(({ owner, field, text, pointer }) => {
+		if (field.name === "technology" || field.name === "rate") {
+			return [];
+		}
+		const found = [...new Set(text)].filter((character) => !writable(character));
 		const [first] = found;
 		if (first === undefined) {
 			return [];
 		}
+		const where = textNamed(owner, field);
 		const subject = `${where.charAt(0).toUpperCase()}${where.slice(1)}`;
 		return [
 			error(
@@ -438,6 +381,29 @@ function checkCharacters(diagram: Diagram): Diagnostic[] {
 			),
 		];
 	});
+}
+
+/**
+ * How a message names a text of the model, by its field and what holds it,
+ * with each character that an SVG can't hold written as an escape.
+ */
+function textNamed(owner: TextOwner, field: TextField): string {
+	const named = owner.thing === "Diagram" ? "the Diagram" : `${owner.thing} \`${shown(owner.id)}\``;
+	switch (field.name) {
+		case "row name":
+		case "row value":
+			return `the ${field.name === "row name" ? "name" : "value"} of ${named}'s Row \`${shown(field.row)}\``;
+		case "link doc":
+		case "link section":
+		case "link label": {
+			const part = { "link doc": "document", "link section": "section", "link label": "label" };
+			return `the ${part[field.name]} of ${named}'s Link to \`${shown(field.target)}\``;
+		}
+		case "end row":
+			return `the Row that ${named} ${field.end === "from" ? "starts" : "ends"} at`;
+		default:
+			return `${named}'s ${field.name}`;
+	}
 }
 
 /**
@@ -469,19 +435,9 @@ function unwritableKind(character: string): string {
 function shown(text: string): string {
 	return [...text]
 		.map((character) =>
-			writable(character) ? character : `\\u${hexOf(character.codePointAt(0) ?? 0)}`,
+			writable(character) ? character : codePointOf(character).replace("U+", "\\u"),
 		)
 		.join("");
-}
-
-/** `U+0007` */
-function codePointOf(character: string): string {
-	return `U+${hexOf(character.codePointAt(0) ?? 0)}`;
-}
-
-/** A code point as at least four uppercase hex digits. */
-function hexOf(code: number): string {
-	return code.toString(16).toUpperCase().padStart(4, "0");
 }
 
 /** A Link to an id must name it as the model writes ids. `owner` is the Node or Group that has the Links. */

@@ -20,3 +20,8 @@ export function list(words: readonly string[]): string {
 export function pointerSegment(field: string): string {
 	return field.replaceAll("~", "~0").replaceAll("/", "~1");
 }
+
+/** A character's code point, as messages write it: `U+0007`, `U+6771`. */
+export function codePointOf(character: string): string {
+	return `U+${(character.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}`;
+}
