@@ -9,7 +9,15 @@ import type { Diagram, Row } from "../authoring/model.ts";
 import { technologyOf } from "../notations/architecture.ts";
 import { type Diagnostic, list } from "./diagnostics.ts";
 import { fontMetrics } from "./font-metrics.ts";
-import type { Box, SceneEdge, SceneGroup, SceneLogo, SceneNode, SceneText } from "./scene.ts";
+import type {
+	Box,
+	Scene,
+	SceneEdge,
+	SceneGroup,
+	SceneLogo,
+	SceneNode,
+	SceneText,
+} from "./scene.ts";
 
 /** The weights that text is drawn in: regular for Rows and labels, and semibold for titles. */
 export type FontWeight = "regular" | "semibold";
@@ -366,6 +374,31 @@ export function labelTexts(
 					),
 				}),
 	};
+}
+
+/** Every piece of text the scene draws: each Node's, then each Group's title, then each label's. */
+export function drawnTexts(scene: Scene): SceneText[] {
+	return [
+		...scene.nodes.flatMap((node) => [
+			node.title,
+			...(node.technology === undefined ? [] : [node.technology]),
+			...rowTextsOf(node),
+			...(node.callout === undefined ? [] : [node.callout.text]),
+		]),
+		...scene.groups.map((group) => group.title),
+		...scene.edges.flatMap(({ label }) =>
+			label === undefined
+				? []
+				: [label.text, label.technology, label.rate].flatMap((text) =>
+						text === undefined ? [] : [text],
+					),
+		),
+	];
+}
+
+/** Each Row's name, and its value if it has one, in order. */
+export function rowTextsOf(node: SceneNode): SceneText[] {
+	return node.rows.flatMap((row) => (row.value === undefined ? [row.name] : [row.name, row.value]));
 }
 
 /**

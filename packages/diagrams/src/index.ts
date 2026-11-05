@@ -60,6 +60,7 @@ export type {
 	ArchitectureNodeKind,
 	ArchitectureNodeLook,
 	ArchitectureStatus,
+	ArchitectureStatusLook,
 	KnownTechnology,
 	Technology,
 } from "./notations/architecture.ts";
@@ -72,5 +73,6 @@ export {
 	architectureNodeKinds,
 	architectureNodeLooks,
 	architectureStatuses,
+	architectureStatusLooks,
 } from "./notations/architecture.ts";
 export { technologies } from "./notations/technologies.ts";
