@@ -47,8 +47,23 @@ export interface DiagramOf<N extends Notation> {
 	nodes: NodeOf<N>[];
 	groups: GroupOf<N>[];
 	edges: EdgeOf<N>[];
-	/** Walkthroughs come in slice 4. */
-	walkthroughs: never[];
+	/** Ordered explanations, played by the web component and carried by the static SVG. */
+	walkthroughs: Walkthrough[];
+}
+
+/** One Edge in a Step, optionally traversed from its `to` end to its `from` end. */
+export type StepEdge = string | { edge: string; back?: boolean };
+
+/** One moment: parallel Edges, or exactly one Node, and an optional note. */
+export type Step = ({ edges: StepEdge[]; node?: never } | { node: string; edges?: never }) & {
+	note?: string;
+};
+
+/** An ordered list of Steps on one Diagram. Its id is unique among its Walkthroughs. */
+export interface Walkthrough {
+	id: string;
+	title: string;
+	steps: Step[];
 }
 
 /**

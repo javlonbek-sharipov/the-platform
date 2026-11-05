@@ -1,6 +1,6 @@
 /**
  * What every Notation's builder shares: the functions that declare Nodes,
- * Groups and Edges, the handles they return, Groups that declare their
+ * Groups, Edges and Walkthroughs, the handles they return, Groups that declare their
  * members in a callback, Rows whose names the types carry, an error for each
  * option a function doesn't know, and the place each declaration was called
  * from. A Notation's builder is `builderOf` its definition, which gives the
@@ -32,6 +32,8 @@ import {
 	endNode,
 	type Link,
 	type RowEnd,
+	type Step,
+	type Walkthrough,
 } from "./model.ts";
 import { optionsOf, recordUnknownOptions, unknownOptions } from "./options.ts";
 
@@ -169,6 +171,24 @@ export interface EdgeHandle {
 	readonly id: string;
 }
 
+/** An Edge handle or id, optionally traversed backwards for a reply. */
+export type StepEdgeDeclaration =
+	| string
+	| EdgeHandle
+	| { edge: string | EdgeHandle; back?: boolean };
+
+/** A Step highlights either parallel Edges or one Node, with an optional note. */
+export type StepDeclaration = (
+	| { edges: readonly StepEdgeDeclaration[]; node?: never }
+	| { node: string | NodeHandle; edges?: never }
+) & { note?: string };
+
+export interface WalkthroughDeclaration {
+	id: string;
+	title: string;
+	steps: readonly StepDeclaration[];
+}
+
 /**
  * An Edge end: a Node handle, or the id of a Node declared on the same
  * Diagram, or one of a Node's Rows, as `handle.row(name)` gives it or as
@@ -186,6 +206,8 @@ export interface Builder<N extends Notation> {
 	/** Declares a Group, whose members `build` declares with the builder it's given. */
 	group(group: GroupDeclaration<N>, build: (group: Builder<N>) => void): GroupHandle;
 	edge(from: EdgeEnd, to: EdgeEnd, options: EdgeDeclaration<N>): EdgeHandle;
+	/** Adds a Walkthrough to this Diagram, from any Group's builder too. */
+	walkthrough(walkthrough: WalkthroughDeclaration): void;
 }
 
 /**
@@ -229,6 +251,9 @@ const options = {
 		roles: true,
 	}),
 	roles: optionsOf<RolesDeclaration>({ from: true, to: true }),
+	walkthrough: optionsOf<WalkthroughDeclaration>({ id: true, title: true, steps: true }),
+	step: optionsOf<StepDeclaration>({ edges: true, node: true, note: true }),
+	stepEdge: ["edge", "back"],
 };
 
 /**
@@ -277,6 +302,7 @@ export function builderOf<const N extends Notation>(
 		const nodes: AnyNode[] = [];
 		const groups: AnyGroup[] = [];
 		const edges: AnyEdge[] = [];
+		const walkthroughs: Walkthrough[] = [];
 		const members: string[] = [];
 		const declarations: Declarations = {};
 		const declare = (pointer: string, callee: (...args: never[]) => unknown) => {
@@ -293,6 +319,49 @@ export function builderOf<const N extends Notation>(
 			const fullId = (id: string) =>
 				namespace === undefined || id.includes("/") ? id : `${namespace}/${id}`;
 			const builder: Builder<N> = {
+				walkthrough(walkthrough) {
+					const at = `/walkthroughs/${walkthroughs.length}`;
+					declare(at, builder.walkthrough);
+					unknown.push(
+						...unknownOptions(walkthrough, { known: options.walkthrough }, "A Walkthrough", at),
+					);
+					const steps = walkthrough.steps.map((step, index): Step => {
+						const stepAt = `${at}/steps/${index}`;
+						unknown.push(...unknownOptions(step, { known: options.step }, "A Step", stepAt));
+						const note = step.note === undefined ? {} : { note: step.note };
+						const node = step.node;
+						const nodeId =
+							node === undefined ? undefined : typeof node === "string" ? fullId(node) : node.id;
+						if (step.edges !== undefined) {
+							return {
+								edges: step.edges.map((edge, edgeIndex) => {
+									if (typeof edge === "string") return edge;
+									if (!("edge" in edge)) return edge.id;
+									unknown.push(
+										...unknownOptions(
+											edge,
+											{ known: options.stepEdge },
+											"A Step's Edge",
+											`${stepAt}/edges/${edgeIndex}`,
+										),
+									);
+									return {
+										edge: typeof edge.edge === "string" ? edge.edge : edge.edge.id,
+										...(edge.back === undefined ? {} : { back: edge.back }),
+									};
+								}),
+								...note,
+								// Keep an invalid mixed Step visible to validation, even in untyped modules.
+								...(nodeId === undefined ? {} : { node: nodeId }),
+							} as Step;
+						}
+						return {
+							node: nodeId,
+							...note,
+						} as Step;
+					});
+					walkthroughs.push({ id: walkthrough.id, title: walkthrough.title, steps });
+				},
 				node(node) {
 					const at = `/nodes/${nodes.length}`;
 					declare(at, builder.node);
@@ -391,7 +460,7 @@ export function builderOf<const N extends Notation>(
 			nodes,
 			groups,
 			edges,
-			walkthroughs: [],
+			walkthroughs,
 		};
 		Object.defineProperty(model, declarationsKey, { value: declarations });
 		// The declarations' types hold what was built to its Notation's Kinds and

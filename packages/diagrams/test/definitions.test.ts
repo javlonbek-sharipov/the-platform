@@ -52,10 +52,13 @@ function importsOf(module: string): string[] {
 
 /**
  * Strings that only look like a Kind's name, by module: a worker thread posts
- * its results in a `message` event. `typeof x === "function"` is excused
+ * its results in a `message` event; playback has an ARIA `region`. `typeof x === "function"` is excused
  * everywhere, since it names JavaScript's own type.
  */
-const otherMeanings: Record<string, string[]> = { "atlas/load.ts": ["message"] };
+const otherMeanings: Record<string, string[]> = {
+	"atlas/load.ts": ["message"],
+	"web-component/walkthroughs.ts": ["region"],
+};
 const typeofFunction = /typeof [^;\n]*?[!=]==? "function"/g;
 
 describe.each(notations.map((notation) => [notation.name, notation] as const))(

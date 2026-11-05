@@ -460,7 +460,7 @@ function checkedText(
 	groups: SceneGroup[],
 	edges: SceneEdge[],
 ): CheckedText | undefined {
-	if (owner.thing === "Diagram") {
+	if (owner.thing === "Diagram" || owner.thing === "Walkthrough") {
 		return undefined;
 	}
 	const named = `${owner.thing} \`${owner.id}\``;
