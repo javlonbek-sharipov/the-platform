@@ -1861,6 +1861,76 @@ The fix of [code review 1](https://github.com/javlonbek-sharipov/the-platform/bl
     - `geometry.ts` holds the heading of a run, rounding up to a step, and a stretch of a line. `bundles.ts` holds the lane spacing and the default bundling, which `render` sets once.
 11. **Arithmetic.** Ticket 07's decision 1 now allows the arithmetic that the spec's Arithmetic allows, rounding included, so a chip's pins may round down.
 
+**Issue #6**
+
+The web component's camera and level of detail. Since the spec's issue #1, tickets are GitHub issues, so this isn't the "Ticket 06" above.
+
+1. **Where the component lives.**
+   - Its modules are in `packages/diagrams/src/web-component/`, and the package exports them as `@the-platform/diagrams/web-component`. Importing that defines `<platform-diagram>`.
+   - They use only erasable syntax and import each other with `.ts` extensions. Node's `stripTypeScriptTypes` strips every one of them, which the live preview will rely on.
+   - Biome rejects Node's modules and `process` there, as it does in the core. The type check runs a second program for it and for its tests, `tsconfig.browser.json`, with the DOM's types. The first program still has none, so the core can't use the DOM by accident.
+2. **A stage in a shadow root.**
+   - The element attaches an open shadow root with one element in it, the stage. The stage holds the SVG, clips it, takes the focus and gets the reader's input. It stays while one SVG takes another's place, so the focus stays too.
+   - The page's styles don't reach the SVG there, and the component's don't leak out. The `--diagram-` properties still reach it, since custom properties inherit through a shadow root.
+   - The root is open, so that the tests' locators find the drawing's text. Find-in-page finds it in either kind.
+3. **How it gets its SVG.**
+   - An inline child is moved onto the stage, not copied: a copy would double the page's largest tree. An SVG given as a child later is taken too, and takes the place of the one before.
+   - An element defined before the page has parsed its child gets the child while it's still arriving. The parser goes on filling the SVG on the stage, and the parts are told of it again at `DOMContentLoaded`. Otherwise its font would never be declared, since the SVG's style arrives after its title.
+   - A `src` is fetched when the element is in a page, and again whenever it changes. Its SVG takes the place of an inline child, which shows until then. A later `src` takes over from one still on its way. Removing `src` leaves the stage as it is.
+   - The spec names no events for this. The element raises `load` once a `src`'s SVG is shown, and `error` when a `src` or an inline child can't be shown, as an `ErrorEvent` whose message says why. Neither bubbles, as an `<img>`'s don't. The stage keeps what it showed.
+   - An SVG without a `viewBox` isn't one the engine made, and is refused. Nothing else is checked.
+   - The SVG goes into the page as it is, with whatever it holds. So a `src` must be a URL that the page trusts as it trusts its own scripts. The component doesn't sanitize it.
+4. **The camera is the SVG's `viewBox`.**
+   - The SVG fills the stage, and the view is written as its `viewBox`. So the browser draws the drawing as vectors at every scale, with sharp text. A CSS transform would scale a picture of it whenever the browser put it on a layer of its own.
+   - The camera itself holds no element. It's told the drawing's bounds, which are the SVG's first `viewBox`, and the stage's size, and it tells whoever watches it each new view: the part of the drawing in view, and the scale.
+   - With the crowded fixture (7240 by 1920 px, 1,455 elements), dragging and zooming kept 60 frames a second in headless Chromium on one laptop.
+5. **Fit.**
+   - It leaves a padding of 16 px, never enlarges the drawing past its natural size, and never goes below a scale of 0.7, where a Row's 12 px text is drawn at 8.4 px.
+   - Along each axis, a drawing that fits sits in the middle. One that doesn't starts a padding in from the left or from the top. Drawn `right`, the sources are at the left, and the first one declared is at the top. Drawn `down`, it's the other way round. So the rule needs no direction, and the component doesn't read the model for it.
+   - The view is fitted when an SVG is shown, and again whenever the stage changes size, until the reader moves the camera. `0` fits again. A view the reader chose keeps its scale and its top left corner through a change of size. A move that the limits bring to nothing doesn't count as chosen.
+6. **Limits.**
+   - Zoom stops at 4 times the natural size. Further off, it stops at the scale that shows the whole drawing inside the padding, or at 0.7 when that is further.
+   - A drawing that fits in the stage along an axis stays in the middle of it. A larger one never shows more than the padding empty beside either end. So no drag can lose the drawing, and at the far limit the whole drawing is in view.
+   - This is stricter than free panning. If issue #7's details need room beside a Node at the drawing's end, the camera can take a wider limit on that side.
+7. **Keys.** On the stage, `+` or `=` zooms in by a quarter, `-` zooms out by as much, and `0` fits, around the middle of the view. `=` is the `+` key without Shift. With Ctrl, Meta or Alt held, the keys are left to the browser, whose own zoom uses them.
+8. **The wheel.**
+   - It zooms when the focus is on the stage or inside it, or when Ctrl or Meta is held. Browsers report a pinch on a trackpad as the wheel turning with Ctrl held, so that pinch zooms too, without the focus. Otherwise the listener does nothing, and the page scrolls. A click into the Diagram gives it the focus, and a click elsewhere takes it away.
+   - A turn of 550 px zooms by e, so one notch of a mouse wheel zooms by a fifth. A pinch's turn counts 5.5 times as much, which follows the fingers. One event never zooms by more than about a quarter, which keeps Ctrl with a real wheel from jumping.
+9. **A drag and a click.**
+   - A drag pans wherever it starts, on a Node too. The spec says "on empty space". But v1 has nothing else to drag, and a drawing zoomed in may show no empty space at all.
+   - A press of the main button becomes a drag once it has moved 4 px, or 10 px for a finger. Only then does the stage capture the pointer, so a click keeps the element that was pressed as its target.
+   - After a drag, the browser's `click` is stopped at the window, before any other listener: a drag isn't a click. Only a listener that the page put on the window itself, for the capture phase, before the drag ended, still hears it.
+   - A drag selects no text: the stage cancels `selectstart`. It doesn't use `user-select: none`, under which find-in-page can't select what it finds.
+   - The pointer is a hand over the drawing, which closes while it drags.
+10. **Touch.**
+    - The stage has `touch-action: none`. One finger pans, and two zoom around the point between them and pan as it moves.
+    - So a swipe that starts on a Diagram never scrolls the page. The spec asks only that the wheel doesn't trap the page. The component's own height stops short of the window's, which leaves page to swipe on.
+    - Each move of a gesture is counted from the view the gesture started with, not from the move before. Two fingers report their moves one after the other, and counted step by step the first would run into a limit that the pair never reaches.
+11. **The component's size.**
+    - It's a block. A height that the page gives it is the stage's height.
+    - Without one, it's as high as the drawing is at the scale Fit shows it, with the padding, up to 80% of the window's height. That's plain CSS on the SVG, from the stage's width as a container query length, so nothing measures and nothing shifts after the first paint.
+12. **Level of detail.**
+    - Rows show in full from a scale of 0.6. That's below Fit's 0.7, so Fit always shows them. Further off they fade, and from 0.45 they're hidden as well, so that they can't be pressed and find-in-page doesn't land on them.
+    - A Node's box and the line under its header stay. Only the Rows' texts go, since the component never lays anything out.
+    - The hook is the SVG's: each Row's texts sit in a `<g data-row="…">` that carries the Row's name as the model has it, as `data-from-row` and `data-to-row` do. The stage sets two properties, and one rule of the component's style applies them to every Row.
+    - No golden file draws a Row, so none changed. The example's SVG changed by its six Rows' groups and by its scope's name, which is made from its contents.
+13. **Colors.**
+    - Around the drawing, the stage has the drawing's own background, `--diagram-background`. It marks the keyboard's focus with a line 2 px wide in `--diagram-accent`, inside its edge, where nothing can clip it. A click's focus gets no mark.
+    - Both take the SVG's fallbacks, from `src/core/theme.ts`, for the light and the dark scheme. Every color of the theme is a property of the stage, `--theme-ink` and so on, for the parts to come.
+14. **The font.** A part reads the font faces from the SVG's own style and adds each to `document.fonts`, for as long as the SVG is on the stage of a component that's in a page. Diagrams that show the same SVG share its faces, and the last to go takes them off again.
+15. **The stage's name.** The stage is a `group` named by the SVG's `<title>`, so that a reader who tabs to it hears which Diagram it is. Issue #7 owns the keyboard and the list for screen readers, and may change the role.
+16. **Parts.**
+    - The component is built of parts: the font, the name, the gestures and the level of detail so far. Each is a module that exports a `Part`, with a `setUp` and, if it needs them, its own rules for the style sheet.
+    - `setUp` gets the stage: its element, its camera, and `onShow`, which calls back with each SVG that's shown and takes back a function for when it no longer is.
+    - `parts.ts` lists them. So a later issue adds a module and one line there, and widens `Stage` when its part needs more.
+17. **Tests in a real browser.**
+    - Vitest runs two projects from one `vitest run`: `node`, the tests there were, and `browser`, those under `packages/diagrams/test/browser/`, in Playwright's Chromium, headless, in a page of 1280 by 720.
+    - `@vitest/browser-playwright` 5.1.0 and `playwright` 1.64.1 are dev dependencies of the root, pinned exactly: each Playwright release drives one build of Chromium, which `pnpm exec playwright install chromium` downloads once for a machine. They bring 19 packages, all MIT, ISC or Apache-2.0.
+    - The core draws each test's SVG in the browser, with the bundled font fetched from the dev server. So a test builds whatever Diagram it needs where it needs it.
+    - `test/browser/support/` holds what the next issues can share: `drawing.ts` draws, `page.ts` puts a `<platform-diagram>` on the page as HTML would, `input.ts` presses the mouse and the keys, turns the wheel and touches the screen, and `looking.ts` says where a text is on the screen, how strongly it shows, and what color a pixel is, read off a picture of the page.
+    - Every input is the browser's own, so its events are trusted. The wheel at a point and the touches go through the DevTools protocol, since Vitest's `wheel` only turns over an element's middle and has no touch.
+    - A failed browser test leaves its picture under `.vitest/`, which git ignores.
+
 ### References
 
 **Routing and layout papers**
