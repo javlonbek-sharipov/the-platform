@@ -40,7 +40,7 @@ test("clicking a Node opens its complete details from the SVG without an Atlas i
 	expect(details.query()).toBeNull();
 });
 
-test("Enter opens the selected Node and Escape closes details before clearing selection", async () => {
+test("Enter opens the selected Node and Escape closes details and clears ordinary selection", async () => {
 	const diagram = (await mount(draw(shop()).svg, "width: 900px; height: 400px")) as PlatformDiagram;
 	await userEvent.tab();
 	const stage = diagram.shadowRoot?.activeElement;
@@ -53,8 +53,6 @@ test("Enter opens the selected Node and Escape closes details before clearing se
 	await userEvent.keyboard("{Escape}");
 	expect(details.query()).toBeNull();
 	expect(diagram.shadowRoot?.activeElement).toBe(stage);
-	expect(diagram.selectedNode).toBe("orders");
-	await userEvent.keyboard("{Escape}");
 	expect(diagram.selection).toBeUndefined();
 });
 
@@ -108,4 +106,96 @@ test("a Group label and its accessible list button open the Group's own details"
 	await expect.element(details).toBeVisible();
 	await userEvent.keyboard("{Escape}");
 	expect(item.element().matches(":focus")).toBe(true);
+});
+
+test("the wheel scrolls long details while their controls leave the drawing's camera alone", async () => {
+	const model = architecture({ title: "Long details" }, (d) => {
+		d.node({
+			id: "orders",
+			kind: "service",
+			title: "Orders API",
+			rows: Array.from({ length: 16 }, (_, index) => ({
+				name: `Fact ${index}`,
+				value: "Full detail",
+			})),
+		});
+	});
+	const diagram = await mount(draw(model).svg, "width: 700px; height: 320px");
+	await userEvent.click(textOf(diagram, "Orders API"));
+	const details = page.elementLocator(diagram).getByRole("dialog").element();
+	const width = textOf(diagram, "Orders API").getBoundingClientRect().width;
+	const { wheel } = await import("./support/input.ts");
+	const { frame } = await import("./support/page.ts");
+
+	await wheel(details, { x: 100, y: 100 }, 240);
+	await frame();
+
+	expect(details.scrollTop).toBeGreaterThan(0);
+	expect(textOf(diagram, "Orders API").getBoundingClientRect().width).toBe(width);
+});
+
+test("details retain their own keys instead of zooming the drawing", async () => {
+	const diagram = await mount(draw(shop()).svg, "width: 900px; height: 400px");
+	await userEvent.click(textOf(diagram, "Orders API"));
+	const width = textOf(diagram, "Orders API").getBoundingClientRect().width;
+
+	await userEvent.keyboard("+");
+
+	expect(textOf(diagram, "Orders API").getBoundingClientRect().width).toBe(width);
+});
+
+test("a reader can select and copy description text in details", async () => {
+	const diagram = await mount(draw(shop()).svg, "width: 900px; height: 650px");
+	await userEvent.click(textOf(diagram, "Orders API"));
+	const description = page
+		.elementLocator(diagram)
+		.getByRole("dialog")
+		.getByText("Accepts <orders> and announces them.")
+		.element();
+	const { drag } = await import("./support/input.ts");
+	window.getSelection()?.removeAllRanges();
+
+	await drag(description, { x: 1, y: 10 }, { x: 100, y: 10 });
+
+	expect(String(window.getSelection())).toContain("Accepts");
+	window.getSelection()?.removeAllRanges();
+});
+
+test("a redraw refreshes open details by id and removes them when their Node disappears", async () => {
+	const diagram = (await mount(draw(shop()).svg, "width: 900px; height: 500px")) as PlatformDiagram;
+	await userEvent.click(textOf(diagram, "Orders API"));
+	const replacement = shop();
+	if (replacement.nodes[0] !== undefined)
+		replacement.nodes[0].description = "Now accepts revised orders.";
+	const { frame } = await import("./support/page.ts");
+
+	diagram.innerHTML = draw(replacement).svg;
+	await frame();
+
+	const details = page.elementLocator(diagram).getByRole("dialog", { name: "Orders API details" });
+	expect(details.query()).not.toBeNull();
+	expect(details.element().textContent).toContain("Now accepts revised orders.");
+	expect(details.element().textContent).not.toContain("Accepts <orders>");
+	expect(diagram.shadowRoot?.activeElement).toBe(details.element());
+	diagram.innerHTML = draw(architecture({ id: "docs/shop", title: "Shop" }, () => {})).svg;
+	await frame();
+	expect(details.query()).toBeNull();
+	expect(diagram.shadowRoot?.activeElement?.getAttribute("aria-label")).toBe("Shop");
+});
+
+test("closing details preserves an explicit highlight until the next Escape on the drawing", async () => {
+	const model = architecture({ title: "Highlights" }, (d) => {
+		d.node({ id: "orders", kind: "service", title: "Orders API" });
+		d.node({ id: "aside", kind: "worker", title: "Aside" });
+	});
+	const diagram = (await mount(draw(model).svg, "width: 900px; height: 400px")) as PlatformDiagram;
+	const { opacityOf } = await import("./support/looking.ts");
+	diagram.setHighlight({ nodes: ["orders"] });
+	await userEvent.tab();
+	await userEvent.keyboard("{Enter}{Escape}");
+
+	expect(page.elementLocator(diagram).getByRole("dialog").query()).toBeNull();
+	expect(opacityOf(textOf(diagram, "Aside"))).toBeLessThan(0.5);
+	await userEvent.keyboard("{Escape}");
+	expect(opacityOf(textOf(diagram, "Aside"))).toBe(1);
 });

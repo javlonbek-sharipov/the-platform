@@ -51,7 +51,13 @@ function steer(stage: HTMLElement, camera: Camera): void {
 
 	stage.addEventListener("keydown", (event) => {
 		// With these held, the keys are the browser's own, such as its zoom.
-		if (event.ctrlKey || event.metaKey || event.altKey) {
+		if (
+			event.target !== stage ||
+			event.defaultPrevented ||
+			event.ctrlKey ||
+			event.metaKey ||
+			event.altKey
+		) {
 			return;
 		}
 		// `=` is the `+` key without Shift.
@@ -70,6 +76,10 @@ function steer(stage: HTMLElement, camera: Camera): void {
 	stage.addEventListener(
 		"wheel",
 		(event) => {
+			// HTML controls and panels keep their own scrolling, including inside the stage.
+			if (event.target !== stage && !(event.target instanceof SVGElement)) {
+				return;
+			}
 			const pinch = event.ctrlKey || event.metaKey;
 			// The wheel is the page's, to scroll with, until the Diagram has the focus.
 			if (!pinch && !stage.matches(":focus-within")) {
@@ -101,7 +111,7 @@ function steer(stage: HTMLElement, camera: Camera): void {
 	};
 
 	stage.addEventListener("pointerdown", (event) => {
-		if (event.button !== 0) {
+		if (event.button !== 0 || (event.target !== stage && !(event.target instanceof SVGElement))) {
 			return;
 		}
 		// A first pointer starts afresh. One still held here never lifted for the stage
@@ -172,7 +182,16 @@ function steer(stage: HTMLElement, camera: Camera): void {
 	stage.addEventListener("pointerup", release);
 	stage.addEventListener("pointercancel", release);
 	// A press that moves pans the drawing, so it never selects the text it passes.
-	stage.addEventListener("selectstart", (event) => event.preventDefault());
+	stage.addEventListener("selectstart", (event) => {
+		const target = event.target;
+		if (
+			target === stage ||
+			target instanceof SVGElement ||
+			(target instanceof Node && target.parentElement instanceof SVGElement)
+		) {
+			event.preventDefault();
+		}
+	});
 }
 
 function distance(a: Point, b: Point): number {

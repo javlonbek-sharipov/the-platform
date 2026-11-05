@@ -142,3 +142,47 @@ test.for(["node", "group"] as const)(
 		});
 	},
 );
+
+test("a host index arriving during hover refreshes the definition, and Escape dismisses it", async () => {
+	const diagram = (await mount(
+		draw(billing()).svg,
+		"width: 1100px; height: 550px",
+	)) as PlatformDiagram;
+	const tooltip = page.elementLocator(diagram).getByRole("tooltip");
+	await moveTo(diagram, { x: 4, y: 4 });
+	await userEvent.hover(textOf(diagram, "Invoice"));
+	expect(tooltip.query()).toBeNull();
+
+	diagram.atlasIndex = glossaryIndex();
+
+	expect(tooltip.element().textContent).toContain("A **request** to pay <money>.");
+	await userEvent.tab();
+	await userEvent.keyboard("{Escape}");
+	expect(tooltip.query()).toBeNull();
+	diagram.atlasIndex = glossaryIndex();
+	expect(tooltip.query()).toBeNull();
+	await moveTo(diagram, { x: 4, y: 4 });
+	await userEvent.hover(textOf(diagram, "Invoice"));
+	expect(tooltip.query()).not.toBeNull();
+	diagram.atlasIndex = undefined;
+	expect(tooltip.query()).toBeNull();
+});
+
+test("a borrowed term Link keeps its owning context without an index", async () => {
+	const diagram = await mount(draw(billing()).svg, "width: 1100px; height: 550px");
+	const heard: DiagramNavigationEvent[] = [];
+	diagram.addEventListener("diagram-navigate", (event) =>
+		heard.push(event as DiagramNavigationEvent),
+	);
+	await userEvent.click(textOf(diagram, "Order placed"));
+	await page
+		.elementLocator(diagram)
+		.getByRole("dialog")
+		.getByRole("button", { name: "Order placed" })
+		.click();
+
+	expect(heard.at(-1)?.detail).toEqual({
+		target: { term: "Order placed", context: "ordering" },
+		source: { diagram: "docs/billing", kind: "node", id: "ordering/order-placed" },
+	});
+});

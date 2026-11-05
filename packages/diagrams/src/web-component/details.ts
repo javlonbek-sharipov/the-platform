@@ -6,6 +6,15 @@ import { navigationFor } from "./details-navigation.ts";
 import type { Part } from "./stage.ts";
 import { modelOf } from "./svg.ts";
 
+type SubjectKind = "node" | "group";
+interface OpenDetails {
+	diagram: string;
+	kind: SubjectKind;
+	id: string;
+	focus: boolean;
+	trigger?: { kind: SubjectKind; id: string };
+}
+
 export const details: Part = {
 	css: `
 .details {
@@ -33,26 +42,33 @@ export const details: Part = {
 .details :focus-visible { outline: 2px solid var(--theme-accent); outline-offset: 2px; }
 `,
 	setUp({ element, selection, navigation, onShow }) {
+		let pending: OpenDetails | undefined;
 		onShow((svg) => {
+			const restore = pending;
+			pending = undefined;
 			const model = modelOf(svg);
 			if (model === undefined) {
 				return undefined;
 			}
 			let panel: HTMLElement | undefined;
+			let opened: { kind: SubjectKind; id: string } | undefined;
 			let updateActions: (() => void) | undefined;
 			const unwatch = navigation.watch(() => updateActions?.());
 			let returnTo: HTMLElement = element;
 			const close = () => {
 				panel?.remove();
 				panel = undefined;
+				opened = undefined;
 				updateActions = undefined;
 				(returnTo.isConnected ? returnTo : element).focus({ preventScroll: true });
 			};
 			const open = (
 				node: AnyNode,
 				trigger: HTMLElement = element,
-				kind: "node" | "group" = "node",
+				kind: SubjectKind = "node",
+				moveFocus = true,
 			) => {
+				opened = { kind, id: node.id };
 				returnTo = trigger;
 				panel?.remove();
 				panel = document.createElement("section");
@@ -89,7 +105,7 @@ export const details: Part = {
 					);
 				updateActions();
 				element.append(panel);
-				panel.focus({ preventScroll: true });
+				if (moveFocus) panel.focus({ preventScroll: true });
 			};
 			const events = new AbortController();
 			element.addEventListener(
@@ -100,6 +116,7 @@ export const details: Part = {
 					}
 					if (event.key === "Escape" && panel !== undefined) {
 						close();
+						selection.select(undefined);
 						event.preventDefault();
 					} else if (event.key === "Enter" && event.target === element) {
 						const node = model.nodes.find(
@@ -149,10 +166,40 @@ export const details: Part = {
 						});
 				}
 			}
+			if (restore !== undefined && restore.diagram === model.id) {
+				const subject = (restore.kind === "node" ? model.nodes : model.groups).find(
+					({ id }) => id === restore.id,
+				);
+				if (subject !== undefined) {
+					const trigger = [
+						...element.querySelectorAll<HTMLButtonElement>("[data-node-item], [data-group-item]"),
+					].find((button) =>
+						restore.trigger?.kind === "node"
+							? button.dataset.nodeItem === restore.trigger.id
+							: restore.trigger !== undefined && button.dataset.groupItem === restore.trigger.id,
+					);
+					open(subject, trigger ?? element, restore.kind, restore.focus);
+				}
+			}
 			return () => {
+				const ownsFocus = panel?.matches(":focus-within") === true;
+				if (opened !== undefined && model.id !== undefined && element.isConnected) {
+					pending = {
+						diagram: model.id,
+						...opened,
+						focus: ownsFocus,
+						trigger:
+							returnTo.dataset.nodeItem !== undefined
+								? { kind: "node", id: returnTo.dataset.nodeItem }
+								: returnTo.dataset.groupItem !== undefined
+									? { kind: "group", id: returnTo.dataset.groupItem }
+									: undefined,
+					};
+				}
 				events.abort();
 				unwatch();
 				panel?.remove();
+				if (ownsFocus && element.isConnected) element.focus({ preventScroll: true });
 			};
 		});
 	},
