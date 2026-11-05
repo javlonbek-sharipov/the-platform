@@ -2093,6 +2093,18 @@ Focus, keyboard selection and the screen-reader lists. This is GitHub's issue #7
    - The hovered Edge, its label and its role tags stay at full strength, as do its two Nodes; the rest fades. Its label and tags count as hovering the Edge too.
    - An HTML tooltip shows the whole label, the Technology's display name (its slug when unknown) and the rate. It uses text content, wraps inside the stage, and follows the pointer without taking its events. Leaving the Edge or pressing Escape hides it.
    - Each Edge gets a transparent hit path 12 screen pixels wide, made from its existing stroke. It leaves with the SVG, so it never changes the committed drawing or its routing.
+6. **Keyboard.**
+   - Tab focuses the existing stage. With no selection, keyboard focus selects the first Node in layout order. Arrows choose among Node centers strictly ahead, scoring `ahead + 4 × abs(sideways)`; layout order breaks a tie. With no candidate the selection stays put. With no selection, an arrow starts at the first Node.
+   - The selected Node has an accent outline. Selection pans just far enough to show its bounds with 16 screen pixels of room, within the camera's existing limits. Hover doesn't pan.
+   - Arrows are handled only on the stage itself. Tab moves through the lists' ordinary buttons; their keys, and the keys of future details controls, retain their own behavior. Ctrl, Meta and Alt combinations are left to the browser. A part can handle Walkthrough keys in the capture phase and prevent the default to keep spatial navigation from handling them.
+7. **Layout order.**
+   - The component reads each Node's bounds from its SVG group. It sorts their centers along the Diagram's direction first, then across it, with model order settling equal positions. It never runs layout or routing.
+   - Edges follow their source Nodes' order, then their target Nodes' order, then model order for parallel Edges and loops. Both directions use the same rule.
+8. **The text alternative.**
+   - Two ordered lists, named `Nodes` and `Edges`, hold ordinary buttons. Focusing or activating a button selects its Node or Edge. `aria-current` marks the selection. An Edge selection highlights its two Nodes and its own drawing parts, as hover does.
+   - A Node's entry is its whole title and its Notation's facts, as in the SVG description, followed by `Rows: name: value; name.` when it has Rows. The Edge entries use `sentenceOf` and the SVG's crossing hook, so roles, Row ends, Technology names, rates and crossing phrases are exactly the SVG description's sentences.
+   - The lists are clipped to one pixel rather than hidden, so assistive technology and find-in-page can read them, including titles shortened in the drawing. They become a visible, scrollable text panel while a list button has keyboard focus.
+   - In the component the SVG is hidden from assistive technology to avoid a second description. The stage keeps its named `group` role and keyboard instructions. A polite status announces the selected entry while the stage has focus; list buttons announce themselves. The committed SVG retains its own accessible image description.
 
 ### References
 

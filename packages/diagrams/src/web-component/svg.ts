@@ -12,6 +12,30 @@ export function modelOf(svg: SVGSVGElement): AnyDiagram | undefined {
 	return text ? JSON.parse(text) : undefined;
 }
 
+/** A Node's drawn bounds, read from the SVG rather than laid out again. */
+export interface DrawnNode {
+	id: string;
+	element: SVGGElement;
+	box: Box;
+}
+
+/** Rank first, then across the rank; model order settles equal positions. */
+export function nodesInLayout(svg: SVGSVGElement, model: AnyDiagram): DrawnNode[] {
+	const nodes = [...svg.querySelectorAll<SVGGElement>("[data-node]")].map((element) => ({
+		id: element.dataset.node ?? "",
+		element,
+		box: element.getBBox(),
+	}));
+	const axis = model.direction === "down" ? "y" : "x";
+	const side = axis === "x" ? "y" : "x";
+	const middle = (box: Box, along: "x" | "y") =>
+		box[along] + (along === "x" ? box.width : box.height) / 2;
+	return nodes.sort(
+		(a, b) =>
+			middle(a.box, axis) - middle(b.box, axis) || middle(a.box, side) - middle(b.box, side),
+	);
+}
+
 /**
  * Fetches the SVG at a URL. The SVG goes into the page as it is, so the URL
  * must be one the page trusts, as it trusts its own scripts and styles.
