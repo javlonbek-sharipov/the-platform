@@ -74,3 +74,38 @@ test("a Node's ordinary list button opens details with Enter and receives focus 
 	await userEvent.keyboard("{Escape}");
 	expect(item.element().matches(":focus")).toBe(true);
 });
+
+test("a Group label and its accessible list button open the Group's own details", async () => {
+	const model = architecture({ title: "Grouped shop" }, (d) => {
+		d.group(
+			{
+				id: "store",
+				kind: "system",
+				title: "Store",
+				description: "Owns the shop's checkout.",
+			},
+			(store) => {
+				store.node({ id: "orders", kind: "service", title: "Orders API" });
+			},
+		);
+	});
+	const diagram = await mount(draw(model).svg, "width: 900px; height: 400px");
+	await userEvent.click(textOf(diagram, "Store"));
+
+	const details = page.elementLocator(diagram).getByRole("dialog", { name: "Store details" });
+	await expect.element(details, { timeout: 500 }).toBeVisible();
+	expect(details.element().textContent).toContain("Kindsystem");
+	expect(details.element().textContent).toContain("Owns the shop's checkout.");
+	await userEvent.keyboard("{Escape}");
+	await userEvent.tab();
+	await userEvent.tab();
+	const item = page
+		.elementLocator(diagram)
+		.getByRole("list", { name: "Groups" })
+		.getByRole("button");
+	expect(item.element().matches(":focus")).toBe(true);
+	await userEvent.keyboard("{Enter}");
+	await expect.element(details).toBeVisible();
+	await userEvent.keyboard("{Escape}");
+	expect(item.element().matches(":focus")).toBe(true);
+});

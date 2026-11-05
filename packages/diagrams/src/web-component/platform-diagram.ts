@@ -8,8 +8,10 @@
  * page's styles don't reach it and the element's own don't leak out.
  */
 
+import type { AtlasIndex } from "../atlas/types.ts";
 import { Camera, huggingHeight, type View } from "./camera.ts";
 import { Highlights, type HighlightTargets } from "./highlights.ts";
+import { Navigation, type UrlResolver } from "./navigation.ts";
 import { parts } from "./parts.ts";
 import { Selection, type SelectionTarget } from "./selection.ts";
 import type { Shown } from "./stage.ts";
@@ -37,6 +39,11 @@ export class PlatformDiagram extends HTMLElement {
 	readonly #camera = new Camera();
 	readonly #selection = new Selection();
 	readonly #highlights = new Highlights();
+	readonly #navigation = new Navigation((detail) => {
+		this.dispatchEvent(
+			new CustomEvent("diagram-navigate", { detail, bubbles: true, composed: true }),
+		);
+	});
 	readonly #sizes = new ResizeObserver(([entry]) => {
 		const size = entry?.contentBoxSize[0];
 		if (size !== undefined) {
@@ -77,6 +84,24 @@ export class PlatformDiagram extends HTMLElement {
 		this.#highlights.set(targets);
 	}
 
+	/** Turns a Link or Diagram id into a URL included with `diagram-navigate`. Navigation stays with the host. */
+	get resolveUrl(): UrlResolver | undefined {
+		return this.#navigation.resolver;
+	}
+
+	set resolveUrl(value: UrlResolver | undefined) {
+		this.#navigation.resolver = value;
+	}
+
+	/** Optional browser-safe Atlas metadata. Reassign after an index changes to refresh open details. */
+	get atlasIndex(): AtlasIndex | undefined {
+		return this.#navigation.index;
+	}
+
+	set atlasIndex(value: AtlasIndex | undefined) {
+		this.#navigation.index = value;
+	}
+
 	constructor() {
 		super();
 		const root = this.attachShadow({ mode: "open" });
@@ -100,6 +125,7 @@ export class PlatformDiagram extends HTMLElement {
 				camera: this.#camera,
 				selection: this.#selection,
 				highlights: this.#highlights,
+				navigation: this.#navigation,
 				onShow: (listener) => this.#shown.add(listener),
 			});
 		}

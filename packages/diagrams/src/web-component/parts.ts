@@ -11,6 +11,7 @@ import { label } from "./label.ts";
 import { levelOfDetail } from "./level-of-detail.ts";
 import { readerLists } from "./reader-lists.ts";
 import type { Part } from "./stage.ts";
+import { termTooltip } from "./term-tooltip.ts";
 
 export const parts: Part[] = [
 	fontFaces,
@@ -20,6 +21,7 @@ export const parts: Part[] = [
 	flow,
 	focus,
 	edgeTooltip,
+	termTooltip,
 	keyboard,
 	readerLists,
 	details,

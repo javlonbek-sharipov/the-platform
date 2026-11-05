@@ -6,6 +6,13 @@
 import { PlatformDiagram } from "./platform-diagram.ts";
 
 export type { HighlightTargets } from "./highlights.ts";
+export type {
+	DiagramNavigationEvent,
+	NavigationDetail,
+	NavigationSource,
+	NavigationTarget,
+	UrlResolver,
+} from "./navigation.ts";
 export type { DiagramSelectionEvent, SelectionTarget } from "./selection.ts";
 export { PlatformDiagram };
 

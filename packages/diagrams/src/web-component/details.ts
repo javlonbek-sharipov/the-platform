@@ -2,6 +2,7 @@
 
 import type { AnyNode } from "../authoring/model.ts";
 import { technologyOf } from "../core/technology.ts";
+import { navigationFor } from "./details-navigation.ts";
 import type { Part } from "./stage.ts";
 import { modelOf } from "./svg.ts";
 
@@ -31,20 +32,27 @@ export const details: Part = {
 .details button { font: inherit; cursor: pointer; }
 .details :focus-visible { outline: 2px solid var(--theme-accent); outline-offset: 2px; }
 `,
-	setUp({ element, selection, onShow }) {
+	setUp({ element, selection, navigation, onShow }) {
 		onShow((svg) => {
 			const model = modelOf(svg);
 			if (model === undefined) {
 				return undefined;
 			}
 			let panel: HTMLElement | undefined;
+			let updateActions: (() => void) | undefined;
+			const unwatch = navigation.watch(() => updateActions?.());
 			let returnTo: HTMLElement = element;
 			const close = () => {
 				panel?.remove();
 				panel = undefined;
+				updateActions = undefined;
 				(returnTo.isConnected ? returnTo : element).focus({ preventScroll: true });
 			};
-			const open = (node: AnyNode, trigger: HTMLElement = element) => {
+			const open = (
+				node: AnyNode,
+				trigger: HTMLElement = element,
+				kind: "node" | "group" = "node",
+			) => {
 				returnTo = trigger;
 				panel?.remove();
 				panel = document.createElement("section");
@@ -64,6 +72,22 @@ export const details: Part = {
 					description.textContent = node.description;
 					panel.append(description);
 				}
+				const actions = document.createElement("div");
+				panel.append(actions);
+				updateActions = () =>
+					actions.replaceChildren(
+						navigationFor(
+							node,
+							{
+								diagram: model.id,
+								kind,
+								id: node.id,
+							},
+							navigation,
+							navigation.contextOf(model, node.id),
+						),
+					);
+				updateActions();
 				element.append(panel);
 				panel.focus({ preventScroll: true });
 			};
@@ -93,13 +117,18 @@ export const details: Part = {
 				"click",
 				(event) => {
 					const item =
-						event.target instanceof Element ? event.target.closest("[data-node-item]") : null;
+						event.target instanceof Element
+							? event.target.closest("[data-node-item], [data-group-item]")
+							: null;
 					if (!(item instanceof HTMLButtonElement)) {
 						return;
 					}
-					const node = model.nodes.find(({ id }) => id === item.dataset.nodeItem);
+					const node =
+						item.dataset.nodeItem === undefined
+							? model.groups.find(({ id }) => id === item.dataset.groupItem)
+							: model.nodes.find(({ id }) => id === item.dataset.nodeItem);
 					if (node !== undefined) {
-						open(node, item);
+						open(node, item, item.dataset.groupItem === undefined ? "node" : "group");
 					}
 				},
 				{ signal: events.signal },
@@ -110,8 +139,19 @@ export const details: Part = {
 					drawn.addEventListener("click", () => open(node), { signal: events.signal });
 				}
 			}
+			for (const drawn of svg.querySelectorAll<SVGGElement>("[data-group]")) {
+				const group = model.groups.find(({ id }) => id === drawn.dataset.group);
+				if (group !== undefined) {
+					drawn
+						.querySelector(":scope > text")
+						?.addEventListener("click", () => open(group, element, "group"), {
+							signal: events.signal,
+						});
+				}
+			}
 			return () => {
 				events.abort();
+				unwatch();
 				panel?.remove();
 			};
 		});
