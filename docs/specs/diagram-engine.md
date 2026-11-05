@@ -2164,7 +2164,7 @@ Flow animation. This is GitHub's issue #10, not ticket 10 above.
 1. **A Notation opts in.** Its definition's `flow` is `true` for architecture and `false` for domain. The core reads that capability, never a Notation's name or Kinds. A symmetric Edge never flows, even in a Notation that opts in. A caller's own Notation can opt in too.
 2. **Rates and deterministic arithmetic.**
    - Convert a rate to events per second, with decimal `k` and `M` multipliers. The load level is `log2(1 + events/second)`, capped at 16, reached at 65,535/s. No rate, and a zero rate, use level 0.
-   - Speed is `16 + 4 * level` px/s, and spacing between marks is `96 - 4 * level` px. So the slow default is 16 px/s with marks 96 px apart, and the cap is 80 px/s and 32 px apart.
+   - Speed is `16 + 4 * level` px/s, and density is `(1 + level / 8)` marks per 96 px, so spacing is `96 / (1 + level / 8)` px. Both speed and number grow linearly with the logarithm of load. The slow default is 16 px/s with marks 96 px apart, and the cap is 80 px/s and 32 px apart.
    - `src/core/flow.ts` finds the logarithm's whole part by halving, then 16 fractional bits by repeated squaring. The error is below 1/65,536, less than SVG rounding. It uses only the spec's deterministic arithmetic, with no `Math.log`. Rates too large for a Number reach the cap too.
    - Each scene Edge that flows has `flow: { speed, spacing }`, independent of SVG or a clock. The model and its schema are unchanged.
 3. **Moving marks in the SVG.**

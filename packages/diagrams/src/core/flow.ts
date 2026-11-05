@@ -12,7 +12,7 @@ export function flowOf(rate?: string): SceneFlow {
 	const divisor = parts?.[3] === "h" ? 3_600 : parts?.[3] === "min" ? 60 : 1;
 	const perSecond = parts === undefined ? 0 : (Number(parts?.[1] ?? 0) * multiplier) / divisor;
 	const level = binaryLog(1 + Math.min(perSecond, 65_535));
-	return { spacing: 96 - 4 * level, speed: 16 + 4 * level };
+	return { spacing: 96 / (1 + level / 8), speed: 16 + 4 * level };
 }
 
 /**
