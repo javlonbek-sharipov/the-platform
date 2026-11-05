@@ -5,7 +5,7 @@
 
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { cacheFolderOf, lintAtlas, renderDiagrams } from "../atlas/atlas.ts";
+import { cacheFolderOf, indexAtlas, lintAtlas, renderDiagrams } from "../atlas/atlas.ts";
 import { AtlasError, configFile, discover, findRoot, moduleSuffix } from "../atlas/discover.ts";
 import { type AtlasMessage, placeText } from "../atlas/messages.ts";
 import type { Diagram } from "../authoring/model.ts";
@@ -29,6 +29,8 @@ Commands:
   export <diagram> --format png|json [--theme light|dark] [--scale n] [--out path]
                      Write a Diagram, named by its module's path, as a PNG or
                      as its JSON model, and print the file's path
+  export --index [--out path]
+                     Write the Atlas index, and print the file's path
 `;
 
 /** Runs one command, and returns its exit code. */
@@ -145,6 +147,12 @@ interface ExportRequest {
 }
 
 async function exportCommand(args: string[], context: CliContext): Promise<number> {
+	if (args.includes("--index")) {
+		return exportIndex(
+			args.filter((arg) => arg !== "--index"),
+			context,
+		);
+	}
 	const request = exportRequest(args);
 	if ("error" in request) {
 		context.stderr.write(`${request.error}\n\n${usage}`);
@@ -168,7 +176,42 @@ async function exportCommand(args: string[], context: CliContext): Promise<numbe
 		request.out === undefined
 			? join(cacheFolderOf(root), "export", exportName(model.id, request))
 			: resolve(context.cwd, request.out);
-	const contents = request.format === "json" ? modelJson(model) : drawPng(svg, request);
+	return writeOut(
+		file,
+		request.format === "json" ? modelJson(model) : drawPng(svg, request),
+		context,
+	);
+}
+
+/**
+ * Writes the Atlas index, as JSON indented by two spaces, into the cache
+ * folder or where `--out` says, and prints its path. An Atlas with errors gets
+ * no index: its errors are printed, and the exit code is 1.
+ */
+async function exportIndex(args: string[], context: CliContext): Promise<number> {
+	const parsed = parseOptions(args, ["--out"]);
+	if ("error" in parsed || parsed.positionals.length > 0) {
+		const error =
+			"error" in parsed
+				? parsed.error
+				: "`--index` writes the Atlas index, so name no Diagram with it.";
+		context.stderr.write(`${error}\n\n${usage}`);
+		return 2;
+	}
+	const root = findRoot(context.cwd);
+	const { index, errors } = await indexAtlas(root);
+	print(errors, context, context.stderr);
+	if (index === undefined) {
+		return 1;
+	}
+	const out = parsed.values.get("--out");
+	const file =
+		out === undefined ? join(cacheFolderOf(root), "index.json") : resolve(context.cwd, out);
+	return writeOut(file, `${JSON.stringify(index, null, 2)}\n`, context);
+}
+
+/** Writes a file that export made, its folders too, and prints its absolute path, which alone goes to stdout. */
+function writeOut(file: string, contents: string | Uint8Array, context: CliContext): number {
 	try {
 		mkdirSync(dirname(file), { recursive: true });
 		writeFileSync(file, contents);

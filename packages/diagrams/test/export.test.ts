@@ -189,6 +189,135 @@ describe("diagrams export --format json", () => {
 	});
 });
 
+/** An overview that draws the shop as one `system` Node, beside the web app that calls it. */
+const overviewModule = `import { architecture } from "@the-platform/diagrams";
+
+export default architecture({ title: "Overview" }, (d) => {
+	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+	const shop = d.node({ id: "shop", kind: "system", title: "Shop" });
+	d.edge(web, shop, { kind: "call" });
+});
+`;
+
+/** The shop's own Diagram, which draws the same id as a Group around its API. */
+const shopSystemModule = `import { architecture } from "@the-platform/diagrams";
+
+export default architecture({ title: "Shop" }, (d) => {
+	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
+	d.group({ id: "shop", kind: "system", title: "Shop" }, (shop) => {
+		const api = shop.node({ id: "shop-api", kind: "service", title: "Shop API" });
+		d.edge(web, api, { kind: "call" });
+	});
+});
+`;
+
+describe("diagrams export --index", () => {
+	test("writes the Atlas index into the cache folder, and prints its absolute path: every Diagram, and every id with the Diagrams that draw it", async () => {
+		const atlas = await sampleAtlas({
+			"docs/overview.diagram.ts": overviewModule,
+			"docs/shop/shop.diagram.ts": shopSystemModule,
+		});
+
+		const index = join(atlas, ".diagrams-cache/index.json");
+		expect(await runCli(["export", "--index"], atlas)).toEqual({
+			code: 0,
+			stdout: `${index}\n`,
+			stderr: "",
+		});
+		expect(JSON.parse(await readFile(index, "utf8"))).toEqual({
+			diagrams: [
+				{
+					id: "docs/overview",
+					title: "Overview",
+					notation: "architecture",
+					svg: "docs/overview.diagram.svg",
+				},
+				{
+					id: "docs/shop/shop",
+					title: "Shop",
+					notation: "architecture",
+					svg: "docs/shop/shop.diagram.svg",
+				},
+			],
+			ids: {
+				shop: {
+					kind: "system",
+					title: "Shop",
+					asNode: ["docs/overview"],
+					asGroup: ["docs/shop/shop"],
+				},
+				"shop-api": { kind: "service", title: "Shop API", asNode: ["docs/shop/shop"], asGroup: [] },
+				"web-app": {
+					kind: "client",
+					title: "Web app",
+					asNode: ["docs/overview", "docs/shop/shop"],
+					asGroup: [],
+				},
+			},
+			terms: [],
+		});
+	});
+
+	test("--out names the file, from the working directory", async () => {
+		const atlas = await sampleAtlas({ "docs/overview.diagram.ts": overviewModule });
+
+		const index = join(atlas, "site/atlas.json");
+		expect(
+			await runCli(["export", "--index", "--out", "../site/atlas.json"], join(atlas, "docs")),
+		).toEqual({ code: 0, stdout: `${index}\n`, stderr: "" });
+		expect(JSON.parse(await readFile(index, "utf8"))).toMatchObject({
+			diagrams: [{ id: "docs/overview" }],
+		});
+		expect(existsSync(join(atlas, ".diagrams-cache"))).toBe(false);
+	});
+
+	test("fails on an Atlas with errors, prints them, and writes nothing", async () => {
+		const atlas = await sampleAtlas({
+			"docs/broken.diagram.ts": shopModule().replace('kind: "service"', 'kind: "servce"'),
+			"docs/overview.diagram.ts": overviewModule,
+			"docs/shop/shop.diagram.ts": shopSystemModule.replace(
+				'title: "Shop" }, (shop)',
+				'title: "Shops" }, (shop)',
+			),
+		});
+
+		const run = await runCli(["export", "--index"], atlas);
+		expect(run).toMatchObject({ code: 1, stdout: "" });
+		expect(run.stderr.split("\n")).toEqual([
+			expect.stringMatching(/^docs\/broken\.diagram\.ts:5:16: error: .* \(unknown-kind\)$/),
+			expect.stringMatching(
+				/^docs\/overview\.diagram\.ts:5:17: error: Node `shop` has the title `Shop` here, .* \(title-conflict\)$/,
+			),
+			expect.stringMatching(
+				/^docs\/shop\/shop\.diagram\.ts:5:4: error: Group `shop` has the title `Shops` here, .* \(title-conflict\)$/,
+			),
+			"",
+		]);
+		expect(existsSync(join(atlas, ".diagrams-cache"))).toBe(false);
+	});
+
+	test("rejects a Diagram or an option beside it, with exit code 2", async () => {
+		const atlas = await sampleAtlas({ "docs/overview.diagram.ts": overviewModule });
+		const cases: [args: string[], message: string][] = [
+			[
+				["docs/overview.diagram.ts"],
+				"`--index` writes the Atlas index, so name no Diagram with it.",
+			],
+			[["--format", "json"], "Unknown option `--format`."],
+		];
+		for (const [args, message] of cases) {
+			const run = await runCli(["export", "--index", ...args], atlas);
+			expect(run, args.join(" ")).toMatchObject({ code: 2, stdout: "" });
+			expect(run.stderr.split("\n").slice(0, 3), args.join(" ")).toEqual([
+				message,
+				"",
+				"Usage: diagrams <command>",
+			]);
+		}
+		expect(existsSync(join(atlas, ".diagrams-cache"))).toBe(false);
+	});
+});
+
 describe("diagrams export, where it writes", () => {
 	test("--out names the file, from the working directory, and the command prints its absolute path", async () => {
 		const atlas = await sampleAtlas({ "docs/shop.diagram.ts": shopModule() });

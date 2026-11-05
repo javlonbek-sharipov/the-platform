@@ -9,6 +9,7 @@ import { basename, join, relative, sep } from "node:path";
 import type { Declarations } from "../authoring/declarations.ts";
 import type { Diagram } from "../authoring/model.ts";
 import { recordUnknownOptions } from "../authoring/options.ts";
+import { compareText } from "../core/bundles.ts";
 import { render } from "../core/render.ts";
 import { bundledFontData } from "../fonts/bundled.ts";
 import { checkIds, checkLinks } from "./checks.ts";
@@ -95,6 +96,64 @@ export async function lintAtlas(
 		...checkLinks(root, valid, new Set(modules.flatMap(idsDrawnBy))),
 	];
 	return { diagrams: rendered.length, messages: messages.sort(byPlace) };
+}
+
+/**
+ * The Atlas index (spec: The Atlas index): every Diagram, and every id with
+ * its Kind, its title, and the Diagrams that draw it as a Node or as a Group,
+ * each in path order. Paths and Diagram ids are repo paths.
+ */
+export interface AtlasIndex {
+	diagrams: { id: string; title: string; notation: string; svg: string }[];
+	/** By id, in code unit order. */
+	ids: Record<string, { kind: string; title: string; asNode: string[]; asGroup: string[] }>;
+	/** Every glossary term, with its context, its definition and the words it avoids: none until slice 2 brings glossaries. */
+	terms: never[];
+}
+
+/**
+ * Builds the Atlas index from every Diagram. The index lists only what holds
+ * across the Atlas, so a Diagram with errors, or an id that two Diagrams give
+ * different Kinds or titles, leaves no index: their errors come instead.
+ */
+export async function indexAtlas(
+	root: string,
+): Promise<{ index?: AtlasIndex; errors: AtlasMessage[] }> {
+	const rendered = await renderDiagrams(root, (await discover(root)).modules);
+	const valid = rendered.flatMap(({ module, model, declarations }) =>
+		model === undefined ? [] : [{ module, id: diagramIdOf(root, module), model, declarations }],
+	);
+	const errors = [...rendered.flatMap(({ messages }) => messages), ...checkIds(valid)]
+		.filter((message) => message.severity === "error")
+		.sort(byPlace);
+	if (errors.length > 0) {
+		return { errors };
+	}
+	const ids = new Map<string, AtlasIndex["ids"][string]>();
+	const entryOf = ({ id, kind, title }: { id: string; kind: string; title: string }) => {
+		const entry = ids.get(id) ?? { kind, title, asNode: [], asGroup: [] };
+		ids.set(id, entry);
+		return entry;
+	};
+	for (const { id, model } of valid) {
+		for (const node of model.nodes) {
+			entryOf(node).asNode.push(id);
+		}
+		for (const group of model.groups) {
+			entryOf(group).asGroup.push(id);
+		}
+	}
+	const index: AtlasIndex = {
+		diagrams: valid.map(({ module, id, model }) => ({
+			id,
+			title: model.title,
+			notation: model.notation,
+			svg: repoPath(root, svgFileOf(module)),
+		})),
+		ids: Object.fromEntries([...ids].sort(([a], [b]) => compareText(a, b))),
+		terms: [],
+	};
+	return { index, errors };
 }
 
 /** The ids of the Nodes and Groups that a module's Diagram draws, as far as its model can be read. */
