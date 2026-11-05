@@ -5,30 +5,28 @@
  * the file on GitHub. Other links stay as they're written.
  */
 
-import { relative, sep } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { MdastPluginDefinition } from "satteri";
-import { github, idOf, isDoc } from "../repo.ts";
+import { fileAt, github, idOf, isDoc, pathIn } from "../repo.ts";
 
 /**
  * Where a link written in the file at `from` leads on the site, if it's a
  * relative link to a file of the repo at `root`.
  */
 function siteUrl(root: string, url: string, from: URL | undefined): string | undefined {
-	// A link with a scheme, to a path from the site's root, or within its own page isn't relative to its file.
-	if (from === undefined || /^([a-z][a-z0-9+.-]*:|\/|#)/i.test(url)) {
+	const file = fileAt(url, from);
+	if (file === undefined) {
 		return undefined;
 	}
-	const target = new URL(url, from);
-	const path = relative(root, fileURLToPath(target)).split(sep).join("/");
+	const path = pathIn(root, file);
 	if (path === "" || path.startsWith("../")) {
 		return undefined;
 	}
+	const { hash } = new URL(url, from);
 	if (isDoc(path)) {
 		const id = idOf(path);
-		return `/${id === "index" ? "" : `${id}/`}${target.hash}`;
+		return `/${id === "index" ? "" : `${id}/`}${hash}`;
 	}
-	return `${github.url}/blob/${github.branch}/${path}${target.hash}`;
+	return `${github.url}/blob/${github.branch}/${path}${hash}`;
 }
 
 /** Rewrites the relative links of the docs of the repo at `root`. */

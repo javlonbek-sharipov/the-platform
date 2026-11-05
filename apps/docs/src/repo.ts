@@ -3,8 +3,8 @@
  * where each doc is on the site.
  */
 
-import { type Dirent, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { type Dirent, readdirSync, realpathSync } from "node:fs";
+import { isAbsolute, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -19,6 +19,13 @@ export const github = {
 	url: "https://github.com/javlonbek-sharipov/the-platform",
 	branch: "main",
 };
+
+/**
+ * The folder at the repo's root that holds other projects' files, for
+ * reading. Git ignores it, and the site never reads, watches or shows
+ * anything in it.
+ */
+const others = "repos";
 
 /** The folders whose own folders are the repo's packages and apps. */
 const workspaces = ["apps", "packages"];
@@ -105,4 +112,58 @@ export function idOf(path: string): string {
 		.map((part) => part.toLowerCase().replace(/[^a-z0-9._-]+/g, "-"))
 		.join("/");
 	return id.replace(/(^|\/)index$/, "") || "index";
+}
+
+/** A file's path from the repo's root, with forward slashes. It starts with `../` for a file outside the repo. */
+export function pathIn(root: string, file: string): string {
+	return relative(root, file).split(sep).join("/");
+}
+
+/** Whether a URL written in a doc is relative to the doc: not one with a scheme, from the site's root, or within its page. */
+function isRelative(url: string): boolean {
+	return !/^([a-z][a-z0-9+.-]*:|\/|#)/i.test(url);
+}
+
+/**
+ * The file that a relative URL in a doc of the repo at `root` names, or
+ * nothing for a URL that isn't relative to its doc.
+ */
+export function fileAt(url: string, doc: URL | undefined): string | undefined {
+	return doc === undefined || !isRelative(url) ? undefined : fileURLToPath(new URL(url, doc));
+}
+
+/**
+ * The file that a doc embeds by a relative URL, such as a picture, which the
+ * site then reads and shows. It must be one of the repo's own: a file outside
+ * the repo, or in `repos/`, stops the build, and so does one that only links
+ * there.
+ */
+export function embeddedFile(root: string, url: string, doc: URL | undefined): string | undefined {
+	const file = fileAt(url, doc);
+	if (file === undefined || doc === undefined) {
+		return undefined;
+	}
+	for (const path of [pathIn(root, file), pathIn(realpathSync(root), really(file))]) {
+		const refuse = (why: string) => {
+			throw new Error(`${pathIn(root, fileURLToPath(doc))} embeds ${url}, ${why}`);
+		};
+		if (path.startsWith("../") || isAbsolute(path)) {
+			refuse("a file outside the repo. The site shows only the repo's own files.");
+		}
+		if (path.split("/")[0] === others) {
+			refuse(
+				`a file in ${others}/. The site shows nothing from ${others}/, which holds other projects' files.`,
+			);
+		}
+	}
+	return file;
+}
+
+/** Where a file really is, when it or a folder above it is a link. A file that doesn't exist is where its path says. */
+function really(file: string): string {
+	try {
+		return realpathSync(file);
+	} catch {
+		return file;
+	}
 }

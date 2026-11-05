@@ -8,18 +8,43 @@
 
 import { readFileSync } from "node:fs";
 import type { MdastPluginDefinition } from "satteri";
+import { embeddedFile, pathIn } from "../repo.ts";
 
-export const diagramImages: MdastPluginDefinition = {
-	name: "diagram-images",
-	paragraph(node, ctx) {
-		const [only] = node.children;
-		if (node.children.length !== 1 || only?.type !== "image") {
-			return;
-		}
-		if (!only.url.endsWith(".diagram.svg") || ctx.fileURL === undefined) {
-			return;
-		}
-		const svg = readFileSync(new URL(only.url, ctx.fileURL), "utf8");
-		return { type: "html", value: `<platform-diagram>${svg}</platform-diagram>` };
-	},
-};
+const diagram = ".diagram.svg";
+
+/**
+ * Turns each image of a `*.diagram.svg` in the docs of the repo at `root`
+ * into the web component. Any other picture stays an image, and must be one
+ * of the repo's own files too.
+ */
+export function diagramImages(root: string): MdastPluginDefinition {
+	return {
+		name: "diagram-images",
+		image(node, ctx) {
+			const file = embeddedFile(root, node.url, ctx.fileURL);
+			if (file === undefined || !file.endsWith(diagram)) {
+				return;
+			}
+			let svg: string;
+			try {
+				svg = readFileSync(file, "utf8");
+			} catch {
+				const doc = ctx.fileURL === undefined ? "A doc" : pathIn(root, ctx.fileURL.pathname);
+				throw new Error(
+					`${doc} embeds ${node.url}, which doesn't exist. Run \`pnpm exec diagrams render\` to draw it.`,
+				);
+			}
+			const component = {
+				type: "html",
+				value: `<platform-diagram>${svg}</platform-diagram>`,
+			} as const;
+			// A Diagram on a line of its own is a block of the page, not a part of a paragraph.
+			const parent = ctx.parent(node);
+			if (parent.type === "paragraph" && parent.children.length === 1) {
+				ctx.replaceNode(parent, component);
+				return;
+			}
+			return component;
+		},
+	};
+}

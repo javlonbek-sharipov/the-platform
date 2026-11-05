@@ -8,20 +8,27 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { architecture, render } from "@the-platform/diagrams";
+import { afterAll } from "vitest";
+
+/** The sample repos, which go when the test file is over. */
+const written: string[] = [];
+
+afterAll(async () => {
+	await Promise.all(written.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
 
 /**
  * Writes files into a fresh temporary folder, each under its path from the
- * folder, and gives back the folder with a function that removes it.
+ * folder, and gives back the folder: a sample repo's root.
  */
-export async function sampleRepo(
-	files: Record<string, string>,
-): Promise<{ root: string; remove(): Promise<void> }> {
+export async function sampleRepo(files: Record<string, string>): Promise<string> {
 	const root = await realpath(await mkdtemp(join(tmpdir(), "docs-repo-")));
+	written.push(root);
 	for (const [path, content] of Object.entries(files)) {
 		await mkdir(dirname(join(root, path)), { recursive: true });
 		await writeFile(join(root, path), content);
 	}
-	return { root, remove: () => rm(root, { recursive: true, force: true }) };
+	return root;
 }
 
 /**

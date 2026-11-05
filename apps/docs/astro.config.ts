@@ -15,7 +15,7 @@ const title = "the-platform";
 export default defineConfig({
 	markdown: {
 		processor: satteri({
-			mdastPlugins: [diagramImages, repoLinks(repoRoot)],
+			mdastPlugins: [diagramImages(repoRoot), repoLinks(repoRoot)],
 			// The headings get their ids first, the title's among them, as on GitHub.
 			hastPlugins: [satteriHeadingIdsPlugin(), pageTitle],
 		}),

@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { symlink } from "node:fs/promises";
+import { join } from "node:path";
 import type { Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { closeBrowser, open, reading } from "./support/browser.ts";
@@ -8,6 +11,10 @@ import { buildSite, type Site } from "./support/site.ts";
 const lines = (...text: string[]) => `${text.join("\n")}\n`;
 
 const svg = checkoutSvg();
+
+/** What every file of another project says, in the sample repo's `repos/`. */
+const notOurs = "Not ours to show";
+const theirs = (...text: string[]) => lines(...text, "", `${notOurs}.`);
 
 /** A sample repo, laid out as the-platform is: a shop, with one context. */
 const shop = {
@@ -72,6 +79,19 @@ const shop = {
 		"It's written in [`checkout.diagram.ts`](./checkout.diagram.ts).",
 	),
 	"packages/shop/docs/checkout.diagram.svg": svg,
+	// Other projects' files, kept in `repos/` for reading, in every place where a doc of ours could be.
+	"repos/GLOSSARY.md": theirs("# Theirs"),
+	"repos/docs/notes.md": theirs("# Their notes"),
+	"repos/quorum/GLOSSARY.md": theirs("# Quorum"),
+	"repos/quorum/GLOSSARY-MAP.md": theirs("# Their glossary map"),
+	"repos/quorum/docs/adr/0001-draw-on-a-canvas.md": theirs("# Draw on a canvas"),
+	"repos/quorum/docs/board.md": theirs("# Board", "", "![Board](./board.diagram.svg)"),
+	"repos/quorum/docs/board.diagram.svg": svg.replace(
+		"<title>Checkout</title>",
+		`<title>${notOurs}</title>`,
+	),
+	"repos/quorum/packages/board/GLOSSARY.md": theirs("# Their board"),
+	"repos/quorum/packages/board/docs/routing.md": theirs("# Their routing"),
 };
 
 /** The text of each `<h1>` in a page's HTML. */
@@ -96,24 +116,20 @@ function sidebarOf(page: Page): Promise<Sidebar> {
 }
 
 describe("the docs site of a sample repo", () => {
-	let repo: Awaited<ReturnType<typeof sampleRepo>>;
 	let site: Site;
 
 	beforeAll(async () => {
-		repo = await sampleRepo(shop);
-		site = await buildSite(repo.root);
+		site = await buildSite(await sampleRepo(shop));
 	}, 120_000);
 
-	afterAll(async () => {
-		await closeBrowser();
-		await site?.remove();
-		await repo?.remove();
-	});
+	afterAll(closeBrowser);
 
 	test("a page's Diagram image becomes the web component, with the SVG inline", async () => {
 		const page = await site.page("packages/shop/docs/checkout");
 
 		expect(page).toContain(`<platform-diagram>${svg}</platform-diagram>`);
+		// It stands on a line of its own in the doc, so it's a block of the page, not part of a paragraph.
+		expect(page).not.toContain("<p><platform-diagram>");
 		expect(page).not.toMatch(/<img[^>]*checkout\.diagram/);
 	});
 
@@ -169,6 +185,11 @@ describe("the docs site of a sample repo", () => {
 		expect(
 			drawn["Light on a light system"]?.equals(drawn["Dark on a dark system"] ?? Buffer.of()),
 		).toBe(false);
+	});
+
+	test("nothing in repos/ is shown, or kept", async () => {
+		expect(existsSync(join(site.folder, "repos"))).toBe(false);
+		expect(await site.filesWith(notOurs)).toEqual([]);
 	});
 
 	test.each([
@@ -272,5 +293,44 @@ describe("the docs site of a sample repo", () => {
 		expect(await link.getAttribute("href")).toBe(
 			"https://github.com/javlonbek-sharipov/the-platform/blob/main/packages/shop/docs/checkout.diagram.ts",
 		);
+	});
+});
+
+describe("a doc that embeds a file it can't show", () => {
+	test.each([
+		[
+			"a Diagram in repos/",
+			"![Board](../repos/quorum/board.diagram.svg)",
+			"docs/board.md embeds ../repos/quorum/board.diagram.svg, a file in repos/. The site shows nothing from repos/, which holds other projects' files.",
+		],
+		[
+			"a picture in repos/",
+			"![Logo](../repos/quorum/logo.png)",
+			"docs/board.md embeds ../repos/quorum/logo.png, a file in repos/. The site shows nothing from repos/, which holds other projects' files.",
+		],
+		[
+			"a Diagram that links into repos/",
+			"![Board](./linked.diagram.svg)",
+			"docs/board.md embeds ./linked.diagram.svg, a file in repos/. The site shows nothing from repos/, which holds other projects' files.",
+		],
+		[
+			"a file outside the repo",
+			"![Board](../../elsewhere/board.diagram.svg)",
+			"docs/board.md embeds ../../elsewhere/board.diagram.svg, a file outside the repo. The site shows only the repo's own files.",
+		],
+		[
+			"a Diagram that isn't drawn yet",
+			"![Board](./board.diagram.svg)",
+			"docs/board.md embeds ./board.diagram.svg, which doesn't exist. Run `pnpm exec diagrams render` to draw it.",
+		],
+	])("stops the build for %s, and says why", async (_what, image, message) => {
+		const repo = await sampleRepo({
+			"docs/board.md": lines("# Board", "", image),
+			"repos/quorum/board.diagram.svg": svg,
+			"repos/quorum/logo.png": "a picture",
+		});
+		await symlink("../repos/quorum/board.diagram.svg", join(repo, "docs/linked.diagram.svg"));
+
+		await expect(buildSite(repo)).rejects.toThrow(message);
 	});
 });
