@@ -1,3 +1,4 @@
+import type { Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { closeBrowser, open, reading } from "./support/browser.ts";
 import { checkoutSvg, sampleRepo } from "./support/repo.ts";
@@ -41,6 +42,8 @@ const shop = {
 		"",
 		"## Language",
 		"",
+		"### Shop",
+		"",
 		"**Cart**:",
 		"What a shopper has picked and not yet ordered.",
 		"_Avoid_: basket",
@@ -74,6 +77,22 @@ const shop = {
 /** The text of each `<h1>` in a page's HTML. */
 function headingsOf(page: string): string[] {
 	return [...page.matchAll(/<h1[^>]*>([^<]*)<\/h1>/g)].map(([, text = ""]) => text.trim());
+}
+
+/** A page's sidebar: each link by its text, and each group as its label with what it holds. */
+type Sidebar = (string | { [label: string]: Sidebar })[];
+
+function sidebarOf(page: Page): Promise<Sidebar> {
+	return page.getByRole("navigation", { name: "Main" }).evaluate((navigation) => {
+		const read = (list: Element | null): Sidebar =>
+			[...(list?.children ?? [])].map((item) => {
+				const group = item.querySelector(":scope > details");
+				const label = (group?.querySelector(":scope > summary") ?? item).textContent ?? "";
+				const name = label.trim().replace(/\s+/g, " ");
+				return group === null ? name : { [name]: read(group.querySelector(":scope > ul")) };
+			});
+		return read(navigation.querySelector("ul"));
+	});
 }
 
 describe("the docs site of a sample repo", () => {
@@ -150,6 +169,41 @@ describe("the docs site of a sample repo", () => {
 		expect(page).toContain(text);
 	});
 
+	test("the front page leads to every doc, grouped by where it lives", async () => {
+		const page = await open(await reading(site), "");
+
+		expect(await page.getByRole("heading", { level: 1 }).textContent()).toBe("the-platform");
+		expect(await sidebarOf(page)).toEqual([
+			{
+				"the-platform": [
+					"Glossary Map",
+					{ ADRs: ["Write decisions down"] },
+					{ Specs: ["Checkout v1"] },
+				],
+			},
+			{ Shop: ["Glossary", { ADRs: ["Keep one cart per shopper"] }, "Checkout"] },
+		]);
+	});
+
+	test("a doc's entry in the sidebar opens its page", async () => {
+		const page = await open(await reading(site), "");
+
+		await page
+			.getByRole("navigation", { name: "Main" })
+			.getByRole("link", { name: "Glossary", exact: true })
+			.click();
+
+		await page.getByRole("heading", { level: 1, name: "Shop" }).waitFor();
+	});
+
+	test("a heading keeps the anchor that GitHub gives it", async () => {
+		const page = await open(await reading(site), "packages/shop/glossary");
+
+		// On GitHub, the title is `#shop`, so the heading below it with the same words is `#shop-1`.
+		const heading = page.getByRole("heading", { level: 3, name: "Shop" });
+		expect(await heading.getAttribute("id")).toBe("shop-1");
+	});
+
 	test("a link from one doc to another opens that doc's page", async () => {
 		const page = await open(await reading(site), "glossary-map");
 
@@ -173,7 +227,7 @@ describe("the docs site of a sample repo", () => {
 			"packages/shop/docs/adr/0001-one-cart-per-shopper",
 		);
 
-		await page.getByRole("main").getByRole("link", { name: "glossary" }).click();
+		await page.getByRole("main").getByRole("link", { name: "glossary", exact: true }).click();
 
 		await page.getByRole("heading", { level: 1, name: "Shop" }).waitFor();
 	});

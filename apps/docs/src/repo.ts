@@ -67,9 +67,9 @@ function foldersIn(root: string, folder: string): string[] {
 }
 
 /** Every file under a folder of the repo, as paths from the root. Links aren't followed. */
-function filesIn(root: string, folder: string): string[] {
+export function filesIn(root: string, folder: string): string[] {
 	return entriesOf(root, folder).flatMap((entry) => {
-		const path = `${folder}/${entry.name}`;
+		const path = folder === "" ? entry.name : `${folder}/${entry.name}`;
 		if (entry.isDirectory()) {
 			return filesIn(root, path);
 		}

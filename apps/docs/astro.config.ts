@@ -5,7 +5,10 @@ import { diagramImages } from "./src/diagrams/images.ts";
 import { diagrams } from "./src/diagrams/integration.ts";
 import { pageTitle } from "./src/markdown/page-title.ts";
 import { repoLinks } from "./src/markdown/repo-links.ts";
-import { repoRoot } from "./src/repo.ts";
+import { docsOf, repoRoot } from "./src/repo.ts";
+import { sidebarOf } from "./src/sidebar.ts";
+
+const title = "the-platform";
 
 /** The docs site: the repo's glossaries, ADRs, specs and docs, with their Diagrams. */
 export default defineConfig({
@@ -16,5 +19,5 @@ export default defineConfig({
 			hastPlugins: [satteriHeadingIdsPlugin(), pageTitle],
 		}),
 	},
-	integrations: [starlight({ title: "the-platform" }), diagrams()],
+	integrations: [starlight({ title, sidebar: sidebarOf(docsOf(repoRoot), title) }), diagrams()],
 });

@@ -7,16 +7,27 @@ import { readFile } from "node:fs/promises";
 import { basename, join, relative, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Loader } from "astro/loaders";
-import { docsOf, idOf } from "./repo.ts";
+import { docsOf, filesIn, idOf } from "./repo.ts";
 
-/** Loads each doc of the repo at `root` as a page, at the id that `idOf` gives its path. */
+/**
+ * Loads each doc of the repo at `root` as a page, at the id that `idOf` gives
+ * its path. The app's own pages, in its `src/content/docs`, come first: they
+ * are what the site has to say for itself, such as its front page.
+ */
 export function repoDocs(root: string): Loader {
 	return {
 		name: "repo-docs",
 		async load({ store, config, parseData, renderMarkdown, generateDigest }) {
+			const own = fileURLToPath(new URL("content/docs", config.srcDir));
+			const pages = [
+				...filesIn(own, "")
+					.filter((path) => path.endsWith(".md"))
+					.map((path) => ({ id: idOf(path), file: join(own, path) })),
+				...docsOf(root).map((path) => ({ id: idOf(path), file: join(root, path) })),
+			];
 			const loaded = new Map<string, string>();
-			for (const path of docsOf(root)) {
-				const id = idOf(path);
+			for (const { id, file } of pages) {
+				const path = file;
 				const other = loaded.get(id);
 				if (other !== undefined) {
 					throw new Error(
@@ -24,7 +35,6 @@ export function repoDocs(root: string): Loader {
 					);
 				}
 				loaded.set(id, path);
-				const file = join(root, path);
 				const text = await readFile(file, "utf8");
 				// Rendering comes first: it's what finds the doc's title, in its first heading.
 				const rendered = await renderMarkdown(text, { fileURL: pathToFileURL(file) });
