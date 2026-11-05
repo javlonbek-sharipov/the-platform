@@ -50,10 +50,12 @@ function importsOf(module: string): string[] {
 }
 
 /**
- * Strings that only look like a Kind's name: a worker thread posts its
- * results in a `message` event.
+ * Strings that only look like a Kind's name, by module: a worker thread posts
+ * its results in a `message` event. `typeof x === "function"` is excused
+ * everywhere, since it names JavaScript's own type.
  */
 const otherMeanings: Record<string, string[]> = { "atlas/load.ts": ["message"] };
+const typeofFunction = /typeof [^;\n]*?[!=]==? "function"/g;
 
 describe.each(notations.map((notation) => [notation.name, notation] as const))(
 	"the %s Notation",
@@ -96,7 +98,7 @@ describe.each(notations.map((notation) => [notation.name, notation] as const))(
 			const named = modules()
 				.filter((module) => module !== definition)
 				.flatMap((module) => {
-					const code = codeOf(module);
+					const code = codeOf(module).replace(typeofFunction, "");
 					return kinds
 						.filter((kind) => !otherMeanings[module]?.includes(kind))
 						.filter((kind) =>
@@ -105,7 +107,10 @@ describe.each(notations.map((notation) => [notation.name, notation] as const))(
 						.map((kind) => `src/${module} names \`${kind}\``);
 				});
 
-			expect(named).toEqual([]);
+			expect(
+				named,
+				"Read the Kind's rule from the Notation's definition instead. A string that only looks like a Kind's name goes in `otherMeanings`.",
+			).toEqual([]);
 		});
 	},
 );

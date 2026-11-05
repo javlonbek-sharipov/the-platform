@@ -205,7 +205,7 @@ export function edgeKindsOf<N extends Notation>(notation: N): EdgeKindOf<N>[] {
  * the definition lacks is a bug.
  */
 export function definitionOf<T>(kinds: Readonly<Record<string, T>>, kind: string): T {
-	const definition = kinds[kind];
+	const definition = Object.hasOwn(kinds, kind) ? kinds[kind] : undefined;
 	if (definition === undefined) {
 		throw new Error(
 			`The Notation's definition has no \`${kind}\`, which validation should have rejected`,

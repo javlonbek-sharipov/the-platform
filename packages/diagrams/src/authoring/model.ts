@@ -187,8 +187,11 @@ type DiagramOfEach<N> = N extends Notation ? DiagramOf<N> : never;
 
 /** A Diagram in any of the engine's own Notations. */
 export type Diagram = DiagramOfEach<(typeof notations)[number]>;
+/** A Node of a Diagram in any of the engine's own Notations. */
 export type Node = Diagram["nodes"][number];
+/** A Group of a Diagram in any of the engine's own Notations. */
 export type Group = Diagram["groups"][number];
+/** An Edge of a Diagram in any of the engine's own Notations. */
 export type Edge = Diagram["edges"][number];
 
 /**
@@ -198,6 +201,7 @@ export type Edge = Diagram["edges"][number];
  * one that it may have.
  */
 export type AnyDiagram = DiagramOf<Notation>;
+/** A Node, a Group and an Edge of a Diagram in any Notation at all. */
 export type AnyNode = NodeOf<Notation>;
 export type AnyGroup = GroupOf<Notation>;
 export type AnyEdge = EdgeOf<Notation>;

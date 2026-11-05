@@ -17,6 +17,7 @@ import { unknownOptionsOf } from "../authoring/options.ts";
 import {
 	type EdgeField,
 	edgeKindsOf,
+	type GroupField,
 	groupKindsOf,
 	hasField,
 	type NodeField,
@@ -281,7 +282,9 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 			}
 			// An Edge's ends have Kinds that its own Kind allows. An end or an Edge
 			// of a Kind the Notation lacks has its own error.
-			const allowed = notation.edgeKinds[edge.kind]?.[field];
+			const allowed = edgeKinds.includes(edge.kind)
+				? notation.edgeKinds[edge.kind]?.[field]
+				: undefined;
 			const kind = kindOf.get(node) ?? "";
 			if (allowed !== undefined && nodeKinds.includes(kind) && !allowed.includes(kind)) {
 				const kinds = list(
@@ -842,19 +845,23 @@ function checkShape(input: Record<string, unknown>, notation: Notation): Diagnos
 			checkOptional(node, at, "node", nodeChecks);
 		}
 	});
+	const groupChecks: Record<GroupField, FieldCheck> = {
+		description: isText,
+		links: (links, at) => checkList(links, at, checkLink),
+	};
 	checkList(input.groups, "/groups", (group, at) => {
 		if (isObject(group)) {
 			checkFields(group, at, "a Group", fieldsOfIts("group"), fields.group);
 		}
 		checkStrings(group, at, ["id", "kind", "title"]);
 		if (isObject(group)) {
-			checkOptional(group, at, "group", { description: isText });
+			// Its members come between its description and its Links, as they always have.
+			const { description, links } = groupChecks;
+			checkOptional(group, at, "group", { description });
 			checkList(group.members, `${at}/members`, (member, memberAt) => {
 				check(typeof member === "string", memberAt, "an id");
 			});
-			checkOptional(group, at, "group", {
-				links: (links, linksAt) => checkList(links, linksAt, checkLink),
-			});
+			checkOptional(group, at, "group", { links });
 		}
 	});
 	const edgeChecks: Record<EdgeField, FieldCheck> = {
