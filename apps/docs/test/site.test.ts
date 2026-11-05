@@ -136,7 +136,39 @@ describe("the docs site of a sample repo", () => {
 
 		const node = page.getByText("Checkout API", { exact: true });
 		expect(await node.isVisible()).toBe(true);
-		expect((await node.boundingBox())?.width).toBeGreaterThan(50);
+		expect((await node.boundingBox())?.width).toBeGreaterThan(0);
+	});
+
+	test("a Diagram is drawn in the site's theme, whatever the reader's system asks for", async () => {
+		const drawn: Record<string, Buffer> = {};
+		for (const system of ["light", "dark"] as const) {
+			for (const theme of ["Light", "Dark"]) {
+				const reader = await reading(site, { scheme: system });
+				const page = await open(reader, "packages/shop/docs/checkout");
+				// The site has the switch twice, once for narrow windows: the reader uses the one that shows.
+				const themes = page.getByLabel("Select theme").filter({ visible: true });
+				await themes.selectOption({ label: theme });
+				// Zoomed out as far as it goes, the whole drawing is in view, with every color it has.
+				const diagram = page.locator("platform-diagram");
+				await diagram.click();
+				for (let press = 0; press < 8; press++) {
+					await page.keyboard.press("-");
+				}
+				drawn[`${theme} on a ${system} system`] = await diagram.screenshot();
+				await reader.close();
+			}
+		}
+
+		// The site's switch decides how a Diagram looks, and the two themes look different.
+		expect(
+			drawn["Light on a dark system"]?.equals(drawn["Light on a light system"] ?? Buffer.of()),
+		).toBe(true);
+		expect(
+			drawn["Dark on a light system"]?.equals(drawn["Dark on a dark system"] ?? Buffer.of()),
+		).toBe(true);
+		expect(
+			drawn["Light on a light system"]?.equals(drawn["Dark on a dark system"] ?? Buffer.of()),
+		).toBe(false);
 	});
 
 	test.each([

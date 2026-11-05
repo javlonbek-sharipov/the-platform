@@ -33,3 +33,25 @@ export const palette = {
 } as const satisfies Record<string, ThemeColor>;
 
 export type ColorName = keyof typeof palette;
+
+/**
+ * Every color of the theme of Diagrams in some Notations, each under the name
+ * of its property after `--diagram-`: the colors that all Diagrams share, and
+ * each Notation's hues, as `hue-` and the hue's name.
+ *
+ * A standalone SVG follows its viewer's color scheme. A page with a theme
+ * switch of its own sets every one of these properties for each of its
+ * themes, so that its Diagrams follow the switch instead. One that it left
+ * out would still follow the viewer's scheme.
+ */
+export function themeColors(
+	notations: readonly { hues: Record<string, ThemeColor> }[],
+): Record<string, ThemeColor> {
+	const colors: Record<string, ThemeColor> = { ...palette };
+	for (const { hues } of notations) {
+		for (const [name, color] of Object.entries(hues)) {
+			colors[`hue-${name}`] = color;
+		}
+	}
+	return colors;
+}

@@ -3,6 +3,7 @@ import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import { diagramImages } from "./src/diagrams/images.ts";
 import { diagrams } from "./src/diagrams/integration.ts";
+import { themeStyle } from "./src/diagrams/theme.ts";
 import { pageTitle } from "./src/markdown/page-title.ts";
 import { repoLinks } from "./src/markdown/repo-links.ts";
 import { docsOf, repoRoot } from "./src/repo.ts";
@@ -19,5 +20,12 @@ export default defineConfig({
 			hastPlugins: [satteriHeadingIdsPlugin(), pageTitle],
 		}),
 	},
-	integrations: [starlight({ title, sidebar: sidebarOf(docsOf(repoRoot), title) }), diagrams()],
+	integrations: [
+		starlight({
+			title,
+			sidebar: sidebarOf(docsOf(repoRoot), title),
+			head: [{ tag: "style", content: themeStyle() }],
+		}),
+		diagrams(),
+	],
 });
