@@ -10,11 +10,10 @@
 
 import type { Diagram } from "../authoring/model.ts";
 import {
-	type ArchitectureEdgeLook,
-	type ArchitectureNodeLook,
 	type ArchitectureStatus,
 	architectureEdgeLooks,
 	architectureFamilies,
+	architectureGroupLooks,
 	architectureNodeKinds,
 	architectureNodeLooks,
 	architectureStatuses,
@@ -36,6 +35,7 @@ import type {
 	SceneLogo,
 	SceneNode,
 	ScenePort,
+	SceneStatus,
 	SceneText,
 } from "./scene.ts";
 import { collapseSpaces, type FontData, type FontWeight, hasCharacter } from "./text.ts";
@@ -64,6 +64,8 @@ const solidOpacity = 0.5;
 const badgeStroke = 1.5;
 /** How much wider a callout makes its Node's outline. */
 const highlightGain = 1;
+/** The dashes of a dashed line, a message's or a zone's: 6 px drawn, then 4 px left out. */
+const dashes = "6 4";
 
 /**
  * Each status's mark, drawn in a box 12 px square: a shape of its own, in a
@@ -345,22 +347,10 @@ function rowTextsOf(node: SceneNode): SceneText[] {
 	return node.rows.flatMap((row) => (row.value === undefined ? [row.name] : [row.name, row.value]));
 }
 
-/**
- * How each Group Kind draws its box: a `system` heavier than a `region`, and a
- * `zone` dashed.
- */
-const groupOutlines: Record<string, Attribute[]> = {
-	system: [["stroke-width", 2]],
-	region: [["stroke-width", 1.5]],
-	zone: [
-		["stroke-width", 1.5],
-		["stroke-dasharray", "6 4"],
-	],
-};
-
 /** A Group's box, drawn as its Kind draws it, with its title in its label band. */
 function writeGroup(group: SceneGroup): string[] {
 	const { box, title } = group;
+	const look = architectureGroupLooks[group.kind];
 	return [
 		start("g", [
 			["data-group", group.id],
@@ -376,7 +366,8 @@ function writeGroup(group: SceneGroup): string[] {
 				["height", box.height],
 				["rx", 8],
 				["fill", "none"],
-				...(groupOutlines[group.kind] ?? []),
+				["stroke-width", look.stroke],
+				...(look.line === "dashed" ? [["stroke-dasharray", dashes] as const] : []),
 			]),
 		),
 		indent(1, writeText(title, "diagram-group-title")),
@@ -392,7 +383,7 @@ function writeGroup(group: SceneGroup): string[] {
  */
 function writeNode(node: SceneNode): string[] {
 	const { box, badge, title, technology, logo, rows, callout } = node;
-	const look = lookOf(node.kind);
+	const look = architectureNodeLooks[node.kind];
 	const outline = outlines[look.outline];
 	// A callout highlights the outline: wider, and in the accent color.
 	const width = callout === undefined ? outline.stroke : outline.stroke + highlightGain;
@@ -534,13 +525,8 @@ function writeText(text: SceneText, className: string): string {
 	);
 }
 
-function writeStatus({ value, mark }: { value: string; mark: { x: number; y: number } }): string {
-	const look = (statusMarks as Partial<Record<string, (typeof statusMarks)[ArchitectureStatus]>>)[
-		value
-	];
-	if (look === undefined) {
-		throw new Error(`Status ${value} has no mark, so validation should have rejected it`);
-	}
+function writeStatus({ value, mark }: SceneStatus): string {
+	const look = statusMarks[value];
 	const paint: Attribute[] = look.line
 		? [
 				["fill", "none"],
@@ -560,14 +546,6 @@ function writeStatus({ value, mark }: { value: string; mark: { x: number; y: num
 		["d", look.path],
 		...paint,
 	]);
-}
-
-function lookOf(kind: string): ArchitectureNodeLook {
-	const look = (architectureNodeLooks as Partial<Record<string, ArchitectureNodeLook>>)[kind];
-	if (look === undefined) {
-		throw new Error(`Node Kind ${kind} has no look, so validation should have rejected it`);
-	}
-	return look;
 }
 
 /**
@@ -594,8 +572,6 @@ function pathText(path: PathData): string {
 /** An Edge's line: a body, in the Edge's color, inside a wider, darker casing. */
 const bodyWidth = 1.5;
 const casingWidth = 3.5;
-/** The dashes of a dashed line, such as a message's: 6 px drawn, then 4 px left out. */
-const dashes = "6 4";
 /**
  * The arrowhead at an Edge's target: how far it reaches back from its tip, and
  * half its width there. Its outline is the casing's, a pixel wide.
@@ -617,7 +593,7 @@ const chevronHalfWidth = 3.5;
 function writeEdge(edge: SceneEdge): string[] {
 	const line = linePath(edge);
 	const dashed: Attribute[] =
-		edgeLookOf(edge.kind).line === "dashed" ? [["stroke-dasharray", dashes]] : [];
+		architectureEdgeLooks[edge.kind].line === "dashed" ? [["stroke-dasharray", dashes]] : [];
 	const rounded: Attribute[] = [
 		["stroke-linecap", "round"],
 		["stroke-linejoin", "round"],
@@ -737,14 +713,6 @@ function cased(d: string, attributes: Attribute[]): string[] {
 			...attributes,
 		]),
 	];
-}
-
-function edgeLookOf(kind: string): ArchitectureEdgeLook {
-	const look = (architectureEdgeLooks as Partial<Record<string, ArchitectureEdgeLook>>)[kind];
-	if (look === undefined) {
-		throw new Error(`Edge Kind ${kind} has no look, so validation should have rejected it`);
-	}
-	return look;
 }
 
 /** The badge of an Edge that crosses between regions or zones: a disc in its color. */

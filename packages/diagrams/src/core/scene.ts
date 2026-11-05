@@ -3,6 +3,7 @@
  * SVG, so another renderer could draw it. It isn't a versioned format.
  */
 
+import type { Edge, Group, Node } from "../authoring/model.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import type { FontWeight } from "./text.ts";
 
@@ -55,7 +56,7 @@ export interface SceneText {
 
 export interface SceneNode {
 	id: string;
-	kind: string;
+	kind: Node["kind"];
 	box: Box;
 	/** The band that holds the badge and the title: the whole Node, or the part below a person's head. */
 	header: Box;
@@ -106,7 +107,7 @@ export interface SceneLogo {
 
 /** A Node's status, and where its mark is drawn, at the end of the header. */
 export interface SceneStatus {
-	value: string;
+	value: NonNullable<Node["status"]>;
 	mark: Box;
 }
 
@@ -119,7 +120,7 @@ export interface SceneCallout {
 /** A Group's box, with its label band along the top. */
 export interface SceneGroup {
 	id: string;
-	kind: string;
+	kind: Group["kind"];
 	box: Box;
 	/**
 	 * The label box: the part of the label band, along the top of the box,
@@ -134,7 +135,7 @@ export interface SceneGroup {
 
 export interface SceneEdge {
 	id: string;
-	kind: string;
+	kind: Edge["kind"];
 	/** The id of the Node that the route leaves. */
 	from: string;
 	/** The name of the Row it leaves from, when the Edge starts at one. */

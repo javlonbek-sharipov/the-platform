@@ -74,6 +74,20 @@ export const architectureGroupKinds = ["system", "region", "zone"] as const;
 
 export type ArchitectureGroupKind = (typeof architectureGroupKinds)[number];
 
+/** How a Group of one Kind draws its box. A Kind alone decides it. */
+export interface ArchitectureGroupLook {
+	/** How wide its box's stroke is, in px: a `system` heavier than a `region`. */
+	stroke: number;
+	/** Its box's line: solid, or dashed for a `zone`. */
+	line: "solid" | "dashed";
+}
+
+export const architectureGroupLooks: Record<ArchitectureGroupKind, ArchitectureGroupLook> = {
+	system: { stroke: 2, line: "solid" },
+	region: { stroke: 1.5, line: "solid" },
+	zone: { stroke: 1.5, line: "dashed" },
+};
+
 /** How a Node is doing. Each status shows as a mark with a shape and a color of its own. */
 export const architectureStatuses = ["ok", "degraded", "down", "unknown"] as const;
 
