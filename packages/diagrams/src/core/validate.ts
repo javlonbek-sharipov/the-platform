@@ -8,6 +8,7 @@ import {
 	type AnyEdge,
 	type AnyGroup,
 	type AnyNode,
+	type Direction,
 	endNode,
 	type Link,
 	type Row,
@@ -54,6 +55,11 @@ const edgeIdPattern = new RegExp(formats.edgeId);
 export const slugPattern = new RegExp(formats.slug);
 const ratePattern = new RegExp(formats.rate);
 
+/**
+ * Which way a Diagram's ranks run when its model doesn't say. The builder
+ * always says, but generated JSON may leave `direction` out.
+ */
+export const defaultDirection: Direction = "right";
 const directions: unknown[] = [undefined, "right", "down"];
 
 /**
@@ -133,7 +139,11 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 	if (shape.length > 0) {
 		return { diagnostics: shape };
 	}
-	const diagram = input as AnyDiagram;
+	// Everything after validation reads the Diagram with its direction filled in.
+	const diagram = {
+		...read.model,
+		direction: read.model.direction ?? defaultDirection,
+	} as AnyDiagram;
 	const nodeKinds: readonly string[] = nodeKindsOf(notation);
 	const groupKinds: readonly string[] = groupKindsOf(notation);
 	const edgeKinds: readonly string[] = edgeKindsOf(notation);

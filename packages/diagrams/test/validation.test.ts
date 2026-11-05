@@ -58,6 +58,21 @@ describe("validation", () => {
 		expect(render(shopJson()).diagnostics).toEqual([]);
 	});
 
+	test("draws a model that leaves `direction` out to the right, the default, exactly as one that says so", () => {
+		const { direction, ...withoutDirection } = shopJson();
+		expect(direction).toBe("right");
+
+		const drawn = render(withoutDirection);
+
+		expect(drawn.diagnostics).toEqual([]);
+		expect(drawn.scene?.nodes.map(({ id, box }) => [id, box.x, box.y])).toEqual([
+			["web-app", 24, 24],
+			["shop-api", 296, 24],
+			["shop-db", 568, 24],
+		]);
+		expect(drawn.svg).toBe(render(shopJson()).svg);
+	});
+
 	test("accepts the valid fixture with nested Groups", () => {
 		expect(render(regionJson()).diagnostics).toEqual([]);
 	});

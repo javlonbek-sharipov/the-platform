@@ -36,6 +36,10 @@ export interface DiagramOf<N extends Notation> {
 	title: string;
 	/** What the Diagram shows, which isn't drawn. The SVG carries it in its model. */
 	description?: string;
+	/**
+	 * Which way the ranks run. The builder always writes it. Generated JSON may
+	 * leave it out, and validation then fills in `right`, the default.
+	 */
 	direction: Direction;
 	/** The ids of the top-level Nodes and Groups, in declaration order. */
 	members: string[];

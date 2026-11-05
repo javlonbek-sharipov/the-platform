@@ -16,7 +16,7 @@ import {
 	nodeKindsOf,
 	statusesOf,
 } from "../notations/notation.ts";
-import { formats } from "./validate.ts";
+import { defaultDirection, formats } from "./validate.ts";
 
 /** A JSON Schema, or a part of one. */
 type Schema = { [keyword: string]: unknown };
@@ -364,7 +364,7 @@ export function schemaOf<const Notations extends readonly Notation[]>(
 			direction: {
 				description: "Which way the ranks run: `right`, the default, or `down`.",
 				enum: ["right", "down"],
-				default: "right",
+				default: defaultDirection,
 			},
 			members: {
 				description:
