@@ -4,13 +4,14 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { satteriHeadingIdsPlugin } from "@astrojs/markdown-satteri";
+import { documentHeadings } from "@the-platform/diagrams/atlas";
 import { markdownToHtml } from "satteri";
 import { diagramSuffix, docsOf, pageOf, pathIn } from "../repo.ts";
 import { diagramImages } from "./images.ts";
 
 export interface SitePage {
 	url: string;
-	/** Heading anchor to actual site anchor; the first h1 becomes Starlight's title. */
+	/** Atlas section identity to actual site anchor; the first h1 becomes Starlight's title. */
 	sections: Record<string, string>;
 	/** Diagram ids in the order their images occur in the document. */
 	diagrams: string[];
@@ -20,8 +21,10 @@ export async function pagesOf(root: string): Promise<Record<string, SitePage>> {
 	const pages: Record<string, SitePage> = {};
 	for (const path of docsOf(root)) {
 		const page: SitePage = { url: pageOf(path), sections: {}, diagrams: [] };
+		const markdown = readFileSync(join(root, path), "utf8");
+		const headings = new Map(documentHeadings(markdown).map(({ line, anchor }) => [line, anchor]));
 		let title = false;
-		await markdownToHtml(readFileSync(join(root, path), "utf8"), {
+		await markdownToHtml(markdown, {
 			fileURL: pathToFileURL(join(root, path)),
 			mdastPlugins: [
 				diagramImages(root, (file) => {
@@ -34,13 +37,17 @@ export async function pagesOf(root: string): Promise<Record<string, SitePage>> {
 				satteriHeadingIdsPlugin(),
 				{
 					name: "site-sections",
+					options: { position: true },
 					element: {
 						filter: ["h1", "h2", "h3", "h4", "h5", "h6"],
 						visit(node) {
 							const anchor = node.properties.id;
 							if (typeof anchor !== "string") return;
 							const firstTitle = node.tagName === "h1" && !title;
-							page.sections[anchor] = firstTitle ? "_top" : anchor;
+							const identity = headings.get(node.position?.start.line ?? 0);
+							// Source identity handles every accepted Markdown spelling,
+							// while Sätteri remains authoritative for the published id.
+							if (identity !== undefined) page.sections[identity] = firstTitle ? "_top" : anchor;
 							if (firstTitle) title = true;
 						},
 					},
