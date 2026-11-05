@@ -2095,7 +2095,7 @@ The docs site. This is GitHub's issue #12, not ticket 12 above.
 3. **A loader of its own.** `apps/docs/src/repo-docs.ts` loads the pages, in place of Starlight's `docsLoader()` and of Astro's `glob()`.
    - `docsLoader()` reads only `src/content/docs`.
    - `glob()` takes one base folder, which would be the repo's root, and watches all of it. It checks a page's data before it renders the page, so a title can't come from the doc's heading. And it keeps a page's HTML until the doc's own text changes, so a Diagram drawn again wouldn't show.
-   - The loader renders every doc each time it runs, which takes a few milliseconds for the repo's twelve. It counts a page as changed when its HTML or its data is, so a new title alone counts too.
+   - The loader renders every doc each time it runs, which takes a few milliseconds for all of the repo's. It counts a page as changed when its HTML or its data is, so a new title alone counts too.
 4. **Ids and URLs.**
    - A doc's id, and so the path of its page, is its path from the root, without `.md`, in lowercase: `packages/diagrams/GLOSSARY.md` is at `/packages/diagrams/glossary/`. Each run of characters other than letters, digits, `.`, `_` and `-` becomes a hyphen, and an `index.md` is its folder's page.
    - Two docs that would be one page stop the build, with a message that names both.
