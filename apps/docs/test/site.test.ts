@@ -239,7 +239,8 @@ describe("the docs site of a sample repo", () => {
 					const diagram = page.locator("platform-diagram");
 					// Compare themes on a still drawing: moving marks otherwise change the picture with time.
 					await diagram.evaluate((element) => element.setAttribute("motion", "off"));
-					await diagram.click();
+					// Camera input starts on empty space, so the picture contains only the drawing.
+					await diagram.click({ position: { x: 4, y: 4 } });
 					for (let press = 0; press < 8; press++) {
 						await page.keyboard.press("-");
 					}
