@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vitest";
+import { userEvent } from "vitest/browser";
 import example from "../../docs/example-system.diagram.ts";
 import { architecture, type Diagram, type Direction } from "../../src/index.ts";
 import { draw } from "./support/drawing.ts";
-import { gapsOf, textOf, viewOf } from "./support/looking.ts";
+import { gapsOf, middleOf, textOf, viewOf } from "./support/looking.ts";
 import { frame, mount } from "./support/page.ts";
 
 /**
@@ -160,5 +161,144 @@ describe("fit", () => {
 		// Its width fits, so it's in the middle from side to side.
 		expect(gaps.left).toBeGreaterThanOrEqual(8);
 		expect(gaps.left).toBeCloseTo(gaps.right, 0);
+	});
+});
+
+describe("the keyboard", () => {
+	test("zooms in with +, out with −, around the middle of the view, and fits with 0", async () => {
+		const { svg, scene } = draw(example);
+		const diagram = await mount(svg, "width: 800px; height: 420px");
+		const middle = middleOf(diagram);
+		const fitted = viewOf(diagram, scene);
+		const held = fitted.at(middle);
+
+		await userEvent.tab();
+		await userEvent.keyboard("++");
+
+		const closer = viewOf(diagram, scene);
+		expect(closer.scale).toBeGreaterThan(fitted.scale * 1.4);
+		expect(closer.point(held).x).toBeCloseTo(middle.x, 0);
+		expect(closer.point(held).y).toBeCloseTo(middle.y, 0);
+
+		await userEvent.keyboard("-");
+
+		const further = viewOf(diagram, scene);
+		expect(further.scale).toBeLessThan(closer.scale * 0.9);
+		expect(further.scale).toBeGreaterThan(fitted.scale * 1.1);
+		expect(further.point(held).x).toBeCloseTo(middle.x, 0);
+		expect(further.point(held).y).toBeCloseTo(middle.y, 0);
+
+		await userEvent.keyboard("0");
+
+		const again = viewOf(diagram, scene);
+		expect(again.scale).toBeCloseTo(fitted.scale, 5);
+		expect(again.bounds.left).toBeCloseTo(fitted.bounds.left, 1);
+		expect(again.bounds.top).toBeCloseTo(fitted.bounds.top, 1);
+	});
+
+	test("stops zooming in while the drawing is still easy to take in", async () => {
+		const { svg, scene } = draw(shop());
+		const diagram = await mount(svg, "width: 600px; height: 300px");
+		await userEvent.tab();
+
+		await userEvent.keyboard("+".repeat(30));
+
+		const closest = viewOf(diagram, scene).scale;
+		expect(closest).toBeGreaterThanOrEqual(2);
+		expect(closest).toBeLessThanOrEqual(8);
+		await userEvent.keyboard("+");
+		expect(viewOf(diagram, scene).scale).toBeCloseTo(closest, 5);
+	});
+
+	test("stops zooming out once the whole drawing is in view, in the middle", async () => {
+		const { svg, scene } = draw(example);
+		const diagram = await mount(svg, "width: 800px; height: 420px");
+		await userEvent.tab();
+
+		await userEvent.keyboard("-".repeat(30));
+
+		const furthest = viewOf(diagram, scene);
+		const gaps = gapsOf(furthest.bounds, diagram.getBoundingClientRect());
+		expect(Math.min(gaps.left, gaps.top, gaps.right, gaps.bottom)).toBeGreaterThanOrEqual(8);
+		expect(gaps.left).toBeLessThanOrEqual(32);
+		expect(gaps.left).toBeCloseTo(gaps.right, 0);
+		expect(gaps.top).toBeCloseTo(gaps.bottom, 0);
+		await userEvent.keyboard("-");
+		expect(viewOf(diagram, scene).scale).toBeCloseTo(furthest.scale, 5);
+	});
+
+	test("zooms a drawing that fits whole out no further than its text stays readable", async () => {
+		const { svg, scene } = draw(shop());
+		const diagram = await mount(svg, "width: 1200px; height: 400px");
+		await userEvent.tab();
+
+		await userEvent.keyboard("-".repeat(30));
+
+		const furthest = viewOf(diagram, scene);
+		const gaps = gapsOf(furthest.bounds, diagram.getBoundingClientRect());
+		expect(furthest.scale).toBeLessThan(1);
+		expect(furthest.scale).toBeGreaterThanOrEqual(readable);
+		expect(gaps.left).toBeCloseTo(gaps.right, 0);
+		expect(gaps.top).toBeCloseTo(gaps.bottom, 0);
+	});
+
+	test("zooms in with = too, which is + without Shift", async () => {
+		const { svg, scene } = draw(shop());
+		const diagram = await mount(svg, "width: 600px; height: 300px");
+		const fitted = viewOf(diagram, scene).scale;
+		await userEvent.tab();
+
+		await userEvent.keyboard("=");
+
+		expect(viewOf(diagram, scene).scale).toBeGreaterThan(fitted * 1.1);
+	});
+
+	test.for(["Control", "Meta", "Alt"])(
+		"leaves +, − and 0 to the browser while %s is held",
+		async (modifier) => {
+			const { svg, scene } = draw(example);
+			const diagram = await mount(svg, "width: 800px; height: 420px");
+			await userEvent.tab();
+			await userEvent.keyboard("+");
+			const before = viewOf(diagram, scene);
+
+			await userEvent.keyboard(`{${modifier}>}+-0{/${modifier}}`);
+
+			const after = viewOf(diagram, scene);
+			expect(after.scale).toBeCloseTo(before.scale, 5);
+			expect(after.bounds.left).toBeCloseTo(before.bounds.left, 1);
+		},
+	);
+});
+
+describe("a view the reader chose", () => {
+	test("stays when the frame changes size, until the reader fits the drawing again", async () => {
+		const { svg, scene } = draw(shop());
+		const diagram = await mount(svg, "width: 1200px; height: 400px");
+		await userEvent.tab();
+		await userEvent.keyboard("++");
+		const chosen = viewOf(diagram, scene);
+		const corner = {
+			x: diagram.getBoundingClientRect().left,
+			y: diagram.getBoundingClientRect().top,
+		};
+		const held = chosen.at(corner);
+
+		diagram.style.width = "1000px";
+		await frame();
+
+		const kept = viewOf(diagram, scene);
+		expect(kept.scale).toBeCloseTo(chosen.scale, 5);
+		expect(kept.point(held).x).toBeCloseTo(corner.x, 0);
+		expect(kept.point(held).y).toBeCloseTo(corner.y, 0);
+
+		await userEvent.keyboard("0");
+		diagram.style.width = "620px";
+		await frame();
+
+		const fitted = viewOf(diagram, scene);
+		const gaps = gapsOf(fitted.bounds, diagram.getBoundingClientRect());
+		expect(fitted.scale).toBeLessThan(1);
+		expect(Math.min(gaps.left, gaps.top, gaps.right, gaps.bottom)).toBeGreaterThanOrEqual(8);
 	});
 });

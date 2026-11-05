@@ -36,17 +36,14 @@ export function textOf(diagram: Element, text: string): SVGGraphicsElement {
 	return found;
 }
 
-/** Where a text's middle is on the screen. */
-export function middleOf(element: Element): Point {
-	const box = element.getBoundingClientRect();
-	return { x: (box.left + box.right) / 2, y: (box.top + box.bottom) / 2 };
-}
-
 /** How the view shows a drawing: its scale, and where the scene's points and boxes lie on the screen. */
 export interface View {
 	/** Screen pixels for each of the drawing's own. */
 	scale: number;
+	/** Where a point of the drawing is on the screen. */
 	point(point: Point): Point;
+	/** The point of the drawing that's at a point of the screen. */
+	at(point: Point): Point;
 	box(box: Box): ScreenBox;
 	/** The bounds of the whole drawing. */
 	bounds: ScreenBox;
@@ -74,7 +71,17 @@ export function viewOf(diagram: Element, scene: Scene): View {
 		const opposite = point({ x: x + width, y: y + height });
 		return { left: corner.x, top: corner.y, right: opposite.x, bottom: opposite.y };
 	};
-	return { scale, point, box, bounds: box(scene.bounds) };
+	const at = ({ x, y }: Point): Point => ({
+		x: drawn.x + (x - seen.left) / scale,
+		y: drawn.y + (y - seen.top) / scale,
+	});
+	return { scale, point, at, box, bounds: box(scene.bounds) };
+}
+
+/** The middle of an element's box on the screen. */
+export function middleOf(element: Element): Point {
+	const { left, top, right, bottom } = element.getBoundingClientRect();
+	return { x: (left + right) / 2, y: (top + bottom) / 2 };
 }
 
 /** How far a box lies inside a frame, on each side. Negative where it sticks out. */

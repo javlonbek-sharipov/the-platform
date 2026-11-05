@@ -9,6 +9,7 @@
  */
 
 import { Camera, huggingHeight, type View } from "./camera.ts";
+import { steer } from "./gestures.ts";
 import { styles } from "./styles.ts";
 import { boundsOf, fetchSvg } from "./svg.ts";
 
@@ -41,8 +42,10 @@ export class PlatformDiagram extends HTMLElement {
 		const root = this.attachShadow({ mode: "open" });
 		root.adoptedStyleSheets = [styles];
 		this.#stage.className = "stage";
+		this.#stage.tabIndex = 0;
 		root.append(this.#stage);
 		this.#camera.watch((view) => this.#look(view));
+		steer(this.#stage, this.#camera);
 	}
 
 	connectedCallback(): void {
