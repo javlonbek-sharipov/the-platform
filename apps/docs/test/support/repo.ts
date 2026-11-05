@@ -21,7 +21,7 @@ afterAll(async () => {
  * Writes files into a fresh temporary folder, each under its path from the
  * folder, and gives back the folder: a sample repo's root.
  */
-export async function sampleRepo(files: Record<string, string>): Promise<string> {
+export async function sampleRepo(files: Record<string, string | Uint8Array>): Promise<string> {
 	const root = await realpath(await mkdtemp(join(tmpdir(), "docs-repo-")));
 	written.push(root);
 	for (const [path, content] of Object.entries(files)) {

@@ -82,6 +82,12 @@ const shop = {
 		"It's written in [`checkout.diagram.ts`](./checkout.diagram.ts).",
 	),
 	"packages/shop/docs/checkout.diagram.svg": svg,
+	"packages/shop/docs/logo.md": lines("# Logo", "", "![The shop's logo](./logo.png)"),
+	// A picture of one white pixel.
+	"packages/shop/docs/logo.png": Buffer.from(
+		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
+		"base64",
+	),
 	// Other projects' files, kept in `repos/` for reading, in every place where a doc of ours could be.
 	"repos/GLOSSARY.md": theirs("# Theirs"),
 	"repos/docs/notes.md": theirs("# Their notes"),
@@ -237,7 +243,7 @@ describe("the docs site of a sample repo", () => {
 					{ Specs: ["Checkout v1"] },
 				],
 			},
-			{ Shop: ["Glossary", { ADRs: ["Keep one cart per shopper"] }, "Checkout"] },
+			{ Shop: ["Glossary", { ADRs: ["Keep one cart per shopper"] }, "Checkout", "Logo"] },
 		]);
 	});
 
@@ -250,6 +256,13 @@ describe("the docs site of a sample repo", () => {
 			.click();
 
 		await page.getByRole("heading", { level: 1, name: "Shop" }).waitFor();
+	});
+
+	test("a picture that isn't a Diagram shows as the image it is", async () => {
+		const page = await open(await reading(site), "packages/shop/docs/logo");
+
+		const picture = page.getByRole("img", { name: "The shop's logo" });
+		expect(await picture.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(1);
 	});
 
 	test("a page says where its doc is edited: its file, on GitHub", async () => {

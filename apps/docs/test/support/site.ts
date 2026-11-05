@@ -3,8 +3,7 @@
  * names, and reading the pages it wrote.
  */
 
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build, dev } from "astro";
@@ -23,6 +22,21 @@ export interface Site {
 	page(path: string): Promise<string>;
 	/** The files that hold a text, among all that the build wrote: the site, and what it keeps to build faster. */
 	filesWith(text: string): Promise<string[]>;
+}
+
+/**
+ * Where the tests' sites are written: inside the app, where git ignores them.
+ * A site's pictures are made by a module that Astro writes beside the site,
+ * and which finds Astro only from inside the app.
+ */
+const sites = join(app, "node_modules/.cache/site-tests");
+
+/** A fresh folder for a site. */
+async function siteFolder(): Promise<string> {
+	await mkdir(sites, { recursive: true });
+	const folder = await mkdtemp(join(sites, "site-"));
+	written.push(folder);
+	return folder;
 }
 
 /** The folders that builds wrote into, which go when the test file is over. */
@@ -45,8 +59,7 @@ afterAll(async () => {
  * folder, so that a test's build leaves the app's own alone.
  */
 export async function buildSite(repo?: string): Promise<Site> {
-	const folder = await mkdtemp(join(tmpdir(), "docs-site-"));
-	written.push(folder);
+	const folder = await siteFolder();
 	const outDir = join(folder, "dist");
 	if (repo !== undefined) {
 		process.env.DOCS_REPO = repo;
@@ -90,8 +103,7 @@ export interface DevelopedSite {
  * built or developed.
  */
 export async function developSite(repo: string): Promise<DevelopedSite> {
-	const folder = await mkdtemp(join(tmpdir(), "docs-site-"));
-	written.push(folder);
+	const folder = await siteFolder();
 	process.env.DOCS_REPO = repo;
 	// Astro's dev server answers no request when it finds that Vitest started it, so that
 	// Vitest's own server can use Astro's plugins. Here it's the site's server that is wanted.
