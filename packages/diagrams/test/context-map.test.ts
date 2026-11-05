@@ -21,12 +21,16 @@ import {
 	looksOf,
 	nodeOf,
 	paintsWithin,
+	sceneOf,
 	shapesOf,
 	strokeOf,
 	strokesOf,
 } from "./support/drawn.ts";
+import { everyFixture } from "./support/fixtures.ts";
 import { schema, schemaErrors, schemaPointers } from "./support/schema.ts";
 import { computedStyle, descendants, isShape, paintedBounds, runsOf } from "./support/svg.ts";
+
+const fixtures = await everyFixture();
 
 /** A shop's Catalog, which Ordering takes its products from. */
 const shop = domain({ title: "Shop" }, (d) => {
@@ -845,6 +849,62 @@ describe("a role tag", () => {
 		expect(bare.to - bare.from).toBeGreaterThanOrEqual(scene.roleSpacing.between);
 	});
 
+	test("leaves its Edge's label the bare line between the two ends' tags, where layout makes room for all three", () => {
+		const labeled = {
+			...tagged,
+			edges: [{ ...tagged.edges[0], label: "Product data" }],
+		};
+		const { scene, diagnostics } = render(labeled);
+		const [edge] = scene?.edges ?? [];
+		const [, pl, acl] = (edge?.roles ?? []).map(({ tag }) => tag);
+		const label = edge?.label;
+
+		expect(diagnostics).toEqual([]);
+		expect(label?.text?.text).toBe("Product data");
+		expect(label?.text?.shortened).toBe(false);
+		expect(label?.box.x).toBeGreaterThanOrEqual((pl?.x ?? 0) + (pl?.width ?? 0));
+		expect((label?.box.x ?? 0) + (label?.box.width ?? 0)).toBeLessThanOrEqual(acl?.x ?? 0);
+		// The Nodes stand further apart than they do without the label.
+		const apart = (nodes: { box: Box }[] = []) =>
+			(nodes[1]?.box.x ?? 0) - (nodes[0]?.box.x ?? 0) - (nodes[0]?.box.width ?? 0);
+		expect(apart(scene?.nodes)).toBeGreaterThan(apart(render(tagged).scene?.nodes));
+		expect(apart(render(tagged).scene?.nodes)).toBeGreaterThan(apart(render(shop).scene?.nodes));
+	});
+
+	test("is drawn just past its Port's stub, with a warning, when its Edge has no line of its own", () => {
+		// Two Edges between the same two contexts, drawn along one simple route.
+		const twice = domain({ title: "Shop" }, (d) => {
+			const catalog = d.node({ id: "catalog", kind: "context", title: "Catalog" });
+			const ordering = d.node({ id: "ordering", kind: "context", title: "Ordering" });
+			d.edge(catalog, ordering, {
+				kind: "upstream-downstream",
+				id: "products",
+				roles: { from: ["OHS"], to: ["CF"] },
+			});
+			d.edge(catalog, ordering, { kind: "customer-supplier", id: "prices" });
+		});
+		const { scene, diagnostics } = render(twice, { searchBudget: 1 });
+		const noRoom = (role: string, end: string) => ({
+			severity: "warning",
+			rule: "role-placement",
+			message: `Edge \`products\`'s role \`${role}\` has no room on the Edge's own line near its \`${end}\` end, clear of Nodes, Group labels and other role tags, so its tag is drawn just past its Port's stub.`,
+			pointer: `/edges/0/roles/${end}/0`,
+		});
+
+		expect(scene?.edges.map(({ fellBack }) => fellBack)).toEqual([true, true]);
+		expect(diagnostics.filter(({ rule }) => rule === "role-placement")).toEqual([
+			noRoom("OHS", "from"),
+			noRoom("CF", "to"),
+		]);
+		const [products] = scene?.edges ?? [];
+		const [ohs, cf] = (products?.roles ?? []).map(({ tag }) => tag);
+		const stub = (port?: { point: Point; stub: Point }) =>
+			Math.abs((port?.stub.x ?? 0) - (port?.point.x ?? 0));
+		expect(stub(products?.fromPort)).toBe(16);
+		expect(ohs?.x).toBe((products?.fromPort.stub.x ?? 0) + 4);
+		expect((cf?.x ?? 0) + (cf?.width ?? 0)).toBe((products?.toPort.stub.x ?? 0) - 4);
+	});
+
 	/** Whether two boxes overlap, more than touching. */
 	const overlap = (a: Box, b: Box) =>
 		a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
@@ -876,6 +936,79 @@ describe("a role tag", () => {
 		return at / length;
 	};
 
+	describe("in every fixture", () => {
+		/** Each fixture's scene, with the tags of its Edges. */
+		const drawn = fixtures.map(([name, diagram]) => {
+			const scene = sceneOf(diagram);
+			const tags = scene.edges.flatMap((edge) => edge.roles.map((role) => ({ edge, ...role })));
+			return { name, scene, tags };
+		});
+		const named = (name: string, { edge, role, end }: (typeof drawn)[number]["tags"][number]) =>
+			`${name}: ${edge.id}, ${role} at ${end}`;
+
+		test("there are tags to check, on Diagrams laid out both ways", () => {
+			const tagged = drawn.filter(({ tags }) => tags.length > 0);
+			expect(tagged.map(({ name }) => name)).toEqual(
+				expect.arrayContaining([
+					"context-map.ts: contextMap, drawn right",
+					"context-map.ts: contextMap, drawn down",
+				]),
+			);
+			expect(tagged.flatMap(({ tags }) => tags).length).toBeGreaterThanOrEqual(18);
+		});
+
+		test("sits on its own Edge's line, which runs through it, nearer the end that carries it than the other", () => {
+			for (const { name, tags } of drawn) {
+				for (const tag of tags) {
+					expect(runsThrough(tag.edge.route, tag.tag), named(name, tag)).toBe(true);
+					const center = { x: tag.tag.x + tag.tag.width / 2, y: tag.tag.y + tag.tag.height / 2 };
+					const share = shareAlong(tag.edge.route, center);
+					expect(tag.end === "from" ? share : 1 - share, named(name, tag)).toBeLessThan(0.5);
+				}
+			}
+		});
+
+		test("comes after its end's other tags along the route, in the model's order", () => {
+			for (const { name, scene } of drawn) {
+				for (const edge of scene.edges) {
+					const shares = edge.roles.map(({ tag }) =>
+						shareAlong(edge.route, { x: tag.x + tag.width / 2, y: tag.y + tag.height / 2 }),
+					);
+					expect(shares, `${name}: ${edge.id}`).toEqual([...shares].sort((a, b) => a - b));
+					expect(new Set(shares).size, `${name}: ${edge.id}`).toBe(shares.length);
+				}
+			}
+		});
+
+		test("is clear of every Node, callout, Group label and Edge label, and of every other tag", () => {
+			for (const { name, scene, tags } of drawn) {
+				const solid = [
+					...scene.nodes.flatMap(({ id, box, callout }) => [
+						{ what: `Node ${id}`, box },
+						...(callout === undefined ? [] : [{ what: `the callout of ${id}`, box: callout.tag }]),
+					]),
+					...scene.groups.map(({ id, label }) => ({
+						what: `the label of Group ${id}`,
+						box: label,
+					})),
+					...scene.edges.flatMap(({ id, label }) =>
+						label === undefined ? [] : [{ what: `the label of ${id}`, box: label.box }],
+					),
+				];
+				for (const tag of tags) {
+					const others = tags
+						.filter((other) => other !== tag)
+						.map((other) => ({ what: named(name, other), box: other.tag }));
+					const touched = [...solid, ...others].filter(({ box }) => overlap(tag.tag, box));
+					expect(
+						touched.map(({ what }) => what),
+						named(name, tag),
+					).toEqual([]);
+				}
+			}
+		});
+	});
+
 	describe.each(["right", "down"] as const)("on a context map laid out %s", (direction) => {
 		const { scene, diagnostics } = render(contextMap(direction));
 		const edges = scene?.edges ?? [];
@@ -895,25 +1028,6 @@ describe("a role tag", () => {
 				["billing->shipping", []],
 				["ordering->support", []],
 			]);
-		});
-
-		test("sits on its own Edge's line, which runs through it, nearer the end that carries it than the other", () => {
-			for (const tag of tags) {
-				expect(runsThrough(tag.edge.route, tag.tag), named(tag)).toBe(true);
-				const center = { x: tag.tag.x + tag.tag.width / 2, y: tag.tag.y + tag.tag.height / 2 };
-				const share = shareAlong(tag.edge.route, center);
-				expect(tag.end === "from" ? share : 1 - share, named(tag)).toBeLessThan(0.5);
-			}
-		});
-
-		test("comes after its end's other tags along the route, in the model's order", () => {
-			for (const edge of edges) {
-				const shares = edge.roles.map(({ tag }) =>
-					shareAlong(edge.route, { x: tag.x + tag.width / 2, y: tag.y + tag.height / 2 }),
-				);
-				expect(shares, edge.id).toEqual([...shares].sort((a, b) => a - b));
-				expect(new Set(shares).size, edge.id).toBe(shares.length);
-			}
 		});
 
 		test("keeps to the same side of its line as its end's other tags on that line", () => {
@@ -941,24 +1055,6 @@ describe("a role tag", () => {
 						expect([...signs], `${edge.id}, ${end}, on ${line}`).toHaveLength(1);
 					}
 				}
-			}
-		});
-
-		test("is clear of every Node, every label and every other tag", () => {
-			const nodes = (scene?.nodes ?? []).map(({ id, box }) => ({ what: `Node ${id}`, box }));
-			const labels = edges.flatMap(({ id, label }) =>
-				label === undefined ? [] : [{ what: `the label of ${id}`, box: label.box }],
-			);
-			expect(labels.length).toBeGreaterThan(1);
-			for (const tag of tags) {
-				const others = tags
-					.filter((other) => other !== tag)
-					.map((other) => ({ what: named(other), box: other.tag }));
-				const touched = [...nodes, ...labels, ...others].filter(({ box }) => overlap(tag.tag, box));
-				expect(
-					touched.map(({ what }) => what),
-					named(tag),
-				).toEqual([]);
 			}
 		});
 
