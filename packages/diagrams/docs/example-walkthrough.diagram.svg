@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="diagram-f25be5c3fd6d415f" role="img" viewBox="0 0 496 176" width="496" height="176">
+  <title>Checkout Walkthrough</title>
+  <desc>Nodes: Checkout API (service); Orders (database); Payments (service). Edges: Checkout API calls Orders. Checkout API calls Payments.</desc>
+  <metadata>{"direction":"right","edges":[{"from":"walkthrough-api","id":"save","kind":"call","to":"walkthrough-orders"},{"from":"walkthrough-api","id":"charge","kind":"call","to":"walkthrough-payments"}],"groups":[],"id":"packages/diagrams/docs/example-walkthrough","members":["walkthrough-api","walkthrough-orders","walkthrough-payments"],"nodes":[{"id":"walkthrough-api","kind":"service","title":"Checkout API"},{"id":"walkthrough-orders","kind":"database","title":"Orders"},{"id":"walkthrough-payments","kind":"service","title":"Payments"}],"notation":"architecture","title":"Checkout Walkthrough","version":1,"walkthroughs":[{"id":"place-order","steps":[{"edges":["save"],"note":"Save the order."},{"edges":[{"back":true,"edge":"save"}],"note":"Return its id."},{"edges":["save","charge"],"note":"Save and charge together."},{"node":"walkthrough-api","note":"Order placed."}],"title":"Place an order"}]}</metadata>
+  <style>
+    @font-face { font-family: "diagram-f25be5c3fd6d415f"; font-weight: 600; src: url("data:font/ttf;base64,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AAEECQALACABsgADAAEECQAMACAB0gADAAEECQANASAB8gADAAEECQAOADQDEgADAAEECQAQAAoDRgADAAEECQARABADUAADAAEECQAVAAoDYAADAAEECQAWABADagBDAG8AcAB5AHIAaQBnAGgAdAAgADIAMAAxADYAIABUAGgAZQAgAEkAbgB0AGUAcgAgAFAAcgBvAGoAZQBjAHQAIABBAHUAdABoAG8AcgBzAEkAbgB0AGUAcgAgAFMAZQBtAGkAQgBvAGwAZABSAGUAZwB1AGwAYQByADQALgAwADAAMQA7AGcAaQB0AC0AOQAyADIAMQBiAGUAZQBkADMAOwBSAFMATQBTADsASQBuAHQAZQByAC0AUwBlAG0AaQBCAG8AbABkAEkAbgB0AGUAcgAgAFMAZQBtAGkAQgBvAGwAZABWAGUAcgBzAGkAbwBuACAANAAuADAAMAAxADsAZwBpAHQALQA5ADIAMgAxAGIAZQBlAGQAMwBJAG4AdABlAHIALQBTAGUAbQBpAEIAbwBsAGQASQBuAHQAZQByACAAVQBJACAAYQBuAGQAIABJAG4AdABlAHIAIABpAHMAIABhACAAdAByAGEAZABlAG0AYQByAGsAIABvAGYAIAByAHMAbQBzAC4AcgBzAG0AcwBSAGEAcwBtAHUAcwAgAEEAbgBkAGUAcgBzAHMAbwBuAGgAdAB0AHAAcwA6AC8ALwByAHMAbQBzAC4AbQBlAC8AaAB0AHQAcABzADoALwAvAHIAcwBtAHMALgBtAGUALwBUAGgAaQBzACAARgBvAG4AdAAgAFMAbwBmAHQAdwBhAHIAZQAgAGkAcwAgAGwAaQBjAGUAbgBzAGUAZAAgAHUAbgBkAGUAcgAgAHQAaABlACAAUwBJAEwAIABPAHAAZQBuACAARgBvAG4AdAAgAEwAaQBjAGUAbgBzAGUALAAgAFYAZQByAHMAaQBvAG4AIAAxAC4AMQAuACAAVABoAGkAcwAgAGwAaQBjAGUAbgBzAGUAIABpAHMAIABhAHYAYQBpAGwAYQBiAGwAZQAgAHcAaQB0AGgAIABhACAARgBBAFEAIABhAHQAOgAgAGgAdAB0AHAAOgAvAC8AcwBjAHIAaQBwAHQAcwAuAHMAaQBsAC4AbwByAGcALwBPAEYATABoAHQAdABwADoALwAvAHMAYwByAGkAcAB0AHMALgBzAGkAbAAuAG8AcgBnAC8ATwBGAEwASQBuAHQAZQByAFMAZQBtAGkAQgBvAGwAZABJAG4AdABlAHIAUwBlAG0AaQBCAG8AbABkAAMAAAAAAAD+tQCtAAAAAAAAAAAAAAAAAAAAAAAAAAA=") format("truetype"); }
+    .diagram-f25be5c3fd6d415f { font-family: "diagram-f25be5c3fd6d415f", Helvetica, Arial; font-kerning: none; font-variant-ligatures: none; }
+    .diagram-f25be5c3fd6d415f .diagram-background { fill: var(--diagram-background, #ffffff); }
+    .diagram-f25be5c3fd6d415f .diagram-edges { color: var(--diagram-edge, #818b98); }
+    .diagram-f25be5c3fd6d415f .diagram-casing { stroke: var(--diagram-edge-casing, #424a53); }
+    .diagram-f25be5c3fd6d415f .diagram-base { fill: var(--diagram-surface, #ffffff); }
+    .diagram-f25be5c3fd6d415f [data-node][data-kind="service"] { color: var(--diagram-hue-compute, #0969da); }
+    .diagram-f25be5c3fd6d415f [data-node][data-kind="database"] { color: var(--diagram-hue-data, #1b7c83); }
+    .diagram-f25be5c3fd6d415f .diagram-text { fill: var(--diagram-ink, #1f2328); }
+    @media (prefers-color-scheme: dark) {
+      .diagram-f25be5c3fd6d415f .diagram-background { fill: var(--diagram-background, #0d1117); }
+      .diagram-f25be5c3fd6d415f .diagram-edges { color: var(--diagram-edge, #9198a1); }
+      .diagram-f25be5c3fd6d415f .diagram-casing { stroke: var(--diagram-edge-casing, #262c36); }
+      .diagram-f25be5c3fd6d415f .diagram-base { fill: var(--diagram-surface, #161b22); }
+      .diagram-f25be5c3fd6d415f [data-node][data-kind="service"] { color: var(--diagram-hue-compute, #4493f8); }
+      .diagram-f25be5c3fd6d415f [data-node][data-kind="database"] { color: var(--diagram-hue-data, #39c5cf); }
+      .diagram-f25be5c3fd6d415f .diagram-text { fill: var(--diagram-ink, #f0f6fc); }
+    }
+    .diagram-f25be5c3fd6d415f [data-flow] { display: none; }
+    @media (prefers-reduced-motion: no-preference) {
+      .diagram-f25be5c3fd6d415f [data-flow] { display: inline; animation-name: diagram-f25be5c3fd6d415f-flow; animation-timing-function: linear; animation-iteration-count: infinite; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .diagram-f25be5c3fd6d415f [data-flow] { animation: none; display: none; }
+    }
+    @keyframes diagram-f25be5c3fd6d415f-flow { from { stroke-dashoffset: 0; } to { stroke-dashoffset: var(--diagram-flow-period, 96px); } }
+  </style>
+  <rect class="diagram-background" x="0" y="0" width="496" height="176"/>
+  <g class="diagram-edges" fill="none">
+    <g data-edge="save" data-kind="call" data-from="walkthrough-api" data-to="walkthrough-orders">
+      <path class="diagram-casing" d="M 289 48 L 200 48" stroke-width="3.5"/>
+      <path d="M 289 48 L 200 48" stroke="currentColor" stroke-width="1.5"/>
+      <path data-flow="save" d="M 289 48 L 200 48" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 90" style="--diagram-flow-period: 96px; animation-duration: 6s"/>
+      <path class="diagram-casing" d="M 246 51.5 L 250 48 L 246 44.5" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 246 51.5 L 250 48 L 246 44.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="diagram-casing" d="M 296 48 L 288 52.5 L 288 43.5 Z" fill="currentColor" stroke-width="1" stroke-linejoin="round"/>
+    </g>
+    <g data-edge="charge" data-kind="call" data-from="walkthrough-api" data-to="walkthrough-payments">
+      <path class="diagram-casing" d="M 289 128 L 224 128 A 8 8 0 0 1 216 120 L 216 56 A 8 8 0 0 0 208 48 L 200 48" stroke-width="3.5"/>
+      <path d="M 289 128 L 224 128 A 8 8 0 0 1 216 120 L 216 56 A 8 8 0 0 0 208 48 L 200 48" stroke="currentColor" stroke-width="1.5"/>
+      <path data-flow="charge" d="M 289 128 L 224 128 A 8 8 0 0 1 216 120 L 216 56 A 8 8 0 0 0 208 48 L 200 48" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 90" style="--diagram-flow-period: 96px; animation-duration: 6s"/>
+      <path class="diagram-casing" d="M 246 131.5 L 250 128 L 246 124.5" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 246 131.5 L 250 128 L 246 124.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="diagram-casing" d="M 296 128 L 288 132.5 L 288 123.5 Z" fill="currentColor" stroke-width="1" stroke-linejoin="round"/>
+    </g>
+    <g class="diagram-junctions">
+      <circle class="diagram-casing" data-from="walkthrough-api" cx="216" cy="48" r="3" fill="currentColor" stroke-width="1.5"/>
+    </g>
+  </g>
+  <g class="diagram-nodes">
+    <g data-node="walkthrough-api" data-kind="service">
+      <path class="diagram-base" d="M 32.75 24.75 H 191.25 A 8 8 0 0 1 199.25 32.75 V 63.25 A 8 8 0 0 1 191.25 71.25 H 32.75 A 8 8 0 0 1 24.75 63.25 V 32.75 A 8 8 0 0 1 32.75 24.75 Z"/>
+      <path d="M 32.75 24.75 H 191.25 A 8 8 0 0 1 199.25 32.75 V 63.25 A 8 8 0 0 1 191.25 71.25 H 32.75 A 8 8 0 0 1 24.75 63.25 V 32.75 A 8 8 0 0 1 32.75 24.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path transform="translate(36 40)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text class="diagram-text" x="124" y="48" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Checkout API</text>
+    </g>
+    <g data-node="walkthrough-orders" data-kind="database">
+      <path class="diagram-base" d="M 296.75 31.75 V 64.25 A 87.25 7 0 0 0 471.25 64.25 V 31.75 A 87.25 7 0 0 0 296.75 31.75 Z"/>
+      <path d="M 296.75 31.75 V 64.25 A 87.25 7 0 0 0 471.25 64.25 V 31.75 A 87.25 7 0 0 0 296.75 31.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M 296.75 31.75 A 87.25 7 0 0 0 471.25 31.75" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <path transform="translate(308 40)" d="M 2.5 4 A 5.5 2 0 0 0 13.5 4 A 5.5 2 0 0 0 2.5 4 V 12 A 5.5 2 0 0 0 13.5 12 V 4 M 2.5 8 A 5.5 2 0 0 0 13.5 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text class="diagram-text" x="396" y="48" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Orders</text>
+    </g>
+    <g data-node="walkthrough-payments" data-kind="service">
+      <path class="diagram-base" d="M 304.75 104.75 H 463.25 A 8 8 0 0 1 471.25 112.75 V 143.25 A 8 8 0 0 1 463.25 151.25 H 304.75 A 8 8 0 0 1 296.75 143.25 V 112.75 A 8 8 0 0 1 304.75 104.75 Z"/>
+      <path d="M 304.75 104.75 H 463.25 A 8 8 0 0 1 471.25 112.75 V 143.25 A 8 8 0 0 1 463.25 151.25 H 304.75 A 8 8 0 0 1 296.75 143.25 V 112.75 A 8 8 0 0 1 304.75 104.75 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path transform="translate(308 120)" d="M 8 1.5 L 14 4.75 V 11.25 L 8 14.5 L 2 11.25 V 4.75 Z M 2 4.75 L 8 8 L 14 4.75 M 8 8 V 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text class="diagram-text" x="396" y="128" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Payments</text>
+    </g>
+  </g>
+</svg>

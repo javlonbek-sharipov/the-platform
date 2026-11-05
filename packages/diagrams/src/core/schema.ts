@@ -70,6 +70,7 @@ A model that fails this schema fails the engine's validation too. But passing th
 - \`nesting\`: each member names a Node or a Group on the Diagram, every Node and Group is a member of exactly one parent, the Diagram or one Group, and so Groups nest as a tree.
 - \`namespace\`: each member of a namespaced Group has that Group's id as its prefix and one local id after it. JSON always holds full ids.
 - \`default-edge-id\`: an Edge whose id is its default name, its two Nodes' ids joined by \`->\`, keeps it only while no other Edge joins the same two Nodes.
+- \`walkthrough-target\`: each Step names only Nodes or Edges on its Diagram. Walkthrough ids are unique among Walkthroughs (\`duplicate-id\`).
 
 Each Notation may have further rules about a whole Diagram, described under its own schema definition.
 
@@ -90,6 +91,43 @@ const links = {
 
 /** The parts of the model that every Notation's Diagrams share. */
 const shared: Record<string, Schema> = {
+	walkthrough: {
+		type: "object",
+		properties: {
+			id,
+			title: someText,
+			steps: { type: "array", minItems: 1, items: { $ref: "#/$defs/step" } },
+		},
+		required: ["id", "title", "steps"],
+		additionalProperties: false,
+	},
+	step: {
+		type: "object",
+		properties: {
+			edges: { type: "array", minItems: 1, items: { $ref: "#/$defs/stepEdge" } },
+			node: id,
+			note: text,
+		},
+		oneOf: [
+			{ properties: { edges: {} }, required: ["edges"] },
+			{ properties: { node: {} }, required: ["node"] },
+		],
+		additionalProperties: false,
+	},
+	stepEdge: {
+		oneOf: [
+			{ type: "string", pattern: formats.edgeId },
+			{
+				type: "object",
+				properties: {
+					edge: { type: "string", pattern: formats.edgeId },
+					back: { type: "boolean" },
+				},
+				required: ["edge"],
+				additionalProperties: false,
+			},
+		],
+	},
 	id: {
 		description:
 			"Lowercase kebab-case words, such as `payments-api`, optionally namespaced by a context, as in `billing/order`.",
@@ -426,10 +464,9 @@ export function schemaOf<const Notations extends readonly Notation[]>(
 			groups: { description: "Every Group on the Diagram, whatever its parent.", type: "array" },
 			edges: { description: "Every Edge on the Diagram.", type: "array" },
 			walkthroughs: {
-				description:
-					"The Diagram's Walkthroughs. This engine doesn't play them yet, so the list must be empty.",
+				description: "Ordered Walkthroughs, carried by the SVG and played by the web component.",
 				type: "array",
-				maxItems: 0,
+				items: { $ref: "#/$defs/walkthrough" },
 			},
 		},
 		required: [

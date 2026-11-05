@@ -12,6 +12,7 @@ import { levelOfDetail } from "./level-of-detail.ts";
 import { readerLists } from "./reader-lists.ts";
 import type { Part } from "./stage.ts";
 import { termTooltip } from "./term-tooltip.ts";
+import { walkthroughs } from "./walkthroughs.ts";
 
 export const parts: Part[] = [
 	fontFaces,
@@ -24,5 +25,7 @@ export const parts: Part[] = [
 	termTooltip,
 	keyboard,
 	readerLists,
+	// Details handle Escape before playback; both cooperate through defaultPrevented.
 	details,
+	walkthroughs,
 ];
