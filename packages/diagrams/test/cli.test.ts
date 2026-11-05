@@ -118,6 +118,34 @@ describe("diagrams render and lint", () => {
 		});
 	});
 
+	test("an option that the builder or the config doesn't know is an error at the call it's given to, so it never vanishes", async () => {
+		const atlas = await sampleAtlas({
+			"diagrams.config.ts": sampleConfig.replace("atlas({})", "atlas({ contexts: {} })"),
+			"docs/shop.diagram.ts": shopModule().replace(
+				'{ kind: "call" }',
+				'{ kind: "call", lable: "Buys" }',
+			),
+		});
+
+		const render = await runCli(["render"], atlas);
+		expect(render).toEqual({
+			code: 1,
+			stdout:
+				"docs/shop.diagram.ts:6:4: error: An Edge has no option `lable`. Its options are `kind`, `id`, `label`, `technology` and `rate`. (model-shape)\n",
+			stderr: "",
+		});
+		expect(existsSync(join(atlas, "docs/shop.diagram.svg"))).toBe(false);
+
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 1,
+			stdout:
+				"diagrams.config.ts:3:16: error: The Atlas config has no option `contexts`. It has no options yet. (model-shape)\n" +
+				"docs/shop.diagram.ts:6:4: error: An Edge has no option `lable`. Its options are `kind`, `id`, `label`, `technology` and `rate`. (model-shape)\n" +
+				"Checked 1 Diagram: 2 errors.\n",
+			stderr: "",
+		});
+	});
+
 	test("a module that throws, or doesn't default-export a Diagram, is an error that names its file", async () => {
 		const atlas = await sampleAtlas({
 			"docs/closed.diagram.ts":

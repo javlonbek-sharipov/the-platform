@@ -13,13 +13,14 @@ import {
 	type Row,
 	type RowEnd,
 } from "../authoring/model.ts";
+import { unknownOptionsOf } from "../authoring/options.ts";
 import {
 	architectureEdgeKinds,
 	architectureGroupKinds,
 	architectureNodeKinds,
 	architectureStatuses,
 } from "../notations/architecture.ts";
-import type { Diagnostic } from "./diagnostics.ts";
+import { type Diagnostic, list, pointerSegment } from "./diagnostics.ts";
 
 export interface Validation {
 	diagnostics: Diagnostic[];
@@ -643,7 +644,10 @@ function checkShape(input: unknown): Diagnostic[] {
 		];
 	}
 
-	const diagnostics: Diagnostic[] = [];
+	// The authoring API's functions record each option they don't know, rather
+	// than leave it behind, so that it's rejected as a field the model doesn't
+	// have would be.
+	const diagnostics: Diagnostic[] = [...unknownOptionsOf(input)];
 	const check = (valid: boolean, pointer: string, what: string) => {
 		if (!valid) {
 			diagnostics.push(error("model-shape", `\`${pointer}\` must be ${what}.`, pointer));
@@ -847,22 +851,10 @@ function checkShape(input: unknown): Diagnostic[] {
 	return diagnostics;
 }
 
-/** A field's name as one segment of a JSON Pointer, escaped as RFC 6901 says. */
-function pointerSegment(field: string): string {
-	return field.replaceAll("~", "~0").replaceAll("/", "~1");
-}
-
 function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function error(rule: string, message: string, pointer: string): Diagnostic {
 	return { severity: "error", rule, message, pointer };
-}
-
-/** `a, b and c` */
-function list(words: readonly string[]): string {
-	return words.length < 2
-		? words.join("")
-		: `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
 }

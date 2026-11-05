@@ -7,7 +7,7 @@
 
 import type { Diagram, Row } from "../authoring/model.ts";
 import { technologyOf } from "../notations/architecture.ts";
-import type { Diagnostic } from "./diagnostics.ts";
+import { type Diagnostic, list } from "./diagnostics.ts";
 import { fontMetrics } from "./font-metrics.ts";
 import type { Box, SceneEdge, SceneGroup, SceneLogo, SceneNode, SceneText } from "./scene.ts";
 
@@ -564,13 +564,6 @@ function missingCharacters(text: string, weight: FontWeight): string[] {
 /** `U+6771` */
 function codePointOf(character: string): string {
 	return `U+${(character.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}`;
-}
-
-/** `a, b and c` */
-function list(words: string[]): string {
-	return words.length < 2
-		? words.join("")
-		: `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
 }
 
 /**

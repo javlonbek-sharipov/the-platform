@@ -46,10 +46,3 @@ function declaredAt(
 export function placeText(place: { file: string; line?: number; column?: number }): string {
 	return [place.file, place.line, place.column].filter((part) => part !== undefined).join(":");
 }
-
-/** `a, b and c` */
-export function list(words: readonly string[]): string {
-	return words.length < 2
-		? words.join("")
-		: `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
-}

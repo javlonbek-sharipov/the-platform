@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, relative, sep } from "node:path";
 import type { Declarations } from "../authoring/declarations.ts";
 import type { Diagram } from "../authoring/model.ts";
+import { recordUnknownOptions } from "../authoring/options.ts";
 import { render } from "../core/render.ts";
 import { bundledFontData } from "../fonts/bundled.ts";
 import { checkIds, checkLinks } from "./checks.ts";
@@ -122,7 +123,7 @@ function renderLoaded(root: string, loaded: Loaded): RenderedDiagram {
 	if ("failed" in loaded) {
 		return { module, svgFile, declarations: {}, messages: [loadFailure(root, loaded)] };
 	}
-	const { exported, declarations } = loaded;
+	const { exported, declarations, unknownOptions } = loaded;
 	if (exported === undefined) {
 		return {
 			module,
@@ -132,8 +133,11 @@ function renderLoaded(root: string, loaded: Loaded): RenderedDiagram {
 		};
 	}
 	if (typeof exported === "object" && exported !== null && !Array.isArray(exported)) {
-		// A Diagram's id is its module's path, which only the Atlas knows.
+		// A Diagram's id is its module's path, which only the Atlas knows. The
+		// errors about options the builder didn't know cross from the module's
+		// loader beside the model, as they left the builder.
 		Object.assign(exported, { id: diagramIdOf(root, module) });
+		recordUnknownOptions(exported, unknownOptions);
 	}
 	const { diagnostics, svg } = render(exported, { fontData: bundledFontData });
 	const messages = diagnostics.map((diagnostic) => located(module, declarations, diagnostic));
@@ -142,12 +146,12 @@ function renderLoaded(root: string, loaded: Loaded): RenderedDiagram {
 		: { module, svgFile, svg, model: exported as Diagram, declarations, messages };
 }
 
-/** The config must load, and default-export what `atlas()` returns. */
+/** The config must load, and default-export what `atlas()` returns, with no option it doesn't know. */
 function checkConfig(root: string, config: Loaded): AtlasMessage[] {
 	if ("failed" in config) {
 		return [loadFailure(root, config)];
 	}
-	const { exported } = config;
+	const { exported, declarations, unknownOptions } = config;
 	if (typeof exported !== "object" || exported === null || Array.isArray(exported)) {
 		return [
 			moduleLoad(
@@ -156,7 +160,7 @@ function checkConfig(root: string, config: Loaded): AtlasMessage[] {
 			),
 		];
 	}
-	return [];
+	return unknownOptions.map((diagnostic) => located(config.module, declarations, diagnostic));
 }
 
 /**

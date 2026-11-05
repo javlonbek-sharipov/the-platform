@@ -8,8 +8,9 @@ import { readFileSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { Declarations } from "../authoring/declarations.ts";
 import type { Diagram, Link } from "../authoring/model.ts";
+import { list } from "../core/diagnostics.ts";
 import { anchorOf, headingAnchors } from "./markdown.ts";
-import { type AtlasMessage, list, located } from "./messages.ts";
+import { type AtlasMessage, located } from "./messages.ts";
 
 /** A Diagram that passed validation, with where its module declared each thing. */
 export interface CheckedDiagram {
