@@ -1,9 +1,10 @@
 /**
  * The SVG writer turns a scene into one self-contained SVG: its Groups, its
- * Edges with their marks, role tags and labels, and its Nodes, with what the SVG says
- * about itself, and a style, which embeds the bundled font's glyphs that it
- * draws and the theme's rules for the colors it uses (`style.ts`). The path
- * data along Edges comes from `edge-paths.ts`, and the XML from `xml.ts`.
+ * Edges with their marks, role tags and labels, and its Nodes, with what the
+ * SVG says about itself, and a style, which embeds the bundled font's glyphs
+ * that it draws and the theme's rules for the colors it uses (`style.ts`).
+ * The path data along Edges comes from `edge-paths.ts`, and the XML from
+ * `xml.ts`.
  *
  * Its output is deterministic: elements are written in model order and
  * attributes in a fixed order, numbers have at most two decimals and never

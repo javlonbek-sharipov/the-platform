@@ -2,10 +2,10 @@
  * The domain Notation: the one definition of everything about domain
  * Diagrams that depends on Kinds. Validation, layout, the SVG writer, the
  * description, the JSON Schema, the model's types and the builder all read
- * it, so nothing outside this file names a domain Kind.
+ * it, so nothing outside this file names a domain Kind or role.
  *
- * A domain Diagram is a context map: its Nodes are bounded contexts, and its
- * Edges show how those contexts relate.
+ * So far, a domain Diagram is a context map: its Nodes are bounded contexts,
+ * and its Edges show how those contexts relate.
  */
 
 import type { EdgeKindOf, NodeKindOf, Notation, RoleOf } from "./notation.ts";

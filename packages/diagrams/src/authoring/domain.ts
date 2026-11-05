@@ -15,10 +15,8 @@ export type DomainOptions = DiagramDeclaration;
  * A Node to declare: on a context map, a bounded context. It's a plain
  * object, so a context can be defined once in a shared module, with
  * `satisfies DomainNode`, and declared on several Diagrams.
- *
- * `R` is the names of its Rows.
  */
-export type DomainNode<R extends string = string> = NodeDeclaration<DomainNotation, R>;
+export type DomainNode = NodeDeclaration<DomainNotation>;
 
 /** What an Edge is declared with, between its two ends. */
 export type DomainEdgeOptions = EdgeDeclaration<DomainNotation>;

@@ -384,16 +384,16 @@ const roleTagPadding = 4;
 
 /**
  * The size of the tag that shows a role: as high as every tag, and as wide as
- * the role's name with some room on each side, to the next even number of
- * pixels, so that a tag centered on a whole pixel has its sides on whole
- * pixels too.
+ * the role, as its Notation names it, with some room on each side, to the
+ * next even number of pixels, so that a tag centered on a whole pixel has its
+ * sides on whole pixels too.
  */
 export function roleTagSize(role: string): { width: number; height: number } {
 	const width = widthOf(role, "semibold", roleSize) + 2 * roleTagPadding;
 	return { width: 2 * Math.ceil(width / 2), height: roleTagHeight };
 }
 
-/** A role's name, centered in its tag. A role is never shortened: its tag is as wide as its name. */
+/** A role, centered in its tag. It's never shortened: its tag is as wide as it needs. */
 export function roleText(role: string, tag: Box): SceneText {
 	return {
 		text: role,

@@ -49,9 +49,9 @@ export interface Notation {
 	groupKinds: Record<string, GroupKindDefinition>;
 	/**
 	 * The roles that an end of one of its Edges may carry, in the order
-	 * messages list them, such as a context map's `OHS`. Each is drawn at its
-	 * end as a short tag that shows its name here. Each Edge Kind says which
-	 * of them each of its ends may carry.
+	 * messages list them. Each is named as the model writes it and as its tag
+	 * shows it, such as a context map's `OHS`. Each Edge Kind says which of
+	 * them each of its ends may carry.
 	 */
 	roles: Record<string, RoleDefinition>;
 	/**
@@ -148,7 +148,11 @@ export interface GroupKindDefinition {
 	crossing?: string;
 }
 
-/** A role that an end of an Edge may carry, which says what part that end's Node plays. */
+/**
+ * A role that an end of an Edge may carry, which says what part that end's
+ * Node plays. It's drawn at that end as a short tag that shows the role as
+ * the definition names it.
+ */
 export interface RoleDefinition {
 	/** What the description calls it: its name in full, such as `open host service`. */
 	name: string;
