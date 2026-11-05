@@ -174,6 +174,105 @@ export default architecture({ title: "Capitals" }, (d) => {
 	});
 });
 
+describe("diagrams export --format png, with Groups", () => {
+	// Titles in capitals, which Inter's central baseline centers on their points.
+	const regions = `import { architecture } from "@the-platform/diagrams";
+
+export default architecture({ title: "Regions" }, (d) => {
+	const web = d.node({ id: "web-app", kind: "client", title: "WEB" });
+	d.group({ id: "eu-west", kind: "region", title: "EU WEST" }, (region) => {
+		region.group({ id: "eu-west-a", kind: "zone", title: "ZONE A" }, (zone) => {
+			const api = zone.node({ id: "shop-api", kind: "service", title: "API" });
+			d.edge(web, api, { kind: "call" });
+		});
+		region.group({ id: "shop", kind: "system", title: "SHOP" }, (shop) => {
+			shop.node({ id: "shop-db", kind: "database", title: "DB" });
+		});
+	});
+});
+`;
+	const scale = 4;
+
+	/** Exports the Diagram in a theme, with the SVG's Groups: each one's box and title. */
+	async function exported(theme: "light" | "dark") {
+		const atlas = await sampleAtlas({ "docs/regions.diagram.ts": regions });
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+		const svg = parseSvg(await readFile(join(atlas, "docs/regions.diagram.svg"), "utf8"));
+		const run = await runCli(
+			[
+				"export",
+				"docs/regions.diagram.ts",
+				"--format",
+				"png",
+				"--theme",
+				theme,
+				"--scale",
+				String(scale),
+			],
+			atlas,
+		);
+		expect(run).toMatchObject({ code: 0, stderr: "" });
+		const groups = descendants(svg)
+			.filter((element) => element.attributes.has("data-group"))
+			.map((group) => {
+				const [box, title] = ["rect", "text"].map((name) =>
+					descendants(group).find((element) => element.name === name),
+				);
+				if (box === undefined || title === undefined) {
+					throw new Error(`Group ${group.attributes.get("data-group")} has no box or no title`);
+				}
+				return { kind: group.attributes.get("data-kind"), box, title };
+			});
+		return { png: decodePng(await readFile(run.stdout.trim())), groups };
+	}
+
+	test("draws each Group's box in the theme's border color, in either theme", async () => {
+		// #d1d9e0 and #3d444d, the border's light and dark fallbacks.
+		const borders = { light: [209, 217, 224, 255], dark: [61, 68, 77, 255] };
+		for (const theme of ["light", "dark"] as const) {
+			const { png, groups } = await exported(theme);
+			expect(
+				groups.map(({ kind }) => kind),
+				theme,
+			).toEqual(["region", "zone", "system"]);
+			for (const { kind, box } of groups) {
+				const [x, y, height] = ["x", "y", "height"].map((name) => Number(box.attributes.get(name)));
+				// Down the middle of its left side, clear of its rounded corners. A
+				// zone's border is dashed, so only some of it is drawn.
+				const side = Array.from({ length: Math.floor((height ?? 0) - 32) }, (_, step) =>
+					png.at(Math.round((x ?? 0) * scale), Math.round(((y ?? 0) + 16 + step) * scale)),
+				);
+				const drawn = side.filter((color) =>
+					color.every((value, at) => value === borders[theme][at]),
+				);
+				expect(drawn.length / side.length, `${theme} ${kind}`).toBeGreaterThan(
+					kind === "zone" ? 0.4 : 0.9,
+				);
+			}
+		}
+	});
+
+	test("draws each Group's title on its point, spanning what the SVG measured", async () => {
+		const { png, groups } = await exported("light");
+		const font = bundledFont("Inter-SemiBold.ttf");
+		for (const { title } of groups) {
+			const expected = inkOf(title, font);
+			const y = Number(title.attributes.get("y"));
+			const drawn = inkIn(png, scale, {
+				left: expected.left - 4,
+				right: expected.right + 4,
+				top: y - 12,
+				bottom: y + 12,
+			});
+			expect(Math.abs(drawn.left - expected.left), `${title.text}: left`).toBeLessThan(1);
+			expect(Math.abs(drawn.right - expected.right), `${title.text}: right`).toBeLessThan(1);
+			expect(Math.abs((drawn.top + drawn.bottom) / 2 - y), `${title.text}: middle`).toBeLessThan(
+				0.5,
+			);
+		}
+	});
+});
+
 describe("diagrams export --format json", () => {
 	test("writes the Diagram's model: the module's default export, with the id the Atlas gives it", async () => {
 		const source = await readFile(new URL("../docs/example-system.diagram.ts", import.meta.url));
