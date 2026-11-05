@@ -199,3 +199,42 @@ test("closing details preserves an explicit highlight until the next Escape on t
 	await userEvent.keyboard("{Escape}");
 	expect(opacityOf(textOf(diagram, "Aside"))).toBe(1);
 });
+
+test("details and Walkthroughs share Escape without releasing playback highlights or ordinary selection", async () => {
+	const model = architecture({ id: "docs/playback", title: "Playback" }, (d) => {
+		const orders = d.node({ id: "orders", kind: "service", title: "Orders API" });
+		const db = d.node({ id: "db", kind: "database", title: "Orders DB" });
+		d.node({ id: "aside", kind: "worker", title: "Aside" });
+		const save = d.edge(orders, db, { kind: "call" });
+		d.walkthrough({
+			id: "inspect",
+			title: "Inspect orders",
+			steps: [{ edges: [save] }, { node: orders }],
+		});
+	});
+	const diagram = (await mount(draw(model).svg, "width: 1000px; height: 600px")) as PlatformDiagram;
+	diagram.motion = "off";
+	diagram.selectNode("orders");
+	diagram.setHighlight({ nodes: ["aside"] });
+	const component = page.elementLocator(diagram);
+	await component.getByRole("button", { name: "Inspect orders" }).click();
+	const playback = component.getByRole("region", { name: "Walkthrough" });
+	await playback.getByRole("button", { name: "Pause" }).click();
+	await userEvent.click(textOf(diagram, "Orders API"));
+	await userEvent.keyboard("{Escape}");
+
+	expect(component.getByRole("dialog").query()).toBeNull();
+	expect(diagram.selectedNode).toBe("orders");
+	await expect.element(playback.getByRole("status")).toHaveTextContent("Step 1 of 2");
+	const { opacityOf } = await import("./support/looking.ts");
+	expect(opacityOf(textOf(diagram, "Aside"))).toBe(0.2);
+	expect(opacityOf(textOf(diagram, "Orders DB"))).toBe(1);
+	await userEvent.keyboard("{ArrowRight}");
+	await expect.element(playback.getByRole("status")).toHaveTextContent("Step 2 of 2");
+	expect(diagram.selectedNode).toBe("orders");
+	await userEvent.keyboard("{Escape}");
+	expect(playback.query()).toBeNull();
+	expect(diagram.selectedNode).toBe("orders");
+	expect(opacityOf(textOf(diagram, "Aside"))).toBe(1);
+	expect(opacityOf(textOf(diagram, "Orders DB"))).toBe(0.2);
+});

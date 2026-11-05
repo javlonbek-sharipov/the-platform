@@ -2,7 +2,7 @@
 
 Import `@the-platform/diagrams/web-component` to define `<platform-diagram>`. Give it an engine-made SVG as an inline child, or use its `src` attribute. The inline drawing also shows before JavaScript loads. A later inline SVG replaces the drawing, which lets a host update it without a framework.
 
-The SVG's metadata supplies the Node and Group details. Clicking a Node or Group label, or activating its accessible list button, opens a nonmodal details dialog. Enter opens the selected Node. Close restores focus to the invoking list button or the drawing. Escape also clears ordinary selection while leaving explicit highlights to their owner.
+The SVG's metadata supplies the Node and Group details. Clicking a Node or Group label, or activating its accessible list button, opens a nonmodal details dialog. Enter opens the selected Node. Close restores focus to the invoking list button or the drawing. Escape also clears ordinary selection when no explicit highlight is active. During explicit emphasis, including Walkthrough playback, it preserves both selection and the highlight.
 
 The host can supply these JavaScript properties before or after showing the SVG:
 
@@ -54,6 +54,6 @@ Descriptions and glossary definitions display as text, preserving Markdown and l
 
 `selection`, `selectedNode`, `selectNode(id | undefined)` and `setHighlight(targets | undefined)` retain their existing selection and highlight behavior. `selectNode` selects without opening details or moving keyboard focus. `diagram-select` bubbles and is composed, with `{ kind: "node" | "edge", id }` as detail, or `null` when cleared. Selecting the same target again emits no duplicate event.
 
-A replacement SVG of the same Diagram id refreshes an open dialog while its Node or Group still exists. Removal, a different Diagram, or disconnect closes the dialog. Redraw restores dialog focus only if it previously owned focus. List activation returns focus to the rebuilt invoking button by id. A dialog, its listeners and its index subscriptions leave with the SVG that supplied them.
+A replacement SVG of the same Diagram id refreshes an open dialog while its Node or Group still exists. Removal, a different Diagram, or disconnect closes the dialog. Redraw restores dialog focus only if it previously owned focus. List activation returns focus to the rebuilt invoking button by id. A dialog, its listeners and its index subscriptions leave with the SVG that supplied them. Updating the Atlas index keeps a focused destination by target within its list; if it disappears, focus returns to the dialog.
 
-Wheel scrolling and text selection inside details work normally. Drawing keyboard shortcuts leave the dialog's controls to handle their own keys. Key handlers cooperate through `defaultPrevented`, so details and Walkthrough playback can handle input without also moving spatial selection.
+Wheel scrolling and text selection inside details work normally. Drawing keyboard shortcuts leave the dialog's controls to handle their own keys. Key handlers cooperate through `defaultPrevented`. Escape closes details first while preserving playback and its selection; arrows then retain Walkthrough stepping, and its own Escape closes playback and restores the prior host highlight. Neither also moves spatial selection.

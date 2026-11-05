@@ -33,15 +33,24 @@ export const details: Part = {
 	font: 14px / 1.5 Helvetica, Arial, sans-serif;
 	overflow-wrap: anywhere;
 	cursor: auto;
+	touch-action: auto;
 }
 .details h2 { margin: 0 0 8px; font-size: 18px; }
 .details dt { font-weight: 600; }
 .details dd { margin: 0 0 8px; white-space: pre-wrap; }
 .details p { white-space: pre-wrap; }
-.details button { font: inherit; cursor: pointer; }
+.details button {
+	font: inherit;
+	color: inherit;
+	background: var(--theme-background);
+	border: 1px solid var(--theme-border);
+	border-radius: 4px;
+	padding: 4px 8px;
+	cursor: pointer;
+}
 .details :focus-visible { outline: 2px solid var(--theme-accent); outline-offset: 2px; }
 `,
-	setUp({ element, selection, navigation, onShow }) {
+	setUp({ element, selection, highlights, navigation, onShow }) {
 		let pending: OpenDetails | undefined;
 		onShow((svg) => {
 			const restore = pending;
@@ -90,7 +99,9 @@ export const details: Part = {
 				}
 				const actions = document.createElement("div");
 				panel.append(actions);
-				updateActions = () =>
+				updateActions = () => {
+					const focused =
+						actions.querySelector<HTMLButtonElement>("button:focus")?.dataset.navigation;
 					actions.replaceChildren(
 						navigationFor(
 							node,
@@ -103,6 +114,13 @@ export const details: Part = {
 							navigation.contextOf(model, node.id),
 						),
 					);
+					if (focused !== undefined) {
+						const target = [...actions.querySelectorAll<HTMLButtonElement>("button")].find(
+							(button) => button.dataset.navigation === focused,
+						);
+						(target ?? panel)?.focus({ preventScroll: true });
+					}
+				};
 				updateActions();
 				element.append(panel);
 				if (moveFocus) panel.focus({ preventScroll: true });
@@ -116,7 +134,8 @@ export const details: Part = {
 					}
 					if (event.key === "Escape" && panel !== undefined) {
 						close();
-						selection.select(undefined);
+						// Playback or the host still owns emphasis; closing details must leave its selection alone.
+						if (highlights.current === undefined) selection.select(undefined);
 						event.preventDefault();
 					} else if (event.key === "Enter" && event.target === element) {
 						const node = model.nodes.find(

@@ -263,3 +263,26 @@ test("a borrowed event offers its own context's Diagram rather than another borr
 		source: { diagram: "docs/billing", kind: "node", id: "ordering/order-placed" },
 	});
 });
+
+test("refreshing the Atlas keeps a focused destination by target and returns focus to details if removed", async () => {
+	const model = architecture({ id: "docs/shop", title: "Shop" }, (d) => {
+		d.node({ id: "store", kind: "system", title: "Store" });
+	});
+	const diagram = (await mount(draw(model).svg, "width: 900px; height: 500px")) as PlatformDiagram;
+	diagram.atlasIndex = shopIndex();
+	await userEvent.click(textOf(diagram, "Store"));
+	const details = page.elementLocator(diagram).getByRole("dialog");
+	const others = details.getByRole("list", { name: "Other Diagrams" });
+	await others.getByRole("button", { name: "Operations" }).click();
+	const updated = shopIndex();
+	const ops = updated.diagrams.find(({ id }) => id === "docs/ops");
+	if (ops !== undefined) ops.title = "Operations overview";
+
+	diagram.atlasIndex = updated;
+
+	expect(
+		others.getByRole("button", { name: "Operations overview" }).element().matches(":focus"),
+	).toBe(true);
+	diagram.atlasIndex = undefined;
+	expect(diagram.shadowRoot?.activeElement).toBe(details.element());
+});

@@ -25,6 +25,7 @@ export function navigationFor(
 			const item = document.createElement("li");
 			const button = document.createElement("button");
 			button.type = "button";
+			button.dataset.navigation = JSON.stringify([name, target]);
 			button.textContent = text;
 			button.addEventListener("click", () => navigation.request(target, source));
 			item.append(button);
