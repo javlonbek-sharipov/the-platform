@@ -23,6 +23,15 @@ import { boundsOf, fetchSvg } from "./svg.ts";
 const tallest = "80vh";
 
 export class PlatformDiagram extends HTMLElement {
+	/** The host may turn motion off; `auto` always respects reduced motion. */
+	get motion(): "auto" | "off" {
+		return this.getAttribute("motion") === "off" ? "off" : "auto";
+	}
+
+	set motion(value: "auto" | "off") {
+		this.setAttribute("motion", value);
+	}
+
 	/** Holds the SVG, clips it, and takes the reader's input. */
 	readonly #stage = document.createElement("div");
 	readonly #camera = new Camera();

@@ -84,6 +84,7 @@ function chevronMarksOf(drawn: Drawn, edge: SceneEdge): { points: Point[]; reach
 		.filter(
 			(shape) =>
 				isShape(shape) &&
+				computedStyle(shape, drawn.rules, "light").get("display") !== "none" &&
 				!lines.includes(shape) &&
 				computedStyle(shape, drawn.rules, "light").get("fill") === "none" &&
 				computedStyle(shape, drawn.rules, "light").get("stroke") === color,
@@ -342,6 +343,7 @@ describe("an Edge's chevrons", () => {
 					.filter(
 						(shape) =>
 							isShape(shape) &&
+							computedStyle(shape, drawn.rules, "light").get("display") !== "none" &&
 							!lines.includes(shape) &&
 							computedStyle(shape, drawn.rules, "light").get("fill") === "none" &&
 							computedStyle(shape, drawn.rules, "light").get("stroke") === color,

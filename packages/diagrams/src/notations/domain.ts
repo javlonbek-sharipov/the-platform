@@ -128,6 +128,7 @@ const definition = {
 		},
 	},
 	bundling: "none",
+	flow: false,
 	validation: {
 		rules: {
 			"domain-form":

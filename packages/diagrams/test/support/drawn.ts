@@ -204,7 +204,11 @@ export function linesOf(drawn: Drawn, edge: SceneEdge, theme: Theme = "light"): 
 			return false;
 		}
 		const style = computedStyle(shape, drawn.rules, theme);
-		return style.get("fill") === "none" && style.get("stroke") !== "none";
+		return (
+			style.get("display") !== "none" &&
+			style.get("fill") === "none" &&
+			style.get("stroke") !== "none"
+		);
 	});
 }
 

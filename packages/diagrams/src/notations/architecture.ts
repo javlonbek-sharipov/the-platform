@@ -158,6 +158,7 @@ const definition = {
 	// The Edges of one Kind into one Port merge into a trunk, so that a busy
 	// Node doesn't sprout a tangle of lines.
 	bundling: "target",
+	flow: true,
 } as const satisfies Notation;
 
 type Definition = typeof definition;

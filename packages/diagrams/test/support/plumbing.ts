@@ -84,6 +84,7 @@ export const plumbingNotation = {
 	},
 	// The pipes out of one Port share a trunk until they part.
 	bundling: "source",
+	flow: false,
 } as const satisfies Notation;
 
 /** A plumbing Diagram's model, as a tool would write it, with nothing on it unless given. */

@@ -471,6 +471,7 @@ A Notation defines:
 - which Group Kinds make an Edge cross between them, as `region` and `zone` do in architecture;
 - which roles the ends of its Edges may carry, and which of them each end of each Edge Kind may carry;
 - how its Edges bundle;
+- whether its directed Edges carry moving flow marks;
 - which of the model's optional fields its Diagrams may have.
 
 A thing's Kind alone decides how it looks.
@@ -1133,7 +1134,7 @@ The repo has no code or tests yet, so these tests become the prior art. The user
   - highlight the right Edges;
   - run back Steps in reverse;
   - show their notes.
-- With reduced motion emulated, no animations run: `document.getAnimations()` is empty.
+- With reduced motion emulated, no animations run in the rendered SVG, including inside a shadow root: `svg.getAnimations({ subtree: true })` and `shadowRoot.getAnimations()` are empty. `document.getAnimations()` alone misses shadow roots. Check that the same marks move before the preference changes, and stay still afterwards.
 - After a transition to a new SVG:
   - every Node sits where the new SVG puts it;
   - removed Nodes are gone.
@@ -1195,6 +1196,11 @@ These decisions go beyond what the design session settled. Change any that prove
   - Check this as soon as the repo has a GitHub remote.
   - Until then, keep that fallback stack to fonts no wider than Inter, such as Helvetica and Arial, so that shortened text still fits.
   - Also check that CSS animation plays in an SVG on GitHub.
+- **Issue 10 local rehearsal, 5 November 2026.**
+  - The example SVG from `57ceb827fd1e7409ffa5d2f57324a50a7daad541` was shown as an `<img>` through two local origins and a 302, with the page CSP and raw-image response headers recorded in `github-svg.md`. Chromium 156.0.8078.4 drew it at 1264 by 268 px. Two screenshots 500 ms apart differed at 305 pixels in light and 375 in dark, counting a pixel when a color channel differed by more than 8 of 255.
+  - With Chromium launched with `--force-prefers-reduced-motion`, both pairs differed at 0 pixels. Browser-level preference is needed here: DevTools emulation alone doesn't reach an SVG shown as an image. The page's `color-scheme` selected white or `#0d1117` inside the image, even with the browser's scheme kept light.
+  - With reduced motion on, the image under GitHub's headers and the same image without CSP differed at 0 pixels. Removing the embedded font faces changed 4,360 pixels. So the headers preserved the embedded fonts in this rehearsal.
+  - **Actual GitHub Markdown verification remains open.** This branch has not been pushed, and pushing is not authorized. The rehearsal doesn't exercise GitHub's Markdown rewriting or its cache, and isn't the ticket's hand check of the newly committed SVG on GitHub. Safari, Firefox and a signed-in GitHub theme were not checked in this run.
 - **Type stripping.**
   - Node's type stripping handles only erasable syntax, and won't strip files under `node_modules`.
   - If either limit blocks something, add a bundler to the CLI.
@@ -2220,6 +2226,28 @@ The docs site. This is GitHub's issue #12, not ticket 12 above.
     - `apps/docs/test/licenses.test.ts` holds decision 11's two checks.
     - Together they take about thirteen seconds.
 15. **Left for issue #13:** the Atlas index, the Links' URLs, Node URLs and drill-down. Nothing on the site reads the Atlas yet, and a page doesn't say which Diagrams it embeds.
+
+**Issue 10**
+
+Flow animation. This is GitHub's issue #10, not ticket 10 above.
+
+1. **A Notation opts in.** Its definition's `flow` is `true` for architecture and `false` for domain. The core reads that capability, never a Notation's name or Kinds. A symmetric Edge never flows, even in a Notation that opts in. A caller's own Notation can opt in too.
+2. **Rates and deterministic arithmetic.**
+   - Convert a rate to events per second, with decimal `k` and `M` multipliers. The load level is `log2(1 + events/second)`, capped at 16, reached at 65,535/s. No rate, and a zero rate, use level 0.
+   - Speed is `16 + 4 * level` px/s, and density is `(1 + level / 8)` marks per 96 px, so spacing is `96 / (1 + level / 8)` px. Both speed and number grow linearly with the logarithm of load. The slow default is 16 px/s with marks 96 px apart, and the cap is 80 px/s and 32 px apart.
+   - `src/core/flow.ts` finds the logarithm's whole part by halving, then 16 fractional bits by repeated squaring. The error is below 1/65,536, less than SVG rounding. It uses only the spec's deterministic arithmetic, with no `Math.log`. Rates too large for a Number reach the cap too.
+   - Each scene Edge that flows has `flow: { speed, spacing }`, independent of SVG or a clock. The model and its schema are unchanged.
+3. **Moving marks in the SVG.**
+   - A flow mark is a dash 6 px long on a stroke 3 px wide, in its Edge's color. One path with `data-flow="<Edge id>"` follows the same rounded stroke and hop gaps as the body, beneath the fixed chevrons, arrowhead and badge. Labels and Nodes stay over it.
+   - The stroke runs back from the target (ticket 11, decision 2), so a positive animated dash offset carries marks toward the target. One cycle advances by one spacing, at a duration of spacing divided by speed. Each subpath restarts the pattern after its hop, as the dashed body does.
+   - The period and duration live on the path; its keyframe name and selectors belong to the SVG's content-derived scope. The scope's hash includes the animation rules too. The same source still writes identical bytes.
+4. **The still drawing remains.** Flow paths default to `display: none`, and only `prefers-reduced-motion: no-preference` enables them. A `reduce` rule disables them explicitly. The PNG exporter already drops media queries and keyframes, so it keeps the default hidden flow paths and draws the fixed chevrons and arrowheads. A CLI test checks the casing's pixels where a moving mark would otherwise cover it, repeated PNG bytes, and the absence of APNG chunks.
+5. **The host's motion setting.** `<platform-diagram motion="off">`, or `element.motion = "off"`, disables CSS animation and transitions and hides flow marks. `"auto"` is the default and respects reduced motion. The property reflects to the attribute, and a changed setting takes effect on the drawing already shown. The component's reduced-motion rule stops all CSS animations and transitions in its shadow root too.
+6. **Only the useful view animates.**
+   - Flow disappears at scale 0.35 and below, further out than Rows disappear (0.45). It returns when the reader zooms in or fits again.
+   - The component's `flow` part caches each flow path's bounds from `getBBox()` and its individual runs and rounded corners when the SVG is shown. A bounds check rejects most Edges; each remaining line and circular quarter-arc is checked against the view, padded by 2 px for the stroke and coordinate rounding. So a loop surrounding the view stops too, while a route crossing the view keeps moving even when both its ends are outside. `flow-path.ts` reads the writer's absolute `M`, `L` and `A` commands, keeping hops separate; unfamiliar commands fall back to the conservative bounds check.
+   - An `IntersectionObserver` on the stage pauses flow while the component is off screen, and resumes it at its paused phase. It starts paused until the first observation. Each SVG's observer is disconnected when another takes its place or the component leaves the page. There is no JavaScript loop for animation frames.
+7. **Tests inspect the animation being rendered.** Standalone and shadow-root browser tests first confirm motion, then inspect the SVG's animations and computed dash offsets after reduced motion or host motion-off. `document.getAnimations()` is demonstrated empty while the shadow-root marks still move. Temporarily removing both reduced-motion guards made all three reduced-motion tests fail, including the shadow-root test. Enabling flow in the rasterizer's default rule made the PNG pixel test fail: the moving mark's `[129, 139, 152]` covered the casing's expected `[66, 74, 83]`. Both mutations were restored. Offscreen tests wait for each animation's pending pause to finish (`animation.ready`) before comparing its time and offsets across frames.
 
 **Issue 11**
 

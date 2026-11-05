@@ -23,6 +23,7 @@ import { compareText } from "./bundles.ts";
 import { descriptionOf } from "./description.ts";
 import { arrowhead, arrowOutline, chevronPath, globePath, linePath } from "./edge-paths.ts";
 import { hash } from "./encoding.ts";
+import { flowRules } from "./flow.ts";
 import { markSizes } from "./marks.ts";
 import { outlines, type PathData } from "./outlines.ts";
 import type {
@@ -151,12 +152,14 @@ export function writeSvg(
 	];
 	const fonts = fontData === undefined ? [] : embeddedFonts(scene, fontData);
 	const uses = colorUses(body, notation);
+	const flowing = scene.edges.some((edge) => edge.flow !== undefined);
 	// Inlined into a page, an SVG's style applies to the whole page, so the font's
 	// family and every selector carry a name made from everything else in the SVG.
 	const contents = [
 		attributesText(size),
 		...fonts.map((font) => font.data),
 		...themeRules("", uses),
+		...(flowing ? flowRules("") : []),
 		...body,
 	];
 	const scope = `diagram-${hash(contents.join("\n"))}`;
@@ -168,7 +171,9 @@ export function writeSvg(
 			...size,
 		]),
 		...about,
-		...styleElement(scope, fonts, uses).map((text) => indent(1, text)),
+		...styleElement(scope, fonts, uses, flowing ? flowRules(scope) : []).map((text) =>
+			indent(1, text),
+		),
 		...body,
 		"</svg>",
 	];
@@ -426,6 +431,22 @@ function writeEdge(edge: SceneEdge, look: EdgeKindDefinition): string[] {
 	];
 	const parts = [
 		...cased(line, dashed),
+		...(edge.flow === undefined
+			? []
+			: [
+					empty("path", [
+						["data-flow", edge.id],
+						["d", line],
+						["stroke", "currentColor"],
+						["stroke-width", 3],
+						["stroke-linecap", "round"],
+						["stroke-dasharray", `6 ${number(edge.flow.spacing - 6)}`],
+						[
+							"style",
+							`--diagram-flow-period: ${number(edge.flow.spacing)}px; animation-duration: ${number(edge.flow.spacing / edge.flow.speed)}s`,
+						],
+					]),
+				]),
 		...(edge.chevrons.length === 0 ? [] : cased(edge.chevrons.map(chevronPath).join(" "), rounded)),
 		...(directed
 			? [

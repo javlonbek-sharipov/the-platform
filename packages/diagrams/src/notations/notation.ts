@@ -67,6 +67,8 @@ export interface Notation {
 	 * lane, where their routes run together.
 	 */
 	bundling: Bundling;
+	/** Whether directed Edges carry moving flow marks. Symmetric Edges never do. */
+	flow: boolean;
 	/** Rules about a whole Diagram, checked after its model and namespace rules pass. */
 	validation?: {
 		/** Each rule's meaning, for the JSON Schema's description. */

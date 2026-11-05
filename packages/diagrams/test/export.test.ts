@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 import example from "../docs/example-system.diagram.ts";
 import { git, runCli, sampleAtlas, sampleConfig, shopModule } from "./support/atlas.ts";
 import { decodePng, type Pixels, pngSize } from "./support/png.ts";
-import { descendants, type Element, parseSvg } from "./support/svg.ts";
+import { descendants, type Element, parseSvg, pathRuns } from "./support/svg.ts";
 import {
 	advanceOf,
 	bundledFont,
@@ -38,6 +38,41 @@ describe("diagrams export --format png", () => {
 		expect(pngSize(await readFile(png))).toEqual(
 			await svgSize(join(atlas, "docs/shop.diagram.svg")),
 		);
+	});
+
+	test("keeps the still Edge drawing, omits flow marks, and repeats identical PNG bytes", async () => {
+		const atlas = await sampleAtlas({ "docs/shop.diagram.ts": shopModule() });
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+		const svg = parseSvg(await readFile(join(atlas, "docs/shop.diagram.svg"), "utf8"));
+		const flow = descendants(svg).find((element) => element.attributes.has("data-flow"));
+		expect(flow).toBeDefined();
+		const [a, b] = pathRuns(flow?.attributes.get("d") ?? "")[0] ?? [];
+		if (a === undefined || b === undefined) {
+			throw new Error("the flow has no first run");
+		}
+		// Three pixels into the first dash, 1.25 px beside its center: the
+		// moving 3 px mark would cover this, the still 1.5 px body doesn't.
+		const dx = Math.sign(b.x - a.x);
+		const dy = Math.sign(b.y - a.y);
+		const sample = { x: a.x + 3 * dx - 1.25 * dy, y: a.y + 3 * dy + 1.25 * dx };
+		const args = ["export", "docs/shop.diagram.ts", "--format", "png", "--scale", "4"];
+		const first = await runCli(args, atlas);
+		expect(first).toMatchObject({ code: 0, stderr: "" });
+		const bytes = await readFile(first.stdout.trim());
+		// The casing's light color, #424a53, remains visible beside the body.
+		expect(decodePng(bytes).at(Math.floor(sample.x * 4), Math.floor(sample.y * 4))).toEqual([
+			66, 74, 83, 255,
+		]);
+		const chunks: string[] = [];
+		for (let at = 8; at < bytes.length; at += bytes.readUInt32BE(at) + 12) {
+			chunks.push(bytes.toString("ascii", at + 4, at + 8));
+		}
+		expect(chunks).not.toContain("acTL");
+		expect(chunks).not.toContain("fcTL");
+		expect(chunks).not.toContain("fdAT");
+		const second = await runCli(args, atlas);
+		expect(second.code).toBe(0);
+		expect(await readFile(second.stdout.trim())).toEqual(bytes);
 	});
 
 	test("--scale multiplies the PNG's width and height, and names the file after the scale", async () => {

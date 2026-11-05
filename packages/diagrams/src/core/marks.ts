@@ -12,6 +12,7 @@
 
 import { type AnyDiagram, parentsOf } from "../authoring/model.ts";
 import { definitionOf, type Notation } from "../notations/notation.ts";
+import { flowOf } from "./flow.ts";
 import { headingOf } from "./geometry.ts";
 import type { Box, Point, RoutePoint, SceneChevron, SceneEdge, SceneJunction } from "./scene.ts";
 
@@ -84,6 +85,7 @@ export function markEdges(
 	const clear = clearOf(edges);
 	const labels = edges.flatMap(drawnOver);
 	const crossing = crossingOf(diagram, notation);
+	const rates = new Map(diagram.edges.map((edge) => [edge.id, edge.rate]));
 	return edges.map((edge) => {
 		const others = (sharing: Map<string, SceneEdge[]>, end: "fromPort" | "toPort") =>
 			(sharing.get(pointKey(edge[end].point)) ?? []).filter((other) => other !== edge);
@@ -115,6 +117,9 @@ export function markEdges(
 		const kind = crossing(edge.from, edge.to);
 		return {
 			...edge,
+			...(notation.flow && definitionOf(notation.edgeKinds, edge.kind).symmetric !== true
+				? { flow: flowOf(rates.get(edge.id)) }
+				: {}),
 			chevrons:
 				definitionOf(notation.edgeKinds, edge.kind).symmetric === true
 					? []
