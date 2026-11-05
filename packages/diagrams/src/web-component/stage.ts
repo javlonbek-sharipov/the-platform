@@ -7,6 +7,7 @@
 
 import type { Camera } from "./camera.ts";
 import type { Highlights } from "./highlights.ts";
+import type { Navigation } from "./navigation.ts";
 import type { Selection } from "./selection.ts";
 
 /** What the component gives each of its parts to work with. */
@@ -23,6 +24,8 @@ export interface Stage {
 	readonly selection: Selection;
 	/** Explicit emphasis takes precedence over hover and selection, without replacing either. */
 	readonly highlights: Highlights;
+	/** Host metadata and navigation intents, without a dependency on the Node Atlas runtime. */
+	readonly navigation: Navigation;
 	/**
 	 * Calls back with each Diagram's SVG when it's shown: put on the stage of a
 	 * component that's in a page, or already on the stage when the component

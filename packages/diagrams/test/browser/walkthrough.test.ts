@@ -281,7 +281,9 @@ test("arrows step while open, Escape restores selection and focus, then spatial 
 	await expect.poll(() => opacityOf(textOf(host, "Unrelated"))).toBe(1);
 	expect(host.selectedNode).toBe("aside");
 	expect(selected).toEqual([]);
-	await userEvent.click(textOf(host, "Checkout API"));
+	host.selectNode("api");
+	// Enter the drawing on empty space; a Node click now opens its details.
+	await userEvent.click(host, { position: { x: 4, y: 4 } });
 	await userEvent.keyboard("{ArrowRight}");
 	expect(host.selectedNode).not.toBe("api");
 });
