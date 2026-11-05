@@ -18,7 +18,8 @@ export type Outline =
 	| "chip"
 	| "pipe"
 	| "page"
-	| "pill";
+	| "pill"
+	| "oval";
 
 /** Path data: commands, such as `M` and `A`, followed by their numbers. */
 export type PathData = (string | number)[];
@@ -363,6 +364,51 @@ export const outlines: Record<Outline, OutlineLook> = {
 			const outer = shrink(box, stroke / 2);
 			const rows = header.y + header.height < box.y + box.height;
 			return { ...none, shapes: [rounded(outer, rows ? rowCorner : outer.height / 2)] };
+		},
+	},
+	// An ellipse, which touches its Node's rectangle at the middle of each side.
+	// Below a header with Rows, only the header's upper half arches: the sides
+	// run straight down from its middle, and round off at the bottom.
+	oval: {
+		...plain,
+		// Its ends narrow, so the header's contents keep a little further in.
+		inset: { left: 4, right: 4, top: 0 },
+		draw(box, stroke, header) {
+			const { x, y, width, height } = shrink(box, stroke / 2);
+			const [right, bottom] = [x + width, y + height];
+			const across = width / 2;
+			const rows = header.y + header.height < box.y + box.height;
+			if (!rows) {
+				const middle = y + height / 2;
+				const up = height / 2;
+				return {
+					...none,
+					shapes: [
+						[
+							...["M", x, middle],
+							...["A", across, up, 0, 0, 1, right, middle],
+							...["A", across, up, 0, 0, 1, x, middle],
+							"Z",
+						],
+					],
+				};
+			}
+			const middle = header.y + header.height / 2;
+			const corner = rowCorner - stroke / 2;
+			return {
+				...none,
+				shapes: [
+					[
+						...["M", x, middle],
+						...["A", across, middle - y, 0, 0, 1, right, middle],
+						...["V", bottom - corner],
+						...["A", corner, corner, 0, 0, 1, right - corner, bottom],
+						...["H", x + corner],
+						...["A", corner, corner, 0, 0, 1, x, bottom - corner],
+						"Z",
+					],
+				],
+			};
 		},
 	},
 };

@@ -302,7 +302,7 @@ v1 is built in five slices, and each one ends with something people can use.
 The engine is a few deep modules with small interfaces. Each of the three test seams is the public surface of one of them.
 
 1. **Authoring API.**
-   - Holds one builder per Notation, the helper for the Atlas config, and the JSON model's types.
+   - Holds one builder per Notation, each made from its Notation's definition by what every builder shares, the helper for the Atlas config, and the JSON model's types.
    - A diagram module calls a builder and default-exports the result, which is the JSON model itself.
 2. **Core** (seam 1).
    - One entry point takes a Diagram, built by the authoring API or read from JSON.
@@ -394,6 +394,8 @@ Breaking any of these is a validation error.
 - **Kinds.**
   - `kind` must be one of the Notation's Kinds for a Node, Group or Edge, as the case may be.
   - An Edge's ends must have Kinds that its Edge Kind allows.
+- **Roles.** Each role at an end of an Edge must be one of the Notation's roles, and one that the Edge's Kind lets that end carry.
+- **Fields.** A Node, a Group or an Edge has only those of its optional fields that its Diagram's Notation lists.
 - **Values.**
   - `status` is one of `ok`, `degraded`, `down` and `unknown`.
   - `rate` is a number, an optional `k` or `M`, a slash, and then `s`, `min` or `h`, as in `2k/s` or `30/min`.
@@ -463,9 +465,18 @@ A Notation defines:
 - which Kinds of Nodes, Groups and Edges it allows;
 - which Node Kinds each Edge Kind may join;
 - how each Kind looks: its outline, badge, hue and size;
-- a sentence form for each Edge Kind, for screen readers and the SVG's description, such as "A calls B".
+- a sentence form for each Edge Kind, for screen readers and the SVG's description, such as "A calls B";
+- which Edge Kinds are symmetric, and so drawn without an arrowhead or chevrons;
+- which facts the description lists for a Node;
+- which Group Kinds make an Edge cross between them, as `region` and `zone` do in architecture;
+- which roles the ends of its Edges may carry, and which of them each end of each Edge Kind may carry;
+- how its Edges bundle;
+- whether its directed Edges carry moving flow marks;
+- which of the model's optional fields its Diagrams may have.
 
 A thing's Kind alone decides how it looks.
+
+Each Notation is one definition, which the rest of the engine reads: validation, layout, the SVG writer, the description, the JSON Schema, the model's types and the builder. Nothing outside the definition names one of its Kinds, so a Notation is added without touching the core.
 
 #### Architecture
 
@@ -526,7 +537,7 @@ A domain Diagram is either a context map or an aggregate diagram, never both. A 
   - Its Rows list the aggregate's entities, value objects and invariants, such as `OrderLine: entity`.
 - **Edge Kinds.**
   - `references` runs from aggregate to aggregate.
-  - `emits` runs from aggregate to event.
+  - `emits` runs from aggregate to an event inside its own context.
   - `reacts` runs from event to aggregate.
 - **Events from other contexts.**
   - An event from another context is drawn outside the Group, under its full id, such as `ordering/order-placed`.
@@ -593,7 +604,7 @@ Below, the "rank axis" runs along the direction: x for `right` and y for `down`.
 6. **Coordinates.**
    - Each rank becomes a column (for `right`) or a row (for `down`), with its members centered on the rank's line.
    - Within a rank, members are stacked along the order axis, at least the clearance apart.
-   - Each gap between two ranks leaves room for the labels and lanes of the Edges that span it.
+   - Each gap between two ranks leaves room for the labels and lanes of the Edges that span it, and for the role tags of the Edges that leave and enter there.
    - Then align each child with its connected neighbors, wherever that keeps the order and the clearance. Brandes and Köpf (2001) is the reference.
    - Snap every position to a small grid.
 7. **Groups.**
@@ -672,7 +683,7 @@ The method comes from Wybrow, Marriott and Stuckey (2009), Marriott, Stuckey and
 8. **Labels.** Place each label, with its Technology and rate below it.
    - Use the longest straight run that belongs to that Edge alone, not to a shared trunk, and center the label beside the line.
    - So a label needs a run of its own that holds it. When a bundle's trunk would leave a labeled Edge no such run, the Edge stays out of the trunk and keeps its own lane, as a parallel Edge does.
-   - If it would cover a Node, a Port stub, a Group label or another label, try the next-longest run.
+   - If it would cover a Node, a Port stub, a Group label, a role tag or another label, try the next-longest run.
    - If nothing fits, put it at the route's midpoint and report a warning.
 9. **Crossings.**
    - Where two Edges with different targets cross at a right angle, break one of them with a small gap, a hop, so that readers see they don't connect.
@@ -716,6 +727,7 @@ It holds:
   - its id, Kind and two Ports;
   - its route, as pieces of orthogonal polyline between hops, with their corner radii;
   - its label box;
+  - its role tags, each with the end that carries it, its box and its text;
   - whether it fell back to the simple route;
 - the diagnostics that layout and routing raised.
 
@@ -735,6 +747,7 @@ The SVG writer turns a scene into one self-contained SVG, committed next to its 
 
 - The SVG carries its JSON model in a `<metadata>` element, so the SVG alone is enough for the web component to make it explorable.
 - Every Node, Group and Edge is drawn in its own `<g>`, which carries its id and Kind as data attributes. An Edge's `<g>` also carries its two ends.
+- Every role tag is drawn in a `<g>` of its own too, which carries its Edge's id, the end that carries the role, and the role.
 
 **Look**
 
@@ -747,7 +760,7 @@ The SVG writer turns a scene into one self-contained SVG, committed next to its 
 - **Edges.**
   - An Edge is drawn as a body inside a darker casing, so that it reads clearly where it passes over other Edges.
   - Small chevrons at a fixed spacing show its direction, except on symmetric Edges.
-  - Its end markers and role tags sit at its ends.
+  - Its end markers sit at its ends, and its role tags near them, on its own line.
   - Where one Port feeds two or more Edges, a small junction mark sits over the split.
 - **Groups.** A Group's box shows its title in its label band.
 
@@ -757,7 +770,7 @@ The SVG writer turns a scene into one self-contained SVG, committed next to its 
   - `background`, `surface`, `border`, `ink` and `muted`;
   - `accent`, `ok`, `warn` and `danger`;
   - `edge` and `edge-casing`, an Edge's body and the casing around it, and `warn-casing`, the casing of an Edge in the warning color;
-  - one hue for each family of Kinds.
+  - one hue for each family of Kinds, which its Notation names, as in `hue-compute`.
 - Every use of a property has a fallback value.
 - A `prefers-color-scheme: dark` rule repeats those uses with dark fallbacks.
 - A page that defines the properties wins in both themes. A standalone SVG follows the viewer's theme, including on GitHub.
@@ -807,7 +820,7 @@ On top of the model's own rules, these are errors:
 
 - A title, Row or label uses a word that its context's glossary lists under _Avoid_. The message names the term to use instead.
 - A text was shortened, or contains characters that the bundled font lacks.
-- An Edge fell back to the simple route, or its label couldn't be placed clear of everything else.
+- An Edge fell back to the simple route, its label couldn't be placed clear of everything else, or one of its role tags had no room at its end.
 - An id from another context, such as `ordering/order-placed`, isn't drawn inside its own context on any Diagram.
 
 **Output**
@@ -1121,7 +1134,7 @@ The repo has no code or tests yet, so these tests become the prior art. The user
   - highlight the right Edges;
   - run back Steps in reverse;
   - show their notes.
-- With reduced motion emulated, no animations run: `document.getAnimations()` is empty.
+- With reduced motion emulated, no animations run in the rendered SVG, including inside a shadow root: `svg.getAnimations({ subtree: true })` and `shadowRoot.getAnimations()` are empty. `document.getAnimations()` alone misses shadow roots. Check that the same marks move before the preference changes, and stay still afterwards.
 - After a transition to a new SVG:
   - every Node sits where the new SVG puts it;
   - removed Nodes are gone.
@@ -1183,6 +1196,14 @@ These decisions go beyond what the design session settled. Change any that prove
   - Check this as soon as the repo has a GitHub remote.
   - Until then, keep that fallback stack to fonts no wider than Inter, such as Helvetica and Arial, so that shortened text still fits.
   - Also check that CSS animation plays in an SVG on GitHub.
+- **Issue 10 local rehearsal, 5 November 2026.**
+  - The example SVG from `57ceb827fd1e7409ffa5d2f57324a50a7daad541` was shown as an `<img>` through two local origins and a 302, with the page CSP and raw-image response headers recorded in `github-svg.md`. Chromium 156.0.8078.4 drew it at 1264 by 268 px. Two screenshots 500 ms apart differed at 305 pixels in light and 375 in dark, counting a pixel when a color channel differed by more than 8 of 255.
+  - With Chromium launched with `--force-prefers-reduced-motion`, both pairs differed at 0 pixels. Browser-level preference is needed here: DevTools emulation alone doesn't reach an SVG shown as an image. The page's `color-scheme` selected white or `#0d1117` inside the image, even with the browser's scheme kept light.
+  - With reduced motion on, the image under GitHub's headers and the same image without CSP differed at 0 pixels. Removing the embedded font faces changed 4,360 pixels. So the headers preserved the embedded fonts in this rehearsal.
+  - This rehearsal didn't exercise GitHub's Markdown rewriting or its cache. The separate check below verifies the committed SVG on GitHub itself. Safari, Firefox and a signed-in GitHub theme were not checked in the rehearsal.
+- **Issue 10 GitHub Markdown verification, 5 November 2026 — passed.**
+  - After the authorized push of `diagram-engine`, opened [the example system's rendered Markdown at `e637d0f`](https://github.com/javlonbek-sharipov/the-platform/blob/e637d0f19d0a84e9e580e254549672cf307ed61e/packages/diagrams/docs/example-system.md) in Chromium 152.0.7977.169 through T3's browser on macOS, signed out, in the light appearance, with reduced motion off. GitHub's actual `<img>` loaded the committed SVG from its `/raw/e637d0f19d0a84e9e580e254549672cf307ed61e/` URL. Its natural size was 2344 by 496 px; it appeared at about 861 by 182 px in the 1280 by 800 viewport.
+  - Inspected successive captures of the Diagram on that page. With a 650 ms wait between capture calls, 132 pixels changed by more than 8 of 255 in a color channel, all along the Diagram's Edges; no pixels outside the image changed. The flow marks moved while the Nodes and text stayed fixed. This completes the required check that the committed example SVG animates when shown in Markdown on GitHub.
 - **Type stripping.**
   - Node's type stripping handles only erasable syntax, and won't strip files under `node_modules`.
   - If either limit blocks something, add a bundler to the CLI.
@@ -1860,6 +1881,454 @@ The fix of [code review 1](https://github.com/javlonbek-sharipov/the-platform/bl
     - `src/core/texts.ts` walks every text of the model, for validation's `invalid-character` check and for the drawing's text warnings alike. The `invalid-character` errors of one Node or Edge now come in model order: a Node's callout after its Rows and Links, and the Rows an Edge's ends name before its label.
     - `geometry.ts` holds the heading of a run, rounding up to a step, and a stretch of a line. `bundles.ts` holds the lane spacing and the default bundling, which `render` sets once.
 11. **Arithmetic.** Ticket 07's decision 1 now allows the arithmetic that the spec's Arithmetic allows, rounding included, so a chip's pins may round down.
+
+**Issue 2**
+
+1. **A Notation's definition.**
+   - It's one object, `src/notations/<name>.ts`, of the type `Notation` in `src/notations/notation.ts`. It holds:
+     - its `name`;
+     - the `fields` its Diagrams may have;
+     - its `hues`;
+     - its `nodeKinds`, each with its size, outline, badge and hue;
+     - its `statuses`, each with its mark and color;
+     - the `facts` the description lists for a Node;
+     - its `groupKinds`, each with its border and, when Edges cross between Groups of it, its `crossing`;
+     - its `edgeKinds`, each with its line, its sentence form, whether it's `symmetric`, and the Node Kinds it may start at and end at, `from` and `to`;
+     - its `bundling`.
+   - `src/notations/notations.ts` lists the engine's Notations. `render(diagram, { notations })` reads a Diagram in others instead, which is how the tests draw a Notation that only they define: a house's plumbing, in `test/support/plumbing.ts`.
+   - The package exports `architectureNotation` and `notations`, and `nodeKindsOf`, `groupKindsOf`, `edgeKindsOf` and `statusesOf`, which list a definition's Kinds and statuses in its order. They replace the lists and looks of ticket 07's decisions 1, 5 and 8, ticket 11's decision 1 and Review 1's decision 8: `architectureNodeKinds`, `architectureNodeLooks`, `architectureFamilies`, `architectureStatuses`, `architectureStatusLooks`, `architectureGroupKinds`, `architectureGroupLooks`, `architectureEdgeKinds` and `architectureEdgeLooks`.
+   - The Technology helpers moved to `src/core/technology.ts`, since they belong to no Notation. The logo table stays where its script writes it.
+2. **Hues live in the definition.** This changes ticket 07's decision 11.
+   - A definition names each hue and gives its light and dark fallbacks. Its property is still `--diagram-hue-` and its name. `src/core/theme.ts` keeps the colors that every Diagram shares.
+   - Two Notations that name a hue alike share its property, so a page sets it once for both.
+3. **Fields.**
+   - The model's optional fields are `technology`, `external`, `status`, `rows`, `description`, `links` and `callout` for a Node, `description` and `links` for a Group, and `label`, `technology` and `rate` for an Edge. A definition lists those its Diagrams may have. Every Notation's have the rest: `id`, `kind`, `title`, a Group's `members` and an Edge's ends. A Diagram's own fields are the same in every Notation.
+   - Any other field is still `model-shape`. When the model has the field but the Diagram's Notation doesn't, the message says so: "`/nodes/0/technology` must be left out: a Node has no such field in the plumbing Notation. Its fields are `id`, `kind`, `title`, `external`, `status`, `rows` and `description`." The builder's error for such an option reads alike: "A Node has no option `technology` in the plumbing Notation." Architecture lists every field, so none of its messages changed.
+   - A Notation's Nodes may have a `status` exactly when it has statuses.
+4. **Which Node Kinds an Edge Kind may join.**
+   - `from` lists the Kinds it may start at, and `to` those it may end at. Left out, any Kind will do, as for both of architecture's Edge Kinds.
+   - An end of another Kind is the new error `edge-end-kind`, at the end, or at its `node` for an end at a Row: "Edge `joint` starts at `kitchen-tap`, whose Kind is `tap`. An Edge of the Kind `pipe` may start only at a Node of the Kind `tank` or `pump`."
+   - It isn't reported for an end, or an Edge, whose own Kind the Notation lacks, which has its error already.
+5. **Symmetric Edge Kinds.**
+   - An Edge of a Kind with `symmetric: true` has no chevrons in the scene and no arrowhead in the SVG, and its line runs into its target's Port instead of stopping inside an arrowhead.
+   - Layout, routing and bundling treat it like any Edge, so its `to` still ranks after its `from`.
+   - Nothing in the SVG marks it but its Kind. A ticket that needs a hook for it adds one.
+6. **Crossing between Groups.** This widens ticket 11's decision 6.
+   - A Group Kind with a `crossing` is one that Edges cross between, and `crossing` is how the description says so: `across regions`.
+   - An Edge is flagged for the first such Kind, in the definition's order, for which its ends sit in different Groups. So architecture lists `region` before `zone`.
+   - The scene's `crosses.kind` and the SVG's `data-crosses` hold the Group Kind's name. The warning color and the badge are the core's, the same in every Notation.
+7. **Bundling.** `render` bundles as the Diagram's Notation says, unless `bundle` says otherwise. This changes the default of ticket 09's decision 2.
+8. **Facts.** `facts` lists which of a Node's Kind, Technology, External flag and status the description names, in order. Architecture lists all four, in the order its descriptions had them (ticket 11's decision 7, and ticket 12's decision 8).
+9. **The JSON Schema is generated.** This replaces "written by hand", and the names of the `$defs`, of ticket 14's decision 1.
+   - `schemaOf(notations)`, in `src/core/schema.ts`, makes the schema for a set of Notations. `pnpm generate:schema` writes the shipped one from the engine's, laid out as Biome formats JSON. A test runs the script twice and compares both outputs with the committed file, so a Kind added to a definition fails that test until the script has run.
+   - The root holds what every Diagram shares, with `notation` one of the Notations' names. Then an `allOf` has an `if` and a `then` for each Notation: a Diagram that names it must match `#/$defs/<name>`, which holds that Notation's `node`, `group` and `edge`, as in `#/$defs/architecture/$defs/node`. With `oneOf`, a validator would report a Diagram's errors against every Notation.
+   - The parts that the Notations share keep their names: `id`, `text`, `someText`, `technology`, `row`, `end`, `rowEnd`, `link`, `idLink` and `docLink`. A Notation can't take one of those names.
+   - The shipped schema accepts and rejects what it did. Its shared parts are the same, key for key, and architecture's `node`, `group` and `edge` differ from the old ones in four descriptions only. An Edge's `kind` no longer says how each Kind is drawn, since that's the definition's to say.
+   - Its patterns for ids, Edge ids, slugs and rates are validation's own, `formats` in `src/core/validate.ts`.
+   - Its description names `edge-end-kind` among the rules it can't express.
+10. **The model's types.**
+    - `DiagramOf<N>`, `NodeOf<N>`, `GroupOf<N>` and `EdgeOf<N>` take a Notation's Kinds, statuses and fields from its definition's type. `Diagram`, `Node`, `Group` and `Edge` are those of any of the engine's Notations: a union, told apart by `notation`, which today is architecture's alone.
+    - The core, the Atlas and the CLI read an `AnyDiagram`, a Diagram of any Notation, as validation leaves it.
+    - The scene names each Kind and status as a string, since a scene may be of any Notation. The SVG writer looks each one up in the definition, and throws on one that validation should have rejected. This changes Review 1's decision 8.
+11. **What every builder shares.**
+    - `builderOf(definition)`, in `src/authoring/builder.ts`, makes a Notation's builder: handles, Groups that declare their members in a callback, Rows whose names the types carry, an error for each unknown option, and each declaration's place. `architecture` is `builderOf(architectureNotation)`.
+    - Its types are `Builder<N>`, `DiagramDeclaration`, `NodeDeclaration<N, R>`, `RowDeclaration<R>`, `GroupDeclaration<N>` and `EdgeDeclaration<N>`. Architecture's public types, `ArchitectureNode` to `EdgeOptions`, are those for its definition, and are now type aliases.
+    - The definition's type has a name, `ArchitectureNotation`, so that a type error reads `NodeKindOf<ArchitectureNotation>` and not the whole definition.
+12. **Holding the engine to one definition.** `test/definitions.test.ts` reads the engine's sources.
+    - Outside `src/notations/<name>.ts`, no module names one of that Notation's Kinds as a string. Two uses are excused, since neither names a Kind: the `message` event of a worker thread, in `src/atlas/load.ts`, and `typeof x === "function"` anywhere. The test lists any other that only looks like a Kind's name.
+    - Only `src/authoring/<name>.ts`, `src/notations/notations.ts` and `src/index.ts` import the definition.
+    - Each definition refers only to hues and Node Kinds that it defines, and sizes its Nodes in steps of 16 px.
+13. **Left for the domain Notation.** A definition holds nothing yet for an Edge's `roles`, for ids that are local to a `context` Group, or for a rule about a whole Diagram, such as the one against mixing a context map with an aggregate diagram. Issues 3 and 4 add what they need.
+14. **Speed.** On one machine, `pnpm bench` reported 81 ms median drawn `right`, 109 ms drawn `down`, and 354 and 146 ms with every Edge labeled, for the commit this issue started from, and 81, 111, 356 and 143 ms with it.
+
+**Issue 6**
+
+The web component's camera and level of detail. This is GitHub's issue #6, not ticket 06 above.
+
+1. **Where the component lives.**
+   - Its modules are in `packages/diagrams/src/web-component/`, and the package exports them as `@the-platform/diagrams/web-component`. Importing that defines `<platform-diagram>`.
+   - They use only erasable syntax and import each other with `.ts` extensions. Node's `stripTypeScriptTypes` strips every one of them, which the live preview will rely on.
+   - Biome rejects Node's modules and `process` there, as it does in the core. The type check runs a second program for it and for its tests, `tsconfig.browser.json`, with the DOM's types. The first program still has none, so the core can't use the DOM by accident.
+2. **A stage in a shadow root.**
+   - The element attaches an open shadow root with one element in it, the stage. The stage holds the SVG, clips it, takes the focus and gets the reader's input. It stays while one SVG takes another's place, so the focus stays too.
+   - The page's styles don't reach the SVG there, and the component's don't leak out. The `--diagram-` properties still reach it, since custom properties inherit through a shadow root.
+   - The root is open, so that the tests' locators find the drawing's text. Find-in-page finds it in either kind.
+3. **How it gets its SVG.**
+   - An inline child is moved onto the stage, not copied: a copy would double the page's largest tree. An SVG given as a child later is taken too, and takes the place of the one before.
+   - An element defined before the page has parsed its child gets the child while it's still arriving. The parser goes on filling the SVG on the stage, and the parts are told of it again at `DOMContentLoaded`. Otherwise its font would never be declared, since the SVG's style arrives after its title.
+   - A `src` is fetched when the element is in a page, and again whenever it changes. Its SVG takes the place of an inline child, which shows until then. A later `src` takes over from one still on its way. Removing `src` leaves the stage as it is.
+   - The spec names no events for this. The element raises `load` once a `src`'s SVG is shown, and `error` when a `src` or an inline child can't be shown, as an `ErrorEvent` whose message says why. Neither bubbles, as an `<img>`'s don't. The stage keeps what it showed.
+   - An SVG without a `viewBox` isn't one the engine made, and is refused. Nothing else is checked.
+   - The SVG goes into the page as it is, with whatever it holds. So a `src` must be a URL that the page trusts as it trusts its own scripts. The component doesn't sanitize it.
+4. **The camera is the SVG's `viewBox`.**
+   - The SVG fills the stage, and the view is written as its `viewBox`. So the browser draws the drawing as vectors at every scale, with sharp text. A CSS transform would scale a picture of it whenever the browser put it on a layer of its own.
+   - The camera itself holds no element. It's told the drawing's bounds, which are the SVG's first `viewBox`, and the stage's size, and it tells whoever watches it each new view: the part of the drawing in view, and the scale.
+   - With the crowded fixture (7240 by 1920 px, 1,455 elements), dragging and zooming kept 60 frames a second in headless Chromium on one laptop.
+5. **Fit.**
+   - It leaves a padding of 16 px, never enlarges the drawing past its natural size, and never goes below a scale of 0.7, where a Row's 12 px text is drawn at 8.4 px.
+   - Along each axis, a drawing that fits sits in the middle. One that doesn't starts a padding in from the left or from the top. Drawn `right`, the sources are at the left, and the first one declared is at the top. Drawn `down`, it's the other way round. So the rule needs no direction, and the component doesn't read the model for it.
+   - The view is fitted when an SVG is shown, and again whenever the stage changes size, until the reader moves the camera. `0` fits again. A view the reader chose keeps its scale and its top left corner through a change of size. A move that the limits bring to nothing doesn't count as chosen.
+6. **Limits.**
+   - Zoom stops at 4 times the natural size. Further off, it stops at the scale that shows the whole drawing inside the padding, or at 0.7 when that is further.
+   - A drawing that fits in the stage along an axis stays in the middle of it. A larger one never shows more than the padding empty beside either end. So no drag can lose the drawing, and at the far limit the whole drawing is in view.
+   - This is stricter than free panning. If issue #7's details need room beside a Node at the drawing's end, the camera can take a wider limit on that side.
+7. **Keys.** On the stage, `+` or `=` zooms in by a quarter, `-` zooms out by as much, and `0` fits, around the middle of the view. `=` is the `+` key without Shift. With Ctrl, Meta or Alt held, the keys are left to the browser, whose own zoom uses them.
+8. **The wheel.**
+   - It zooms when the focus is on the stage or inside it, or when Ctrl or Meta is held. Browsers report a pinch on a trackpad as the wheel turning with Ctrl held, so that pinch zooms too, without the focus. Otherwise the listener does nothing, and the page scrolls. A click into the Diagram gives it the focus, and a click elsewhere takes it away.
+   - A turn of 550 px zooms by e, so one notch of a mouse wheel zooms by a fifth. A pinch's turn counts 5.5 times as much, which follows the fingers. One event never zooms by more than about a quarter, which keeps Ctrl with a real wheel from jumping.
+9. **A drag and a click.**
+   - A drag pans wherever it starts, on a Node too. The spec says "on empty space". But v1 has nothing else to drag, and a drawing zoomed in may show no empty space at all.
+   - A press of the main button becomes a drag once it has moved 4 px, or 10 px for a finger. Only then does the stage capture the pointer, so a click keeps the element that was pressed as its target.
+   - After a drag, the browser's `click` is stopped at the window, before any other listener: a drag isn't a click. Only a listener that the page put on the window itself, for the capture phase, before the drag ended, still hears it.
+   - A drag selects no text: the stage cancels `selectstart`. It doesn't use `user-select: none`, under which find-in-page can't select what it finds.
+   - The pointer is a hand over the drawing, which closes while it drags.
+10. **Touch.**
+    - The stage has `touch-action: none`. One finger pans, and two zoom around the point between them and pan as it moves.
+    - So a swipe that starts on a Diagram never scrolls the page. The spec asks only that the wheel doesn't trap the page. The component's own height stops short of the window's, which leaves page to swipe on.
+    - Each move of a gesture is counted from the view the gesture started with, not from the move before. Two fingers report their moves one after the other, and counted step by step the first would run into a limit that the pair never reaches.
+11. **The component's size.**
+    - It's a block. A height that the page gives it is the stage's height.
+    - Without one, it's as high as the drawing is at the scale Fit shows it, with the padding, up to 80% of the window's height. That's plain CSS on the SVG, from the stage's width as a container query length, so nothing measures and nothing shifts after the first paint.
+12. **Level of detail.**
+    - Rows show in full from a scale of 0.6. That's below Fit's 0.7, so Fit always shows them. Further off they fade, and from 0.45 they're hidden as well, so that they can't be pressed and find-in-page doesn't land on them.
+    - A Node's box and the line under its header stay. Only the Rows' texts go, since the component never lays anything out.
+    - The hook is the SVG's: each Row's texts sit in a `<g data-row="…">` that carries the Row's name as the model has it, as `data-from-row` and `data-to-row` do. The stage sets two properties, and one rule of the component's style applies them to every Row.
+    - No golden file draws a Row, so none changed. The example's SVG changed by its six Rows' groups and by its scope's name, which is made from its contents.
+13. **Colors.**
+    - Around the drawing, the stage has the drawing's own background, `--diagram-background`. It marks the keyboard's focus with a line 2 px wide in `--diagram-accent`, inside its edge, where nothing can clip it. A click's focus gets no mark.
+    - Both take the SVG's fallbacks, from `src/core/theme.ts`, for the light and the dark scheme. Every color that all Diagrams share is a property of the stage, `--theme-ink` and so on, for the parts to come. A Notation's hues aren't among them: only the SVG draws in those so far.
+14. **The font.** A part reads the font faces from the SVG's own style and adds each to `document.fonts`, for as long as the SVG is on the stage of a component that's in a page. Diagrams that show the same SVG share its faces, and the last to go takes them off again.
+15. **The stage's name.** The stage is a `group` named by the SVG's `<title>`, so that a reader who tabs to it hears which Diagram it is. Issue #7 owns the keyboard and the list for screen readers, and may change the role.
+16. **Parts.**
+    - The component is built of parts: the font, the name, the gestures and the level of detail so far. Each is a module that exports a `Part`, with a `setUp` and, if it needs them, its own rules for the style sheet.
+    - `setUp` gets the stage: its element, its camera, and `onShow`, which calls back with each SVG that's shown and takes back a function for when it no longer is.
+    - `parts.ts` lists them. So a later issue adds a module and one line there, and widens `Stage` when its part needs more.
+17. **Tests in a real browser.**
+    - Vitest runs two projects from one `vitest run`: `node`, the tests there were, and `browser`, those under `packages/diagrams/test/browser/`, in Playwright's Chromium, headless, in a page of 1280 by 720.
+    - `@vitest/browser-playwright` 5.1.0 and `playwright` 1.64.1 are dev dependencies of the root, pinned exactly: each Playwright release drives one build of Chromium, which `pnpm exec playwright install chromium` downloads once for a machine. They bring 19 packages, all MIT, ISC or Apache-2.0.
+    - The core draws each test's SVG in the browser, with the bundled font fetched from the dev server. So a test builds whatever Diagram it needs where it needs it.
+    - `test/browser/support/` holds what the next issues can share: `drawing.ts` draws, `page.ts` puts a `<platform-diagram>` on the page as HTML would, `input.ts` presses the mouse and the keys, turns the wheel and touches the screen, and `looking.ts` says where a text is on the screen, how strongly it shows, and what color a pixel is, read off a picture of the page.
+    - Every input is the browser's own, so its events are trusted. The wheel at a point and the touches go through the DevTools protocol, since Vitest's `wheel` only turns over an element's middle and has no touch.
+    - A failed browser test leaves its picture under `.vitest/`, which git ignores.
+
+**Issue 3**
+
+Context maps. This is GitHub's issue #3, not ticket 03 above.
+
+1. **The domain Notation.**
+   - Its definition is `src/notations/domain.ts`, and its builder is `domain`, `builderOf` that definition. The package exports both, with `DomainNode`, `DomainEdgeOptions`, `DomainBuilder`, `DomainOptions`, `DomainNodeKind`, `DomainEdgeKind` and `DomainRole`.
+   - `Diagram`, `Node`, `Group` and `Edge` are now those of either Notation, as issue 2's decision 10 foresaw. What reads a field that only one Notation's Diagrams have names that Notation, as in `DiagramOf<ArchitectureNotation>`.
+   - A context takes `external`, `description` and `links`, and an Edge `label` and `roles`. A context has no Technology, status, Rows or callout, and an Edge no Technology or rate: those say how a thing is built and how it runs, which a context map doesn't draw.
+   - The description lists a context's Kind, and that it's External.
+2. **No Group Kinds yet.** Issue 4 adds `context`. Until then, a Group on a domain Diagram is an `unknown-kind` error, and `d.group` is a type error. That brought two things for any Notation:
+   - Where a message lists what a Notation has, it says "It has no Group Kinds." for none, and "Its only Node Kind is context." for one.
+   - The schema lets no value be the Kind of a Group whose Notation has none (`not: {}`), since `enum` can't be empty. So the schema fails where validation does, at the Kind.
+3. **A context's look.**
+   - It's 192 by 64 px, larger than anything an architecture Diagram draws inside a system. A title fits in about 17 characters.
+   - Its outline is new, `oval`: an ellipse that touches the Node's rectangle at the middle of each side, where its Ports are, laid out either way. Should its Notation give it Rows, only the header's upper half arches, the sides run straight down past the Rows, and the bottom corners round by 16 px, as a pill's do. The header's contents start 4 px further in at each end, where the ellipse narrows.
+   - Its badge is a speech bubble: a context is where one language is spoken.
+   - Its hue is `context`, the property `--diagram-hue-context`: #4f55c8 light and #8f96f5 dark.
+4. **The Edge Kinds.**
+   - `partnership` and `shared-kernel` are symmetric. `upstream-downstream` and `customer-supplier` run from the upstream context to the downstream one. In each pair, the first is solid and the second dashed, so that each of the four looks different. The spec asks only that the symmetric ones have no arrowhead.
+   - Their sentence forms are "{from} and {to} are partners", "{from} and {to} share a kernel", "{from} is upstream of {to}" and "{from} supplies {to}".
+   - Each may start and end only at a `context`, which shows once issue 4 adds other Node Kinds.
+   - The Notation bundles nothing (`none`). Each Edge keeps a line of its own into its Port, so that each end's role tags sit on a line that's that Edge's alone. Issue 4 may want its own Edge Kinds bundled, which would make bundling a matter of the Edge Kind.
+   - A symmetric Edge still enters its `to` Node's input Port (issue 2, decision 5). The original shared-stub arrowhead deferral is superseded by integrated review F1 below: a directed marker must be clear of symmetric strokes in the complete drawing.
+5. **Roles in a definition.**
+   - A definition's `roles` name each role and give it a `name`, its name in full: `OHS: { name: "open host service" }`. The role's key is what the model holds and what its tag shows, so it's written in capitals.
+   - Each Edge Kind's `roles` say what each of its ends may carry: `{ anyOf: [...] }` for any of some roles together, or `{ oneOf: [...] }` for one of them at most. An end it leaves out carries none. So `upstream-downstream` and `customer-supplier` have `from: { anyOf: ["OHS", "PL"] }` and `to: { oneOf: ["CF", "ACL"] }`, and issue 4's Edge Kinds need say nothing to take no roles.
+   - `roles` joins the model's optional Edge fields (issue 2, decision 3). A definition lists it exactly when it has roles. The package exports `rolesOf`, `RoleOf`, `RoleDefinition` and `EndRoles`.
+6. **Roles in the model and the builder.**
+   - An Edge's `roles` is `{ from?: [...], to?: [...] }`, written after `rate`, and `d.edge(a, b, { kind, roles })` takes the same. The builder copies both lists, and records an option of `roles` that it doesn't know, such as `form`, as it records any other (Review 1, decision 5).
+   - The types take any of the Notation's roles at either end, so a role the Notation lacks is a type error. A role at the wrong end, or CF beside ACL, is left to validation, as an Edge between Kinds that its Kind doesn't join is.
+7. **Validating roles.**
+   - A role that the Notation lacks is `unknown-role`, at the role: "Edge `x` has the role `PLS` at its `from` end, which the domain Notation doesn't have. Its roles are OHS, PL, CF and ACL."
+   - The rest is one rule, `edge-end-role`, with a message for each case:
+     - a role at the wrong end, at the role: "Edge `x` has the role `CF` at its `from` end. An Edge of the Kind `upstream-downstream` may carry `CF` only at its `to` end.";
+     - a role that the Kind's ends never carry, at the role: "…may carry only `ISO` or `NRV` there.", or "…carries no roles there.";
+     - two roles where the Kind allows one, at the end's list: "Edge `x` has both `CF` and `ACL` at its `to` end. An Edge of the Kind `customer-supplier` may carry only one of them there.";
+     - any role on a symmetric Edge, once, at `roles`: "Edge `x` has roles, but its Kind, `partnership`, is symmetric: its two ends are alike, so it takes no roles.";
+     - any role on an Edge whose Kind lists none, once, at `roles`: "Edge `x` has roles, but an Edge of the Kind `drain` takes none.";
+     - a role listed twice at one end, at the end's list: "Edge `x` lists the role `OHS` twice at its `from` end. List each role once."
+   - Roles that list no role are no roles, on any Edge.
+   - A symmetric Edge takes no roles whatever its definition says, and a test holds each of the engine's definitions to listing none for one.
+   - The schema gives `roles` both lists, of the Notation's roles, each role once. It can't tell which end of which Kind may carry which, and its description names `edge-end-role` among the rules it can't express.
+8. **Role tags.**
+   - A tag is a box 14 px high, as wide as its role in Inter SemiBold at 10 px with 4 px on each side, to the next even number. It sits on its Edge's line, which runs through it, so that it's plain whose it is. A tag beside the line, as a label is, could belong to either of two lines that run side by side.
+   - It sits on a stretch that's the Edge's own, as ticket 10's decision 3 counts them: past the Port's stub, where the Edges that share the Port have parted. The `from` end's tags come first along the route, in the model's order, and the `to` end's last. Each sits as near its end as it has room, 4 px in from the stretch's end, 2 px from the tag before it, with its middle nearer its own end than the other.
+   - It keeps 4 px clear of Nodes, callouts' tags and Group labels, and 2 px clear of other tags. Tags are placed in the order of their Edges' ids, as labels are.
+   - It hides nothing where it can: no other route and no Group's border passes through it, or within 2 px of it. For that, it may sit to one side of its line, with its edge 4 px past the line. So where two Edges run side by side into one Port, 8 px apart, each one's tag keeps to the outer side of its own line. An end's tags keep to one side together.
+   - To hide nothing, a tag goes at most 128 px further from its end than the nearest place it has room. Past that, it's centered on its line at the nearest place clear of Nodes, Group labels and other tags, and covers the routes it must. Without the limit, a tag went to the far side of a corner, beside another Node.
+   - A tag with no room at all is drawn anyway, just past its Port's stub or the tag before it, with the warning `role-placement`, at the role: "Edge `x`'s role `OHS` has no room on the Edge's own line near its `from` end, clear of Nodes, Group labels and other role tags. So its tag is drawn there anyway, and may cover them." That happens when two Edges fall back to one simple route, or when a loop and another Edge leave one Port side by side, laid out `down`.
+   - Labels are placed after the tags. A label keeps clear of every tag, and the runs it may sit beside leave out what its own Edge's tags take, with 4 px on each side.
+   - An Edge's chevrons and its badge keep to the line between its two ends' tags. So the one chevron of a short Edge sits in the middle of the bare line.
+   - The scene gives each Edge its `roles`, each with its `end`, its `role`, its `tag` and its `text`, and states the spacing as `roleSpacing: { gap, margin, between }`. Tags count in the drawing's bounds.
+9. **Room for tags.** Each gap between ranks leaves room for the tags of the Edges that leave the rank before it, and of those that enter the rank after it: the tags, side by side for `right` and one after another for `down`, 4 px before them, and 12 px after, half of the 24 px of bare line between an Edge's two ends' tags. With OHS and PL at one end and ACL at the other, two contexts stand 160 px apart, from 96.
+10. **Tags in the SVG.**
+    - They're drawn over the Edges and beneath the labels, in a `<g class="diagram-roles">`. Each tag's `<g>` carries `data-edge-role`, its Edge's id, `data-end` and `data-role`, and holds a rect of class `diagram-role` and its text, of class `diagram-role-text`.
+    - The rect is filled with `--diagram-background`, which hides the Edge's line behind the role, and outlined 1 px in `--diagram-edge`, inside the tag, with corners rounded by 3 px. The text is in `--diagram-ink`. No property is new.
+    - They aren't inside their Edge's `<g>`, where an Edge drawn later could run over them. So what fades or lights an Edge finds its tags by `data-edge-role`, as it finds its label by `data-edge-label`.
+11. **The description.** An end's roles follow its Node's title in parentheses, each by its name in full, after the Row it attaches to, if any: "Catalog (open host service, published language) is upstream of Ordering (conformist): Products." `sentenceOf` makes it, so the web component's list will say the same.
+12. **A model without a direction.** A JSON model that leaves `direction` out passed validation and the schema, then crashed layout. Validation now fills in `right`, so that everything after it finds a direction. The SVG is the one that a model which says `right` gets, byte for byte, its metadata included. The schema takes its default from validation.
+13. **Fixtures and tests.**
+    - `test/fixtures/context-map.ts` draws a shop's seven contexts in either direction, with an Edge of each Kind and every role: two Edges enter one context side by side, three leave it, and a symmetric Edge shares a Port with a directed one. Its golden file is `context-map.svg`, drawn `right`.
+    - Both drawings join the tests over every fixture. The one about arrowheads now expects none on a symmetric Edge, which it reads from the fixture's Notation.
+    - The properties of role tags run over every fixture too: each sits on its own Edge's line, nearer the end that carries it, after its end's other tags, and clear of Nodes, callouts, Group labels, Edge labels and other tags.
+    - The tests' plumbing Notation has roles of its own, with `oneOf` at a `from` end and an Edge Kind that takes a role at one end only. The definitions test keeps the names of the engine's roles out of the core, as it keeps its Kinds' names out.
+14. **The skill.**
+    - A new section, `## Context maps`, says what differs from an architecture Diagram, and "When a Diagram helps" says which Notation to pick. Its description, and AGENTS.md, name a doc about how bounded contexts relate as a case for reading it.
+    - Its example is the package's second one, `docs/example-context-map.diagram.ts`, with its SVG and a doc that shows it. The skill's tests run its commands on both examples, hold each to its module byte for byte, and require it to name every Kind, status and role of every Notation.
+15. **Left for later.**
+    - Issue 4: the `context` Group Kind, ids local to it, the rule against mixing the two forms, and Rows for aggregates, which adds `rows` to the Notation's fields for contexts too.
+    - Issue 7: nothing in the SVG marks a symmetric Edge but its Kind (issue 2, decision 5). The component can look `symmetric` up in the definition that the model's `notation` names, or add a hook.
+    - Issue 10: a definition says nothing about flow animation. That issue adds what says that architecture's Edges flow and that domain's don't.
+    - The glossary has no entry for a role. The spec's own words, "role" and "role tag", are used as it uses them.
+16. **Speed.** On one machine, `pnpm bench` reported 88 ms median drawn `right`, 118 ms drawn `down`, and 377 and 156 ms with every Edge labeled, for the commit this issue started from, and 88, 123, 383 and 157 ms with it. The crowded fixture has no roles.
+
+**Issue 7**
+
+Focus, keyboard selection and the screen-reader lists. This is GitHub's issue #7, not ticket 07 above.
+
+1. **What a Node's focus includes.**
+   - Two separate walks start at the Node: one follows Edges upstream, the other downstream. Each follows a symmetric Edge either way, as its Notation's definition says. Cycles and parallel Edges are allowed.
+   - The walks keep the Nodes and Edges they reach. They don't change direction at an ancestor or a descendant, so another branch off an ancestor, or another caller of a descendant, stays faded unless a path of its own reaches the selected Node.
+2. **Strength.** Unrelated drawing parts show at opacity 0.2; the kept parts stay at 1. An Edge's path, label and role tags share the same strength, using the SVG's hooks. No static SVG or golden file changes.
+3. **Hover.** Leaving a Node clears its temporary focus. Escape clears focus even while the pointer stays over the Node; it takes a new hover to focus it again. Listeners leave with the SVG they belong to.
+4. **Persistent selection and the host.**
+   - A click selects a Node. Hover temporarily takes precedence; leaving it restores the selection. Escape clears both.
+   - `PlatformDiagram.selection` is `{ kind: "node" | "edge", id }` or `undefined`. `selectedNode` returns the Node's id, or `undefined`. `selectNode(id)` selects without moving keyboard focus; `selectNode(undefined)` clears. It returns false for an unknown id and leaves the selection alone.
+   - A change raises `diagram-select`, which bubbles and is composed, with that target as its `detail`, or `null` when cleared. Re-selecting the same target raises no duplicate event. The component's parts share the same selection and may watch its changes, which details and Walkthroughs can extend.
+5. **Edge hover.**
+   - The hovered Edge, its label and its role tags stay at full strength, as do its two Nodes; the rest fades. Its label and tags count as hovering the Edge too.
+   - An HTML tooltip shows the whole label, the Technology's display name (its slug when unknown) and the rate. It uses text content, wraps inside the stage, and follows the pointer without taking its events. Leaving the Edge or pressing Escape hides it.
+   - Each Edge gets a transparent hit path 12 screen pixels wide, made from its existing stroke. It leaves with the SVG, so it never changes the committed drawing or its routing.
+6. **Keyboard.**
+   - Tab focuses the existing stage. With no selection, keyboard focus selects the first Node in layout order. Arrows choose among Node centers strictly ahead, scoring `ahead + 4 × abs(sideways)`; layout order breaks a tie. With no candidate the selection stays put. With no selection, an arrow starts at the first Node.
+   - The selected Node has an accent outline. Selection pans just far enough to show its bounds with 16 screen pixels of room, within the camera's existing limits. Hover doesn't pan.
+   - Arrows are handled only on the stage itself. Tab moves through the lists' ordinary buttons; their keys, and the keys of future details controls, retain their own behavior. Ctrl, Meta and Alt combinations are left to the browser. A part can handle Walkthrough keys in the capture phase and prevent the default to keep spatial navigation from handling them.
+7. **Layout order.**
+   - The component reads each Node's bounds from its SVG group. It sorts their centers along the Diagram's direction first, then across it, with model order settling equal positions. It never runs layout or routing.
+   - Edges follow their source Nodes' order, then their target Nodes' order, then model order for parallel Edges and loops. Both directions use the same rule.
+8. **The text alternative.**
+   - Two ordered lists, named `Nodes` and `Edges`, hold ordinary buttons. Focusing or activating a button selects its Node or Edge. `aria-current` marks the selection. An Edge selection highlights its two Nodes and its own drawing parts, as hover does.
+   - A Node's entry is its whole title and its Notation's facts, as in the SVG description, followed by `Rows: name: value; name.` when it has Rows. The Edge entries use `sentenceOf` and the SVG's crossing hook, so roles, Row ends, Technology names, rates and crossing phrases are exactly the SVG description's sentences.
+   - The lists are clipped to one pixel rather than hidden, so assistive technology and find-in-page can read them, including titles shortened in the drawing. They become a visible, scrollable text panel while a list button has keyboard focus.
+   - In the component the SVG is hidden from assistive technology to avoid a second description. The stage keeps its named `group` role and keyboard instructions. A polite status announces the selected entry while the stage has focus; list buttons announce themselves. The committed SVG retains its own accessible image description.
+9. **Explicit highlights.**
+   - `PlatformDiagram.setHighlight({ nodes?, edges? })` keeps exactly the listed Node and Edge ids at full strength. It takes precedence over hover and ordinary selection, and doesn't change the selection or raise a selection event. Passing `undefined` gives emphasis back to hover or selection; Escape clears it along with ordinary focus.
+   - The parts share that controller as `Stage.highlights`, so a Walkthrough can apply a Step's emphasis through it. Playback, Step controls and details remain their own tickets. Focus writes only its own `--focus-opacity`; it doesn't change animation or a motion setting.
+10. **Other drawing parts.** Groups enclosing a kept Node stay at full strength, including nested parents; other Groups fade. A junction stays at full strength when a kept Edge leaves from its Port, Row Ports included. These layers are separate from the Nodes and Edges, so none is faded twice.
+11. **Replacement and activation seams.**
+    - Selection survives a new SVG that still draws its target id. Removing that id clears selection and raises the clearing event. The lists are rebuilt in the new layout order, and old listeners, hit paths, tooltips and selection marks are removed. Keyboard focus on a list item returns to its selected id after a redraw; if that item is gone it returns to the stage. Disconnecting doesn't restore focus on reconnect.
+    - List buttons carry `data-node-item` or `data-edge-item`, each with its target id. A later details part can handle their ordinary click or Enter activation separately from selection changes, just as it can handle the drawing's `data-node` clicks and Enter on the stage.
+
+**Issue 4**
+
+Aggregate diagrams. This is GitHub's issue #4, not ticket 04 above.
+
+1. **The new Kinds.**
+   - An aggregate is a Node, as ADR-0005 requires: 256 by 64 px before its Rows, with a heavy framed outline and a badge showing a root and its members. Its hue is `aggregate`, #27694c light and #70cda0 dark.
+   - An event is 224 by 48 px, with cut corners, a lightning badge, and the hue `event`, #935619 light and #e8ae68 dark. The sizes leave room for the Rows' entity, value object and invariant names, and for event titles.
+   - `references` is dashed, `emits` solid, and `reacts` dotted (`1 4`). All three are directed and take no roles. Their sentences are "{from} references {to}", "{from} emits {to}" and "{from} triggers {to}". Domain bundling stays `none`, so each Edge keeps its own line.
+   - The domain Notation now has the `context` Group Kind, a solid border 2 px wide. Its Groups take descriptions and Links. Nodes gain Rows, as issue 3's decision 15 foresaw; fields remain a matter of the Notation, not of each Kind.
+2. **Local and full ids.**
+   - A Group Kind's `namespace: true` makes its builder prefix local Node and Group ids, and string or Row-object Edge endpoints, with its full id and `/`. Node handles and their Row handles carry full ids already. Full ids are preserved, so validation can report a member from the wrong namespace instead of silently moving it.
+   - A builder keeps its own parent and namespace whenever it is called. In particular, `d.node` inside a context callback still declares on the Diagram itself; only the callback's builder declares context members. Local Edge endpoints work before their Nodes are declared. An Edge's default id uses its full endpoints, and an explicit Edge id stays local to the Diagram. Links to ids name full Atlas ids.
+   - JSON always holds full ids, including Group membership and Row endpoints. Validation never expands generated JSON. The rule `namespace` rejects a member without its Group's prefix, or with more than one local segment after it.
+   - A context's own id has one segment, on either form: `billing`. Its members have two: `billing/order`. Contexts don't nest.
+3. **Legal domain forms.**
+   - An empty domain Diagram is an empty context map. Otherwise, a context map has only context Nodes and no Groups; an aggregate diagram has exactly one top-level context Group, with its aggregates and events inside it. Only events from other contexts may sit outside, under their two-segment full ids. An aggregate emits events inside its own Group; another context's event may react into it.
+   - `domain-form` reports a mix of the two forms, a missing or extra context Group, a local aggregate or event outside it, or emission of another context's event. Endpoint Kinds and roles keep their existing validation rules.
+   - A Notation may provide `validation: { rules, check }` for whole-Diagram rules: a pure check after the model, nesting and namespace rules pass, and each rule's meaning for its schema's description. Domain-specific rules and Kind names stay in the domain definition. The schema lists the Kinds and fields and describes the further semantic checks, as it does for endpoint and nesting rules.
+4. **Types.** The package exports `DomainGroup`, `DomainGroupKind` and `DomainRow`, alongside the domain types that issue 3 added. An aggregate's handle carries its Rows' literal names, as an architecture Node's does.
+5. **The Atlas.**
+   - `namespace-home-missing` warns at each borrowed Node's declaration when no valid Diagram draws that full id as a member of its own namespace Group. Merely drawing the context Node, or an empty context Group, doesn't supply the Node's home. The check reads the Group Kind's namespace flag, so no domain Kind is named in the Atlas code. It runs in lint, including staged lint; warnings still exit with 0.
+   - The existing index format suffices: a context id's `asNode` lists its context maps, and `asGroup` its aggregate diagrams. An event's `asNode` includes both its own context's Diagram and Diagrams that borrow it. Each id still has one Kind and title across both forms; local ids in different contexts remain distinct full ids. Exporting the index doesn't require a borrowed Node's home, as that is a lint warning.
+6. **Fixtures and the skill.**
+   - `docs/example-billing.diagram.ts` draws aggregate Rows, each new Edge Kind and Ordering's event outside Billing. `docs/example-ordering.diagram.ts` supplies that event's home. Both have committed SVGs, shown in `docs/example-aggregates.md`. `docs/shared/ordering.ts` defines the context and the event once, for the context map and the aggregate diagrams.
+   - `test/fixtures/aggregate.ts` draws the Billing example in either direction, so it joins every fixture-wide property. Its golden is `aggregates.svg`, updated with `pnpm golden:update --project node packages/diagrams/test/golden.test.ts`.
+   - The skill's `Aggregate diagrams` section teaches the form, namespaces and borrowed events, with the complete Billing example. Its command test supplies the shared module and the event's already-rendered home, then follows the skill. Every example is still held byte for byte to its source module.
+7. **Docs-site themes.** After merging issue 12, `themeColors(notations)` exports the new hues automatically. No change to the site's theme code was needed. The theme's fixture-wide property checks both hues, and the built site's real-browser theme check now draws aggregates as well as architecture, comparing each site theme under both system schemes.
+
+**Issue 5**
+
+Glossaries and term Links. This is GitHub's issue #5, not ticket 05 above.
+
+1. **Every command opens the Atlas together.** `openAtlas(root, files?)` loads the config and every discovered module in one fresh worker context. Render, lint, both exports and the index share it. This replaces ticket 05's decision that only lint loads the config. Config errors stop output files from being written; selecting a Diagram still selects which render diagnostics and SVGs to publish. Lint adds the checks of files on disk and across Diagrams. The live preview and docs integration can reuse this opening without going through the CLI.
+2. **Config.** `AtlasConfig.contexts` is an optional record of context ids to `{ glossary: "path/from/root/GLOSSARY.md" }`, typed as `AtlasContext`. An id has one kebab-case segment. A glossary path must be relative, name a readable file inside the Atlas, and stay inside it when symlinks are resolved. Invalid settings and unreadable files are errors at the config's declaration, with a JSON Pointer to the setting. Unknown settings are rejected even in a config written without `atlas()`. The repo registers `diagrams` with its existing glossary; an unregistered context remains valid and gets no glossary checks.
+3. **Glossary entries.** A term begins with `**Term**:` on its own line. Its Markdown definition runs up to the next term or ATX heading, with surrounding whitespace removed and internal line breaks preserved. A single optional `_Avoid_:` line supplies comma-separated words or phrases. Fenced examples are preserved within definitions but never parsed as entries. An empty definition or word, an inline definition on the term line, a repeated Avoid line, or two terms with the same base anchor is a `glossary-entry` error. It points to the config entry and names the glossary's repo path, line and column in the message. Anchors use the same punctuation and case rules as document headings; they reserve every heading anchor first and append `-1`, `-2`, and so on where necessary, so issue #13 can anchor the term without colliding with a heading. Glossary wording is never rewritten by lint.
+4. **Owning context.** A namespace Node Kind has `namespace: true`, as a namespace Group Kind already does. The domain definition sets it on its context Node Kind. The pure `namespaceOf(model, id, notation)` returns that Node or Group's own id, or a member's full-id prefix, including an event borrowed by another Diagram. Neither the core helpers nor Atlas checks name domain Kinds. Links on Groups follow the same rules as Links on Nodes. An unnamespaced architecture Node needs an explicit Link context.
+5. **Term Links.** `TermLink` is `{ term, context?, label? }`, mutually exclusive with the id and document forms. The builder copies it, validation checks nonempty term names and single-segment context ids, and the generated schema adds `$defs/termLink`. The SVG carries it as authored, without resolved URLs. Atlas lookup ignores case and runs of whitespace in term names, while keeping punctuation significant. A missing term, an unregistered explicit or implicit context, or an owner with no context is `broken-link`. The index refuses broken Links as well as invalid models and conflicting ids.
+6. **Language warnings.** `glossary-avoid` checks drawn titles, Row names and values, and Edge labels, with case-insensitive whole-word/phrase matching and Unicode letter/number boundaries. It does no stemming or plural guessing. An Edge label is checked against both endpoints' contexts, once per context. A Diagram's title uses its one top-level namespace Group, otherwise the single context shared by everything it draws; a multi-context title has no glossary. Descriptions, Technologies, ids and Link text are outside this check. Each warning names the context, the avoided wording and the term to use, and keeps the declaration position and exact field pointer.
+7. **Public metadata for later issues.** The Node-only `@the-platform/diagrams/atlas` entry point exports `openAtlas`, `lintAtlas` and `indexAtlas`. The last two accept an already opened Atlas so a preview rebuild can reuse a single load. Its `dependencies` lists the config, Diagram modules and configured glossary files, including missing glossary files; issue #9 adds imported-module watching. The browser-safe root exports `AtlasIndex`, `GlossaryTerm`, `namespaceOf` and `termOf`. Each index id optionally carries its owning `context`. Each term carries `context`, `term`, Markdown `definition`, `avoid`, `anchor`, repo-relative `glossary` and one-based source `line`. Contexts sort by id and terms retain source order. Issue #8 can resolve definitions with `termOf(index.terms, link, index.ids[id]?.context)`. Issue #13 must add anchors to the bold entries on the docs site: they are paragraphs, and the site currently gives anchors only to headings. It can use `glossary` and `anchor` without inventing URLs here.
+8. **Staged semantics.** The shared opening runs inside the existing `checkout-index` snapshot. Config and glossary entries, missing staged glossaries and language warnings therefore use staged bytes, including when the working tree has a different glossary or config. JSON and text messages keep the original repo paths.
+9. **Skill and independent trial.** The three existing complete examples remain in the skill. A fourth, `docs/example-glossary-links.diagram.ts`, links the actual Diagrams context to its own glossary and is committed with its SVG. The skill explains config registration, local and explicit context lookup, borrowed events and glossary diagnostics, including how to add a term Link to an aggregate. Its command test supplies the registered glossary and follows render, lint and PNG export. A separate GPT-6.1 Sol max agent then used only the skill and an installed sample Atlas with the Diagrams glossary to draw a context map and an aggregate diagram. Both rendered and linted with zero errors or warnings; all five term Links resolved, including a cross-context Link, and the agent inspected both PNGs. It needed no diagnostic-driven corrections. The trial identified two missing examples, which the skill now includes: a shared context checked with `DomainNode & DomainGroup`, and an event linked to an existing glossary term.
+
+**Issue 12**
+
+The docs site. This is GitHub's issue #12, not ticket 12 above.
+
+1. **The app.**
+   - `apps/docs` is the package `@the-platform/docs`, private and unlicensed as the engine is: Astro 7.4.5 with Starlight 0.42.9. From the root, `pnpm docs:dev` serves it, and `pnpm docs:build` builds it into `apps/docs/dist`, as static files. Nothing deploys it yet, so it sets no `site`, and Starlight skips its sitemap with a warning.
+   - Its versions are pinned exactly. Starlight is 0.x, where a minor release may break a site. `@astrojs/markdown-satteri` is the version that Astro itself pins, since the site hands Astro a processor made by it. `satteri` is a dev dependency, for the types of its plugins.
+   - Astro 7 renders Markdown with Sätteri, not with remark. So the site's Markdown plugins are Sätteri's.
+   - Its scripts and its tests turn Astro's telemetry off, so a build sends nothing anywhere.
+   - `pnpm typecheck` runs a third program for it, `apps/docs/tsconfig.json`, after `astro sync` has written the types of `astro:content` into `apps/docs/.astro/`, which git ignores. That program has the DOM's types, for the script that the site's pages run and for the tests that look into a browser. The app has no `.astro` files, which `tsc` couldn't check.
+2. **Which files are docs.**
+   - A doc is `GLOSSARY-MAP.md`, a `GLOSSARY.md`, or a Markdown file anywhere in a `docs` folder: of the repo itself, or of a folder of `apps/` or of `packages/`. A hidden folder holds none, and neither does `node_modules`.
+   - So the site shows the glossaries, the ADRs, the specs, the docs in `docs/agents/`, and each package's docs, such as the example system. It doesn't show `AGENTS.md` or the agent skill, which are written for agents.
+   - The rule goes by a file's path alone: `isDoc`, in `apps/docs/src/repo.ts`. The site reads only those places, and asks git nothing, unlike the Atlas. A list of places can't reach `repos/`, whatever `.gitignore` says, and a build needs no git.
+   - A link, as the file system has them, is never followed: a linked file is no doc, and a linked folder holds none.
+   - The app's own pages are in `apps/docs/src/content/docs/`. There's one, the front page, which says what the site is and how to explore a Diagram. Every other page is a file of the repo.
+3. **A loader of its own.** `apps/docs/src/repo-docs.ts` loads the pages, in place of Starlight's `docsLoader()` and of Astro's `glob()`.
+   - `docsLoader()` reads only `src/content/docs`.
+   - `glob()` takes one base folder, which would be the repo's root, and watches all of it. It checks a page's data before it renders the page, so a title can't come from the doc's heading. And it keeps a page's HTML until the doc's own text changes, so a Diagram drawn again wouldn't show.
+   - The loader renders every doc each time it runs, which takes a few milliseconds for all of the repo's. It counts a page as changed when its HTML or its data is, so a new title alone counts too.
+4. **Ids and URLs.**
+   - A doc's id, and so the path of its page, is its path from the root, without `.md`, in lowercase: `packages/diagrams/GLOSSARY.md` is at `/packages/diagrams/glossary/`. Each run of characters other than letters, digits, `.`, `_` and `-` becomes a hyphen, and an `index.md` is its folder's page.
+   - Two docs that would be one page stop the build, with a message that names both.
+   - `pageOf`, in `repo.ts`, gives a doc's page, for issue #13's Links.
+5. **Titles.**
+   - A page's title is its doc's first `# Heading`. A Sätteri plugin takes that heading out of the body, since Starlight prints the title itself. A `title` in the doc's frontmatter wins, and a doc with neither is titled by its file's name.
+   - The plugin runs after the headings have their ids. So the headings that stay keep the anchors GitHub gives them: the Diagrams glossary's `### Diagrams` is still `#diagrams-1`. The title's own anchor is gone, since Starlight's title is `#_top`.
+6. **A doc reads as it does on GitHub.**
+   - Smart punctuation is off, so `--` stays two hyphens and quotes stay straight.
+   - A relative link to another doc goes to that doc's page, with its fragment. A relative link to any other file of the repo goes to that file on GitHub, on `main`. A link written as a reference, `[text][name]`, is rewritten too, and any other link stays as written. No link is checked.
+   - Starlight's own touches are for the repo's docs too (`markdown.processedDirs`), so each heading has a link to itself.
+   - Each page's "Edit page" link opens its file on GitHub, and the header links to the repo. The repo's URL and its branch are constants in `repo.ts`.
+7. **Diagram images.**
+   - A Sätteri plugin, `apps/docs/src/diagrams/images.ts`, replaces each image whose URL is relative and names a `*.diagram.svg` with `<platform-diagram>` around the file's text, byte for byte. An image alone in its paragraph replaces the paragraph, so its Diagram is a block of the page. One within a sentence is replaced where it stands. An image written as a reference, `![Checkout][drawing]`, counts as the image that its definition names.
+   - The image's alt text and its title are dropped: the SVG has its own `<title>` and `<desc>`.
+   - An SVG that isn't there stops the build, with a message that says to run `diagrams render`.
+   - An image with an absolute URL stays an image, since a build fetches nothing.
+   - Without JavaScript, Starlight's own CSS fits the inline SVG to the page's width, so the whole drawing shows, small.
+8. **The component's script.**
+   - An Astro integration, `apps/docs/src/diagrams/integration.ts`, adds a page script, which Vite bundles from the package's `.ts` sources into one file that every page shares: 11 KB, or 5 KB compressed. Every page loads it, with or without a Diagram.
+   - The script is `apps/docs/src/diagrams/client.ts`, which imports `@the-platform/diagrams/web-component`. That's where issue #13 gives the component the Atlas index and its Links' URLs, and the integration is where it makes the index.
+9. **The theme.**
+   - The engine exports `themeColors(notations)`: every color of the theme under the name of its property after `--diagram-`, the shared ones and each Notation's hues, each with both fallbacks. A test checks, over every fixture, that it holds each property that an SVG reads, with the fallbacks the SVG has there.
+   - The site writes them all into a `<style>` in every page's head: the dark fallbacks for `:root`, and the light ones for `:root[data-theme="light"]`, which is how Starlight's switch marks its themes. So a Notation that adds a hue is themed without a change to the site.
+   - The colors are the engine's own, so a Diagram looks on the site as it does on GitHub in the same theme. In the dark theme its background is a little darker than Starlight's page.
+   - Without JavaScript, Starlight's pages stay dark whatever the system asks for, and so do their Diagrams.
+   - Each Diagram stands in a frame, a line in `--diagram-border` with rounded corners. In the light theme the drawing's background is the page's, and the frame shows where a drawing wider than the page is cut off, with more to drag into view.
+10. **`repos/`.** The site never reads, watches or shows anything in the `repos/` folder at the repo's root.
+    - No doc is there (decision 2).
+    - A file that a doc embeds, a Diagram or any other picture, must be the repo's own: inside the root and outside `repos/`, both by its path and by where it really is, when a link leads elsewhere. Anything else stops the build, with a message that names the doc and the file. Left alone, Astro would copy such a picture into the site.
+    - The dev server watches the docs' own files, each by itself, and never a folder (decision 13). A watched folder would be followed through any link in it.
+    - Tests check each of the three, on a sample repo that keeps another project's files in `repos/`, in every place where a doc of ours could be, with links that lead there from among our docs.
+    - A link to a file in `repos/` isn't refused. It goes to GitHub, where the file isn't.
+11. **Licenses.**
+    - `ignoredOptionalDependencies`, in `pnpm-workspace.yaml`, leaves out sharp, Astro's optional image service, and with it libvips, which is LGPL-3.0-or-later. The site uses Astro's pass-through image service instead, which shows a doc's picture as the file it is. A test fails when `sharp` or an `@img/` package is back in the lockfile.
+    - Three more licenses count as permissive: BlueOak-1.0.0, 0BSD and CC0-1.0. None asks for more than MIT does. They come with tools that run only in a build: `common-ancestor-path`, `lru-cache` and `sax` (BlueOak-1.0.0), `mdn-data` (CC0-1.0, as Simple Icons is), and `tslib` (0BSD), which only the WebAssembly builds of native packages bring.
+    - `lightningcss` is still the one MPL-2.0 package beside the CLI's rasterizer (ticket 01, decision 13). The site's build runs it too, unmodified, through Vite.
+    - A test reads the license of every package that pnpm installed, and fails on any other license. It can't read the packages built for other platforms, which aren't installed.
+    - Shiki stays. Its MIT package carries a grammar for each language, under that grammar's own license: five are GPL-3.0, among them nginx's, three are MPL-2.0, and some name no license, among them YAML's and TOML's. The site colors code only in the languages that `apps/docs/src/markdown/code-languages.ts` lists: TypeScript, JavaScript, TSX, JSX, JSON, shell, CSS, HTML, XML, diff, SQL and Go. Their grammars, and every grammar those embed, are MIT. Code in any other language shows as plain text, and its grammar is never loaded. The GPL grammars' files are still in `node_modules`, with the rest of the package.
+    - The code themes are Starlight's own two, Night Owl's dark and light, which ship in Starlight under MIT. The site names no theme of Shiki's bundle, where `aurora-x` is GPL-3.0.
+    - pnpm holds back a release that is less than a day old. Starlight 0.42.9 was 14 hours old when the app was set up, so pnpm wrote it into `minimumReleaseAgeExclude`. The entry can go once the lockfile has moved past that version.
+12. **The sidebar.**
+    - It groups the docs by where they live. The repo's own come first, under the site's title. Then come each package's and each app's, under its folder's name with a capital, which for a context is the context's name: `Diagrams`.
+    - A glossary comes first in its group, as "Glossary", and its docs follow. A `docs` folder is no level of its own, each folder inside it is a group, `adr` is labeled "ADRs", and entries come in path order.
+    - It's made from the files when the config is read, and each entry's label is its page's title.
+13. **While the site is developed.** Under `astro dev`, the site shows a doc as it's edited, and a Diagram as it's drawn again. It watches each doc, and each Diagram's SVG in the docs' folders.
+    - The pages and the sidebar are as they were when the server started. A doc that's added shows at the next start. One that's removed keeps its page until then, since Starlight fails every page over a sidebar entry that has none.
+    - A doc that breaks, such as one that embeds a Diagram not yet drawn, logs its error and keeps its last page.
+14. **Tests.** On top of the one check that Testing Decisions asks for, the site has a seam of its own: the site as built, or as its dev server sends it, for a sample repo.
+    - `DOCS_REPO` names the repo that the site shows. Without it, that's the repo the app is in. A test writes a small repo into a temporary folder, a shop with one context, as seam 2 writes an Atlas, and builds the site for it with Astro's `build()`.
+    - The tests read the pages' HTML, and open the pages in Playwright's Chromium, driven from Node, which gets every file from the folder the site was built into. There they follow links, read the sidebar and switch the theme, as a reader does.
+    - The theme's check compares pictures. A Diagram zoomed out to its whole drawing must look the same under each of the site's themes, whichever scheme the system asks for, and the two themes must differ. The Diagram draws in every color of the architecture Notation's theme, and the check fails when the site leaves any one of them out.
+    - One more build is of the-platform itself. Every doc that git tracks must have its page, under its own title, and the example system's page must hold the committed SVG.
+    - The sites are built into `apps/docs/node_modules/.cache/`. Astro writes the module that copies a site's pictures beside the site, and that module must find Astro from there.
+    - Every test that builds is in one file, `apps/docs/test/site.test.ts`: two builds of the app at once would share its `.astro/` folder.
+    - Astro's dev server answers no request once it finds that Vitest started it, so the tests hide Vitest from it while it starts.
+    - `apps/docs/test/licenses.test.ts` holds decision 11's two checks.
+    - Together they take about thirteen seconds.
+15. **Left for issue #13:** the Atlas index, the Links' URLs, Node URLs and drill-down. Nothing on the site reads the Atlas yet, and a page doesn't say which Diagrams it embeds.
+
+**Issue 10**
+
+Flow animation. This is GitHub's issue #10, not ticket 10 above.
+
+1. **A Notation opts in.** Its definition's `flow` is `true` for architecture and `false` for domain. The core reads that capability, never a Notation's name or Kinds. A symmetric Edge never flows, even in a Notation that opts in. A caller's own Notation can opt in too.
+2. **Rates and deterministic arithmetic.**
+   - Convert a rate to events per second, with decimal `k` and `M` multipliers. The load level is `log2(1 + events/second)`, capped at 16, reached at 65,535/s. No rate, and a zero rate, use level 0.
+   - Speed is `16 + 4 * level` px/s, and density is `(1 + level / 8)` marks per 96 px, so spacing is `96 / (1 + level / 8)` px. Both speed and number grow linearly with the logarithm of load. The slow default is 16 px/s with marks 96 px apart, and the cap is 80 px/s and 32 px apart.
+   - `src/core/flow.ts` finds the logarithm's whole part by halving, then 16 fractional bits by repeated squaring. The error is below 1/65,536, less than SVG rounding. It uses only the spec's deterministic arithmetic, with no `Math.log`. Rates too large for a Number reach the cap too.
+   - Each scene Edge that flows has `flow: { speed, spacing }`, independent of SVG or a clock. The model and its schema are unchanged.
+3. **Moving marks in the SVG.**
+   - A flow mark is a dash 6 px long on a stroke 3 px wide, in its Edge's color. One path with `data-flow="<Edge id>"` follows the same rounded stroke and hop gaps as the body, beneath the fixed chevrons, arrowhead and badge. Labels and Nodes stay over it.
+   - The stroke runs back from the target (ticket 11, decision 2), so a positive animated dash offset carries marks toward the target. One cycle advances by one spacing, at a duration of spacing divided by speed. Each subpath restarts the pattern after its hop, as the dashed body does.
+   - The period and duration live on the path; its keyframe name and selectors belong to the SVG's content-derived scope. The scope's hash includes the animation rules too. The same source still writes identical bytes.
+4. **The still drawing remains.** Flow paths default to `display: none`, and only `prefers-reduced-motion: no-preference` enables them. A `reduce` rule disables them explicitly. The PNG exporter already drops media queries and keyframes, so it keeps the default hidden flow paths and draws the fixed chevrons and arrowheads. A CLI test checks the casing's pixels where a moving mark would otherwise cover it, repeated PNG bytes, and the absence of APNG chunks.
+5. **The host's motion setting.** `<platform-diagram motion="off">`, or `element.motion = "off"`, disables CSS animation and transitions and hides flow marks. `"auto"` is the default and respects reduced motion. The property reflects to the attribute, and a changed setting takes effect on the drawing already shown. The component's reduced-motion rule stops all CSS animations and transitions in its shadow root too.
+6. **Only the useful view animates.**
+   - Flow disappears at scale 0.35 and below, further out than Rows disappear (0.45). It returns when the reader zooms in or fits again.
+   - The component's `flow` part caches each flow path's bounds from `getBBox()` and its individual runs and rounded corners when the SVG is shown. A bounds check rejects most Edges; each remaining line and circular quarter-arc is checked against the view, padded by 2 px for the stroke and coordinate rounding. So a loop surrounding the view stops too, while a route crossing the view keeps moving even when both its ends are outside. `flow-path.ts` reads the writer's absolute `M`, `L` and `A` commands, keeping hops separate; unfamiliar commands fall back to the conservative bounds check.
+   - An `IntersectionObserver` on the stage pauses flow while the component is off screen, and resumes it at its paused phase. It starts paused until the first observation. Each SVG's observer is disconnected when another takes its place or the component leaves the page. There is no JavaScript loop for animation frames.
+7. **Tests inspect the animation being rendered.** Standalone and shadow-root browser tests first confirm motion, then inspect the SVG's animations and computed dash offsets after reduced motion or host motion-off. `document.getAnimations()` is demonstrated empty while the shadow-root marks still move. Temporarily removing both reduced-motion guards made all three reduced-motion tests fail, including the shadow-root test. Enabling flow in the rasterizer's default rule made the PNG pixel test fail: the moving mark's `[129, 139, 152]` covered the casing's expected `[66, 74, 83]`. Both mutations were restored. Offscreen tests wait for each animation's pending pause to finish (`animation.ready`) before comparing its time and offsets across frames.
+
+**Issue 9**
+
+Live preview with transitions. This is GitHub's issue #9, not ticket 09 above.
+
+1. **Serving and lifetime.** `diagrams dev [diagram] [--port n]` binds Node's HTTP server to `127.0.0.1` and prints a localhost URL. The default port is 3000; 0 requests a free port. The optional Diagram is its module's path, as for export. The command runs until SIGINT or SIGTERM; an embedded CLI caller may pass `CliContext.signal` instead. The index page lists Diagrams, and `/diagram?id=<Diagram id>` hosts each in the component. Browser modules keep their relative `.ts` imports and are stripped at request time with `stripTypeScriptTypes`, sent as JavaScript with no bundler.
+2. **Imported-module dependencies.** Synchronous `registerHooks` in each fresh Atlas worker records resolved file imports, including transitive and shared imports, JSON, CommonJS and top-level dynamic imports. Failed resolutions with a file URL are dependencies too, so creating a missing import can recover the preview. Erased type-only imports have no runtime effect. `openAtlas` adds the import graph's files to its public dependencies. Its optional third argument accepts a signal and an `onDependency` callback, for watching imports while a build is still loading. Worker messages have an explicit protocol so Node's own `--watch` messages can't masquerade as results.
+3. **Rebuild publication.** The preview opens the whole Atlas on each edit, keeping cross-Diagram diagnostics and the index consistent. It debounces saves for 60 ms and numbers invalidations; obsolete results publish neither SVGs nor diagnostics. It watches parent folders and checks file identity and timestamps, so atomic saves keep working and a queued watch event can't publish stale output. A successful build writes fresh SVG bytes before publishing an SSE `update` with its revision, Diagrams, diagnostics and index. Each new connection receives the latest snapshot. Errors retain the last good drawing and index, with file-and-line diagnostics in an overlay. The SSE heartbeat runs every 15 seconds. Backpressure keeps the stream open and holds at most the newest pending snapshot until it drains; a large SVG does not close its connection. A recursive discovery watch notices new Diagram paths while excluding reference clones, installed packages and generated output; the shared Atlas discovery still decides membership, including git ignores.
+
+4. **Replacement transitions.** A nonempty model id and its Notation identify the same Diagram. Existing Node and Group `<g>` elements are reused by id, with fresh contents and attributes installed before parts bind to the replacement. They glide for 360 ms with ease-in-out timing; additions and removals fade over the same interval. Old routes bend by endpoint-displacement blends, weighted along the old stroke, then cross-fade for 140 ms into the exact fresh routes. SVG path `d` animations and object transforms use one Web Animations timeline and start time. Labels, role tags, arrowheads, chevrons and badges follow the old routes; the final routes come straight from the new SVG, without browser layout or routing. Retiring parts keep their old scoped styles in an inert nested SVG with renamed data hooks, so current selection and exploration bind only to the new drawing. Their font faces are retained only through the transition.
+5. **Replacement lifetime and motion.** Same-Diagram redraws keep the camera's scale and position within its new bounds, ordinary selection and explicit highlights. Replacement still runs every old part's cleanup and every new part's setup: Walkthrough playback ends and its list rebuilds, as issue 11 requires. A later redraw samples currently visible Node and Group positions, cancels the previous transition and starts toward the newest geometry. Disconnect settles to the latest geometry and cancels every transition animation. Reduced motion and reflected host motion-off bypass transitions; changing either during a transition immediately settles it. Browser checks establish actual movement and animations inside the shadow root before checking suppression, then verify final geometry, removal, interruption and font release. Temporarily removing the component's reduced-motion guards left ten Web Animations running and failed that shadow-root assertion before the glide could finish; the guards were restored.
+6. **The preview host uses the shared navigation contract.** The server builds the index only through `openAtlas` and `indexAtlas`, serializes it safely, and the browser assigns `atlasIndex` initially and after updates. Details, term definitions and Walkthrough controls stay entirely in the component. The host resolves Diagram actions and id Links to preview pages, selects a linked Node from the URL, and follows `diagram-navigate`; other Links keep their notification without an invented URL. Index-only definition changes refresh open details through the same public property.
+
+**Issue 8**
+
+Details, drill-down and navigation events. This is GitHub's issue #8, not ticket 08 above.
+
+1. **Details and activation.** A Node click, Enter on the stage's selected Node, or activation of a Node's ordinary list button opens a nonmodal details dialog. A Group's drawn label and a new Groups list button open its own details. Kind, Technology display name, explicit External flag and status, full Rows and description come from the SVG metadata; no index is required. Opening moves focus into the dialog. Close restores the invoking list button or the stage. Escape closes details before focus handles it and clears ordinary selection only when no explicit highlight is active; it preserves explicit highlights and their selection, including Walkthrough playback; a later Escape on the stage retains issue #7's highlight-clearing behavior. The Close button preserves selection. Details leave modified or already-handled keys alone.
+2. **Host input.** `PlatformDiagram.atlasIndex` takes the browser-safe `AtlasIndex` from issue #5, or `undefined`. Reassigning it refreshes open navigation and any hovered term. `PlatformDiagram.resolveUrl` takes `(target: NavigationTarget) => string | undefined`, or `undefined`; the current function is called on activation. `NavigationTarget` is a model `Link` or a string Diagram id. Neither property is serialized to an attribute. No web component module imports the Node-only Atlas entry point.
+3. **Navigation contract.** Each Link, other-Diagram or drill-down button raises `diagram-navigate` on the component. It bubbles, is composed and is a notification with no default navigation. Its `detail` is `{ target, source: { diagram?, kind: "node" | "group", id }, url? }`. `source.diagram` is the current SVG model's Atlas id, when it has one. A Link target preserves its fields, including its label and document section. An implicit term context is filled in before the target reaches the resolver and event. A Diagram action's target is its Diagram id string. `url` is present only when the resolver returns one. The host owns routing, history and whether to follow the URL; the component never invents one. These types and `DiagramNavigationEvent` are exported from `@the-platform/diagrams/web-component`.
+4. **Atlas destinations.** Other Diagrams are the union of an id's `asNode` and `asGroup`, excluding the current Diagram and keeping index Diagram order. A Node's drill-down offers its `asGroup` Diagrams. A borrowed namespaced Node also offers the intersection of its `asNode` and its owning context's `asGroup`; this rules out other borrowers and context Diagrams that don't contain the Node. No domain Kind is hardcoded. Groups offer other Diagrams without drilling into themselves.
+5. **Terms and text.** Term lookup uses the pure `termOf` helper, with context from index id metadata or `namespaceOf` on the SVG model. Explicit Link context wins. Hover shows each distinct resolved definition, and resolved definitions are also in details for keyboard readers. Missing terms or an absent index produce no hover definition and leave the authored Link usable. Definitions and descriptions are displayed as text, preserving Markdown and line breaks, never interpreted as HTML. Link labels win; otherwise an index id's title, a resolved term's name, or the authored target labels the button.
+6. **Controls and replacement.** HTML panels keep their own wheel scrolling, keys and selectable text; only drawing input steers the camera. An open dialog refreshes from a replacement SVG of the same Diagram id while its Node or Group still exists. A removed subject, a different Diagram or disconnect removes it. Redraw restores focus only when the old dialog owned it; closing returns to a rebuilt invoking list button by id, or to the stage. Per-SVG listeners and index subscriptions are removed with the old drawing. An index refresh keeps a focused destination by its target within its list, or focuses the dialog if that destination disappears. Details registers its cooperative capture handler before Walkthrough playback, so Escape closes details first without releasing playback emphasis or clearing its ordinary selection; playback then retains arrows and its own Escape behavior.
+7. **Host reference.** `packages/diagrams/docs/web-component.md` records the framework-free host properties, exported types, event payloads, term-context normalization and URL ownership for the live preview (#9) and docs integration (#13).
+
+**Issue 11**
+
+Walkthroughs. This is GitHub's issue #11, not ticket 11 above.
+
+1. **Authoring and JSON.** `d.walkthrough({ id, title, steps })` belongs to both Notations and may be called from a Group's builder. A Step is `{ edges: [...] , note? }` or `{ node, note? }`, never both. Edge entries accept handles or ids, or `{ edge: handleOrId, back: true }`; a Node accepts a handle or id. JSON holds ids only. Local Node ids expand inside a namespaced Group, while explicit Edge and Walkthrough ids stay local to the Diagram. Shared readonly declarations are copied into the model. The package exports the declaration types and `Walkthrough`, `Step` and `StepEdge` model types.
+2. **Validation.** A Walkthrough has a nonempty title and at least one Step. An Edge Step has at least one Edge. Unknown fields are errors, including misspelled authoring options. Walkthrough ids are kebab-case and unique among Walkthroughs, independently of Node and Edge ids. `walkthrough-target` reports a missing Node or Edge at its Step's target; a Group cannot be a Node-only Step. Schema checks the same shapes and formats; existence and id uniqueness remain semantic checks. Titles and notes must be XML-writable text. Static SVGs carry Walkthroughs only in metadata; their drawings stay the same.
+3. **Controls and timing.** A title button starts playback at the first Step. Each Step lasts 2.5 seconds, including Node-only Steps, then advances automatically. Pause stops advancement and freezes its marks. Previous/next and the arrows pause playback; Right/Down advance, Left/Up go back, and neither wraps. Play gives the current Step a fresh interval and restarts its marks. After the last Step's interval, playback stays there; Play then replays from the first Step. Escape or Close Walkthrough returns to the list and focuses its title button. Step numbers and notes are announced politely; notes are plain text. The controls scroll within the Diagram on a small screen.
+4. **Emphasis and selection.** Playback uses `Stage.highlights`, keeping only a Step's Edges and their endpoint Nodes, or its single Node, at full strength. Existing focus code also keeps their Groups, labels, roles and junctions consistent. Ordinary selection and `diagram-select` events are unchanged. Leaving playback restores the prior explicit host highlight, unless the host has supplied a newer override. Capture-phase keys respect `defaultPrevented`, modifier keys and editable controls, leaving other parts and the host able to handle their own keys.
+5. **Motion.** A circle of radius 4 follows each chosen Edge's already-rounded SVG stroke once in 1.8 seconds; parallel marks travel together. The stroke runs from `to` to `from`, so normal Steps travel from 100% to 0% of its length and `back` Steps reverse that. This works for both Notations, including symmetric domain Edges, without adding ambient flow to domain Diagrams. Ambient flow is hidden while a Walkthrough is open, so a back Step has no competing forward marks. Highlight opacity transitions take 180 ms; integrated review F6 below supersedes the original restriction to Diagrams with Walkthroughs. Issue 10's shared reduced-motion and host motion-off rules disable both animations and transitions; the Step, its note and still marks remain, and automatic advancement keeps its reading interval. Off screen, marks pause and advancement stops; returning resumes their position with a fresh reading interval.
+6. **Lifetime.** SVG replacement and disconnect end playback, cancel its timer, remove marks, controls, listeners and visibility observation, and release its explicit highlight. Selection keeps issue 7's reconciliation behavior. Replacement rebuilds the list from the new metadata and returns control focus to the stage; reconnect starts with the list and never restores keyboard focus. Playback state is local to one component.
+7. **Author guidance and checks.** `docs/example-walkthrough.diagram.ts` and its committed SVG demonstrate all four Step forms; `docs/example-walkthrough.md` embeds it on the docs site. The skill teaches the API with that complete small module, and its existing command test renders, lints and exports it in a sample Atlas. A separate CLI test checks JSON export and the declaration's source position for a broken Step. Browser motion checks establish moving marks and intermediate highlight opacity inside the shadow root before verifying reduced motion and host motion-off; they also cover both Notations, playback timing, selection, replacement, disconnect and offscreen pause.
+
+**Issue 13**
+
+Links, drill-down and Node URLs on the docs site. This is GitHub's issue #13, not ticket 13 above.
+
+1. **The built index.** The app opens the Atlas in Node while reading its config, using `openAtlas` and `indexAtlas`. An Astro integration exposes the resulting plain index through a Vite virtual module, bundled once for every page to share. The page gives that same index to every component; term hover and details use the component's existing lookup and rendering. No Node-only Atlas code goes into the browser. A repo with prose alone and no Atlas config gets an empty index.
+2. **Document and term anchors.** A build records the actual heading ids using the same Sätteri heading plugin as the pages. Document Links resolve by `pageOf` and the Atlas's browser-safe `anchorOf` helper, now exported at the package root. Integrated review F5 below replaces the assumption that the Atlas section identity always equals the rendered heading id with an explicit mapping by source line. Repo paths normalize dot segments while refusing to leave the root. A section that names the first h1 goes to Starlight's `#_top`; repeated headings retain their numbered anchors. A glossary plugin gives each entry's paragraph the index's exported anchor, matching its source file and line. It changes no heading anchor, including when a term and a heading have the same name. A target without a published page or heading has no site URL; activating it leaves the page alone.
+3. **Diagram destinations.** The image plugin marks each component with its Atlas Diagram id, derived from the SVG's repo path. The same plugin records which Diagrams each doc actually embeds, including reference images. A Diagram action prefers the doc beside its module (`<Diagram id>.md`) if it embeds that drawing, otherwise the first embedding doc in path order. An id Link uses the first published `asNode` Diagram in index order, falling back to `asGroup`; a Node destination includes its selection. Drill-down and other-Diagram actions follow the component's Diagram target unchanged, including its borrowed-event home choice. No page is invented for a module that no doc embeds.
+4. **Node URLs.** The fragment is `#diagram=<encoded Atlas Diagram id>&node=<encoded full Node id>`. A Diagram alone uses `#diagram=<encoded id>`. Both parts use `encodeURIComponent`, so namespaced ids retain their full meaning. Selecting a Node replaces the current history entry's fragment, keeping the page and query; clearing selection removes its Node parameter. Opening the URL or changing its fragment uses `selectNode` after the page's components are ready, clears ordinary selection in the other drawings, then scrolls the named drawing into view. It opens no details and takes no keyboard focus. When the same Diagram is embedded more than once on a page, a URL addresses its first occurrence.
+5. **Host file exclusions.** Building the index must preserve the site's rule against reading `repos/`, even through symlinks. `openAtlas`'s optional third argument now also accepts `exclude`, absolute folder paths. Discovery skips them before entering a folder or loading a module, the worker refuses imported source from them, and glossary and document-Link checks refuse them before reading content. The checks compare both lexical and real paths. The site excludes its root's `repos/`; ordinary CLI and preview callers keep their existing behavior. Discovery still follows git's ignores when git is available, and a build without git still works. Tests exercise direct and symlinked glossary, module and document paths with a sample reference folder.
+6. **Invalid Node targets.** A Node fragment requires exactly one Diagram parameter and at most one Node parameter. The Node must be an indexed Node of that Diagram and be present in the rendered component. Unknown ids, Group ids passed as Nodes, malformed escapes and duplicate parameters leave the drawings usable without selecting a substitute. Dictionary lookups accept only own entries, so names such as `constructor` and `__proto__` cannot turn an invalid URL into a script error.
+7. **Acceptance checks.** The built-site browser checks cover glossary Links with heading collisions, documents with optional and duplicate headings, id Links to Nodes and Groups, sibling and fallback Diagram pages, context and borrowed-event drill-down, absent published destinations, direct and same-page Node URLs, reload, selection clearing and invalid fragments. The committed glossary example also navigates to its real entry, and a direct Node URL selects Ordering's event on the real page that embeds both aggregate examples. These site checks are separate from issue #10's successful GitHub Markdown hand check, recorded under Risks to check early.
+
+**Integrated review fixes**
+
+These resolve the accepted Spec findings at `2d40b3c83ca0e49561437389f7bb16be463d65d2`, preserving the tooltip sharing change in `fceedbaab8334fc209302832012d42289b5154d7`.
+
+1. **F1: marker attribution at a mixed terminal.** This supersedes issue 3's shared-stub deferral and qualifies ticket 11's marker-at-Port rule. The Port, its right-angle stub, every route, lane and clearance stay as routed. A directed arrowhead normally touches its target Port. Where that marker would touch a symmetric stroke, it moves back to the nearest straight piece clear of that stroke's casing and corners, Nodes, Group labels, Edge labels and role tags. The stroke continues through the shared terminal. This reads only the Notation's `symmetric` capability, including for Row Ports and caller Notations. The scene carries the marker's point and heading. If a fallback or crowded route leaves no such piece, `arrow-placement` warns and the ambiguous arrowhead is omitted. Public rendering regressions inspect actual filled markers against symmetric strokes in both orientations, reversed declarations, and a caller's Notation with Row Ports. The context-map golden is updated with the explicit golden command.
+
+2. **F2: interrupted route attachment.** A replacement during a glide or cross-fade freezes the visible route layers, path geometry, transforms and opacity before cancelling the previous timeline. The next transition bends those captured routes from the same visible Node positions, including both layers of an interrupted cross-fade. Retained Nodes and Groups still reuse their original elements; old scoped styles and font faces survive only until retirement. Playback marks are discarded by replacement cleanup. Real-browser regressions first reproduced a 211.6 px gap, then check every visible old route and arrow against both moving endpoints across several frames at 110 ms and 400 ms interruptions. Existing camera, selection, additions/removals, font lifetime, disconnect and immediate motion suppression checks remain in force.
+
+3. **F3: latest host emphasis across Steps.** Before each Step takes emphasis, playback checks whether the current highlight is still its own. A newer host value, including `undefined` to clear it, replaces the saved host intent. Close and replacement/disconnect cleanup therefore restore the latest host intent even after playback has advanced again. A host override after the last Step remains current directly. Six browser cases cover overriding and clearing followed by another Step, then Close, replacement or disconnect, while preserving ordinary selection and emitting no selection events.
+
+4. **F6: smooth ordinary emphasis.** The shared focus layer owns the 180 ms opacity transition for Nodes, Groups, Edges, labels, role tags and junctions, for every Diagram. Playback uses that same rule; declaring a Walkthrough no longer enables it. The existing shadow-root motion policy suppresses it immediately for reduced motion or host motion-off. Six real-browser cases establish actual opacity transitions and intermediate opacity for normal hover, selection and host highlights without a Walkthrough, then verify immediate settlement and subsequent instant changes under both policies. Focus and screen-reader regressions await their visible final emphasis while keeping selection and keyboard assertions synchronous.
+
+5. **F4: glossary dependencies through symlinks.** Atlas dependencies retain the configured glossary path and add its validated real target after host exclusions and in-Atlas checks. Diagnostics and term provenance keep the configured path. The preview also checks dependency stamps for other discovery events, so an intermediate link retarget or the creation of a temporarily missing target can invalidate without another source edit. These checks publish only when a tracked dependency's identity or timestamps change; the existing newest-build gate and shutdown remain unchanged. The CLI/SSE regression first stalled after a real-target edit, then covers target edits, atomic link retargeting, target removal/recreation, link removal/recreation and creation after a dangling retarget, with source diagnostics and clean shutdown. The docs site's lexical and real-path exclusions still run before reading a glossary or adding its resolved target.
+
+6. **F5: accepted sections map to published headings.** The Atlas exposes `documentHeadings` from its Node-only entry point: the same section identities and duplicate numbering used by Link validation, with each heading's source line. The site joins those identities to actual Sätteri heading ids using source positions. The client looks up the resulting mapping, rather than requiring two independent Markdown interpretations to produce identical strings. This preserves every previously accepted section spelling, including entities and reference-style links, without shipping a Markdown parser to the core or browser. The first h1 maps to `_top`, duplicate identities map to their own rendered headings, and unpublished or missing destinations still have no URL. Seven regressions first failed navigation on a newly built Starlight site, then follow the real buttons to named and numeric entity headings, reference-style headings with formatting, duplicate headings and the formatted first title. Existing glossary-anchor and missing-destination checks remain in the built-site suite.
 
 ### References
 

@@ -1,10 +1,13 @@
-import type { Diagram } from "../../src/index.ts";
+import type { ArchitectureNotation, DiagramOf } from "../../src/index.ts";
 
 /**
- * A Diagram with a label on every `every`th Edge, of a few lengths, some with
- * a Technology or a rate below it.
+ * An architecture Diagram with a label on every `every`th Edge, of a few
+ * lengths, some with a Technology or a rate below it.
  */
-export function labeled(diagram: Diagram, every = 1): Diagram {
+export function labeled(
+	diagram: DiagramOf<ArchitectureNotation>,
+	every = 1,
+): DiagramOf<ArchitectureNotation> {
 	const phrases = ["Reads", "Places orders", "Publishes events", "Syncs stock", "Charges cards"];
 	return {
 		...diagram,

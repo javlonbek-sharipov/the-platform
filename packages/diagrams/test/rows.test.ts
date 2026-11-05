@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vitest";
 import {
+	type ArchitectureNotation,
 	architecture,
-	type Diagram,
+	type DiagramOf,
 	type Direction,
 	type Row,
 	type RowEnd,
@@ -10,7 +11,11 @@ import {
 	type SceneNode,
 	type SceneText,
 } from "../src/index.ts";
+import { descendants, parseSvg } from "./support/svg.ts";
 import { advanceOf, bundledFont, characterMap, unitsPerEm } from "./support/truetype.ts";
+
+/** The tests here draw architecture Diagrams, so they read the fields that those have. */
+type Diagram = DiagramOf<ArchitectureNotation>;
 
 const interRegular = bundledFont("Inter-Regular.ttf");
 const regularCharacters = characterMap(interRegular);
@@ -74,9 +79,11 @@ function rounded(value: number): number {
 	return Math.round(value * 100) / 100;
 }
 
-/** The inside of a Node's group in an SVG. */
+/** The inside of a Node's group in an SVG: up to the next Node's group, or the end of the Nodes. */
 function nodeGroup(svg: string, id: string): string {
-	const group = svg.match(new RegExp(`<g data-node="${id}"[^>]*>([\\s\\S]*?)</g>`))?.[1];
+	const group = svg.match(
+		new RegExp(`<g data-node="${id}"[^>]*>([\\s\\S]*?)</g>\\s*(?:<g data-node=|</g>)`),
+	)?.[1];
 	if (group === undefined) {
 		throw new Error(`no group for Node ${id}`);
 	}
@@ -276,6 +283,41 @@ describe("the SVG", () => {
 				[node.title, ...node.rows.flatMap((row) => [row.name, row.value ?? row.name])].map(drawn),
 			);
 		}
+	});
+
+	test("draws each Row's texts in a group of their own, which carries the Row's name as the model has it", () => {
+		const diagram = architecture({ title: "Rows" }, (d) => {
+			d.node({
+				id: "orders-db",
+				kind: "database",
+				title: "Orders database",
+				rows: [
+					{ name: "replicas", value: "3" },
+					{ name: 'the "hot" <set>' },
+					{ name: "  spaced   out " },
+				],
+			});
+		});
+
+		const root = parseSvg(render(diagram).svg ?? "");
+
+		const node = descendants(root).find(
+			(element) => element.attributes.get("data-node") === "orders-db",
+		);
+		const rows = descendants(root).filter((element) => element.attributes.has("data-row"));
+		expect(rows.map((row) => row.name)).toEqual(["g", "g", "g"]);
+		expect(rows.map((row) => row.attributes.get("data-row"))).toEqual([
+			"replicas",
+			'the "hot" <set>',
+			"  spaced   out ",
+		]);
+		expect(rows.map((row) => row.children.map((child) => `${child.name}: ${child.text}`))).toEqual([
+			["text: replicas", "text: 3"],
+			['text: the "hot" <set>'],
+			["text: spaced out"],
+		]);
+		// A Row's group sits in its Node's, so whatever holds the Node holds its Rows.
+		expect(rows.map((row) => row.parent)).toEqual([node, node, node]);
 	});
 
 	test("draws a line across the Node between its header and its first Row", () => {

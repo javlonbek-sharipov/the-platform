@@ -3,7 +3,6 @@
  * SVG, so another renderer could draw it. It isn't a versioned format.
  */
 
-import type { Edge, Group, Node } from "../authoring/model.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import type { FontWeight } from "./text.ts";
 
@@ -56,7 +55,8 @@ export interface SceneText {
 
 export interface SceneNode {
 	id: string;
-	kind: Node["kind"];
+	/** Its Kind, one of its Notation's Node Kinds. */
+	kind: string;
 	box: Box;
 	/** The band that holds the badge and the title: the whole Node, or the part below a person's head. */
 	header: Box;
@@ -107,7 +107,8 @@ export interface SceneLogo {
 
 /** A Node's status, and where its mark is drawn, at the end of the header. */
 export interface SceneStatus {
-	value: NonNullable<Node["status"]>;
+	/** One of its Notation's statuses. */
+	value: string;
 	mark: Box;
 }
 
@@ -120,7 +121,8 @@ export interface SceneCallout {
 /** A Group's box, with its label band along the top. */
 export interface SceneGroup {
 	id: string;
-	kind: Group["kind"];
+	/** Its Kind, one of its Notation's Group Kinds. */
+	kind: string;
 	box: Box;
 	/**
 	 * The label box: the part of the label band, along the top of the box,
@@ -135,7 +137,8 @@ export interface SceneGroup {
 
 export interface SceneEdge {
 	id: string;
-	kind: Edge["kind"];
+	/** Its Kind, one of its Notation's Edge Kinds. */
+	kind: string;
 	/** The id of the Node that the route leaves. */
 	from: string;
 	/** The name of the Row it leaves from, when the Edge starts at one. */
@@ -174,19 +177,37 @@ export interface SceneEdge {
 	/** What the Edge carries, drawn beside its route, when it has a label, a Technology or a rate. */
 	label?: SceneLabel;
 	/**
+	 * The roles that the Edge's ends carry, each as a tag on its line, near its
+	 * end: its `from` end's, then its `to` end's, each end's in the model's
+	 * order, which is their order along the route.
+	 */
+	roles: SceneRole[];
+	/**
 	 * The marks that show which way the Edge runs, in order from its target
 	 * back to its source. They sit at a fixed spacing back from the target, on
 	 * straight stretches of the route, so that the Edges of a bundle share
 	 * them along their trunk.
 	 */
 	chevrons: SceneChevron[];
+	/** Its directed marker, at the target unless a symmetric stroke shares that terminal. */
+	arrowhead?: SceneChevron;
+	/** Moving marks, when the Notation enables flow on this directed Edge. */
+	flow?: SceneFlow;
 	/**
-	 * Set when the Edge's ends sit in different `region` Groups, or in
-	 * different `zone` Groups, since such calls cost latency and egress: which
-	 * Kind of Group it crosses between, regions before zones, and where its
-	 * badge sits, in the middle of the stretch of its route that's its own.
+	 * Set when the Edge's ends sit in different Groups of a Kind that its
+	 * Notation says Edges cross between, as architecture's regions and zones
+	 * are: which Kind of Group it crosses between, and where its badge sits,
+	 * in the middle of the stretch of its route that's its own.
 	 */
-	crosses?: { kind: "region" | "zone"; badge: Point };
+	crosses?: { kind: string; badge: Point };
+}
+
+/** Flow along an Edge, in drawing units, independent of any renderer or clock. */
+export interface SceneFlow {
+	/** The distance between neighboring marks, in px. */
+	spacing: number;
+	/** The speed toward the target, in px per second. */
+	speed: number;
 }
 
 /**
@@ -203,6 +224,21 @@ export interface SceneLabel {
 	logo?: SceneLogo;
 	/** The Edge's rate, after its Technology. */
 	rate?: SceneText;
+}
+
+/**
+ * A role that one end of an Edge carries, drawn as a short tag on the Edge's
+ * line, near that end, on a stretch that's the Edge's own.
+ */
+export interface SceneRole {
+	/** Which end of the Edge carries it. */
+	end: "from" | "to";
+	/** One of its Notation's roles. */
+	role: string;
+	/** The tag's box, centered on the Edge's line. */
+	tag: Box;
+	/** The role, as the tag shows it. */
+	text: SceneText;
 }
 
 /**
@@ -247,6 +283,12 @@ export interface Scene {
 	 * labels and other labels.
 	 */
 	labelSpacing: { gap: number; margin: number };
+	/**
+	 * How role tags keep clear: the gap between two tags, the margin a tag
+	 * keeps from Nodes, callouts' tags and Group labels, and the stretch of
+	 * bare line that layout leaves between the tags of an Edge's two ends.
+	 */
+	roleSpacing: { gap: number; margin: number; between: number };
 	/** The length of the gap a hop leaves in a stroke, centered on the crossing. */
 	hop: number;
 	nodes: SceneNode[];

@@ -9,6 +9,8 @@
 	},
 	"exports": {
 		".": "./src/index.ts",
+		"./atlas": "./src/atlas/index.ts",
+		"./web-component": "./src/web-component/index.ts",
 		"./diagram.schema.json": "./diagram.schema.json"
 	},
 	"bin": {

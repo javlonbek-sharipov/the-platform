@@ -15,5 +15,13 @@
 		"skipLibCheck": true
 	},
 	"include": ["**/*.ts"],
-	"exclude": ["node_modules", "repos", ".diagrams-cache"]
+	"exclude": [
+		"node_modules",
+		"repos",
+		".diagrams-cache",
+		"apps/docs",
+		"packages/diagrams/src/web-component",
+		"packages/diagrams/src/dev/client.ts",
+		"packages/diagrams/test/browser"
+	]
 }

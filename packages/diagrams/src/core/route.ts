@@ -5,7 +5,7 @@
  * the Edge falls back to a simple route, and the router warns about it.
  */
 
-import { type Diagram, endNode, parentsOf, type RowEnd } from "../authoring/model.ts";
+import { type AnyDiagram, endNode, parentsOf, type RowEnd } from "../authoring/model.ts";
 import { type Bundling, compareText, laneGroups, lanes } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { buildGrid, type Grid, pointOf, vertexAt } from "./grid.ts";
@@ -13,6 +13,7 @@ import { strokesOf } from "./hops.ts";
 import { placeLabels } from "./labels.ts";
 import { clearance } from "./layout.ts";
 import { type Corridors, type Nudged, type NudgeRoute, nudge, type Squeeze } from "./nudge.ts";
+import { placeRoles } from "./roles.ts";
 import type {
 	Box,
 	Point,
@@ -35,7 +36,7 @@ import {
 } from "./search.ts";
 
 export interface RouteOptions {
-	/** Which Edges share a trunk. The architecture Notation bundles by target. */
+	/** Which Edges share a trunk. */
 	bundle: Bundling;
 	/**
 	 * How many states each Edge's search may visit. An Edge whose search runs
@@ -124,7 +125,7 @@ const outOf: Record<Side, Heading> = {
 };
 
 export function route(
-	diagram: Diagram,
+	diagram: AnyDiagram,
 	nodes: SceneNode[],
 	groups: SceneGroup[],
 	options: RouteOptions,
@@ -349,7 +350,8 @@ export function route(
 			// The router breaks it at hops once every route is final.
 			stroke: [],
 			fellBack: path === undefined,
-			// Marks come once the labels are placed too.
+			// Role tags come once every route is final, and marks once the labels are placed too.
+			roles: [],
 			chevrons: [],
 		});
 	}
@@ -366,7 +368,12 @@ export function route(
 	edges.forEach((edge, index) => {
 		edge.stroke = strokes[index] ?? [edge.route];
 	});
-	const labeling = placeLabels(diagram, nodes, groups, edges, laneGroupOf);
+	// Role tags sit at their Edges' ends, so they go first, and labels keep clear of them.
+	const tagging = placeRoles(diagram, nodes, groups, edges);
+	for (const edge of edges) {
+		edge.roles = tagging.roles.get(edge.id) ?? [];
+	}
+	const labeling = placeLabels(diagram, nodes, groups, edges, laneGroupOf, tagging.taken);
 	for (const edge of edges) {
 		const label = labeling.labels.get(edge.id);
 		if (label !== undefined) {
@@ -387,7 +394,7 @@ export function route(
 	);
 	return {
 		edges,
-		diagnostics: [...fallbacks, ...labeling.diagnostics],
+		diagnostics: [...fallbacks, ...tagging.diagnostics, ...labeling.diagnostics],
 		crowdedOut: labeling.crowdedOut,
 	};
 }

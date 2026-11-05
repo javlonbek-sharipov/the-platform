@@ -6,12 +6,12 @@
  * is, so that a text added to the model is a field added here.
  */
 
-import type { Diagram, Link } from "../authoring/model.ts";
+import type { AnyDiagram, Link } from "../authoring/model.ts";
 
-/** What holds a text: the Diagram, or one of its Nodes, Groups or Edges, by its index and id. */
+/** What holds a text: the Diagram, or a Node, Group, Edge or Walkthrough, by its index and id. */
 export type TextOwner =
 	| { thing: "Diagram" }
-	| { thing: "Node" | "Group" | "Edge"; index: number; id: string };
+	| { thing: "Node" | "Group" | "Edge" | "Walkthrough"; index: number; id: string };
 
 /**
  * Which of its owner's fields a text is. A Row's name and value name the
@@ -19,9 +19,9 @@ export type TextOwner =
  * that an Edge end names says which end.
  */
 export type TextField =
-	| { name: "id" | "title" | "description" | "callout" | "label" | "technology" | "rate" }
+	| { name: "id" | "title" | "description" | "callout" | "label" | "technology" | "rate" | "note" }
 	| { name: "row name" | "row value"; row: string; rowIndex: number }
-	| { name: "link doc" | "link section" | "link label"; target: string }
+	| { name: "link doc" | "link section" | "link label" | "link term"; target: string }
 	| { name: "end row"; end: "from" | "to" };
 
 export interface ModelText {
@@ -33,7 +33,7 @@ export interface ModelText {
 }
 
 /** Every text in the model, in model order: what holds it, which field it is, and where. */
-export function textsOf(diagram: Diagram): ModelText[] {
+export function textsOf(diagram: AnyDiagram): ModelText[] {
 	const texts: ModelText[] = [];
 	const add = (owner: TextOwner, field: TextField, text: string | undefined, pointer: string) => {
 		if (text !== undefined) {
@@ -42,7 +42,8 @@ export function textsOf(diagram: Diagram): ModelText[] {
 	};
 	const addLinks = (owner: TextOwner, links: Link[] | undefined, at: string) => {
 		(links ?? []).forEach((link, index) => {
-			const target = link.id ?? link.doc ?? "";
+			const target = link.id ?? link.doc ?? link.term ?? "";
+			add(owner, { name: "link term", target }, link.term, `${at}/links/${index}/term`);
 			add(owner, { name: "link doc", target }, link.doc, `${at}/links/${index}/doc`);
 			add(owner, { name: "link section", target }, link.section, `${at}/links/${index}/section`);
 			add(owner, { name: "link label", target }, link.label, `${at}/links/${index}/label`);
@@ -85,6 +86,14 @@ export function textsOf(diagram: Diagram): ModelText[] {
 		add(owner, { name: "label" }, edge.label, `${at}/label`);
 		add(owner, { name: "technology" }, edge.technology, `${at}/technology`);
 		add(owner, { name: "rate" }, edge.rate, `${at}/rate`);
+	});
+	diagram.walkthroughs.forEach((walkthrough, index) => {
+		const owner: TextOwner = { thing: "Walkthrough", index, id: walkthrough.id };
+		const at = `/walkthroughs/${index}`;
+		add(owner, { name: "title" }, walkthrough.title, `${at}/title`);
+		walkthrough.steps.forEach((step, place) => {
+			add(owner, { name: "note" }, step.note, `${at}/steps/${place}/note`);
+		});
 	});
 	return texts;
 }

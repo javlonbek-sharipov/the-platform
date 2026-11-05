@@ -58,6 +58,21 @@ describe("validation", () => {
 		expect(render(shopJson()).diagnostics).toEqual([]);
 	});
 
+	test("draws a model that leaves `direction` out to the right, the default, exactly as one that says so", () => {
+		const { direction, ...withoutDirection } = shopJson();
+		expect(direction).toBe("right");
+
+		const drawn = render(withoutDirection);
+
+		expect(drawn.diagnostics).toEqual([]);
+		expect(drawn.scene?.nodes.map(({ id, box }) => [id, box.x, box.y])).toEqual([
+			["web-app", 24, 24],
+			["shop-api", 296, 24],
+			["shop-db", 568, 24],
+		]);
+		expect(drawn.svg).toBe(render(shopJson()).svg);
+	});
+
 	test("accepts the valid fixture with nested Groups", () => {
 		expect(render(regionJson()).diagnostics).toEqual([]);
 	});
@@ -182,7 +197,7 @@ describe("validation", () => {
 				severity: "error",
 				rule: "unknown-notation",
 				message:
-					"The Diagram's Notation is `sequence`, which this engine doesn't have. Its Notations are architecture.",
+					"The Diagram's Notation is `sequence`, which this engine doesn't have. Its Notations are architecture and domain.",
 				pointer: "/notation",
 			},
 		]);
@@ -268,7 +283,11 @@ describe("validation", () => {
 					"`id`, `kind`, `title`, `technology`, `external`, `status`, `rows`, `description`, `links` and `callout`",
 				],
 				["/nodes/1/rows/0/unit", "a Row", "`name` and `value`"],
-				["/nodes/1/links/0/title", "a Link", "`id`, `doc`, `section` and `label`"],
+				[
+					"/nodes/1/links/0/title",
+					"a Link",
+					"`id`, `doc`, `term`, `context`, `section` and `label`",
+				],
 				[
 					"/groups/0/color",
 					"a Group",
@@ -298,21 +317,13 @@ describe("validation", () => {
 		]);
 	});
 
-	test("reports Walkthroughs, which this engine doesn't play yet, so that none is silently dropped", () => {
+	test("accepts a Walkthrough that names a Node on the Diagram", () => {
 		const diagram = {
 			...shopJson(),
 			walkthroughs: [{ id: "checkout", title: "Checkout", steps: [{ node: "shop-api" }] }],
 		};
 
-		expect(render(diagram).diagnostics).toEqual([
-			{
-				severity: "error",
-				rule: "model-shape",
-				message:
-					"`/walkthroughs` must be an empty list: this engine doesn't play Walkthroughs yet.",
-				pointer: "/walkthroughs",
-			},
-		]);
+		expect(render(diagram).diagnostics).toEqual([]);
 	});
 
 	test("reports a Diagram that isn't an object", () => {
@@ -590,7 +601,7 @@ describe("validation", () => {
 				{ doc: "docs/shop.md", label: 7 },
 				{ id: "shop-db", section: "Storage" },
 				{ doc: "docs/shop.md", section: ["Checkout"] },
-				{ term: "Database" },
+				{ term: 7 },
 				{ id: "shop-db", term: "Database" },
 			],
 		} as never;
@@ -599,8 +610,8 @@ describe("validation", () => {
 			[
 				["/nodes/0/links", "`/nodes/0/links` must be a list."],
 				["/nodes/1/links/0", "`/nodes/1/links/0` must be an object."],
-				["/nodes/1/links/1", "`/nodes/1/links/1` must have exactly one of `id` and `doc`."],
-				["/nodes/1/links/2", "`/nodes/1/links/2` must have exactly one of `id` and `doc`."],
+				["/nodes/1/links/1", "`/nodes/1/links/1` must have exactly one of `id`, `doc` and `term`."],
+				["/nodes/1/links/2", "`/nodes/1/links/2` must have exactly one of `id`, `doc` and `term`."],
 				["/nodes/1/links/3/id", "`/nodes/1/links/3/id` must be a string."],
 				["/nodes/1/links/4/label", "`/nodes/1/links/4/label` must be a string."],
 				[
@@ -608,8 +619,8 @@ describe("validation", () => {
 					"`/nodes/1/links/5/section` must be left out: only a Link to a document has sections.",
 				],
 				["/nodes/1/links/6/section", "`/nodes/1/links/6/section` must be a string."],
-				["/nodes/1/links/7", "`/nodes/1/links/7` must have exactly one of `id` and `doc`."],
-				["/nodes/1/links/8", "`/nodes/1/links/8` must have exactly one of `id` and `doc`."],
+				["/nodes/1/links/7/term", "`/nodes/1/links/7/term` must be a string."],
+				["/nodes/1/links/8", "`/nodes/1/links/8` must have exactly one of `id`, `doc` and `term`."],
 			].map(([pointer, message]) => ({ severity: "error", rule: "model-shape", message, pointer })),
 		);
 	});
@@ -646,7 +657,12 @@ describe("validation", () => {
 	test("reports Groups that aren't shaped like Groups", () => {
 		const diagram = regionJson();
 		diagram.groups = [
-			{ ...diagram.groups[0], title: 7, description: ["Europe"], links: [{ term: "Region" }] },
+			{
+				...diagram.groups[0],
+				title: 7,
+				description: ["Europe"],
+				links: [{ term: "Region", id: "eu-west" }],
+			},
 			{ ...diagram.groups[1], members: "shop-db" },
 			{ id: "us-east", kind: "region", title: "US East", members: [7], links: { id: "eu-west" } },
 			"eu-west-b",
@@ -656,7 +672,10 @@ describe("validation", () => {
 			[
 				["/groups/0/title", "`/groups/0/title` must be a string."],
 				["/groups/0/description", "`/groups/0/description` must be a string."],
-				["/groups/0/links/0", "`/groups/0/links/0` must have exactly one of `id` and `doc`."],
+				[
+					"/groups/0/links/0",
+					"`/groups/0/links/0` must have exactly one of `id`, `doc` and `term`.",
+				],
 				["/groups/1/members", "`/groups/1/members` must be a list."],
 				["/groups/2/members/0", "`/groups/2/members/0` must be an id."],
 				["/groups/2/links", "`/groups/2/links` must be a list."],

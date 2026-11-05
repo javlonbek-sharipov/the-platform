@@ -1,0 +1,13 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"lib": ["es2024", "dom", "dom.iterable"],
+		"types": ["@vitest/browser-playwright"]
+	},
+	"include": [
+		"packages/diagrams/src/web-component/**/*.ts",
+		"packages/diagrams/src/dev/client.ts",
+		"packages/diagrams/test/browser/**/*.ts"
+	],
+	"exclude": ["node_modules"]
+}

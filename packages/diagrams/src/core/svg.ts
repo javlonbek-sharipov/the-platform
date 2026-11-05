@@ -1,28 +1,29 @@
 /**
  * The SVG writer turns a scene into one self-contained SVG: its Groups, its
- * Edges with their marks and labels, and its Nodes, with what the SVG says
- * about itself, and a style, which embeds the bundled font's glyphs that it
- * draws and the theme's rules for the colors it uses (`style.ts`). The path
- * data along Edges comes from `edge-paths.ts`, and the XML from `xml.ts`.
+ * Edges with their marks, role tags and labels, and its Nodes, with what the
+ * SVG says about itself, and a style, which embeds the bundled font's glyphs
+ * that it draws and the theme's rules for the colors it uses (`style.ts`).
+ * The path data along Edges comes from `edge-paths.ts`, and the XML from
+ * `xml.ts`.
  *
  * Its output is deterministic: elements are written in model order and
  * attributes in a fixed order, numbers have at most two decimals and never
  * show a negative zero, and lines end with LF, as does the file.
  */
 
-import type { Diagram } from "../authoring/model.ts";
+import type { AnyDiagram } from "../authoring/model.ts";
 import {
-	architectureEdgeLooks,
-	architectureGroupLooks,
-	architectureNodeLooks,
-	architectureStatusLooks,
-	logoUnits,
-	technologyOf,
-} from "../notations/architecture.ts";
+	definitionOf,
+	type EdgeKindDefinition,
+	type GroupKindDefinition,
+	type Notation,
+	type StatusDefinition,
+} from "../notations/notation.ts";
 import { compareText } from "./bundles.ts";
 import { descriptionOf } from "./description.ts";
 import { arrowhead, arrowOutline, chevronPath, globePath, linePath } from "./edge-paths.ts";
 import { hash } from "./encoding.ts";
+import { flowRules } from "./flow.ts";
 import { markSizes } from "./marks.ts";
 import { outlines, type PathData } from "./outlines.ts";
 import type {
@@ -34,11 +35,13 @@ import type {
 	SceneLabel,
 	SceneLogo,
 	SceneNode,
+	SceneRole,
 	SceneStatus,
 	SceneText,
 } from "./scene.ts";
 import { colorUses, embeddedFonts, fontWeights, styleElement, themeRules } from "./style.ts";
-import { collapseSpaces, type FontData, rowTextsOf } from "./text.ts";
+import { logoUnits, technologyOf } from "./technology.ts";
+import { collapseSpaces, type FontData } from "./text.ts";
 import { type Attribute, attributesText, element, empty, indent, number, start } from "./xml.ts";
 
 /** How opaque the hue is in the solid parts of an outline, such as a window's title bar. */
@@ -46,14 +49,28 @@ const solidOpacity = 0.5;
 const badgeStroke = 1.5;
 /** How much wider a callout makes its Node's outline. */
 const highlightGain = 1;
-/** The dashes of a dashed line, a message's or a zone's: 6 px drawn, then 4 px left out. */
+/** The dashes of a dashed line, an Edge's or a Group's border: 6 px drawn, then 4 px left out. */
 const dashes = "6 4";
 
-export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): string {
+/** Writes a Diagram's scene as an SVG, with each Kind's look from the Diagram's Notation. */
+export function writeSvg(
+	diagram: AnyDiagram,
+	notation: Notation,
+	scene: Scene,
+	fontData?: FontData,
+): string {
 	const { bounds } = scene;
 	// Labels are drawn over every Edge, so that no route runs across one.
 	const labels = scene.edges.flatMap(({ id, label }): [string, SceneLabel][] =>
 		label === undefined ? [] : [[id, label]],
+	);
+	// So are role tags, each on its own Edge's line, beneath the labels.
+	const roles = scene.edges.flatMap(({ id, roles }) =>
+		roles.map((role): [string, SceneRole] => [id, role]),
+	);
+	// Each Node's Rows' names, as the model has them: the scene holds them as drawn.
+	const rowNames = new Map(
+		diagram.nodes.map((node) => [node.id, (node.rows ?? []).map((row) => row.name)]),
 	);
 	const size: Attribute[] = [
 		["viewBox", [bounds.x, bounds.y, bounds.width, bounds.height].map(number).join(" ")],
@@ -65,7 +82,7 @@ export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): s
 	// so it stays out of the scope's name, and editing it changes only these lines.
 	const about = [
 		indent(1, element("title", [], collapseSpaces(diagram.title))),
-		indent(1, element("desc", [], descriptionOf(diagram, scene))),
+		indent(1, element("desc", [], descriptionOf(diagram, notation, scene))),
 		indent(1, element("metadata", [], modelText(diagram))),
 	];
 	const body = [
@@ -83,7 +100,11 @@ export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): s
 			? []
 			: [
 					indent(1, start("g", [["class", "diagram-groups"]])),
-					...scene.groups.flatMap((group) => writeGroup(group).map((text) => indent(2, text))),
+					...scene.groups.flatMap((group) =>
+						writeGroup(group, definitionOf(notation.groupKinds, group.kind)).map((text) =>
+							indent(2, text),
+						),
+					),
 					indent(1, "</g>"),
 				]),
 		indent(
@@ -93,12 +114,14 @@ export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): s
 				["fill", "none"],
 			]),
 		),
-		// Edges that cross between regions or zones go beneath the others, so a
-		// trunk they share with Edges that don't shows the plain color.
+		// Edges that cross between Groups go beneath the others, so a trunk they
+		// share with Edges that don't shows the plain color.
 		...[
 			...scene.edges.filter((edge) => edge.crosses !== undefined),
 			...scene.edges.filter((edge) => edge.crosses === undefined),
-		].flatMap((edge) => writeEdge(edge).map((text) => indent(2, text))),
+		].flatMap((edge) =>
+			writeEdge(edge, definitionOf(notation.edgeKinds, edge.kind)).map((text) => indent(2, text)),
+		),
 		...(scene.junctions.length === 0
 			? []
 			: [
@@ -107,6 +130,13 @@ export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): s
 					indent(2, "</g>"),
 				]),
 		indent(1, "</g>"),
+		...(roles.length === 0
+			? []
+			: [
+					indent(1, start("g", [["class", "diagram-roles"]])),
+					...roles.flatMap(([id, role]) => writeRole(id, role).map((text) => indent(2, text))),
+					indent(1, "</g>"),
+				]),
 		...(labels.length === 0
 			? []
 			: [
@@ -115,17 +145,21 @@ export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): s
 					indent(1, "</g>"),
 				]),
 		indent(1, start("g", [["class", "diagram-nodes"]])),
-		...scene.nodes.flatMap((node) => writeNode(node).map((text) => indent(2, text))),
+		...scene.nodes.flatMap((node) =>
+			writeNode(node, notation, rowNames.get(node.id) ?? []).map((text) => indent(2, text)),
+		),
 		indent(1, "</g>"),
 	];
 	const fonts = fontData === undefined ? [] : embeddedFonts(scene, fontData);
-	const uses = colorUses(body);
+	const uses = colorUses(body, notation);
+	const flowing = scene.edges.some((edge) => edge.flow !== undefined);
 	// Inlined into a page, an SVG's style applies to the whole page, so the font's
 	// family and every selector carry a name made from everything else in the SVG.
 	const contents = [
 		attributesText(size),
 		...fonts.map((font) => font.data),
 		...themeRules("", uses),
+		...(flowing ? flowRules("") : []),
 		...body,
 	];
 	const scope = `diagram-${hash(contents.join("\n"))}`;
@@ -137,7 +171,9 @@ export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): s
 			...size,
 		]),
 		...about,
-		...styleElement(scope, fonts, uses).map((text) => indent(1, text)),
+		...styleElement(scope, fonts, uses, flowing ? flowRules(scope) : []).map((text) =>
+			indent(1, text),
+		),
 		...body,
 		"</svg>",
 	];
@@ -145,9 +181,8 @@ export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): s
 }
 
 /** A Group's box, drawn as its Kind draws it, with its title in its label band. */
-function writeGroup(group: SceneGroup): string[] {
+function writeGroup(group: SceneGroup, look: GroupKindDefinition): string[] {
 	const { box, title } = group;
-	const look = architectureGroupLooks[group.kind];
 	return [
 		start("g", [
 			["data-group", group.id],
@@ -177,10 +212,13 @@ function writeGroup(group: SceneGroup): string[] {
  * tinted and stroked in the Kind's hue; its badge, its Technology's logo, its
  * title and its Technology's name; a line across it above its Rows, and their
  * names and values; its status mark; and its callout's tag.
+ *
+ * Each Row's texts sit in a group that carries the Row's name, as an Edge's
+ * group names the Row it ends at. The web component finds a Row by it.
  */
-function writeNode(node: SceneNode): string[] {
+function writeNode(node: SceneNode, notation: Notation, rowNames: string[]): string[] {
 	const { box, badge, title, technology, logo, rows, callout } = node;
-	const look = architectureNodeLooks[node.kind];
+	const look = definitionOf(notation.nodeKinds, node.kind);
 	const outline = outlines[look.outline];
 	// A callout highlights the outline: wider, and in the accent color.
 	const width = callout === undefined ? outline.stroke : outline.stroke + highlightGain;
@@ -251,8 +289,16 @@ function writeNode(node: SceneNode): string[] {
 						...stroke(outline.detail),
 					]),
 				]),
-		...rowTextsOf(node).map((text) => writeText(text, "diagram-text")),
-		...(node.status === undefined ? [] : [writeStatus(node.status)]),
+		...rows.flatMap(({ name, value }, index) => [
+			start("g", [["data-row", rowNames[index] ?? name.text]]),
+			...(value === undefined ? [name] : [name, value]).map((text) =>
+				indent(1, writeText(text, "diagram-text")),
+			),
+			"</g>",
+		]),
+		...(node.status === undefined
+			? []
+			: [writeStatus(node.status, definitionOf(notation.statuses, node.status.value))]),
 		...(callout === undefined
 			? []
 			: [
@@ -322,8 +368,7 @@ function writeText(text: SceneText, className: string): string {
 	);
 }
 
-function writeStatus({ value, mark }: SceneStatus): string {
-	const look = architectureStatusLooks[value];
+function writeStatus({ value, mark }: SceneStatus, look: StatusDefinition): string {
 	const paint: Attribute[] = look.line
 		? [
 				["fill", "none"],
@@ -349,7 +394,7 @@ function writeStatus({ value, mark }: SceneStatus): string {
  * The JSON model, on one line, with every object's fields in code unit order,
  * so that equal models give the same text however they were built.
  */
-function modelText(diagram: Diagram): string {
+function modelText(diagram: AnyDiagram): string {
 	return JSON.stringify(diagram, (_, value: unknown) =>
 		typeof value === "object" && value !== null && !Array.isArray(value)
 			? Object.fromEntries(
@@ -372,26 +417,48 @@ const casingWidth = markSizes.casing;
 
 /**
  * An Edge: its line, as a casing beneath a body; its chevrons, cased alike;
- * its arrowhead; and its badge, if it crosses between regions or zones.
+ * its arrowhead, unless its Kind is symmetric; and its badge, if it crosses
+ * between Groups.
  */
-function writeEdge(edge: SceneEdge): string[] {
-	const line = linePath(edge);
+function writeEdge(edge: SceneEdge, look: EdgeKindDefinition): string[] {
+	const marker = edge.arrowhead;
+	const line = linePath(edge, marker !== undefined && marker.point === edge.toPort.point);
 	const dashed: Attribute[] =
-		architectureEdgeLooks[edge.kind].line === "dashed" ? [["stroke-dasharray", dashes]] : [];
+		look.line === "solid" ? [] : [["stroke-dasharray", look.line === "dotted" ? "1 4" : dashes]];
 	const rounded: Attribute[] = [
 		["stroke-linecap", "round"],
 		["stroke-linejoin", "round"],
 	];
 	const parts = [
 		...cased(line, dashed),
+		...(edge.flow === undefined
+			? []
+			: [
+					empty("path", [
+						["data-flow", edge.id],
+						["d", line],
+						["stroke", "currentColor"],
+						["stroke-width", 3],
+						["stroke-linecap", "round"],
+						["stroke-dasharray", `6 ${number(edge.flow.spacing - 6)}`],
+						[
+							"style",
+							`--diagram-flow-period: ${number(edge.flow.spacing)}px; animation-duration: ${number(edge.flow.spacing / edge.flow.speed)}s`,
+						],
+					]),
+				]),
 		...(edge.chevrons.length === 0 ? [] : cased(edge.chevrons.map(chevronPath).join(" "), rounded)),
-		empty("path", [
-			["class", "diagram-casing"],
-			["d", arrowhead(edge.toPort)],
-			["fill", "currentColor"],
-			["stroke-width", arrowOutline],
-			["stroke-linejoin", "round"],
-		]),
+		...(marker !== undefined
+			? [
+					empty("path", [
+						["class", "diagram-casing"],
+						["d", arrowhead(marker)],
+						["fill", "currentColor"],
+						["stroke-width", arrowOutline],
+						["stroke-linejoin", "round"],
+					]),
+				]
+			: []),
 		...(edge.crosses === undefined ? [] : writeBadge(edge.crosses.badge)),
 	];
 	return [
@@ -456,6 +523,40 @@ function writeLabel(id: string, label: SceneLabel): string[] {
 	];
 }
 
+/** How wide a role tag's outline is, and how far its corners round. */
+const roleOutline = 1;
+const roleCorner = 3;
+
+/**
+ * A role's tag: a box in the background's color, outlined in the Edges'
+ * color, which hides its Edge's line behind the role. Its outline stays
+ * inside the tag. It carries its Edge's id, the end that carries the role,
+ * and the role.
+ */
+function writeRole(id: string, { end, role, tag, text }: SceneRole): string[] {
+	return [
+		start("g", [
+			["data-edge-role", id],
+			["data-end", end],
+			["data-role", role],
+		]),
+		indent(
+			1,
+			empty("rect", [
+				["class", "diagram-role"],
+				["x", tag.x + roleOutline / 2],
+				["y", tag.y + roleOutline / 2],
+				["width", tag.width - roleOutline],
+				["height", tag.height - roleOutline],
+				["rx", roleCorner],
+				["stroke-width", roleOutline],
+			]),
+		),
+		indent(1, writeText(text, "diagram-role-text")),
+		"</g>",
+	];
+}
+
 /** A path stroked as an Edge's line is: a casing, then a body in the Edge's color over it. */
 function cased(d: string, attributes: Attribute[]): string[] {
 	return [
@@ -474,7 +575,7 @@ function cased(d: string, attributes: Attribute[]): string[] {
 	];
 }
 
-/** The badge of an Edge that crosses between regions or zones: a disc in its color, with a globe on it. */
+/** The badge of an Edge that crosses between Groups: a disc in its color, with a globe on it. */
 const globeStroke = 1;
 
 /** A badge, centered on its point: a disc, cased like the Edge, with a globe on it. */

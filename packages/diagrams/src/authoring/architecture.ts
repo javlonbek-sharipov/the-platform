@@ -1,34 +1,17 @@
-/** The builder for architecture Diagrams. */
+/** The builder for architecture Diagrams, and the types of what it's given. */
 
-import type {
-	ArchitectureEdgeKind,
-	ArchitectureGroupKind,
-	ArchitectureNodeKind,
-	ArchitectureStatus,
-	Technology,
-} from "../notations/architecture.ts";
-import { callerOf, type Declarations, declarationsKey } from "./declarations.ts";
+import { type ArchitectureNotation, architectureNotation } from "../notations/architecture.ts";
 import {
-	type Diagram,
-	type Direction,
-	type Edge,
-	endNode,
-	type Group,
-	type Link,
-	type Node,
-	type RowEnd,
-} from "./model.ts";
-import { optionsOf, recordUnknownOptions, unknownOptions } from "./options.ts";
+	type Builder,
+	builderOf,
+	type DiagramDeclaration,
+	type EdgeDeclaration,
+	type GroupDeclaration,
+	type NodeDeclaration,
+	type RowDeclaration,
+} from "./builder.ts";
 
-export interface ArchitectureOptions {
-	/** Only for Diagrams built outside the Atlas, which assigns ids from paths. */
-	id?: string;
-	title: string;
-	/** What the Diagram shows, which isn't drawn. The SVG carries it in its model. */
-	description?: string;
-	/** Which way the ranks run: `right`, the default, or `down`. */
-	direction?: Direction;
-}
+export type ArchitectureOptions = DiagramDeclaration;
 
 /**
  * A Node to declare. It's a plain object, so a Node can be defined once in a
@@ -38,135 +21,27 @@ export interface ArchitectureOptions {
  *
  * `R` is the names of its Rows.
  */
-export interface ArchitectureNode<R extends string = string> {
-	id: string;
-	kind: ArchitectureNodeKind;
-	title: string;
-	/**
-	 * What it's built with: a product, language or protocol's slug, such as
-	 * `postgres` or `go`, drawn in its header as its logo and its name. Editors
-	 * offer the slugs that have a logo, but any slug works.
-	 */
-	technology?: Technology;
-	/** Whether the Node stands for something we don't own or run, drawn with a dashed outline. */
-	external?: boolean;
-	/** How the Node is doing, shown as a mark at the end of its header. */
-	status?: ArchitectureStatus;
-	/** Shown below the header, each with its name on the left and its value on the right. */
-	rows?: readonly ArchitectureRow<R>[];
-	/** What the Node is, which isn't drawn. The SVG carries it in its model. */
-	description?: string;
-	links?: readonly Link[];
-	/** A short tag above the Node that draws attention to it, such as `single point of failure`. */
-	callout?: string;
-}
+export type ArchitectureNode<R extends string = string> = NodeDeclaration<ArchitectureNotation, R>;
 
 /** A Row to declare on a Node, such as `{ name: "replicas", value: "3" }`. */
-export interface ArchitectureRow<R extends string = string> {
-	/** It names the Row for the Edge ends that attach to it, so each Row of a Node needs its own. */
-	name: R;
-	value?: string;
-}
+export type ArchitectureRow<R extends string = string> = RowDeclaration<R>;
 
 /**
  * A Group to declare. Like a Node, it's a plain object, so one definition can
  * serve several Diagrams: a `system` can be a Node on one and a Group on
  * another.
  */
-export interface ArchitectureGroup {
-	id: string;
-	kind: ArchitectureGroupKind;
-	title: string;
-	/** What the Group is, which isn't drawn. The SVG carries it in its model. */
-	description?: string;
-	links?: readonly Link[];
-}
+export type ArchitectureGroup = GroupDeclaration<ArchitectureNotation>;
 
-/**
- * What a Node declaration returns. Later calls accept it in place of the id.
- * It carries the names of the Node's Rows, `R`, so that naming a Row the Node
- * doesn't have is a type error.
- */
-export interface NodeHandle<R extends string = never> {
-	readonly id: string;
-	/** An Edge end at one of the Node's Rows, by its name. */
-	row(name: R): RowEnd;
-}
-
-/** What a Group declaration returns. */
-export interface GroupHandle {
-	readonly id: string;
-}
-
-export interface EdgeHandle {
-	readonly id: string;
-}
-
-/**
- * An Edge end: a Node handle, or the id of a Node declared on the same
- * Diagram, or one of a Node's Rows, as `handle.row(name)` gives it or as
- * `{ node: id, row: name }`.
- */
-export type EdgeEnd = NodeHandle | RowEnd | string;
-
-export interface EdgeOptions {
-	kind: ArchitectureEdgeKind;
-	/** Defaults to the two ends' ids, as in `checkout-api->payments-api`. */
-	id?: string;
-	/** What passes over the Edge, drawn beside it, such as `Places orders`. */
-	label?: string;
-	/**
-	 * How it travels: a product or protocol's slug, such as `grpc` or `kafka`,
-	 * drawn below the label, after its logo if it has one. Editors offer the
-	 * slugs that have a logo, but any slug works.
-	 */
-	technology?: Technology;
-	/** How much passes over it, as in `2k/s` or `30/min`: drawn below the label. */
-	rate?: string;
-}
+/** What an Edge is declared with, between its two ends. */
+export type EdgeOptions = EdgeDeclaration<ArchitectureNotation>;
 
 /**
  * Declares the members of one parent: the Diagram, or a Group. Each Node and
  * Group it declares joins that parent, so each one has exactly one parent by
  * construction. Edges belong to the Diagram, whichever builder declares them.
  */
-export interface ArchitectureBuilder {
-	node<R extends string = never>(node: ArchitectureNode<R>): NodeHandle<R>;
-	/** Declares a Group, whose members `build` declares with the builder it's given. */
-	group(group: ArchitectureGroup, build: (group: ArchitectureBuilder) => void): GroupHandle;
-	edge(from: EdgeEnd, to: EdgeEnd, options: EdgeOptions): EdgeHandle;
-}
-
-/** The options that each function of the builder takes, for the errors about any other. */
-const known = {
-	diagram: optionsOf<ArchitectureOptions>({
-		id: true,
-		title: true,
-		description: true,
-		direction: true,
-	}),
-	node: optionsOf<ArchitectureNode>({
-		id: true,
-		kind: true,
-		title: true,
-		technology: true,
-		external: true,
-		status: true,
-		rows: true,
-		description: true,
-		links: true,
-		callout: true,
-	}),
-	row: optionsOf<ArchitectureRow>({ name: true, value: true }),
-	group: optionsOf<ArchitectureGroup>({
-		id: true,
-		kind: true,
-		title: true,
-		description: true,
-		links: true,
-	}),
-	edge: optionsOf<EdgeOptions>({ kind: true, id: true, label: true, technology: true, rate: true }),
-};
+export type ArchitectureBuilder = Builder<ArchitectureNotation>;
 
 /**
  * Builds an architecture Diagram. The result is the JSON model itself. Beside
@@ -174,126 +49,4 @@ const known = {
  * called from, so that the Atlas can point diagnostics at their lines, and an
  * error for each option it doesn't know, so that validation rejects it.
  */
-export function architecture(
-	options: ArchitectureOptions,
-	build: (diagram: ArchitectureBuilder) => void,
-): Diagram {
-	const nodes: Node[] = [];
-	const groups: Group[] = [];
-	const edges: Edge[] = [];
-	const members: string[] = [];
-	const declarations: Declarations = {};
-	const declare = (pointer: string, callee: (...args: never[]) => unknown) => {
-		const position = callerOf(callee);
-		if (position !== undefined) {
-			declarations[pointer] = position;
-		}
-	};
-	declare("", architecture);
-	const unknown = unknownOptions(options, known.diagram, "The Diagram", "");
-
-	/** A builder whose Nodes and Groups join `parent`, the members list of the Diagram or of one Group. */
-	const builderFor = (parent: string[]): ArchitectureBuilder => {
-		const builder: ArchitectureBuilder = {
-			node(node) {
-				const at = `/nodes/${nodes.length}`;
-				declare(at, builder.node);
-				const { id, kind, title, technology, external, status, rows, description, links, callout } =
-					node;
-				unknown.push(...unknownOptions(node, known.node, "A Node", at));
-				rows?.forEach((row, index) => {
-					unknown.push(...unknownOptions(row, known.row, "A Row", `${at}/rows/${index}`));
-				});
-				nodes.push({
-					id,
-					kind,
-					title,
-					...(technology === undefined ? {} : { technology }),
-					...(external === undefined ? {} : { external }),
-					...(status === undefined ? {} : { status }),
-					...(rows === undefined
-						? {}
-						: {
-								rows: rows.map(({ name, value }) =>
-									value === undefined ? { name } : { name, value },
-								),
-							}),
-					...(description === undefined ? {} : { description }),
-					...copyLinks(links),
-					...(callout === undefined ? {} : { callout }),
-				});
-				parent.push(id);
-				return Object.freeze({ id, row: (name: string) => Object.freeze({ node: id, row: name }) });
-			},
-			group(definition, buildGroup) {
-				const at = `/groups/${groups.length}`;
-				declare(at, builder.group);
-				const { id, kind, title, description, links } = definition;
-				unknown.push(...unknownOptions(definition, known.group, "A Group", at));
-				const group: Group = {
-					id,
-					kind,
-					title,
-					members: [],
-					...(description === undefined ? {} : { description }),
-					...copyLinks(links),
-				};
-				groups.push(group);
-				parent.push(id);
-				buildGroup(builderFor(group.members));
-				return Object.freeze({ id });
-			},
-			edge(from, to, options) {
-				const at = `/edges/${edges.length}`;
-				declare(at, builder.edge);
-				const { kind, id, label, technology, rate } = options;
-				unknown.push(...unknownOptions(options, known.edge, "An Edge", at));
-				const fromEnd = modelEnd(from);
-				const toEnd = modelEnd(to);
-				// A default id names the two Nodes, whatever their Rows.
-				const edge: Edge = {
-					id: id ?? `${endNode(fromEnd)}->${endNode(toEnd)}`,
-					kind,
-					from: fromEnd,
-					to: toEnd,
-					...(label === undefined ? {} : { label }),
-					...(technology === undefined ? {} : { technology }),
-					...(rate === undefined ? {} : { rate }),
-				};
-				edges.push(edge);
-				return Object.freeze({ id: edge.id });
-			},
-		};
-		return builder;
-	};
-	build(builderFor(members));
-
-	const diagram: Diagram = {
-		version: 1,
-		notation: "architecture",
-		...(options.id === undefined ? {} : { id: options.id }),
-		title: options.title,
-		...(options.description === undefined ? {} : { description: options.description }),
-		direction: options.direction ?? "right",
-		members,
-		nodes,
-		groups,
-		edges,
-		walkthroughs: [],
-	};
-	Object.defineProperty(diagram, declarationsKey, { value: declarations });
-	return recordUnknownOptions(diagram, unknown);
-}
-
-/** An Edge end as the model writes it: a Node's id, or a Row end of its own. */
-function modelEnd(end: EdgeEnd): Edge["from"] {
-	if (typeof end === "string") {
-		return end;
-	}
-	return "node" in end ? { node: end.node, row: end.row } : end.id;
-}
-
-/** The model's own copy of each Link, so that a shared definition never changes with it. */
-function copyLinks(links: readonly Link[] | undefined): { links?: Link[] } {
-	return links === undefined ? {} : { links: links.map((link) => ({ ...link })) };
-}
+export const architecture = builderOf(architectureNotation);

@@ -3,7 +3,14 @@
  * SVG read back with its style, and the parts of a Node's drawing.
  */
 
-import { type Box, render, type Scene, type SceneEdge, type SceneNode } from "../../src/index.ts";
+import {
+	type Box,
+	type RenderOptions,
+	render,
+	type Scene,
+	type SceneEdge,
+	type SceneNode,
+} from "../../src/index.ts";
 import {
 	colorUnder,
 	computedStyle,
@@ -20,8 +27,8 @@ import {
 	type Theme,
 } from "./svg.ts";
 
-export function sceneOf(diagram: unknown): Scene {
-	const { scene } = render(diagram);
+export function sceneOf(diagram: unknown, options?: RenderOptions): Scene {
+	const { scene } = render(diagram, options);
 	if (scene === undefined) {
 		throw new Error("expected a scene");
 	}
@@ -43,8 +50,8 @@ export interface Drawn {
 	rules: Rule[];
 }
 
-export function draw(diagram: unknown): Drawn {
-	const { scene, svg } = render(diagram);
+export function draw(diagram: unknown, options?: RenderOptions): Drawn {
+	const { scene, svg } = render(diagram, options);
 	if (scene === undefined || svg === undefined) {
 		throw new Error("expected a scene and an SVG");
 	}
@@ -129,6 +136,24 @@ export function fillAndBackground(drawn: Drawn, id: string, theme: Theme) {
 	};
 }
 
+/** How far a point is from the nearest stretch of any of the shapes' outlines. */
+export function distanceToShapes(point: Point, runs: Point[][]): number {
+	let nearest = Number.POSITIVE_INFINITY;
+	for (const run of runs) {
+		run.forEach((a, index) => {
+			const b = run[(index + 1) % run.length] ?? a;
+			const [dx, dy] = [b.x - a.x, b.y - a.y];
+			const length = dx * dx + dy * dy;
+			const t =
+				length === 0
+					? 0
+					: Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / length));
+			nearest = Math.min(nearest, Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy)));
+		});
+	}
+	return nearest;
+}
+
 /** The group that draws an Edge, which carries its id. */
 export function edgeGroupOf({ root }: Drawn, id: string): Element {
 	const group = descendants(root).find((element) => element.attributes.get("data-edge") === id);
@@ -179,7 +204,11 @@ export function linesOf(drawn: Drawn, edge: SceneEdge, theme: Theme = "light"): 
 			return false;
 		}
 		const style = computedStyle(shape, drawn.rules, theme);
-		return style.get("fill") === "none" && style.get("stroke") !== "none";
+		return (
+			style.get("display") !== "none" &&
+			style.get("fill") === "none" &&
+			style.get("stroke") !== "none"
+		);
 	});
 }
 

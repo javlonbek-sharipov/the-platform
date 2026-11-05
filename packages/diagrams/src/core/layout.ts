@@ -14,12 +14,21 @@
  * members, and an Edge that leaves the level is ignored there.
  */
 
-import { type Diagram, type Direction, type Edge, endNode, parentsOf } from "../authoring/model.ts";
+import {
+	type AnyDiagram,
+	type AnyEdge,
+	type AnyNode,
+	type Direction,
+	endNode,
+	parentsOf,
+} from "../authoring/model.ts";
+import { definitionOf, type Notation } from "../notations/notation.ts";
 import { type Bundling, laneGroups, lanes } from "./bundles.ts";
 import { roundUp } from "./geometry.ts";
 import { labelEnds, labelSize } from "./labels.ts";
 import { arrange, type Connection, type Member } from "./layers.ts";
 import { faceOf, frameOf, type NodeFrame, partsOf, rowHeight } from "./nodes.ts";
+import { roleSpacing, rolesExtent } from "./roles.ts";
 import type { Box, Point, SceneGroup, SceneNode, ScenePort, Side } from "./scene.ts";
 import { groupLabelPadding, groupTitle, rowTexts } from "./text.ts";
 
@@ -114,12 +123,14 @@ const axesOf: Record<Direction, Axes> = {
 const extentOf = { x: "width", y: "height" } as const;
 
 /**
- * Lays the Diagram out. Each gap between ranks leaves room for a lane for
- * each lane group whose Edges cross it, so layout takes the bundling, and the
+ * Lays the Diagram out, with each Node the size its Kind has in the
+ * Diagram's Notation. Each gap between ranks leaves room for a lane for each
+ * lane group whose Edges cross it, so layout takes the bundling, and the
  * labeled Edges that keep lanes of their own, as the router will route them.
  */
 export function layOut(
-	diagram: Diagram,
+	diagram: AnyDiagram,
+	notation: Notation,
 	bundle: Bundling,
 	ownLanes: ReadonlySet<string> = new Set(),
 ): Layout {
@@ -134,16 +145,30 @@ export function layOut(
 	 * where it sits above or below a run across the gap, and as tall for
 	 * `down`.
 	 */
-	const labelRoom = (edge: Edge) => {
+	const labelRoom = (edge: AnyEdge) => {
 		const size = labelSize(edge);
 		return size === undefined ? 0 : size[extentOf[rank]] + 2 * labelEnds;
+	};
+	/**
+	 * The room an Edge's role tags need along the rank axis at each of its
+	 * ends, past its Port's stub: the tags, side by side for `right` and one
+	 * after another for `down`, their margin from the stub, and half of the
+	 * bare line between the two ends' tags.
+	 */
+	const roleRoom = (edge: AnyEdge) => {
+		const room = (roles: readonly string[] = []) =>
+			roles.length === 0
+				? 0
+				: roleSpacing.margin + rolesExtent(roles, rank === "x") + roleSpacing.between / 2;
+		return { from: room(edge.roles?.from), to: room(edge.roles?.to) };
 	};
 	// Each Edge's lane group, so that each gap between ranks leaves room for a
 	// lane for each group that crosses it.
 	const laneOf = laneGroups(diagram, bundle, ownLanes);
 	const groupsById = new Map(diagram.groups.map((group) => [group.id, group]));
+	const lookOf = (node: AnyNode) => definitionOf(notation.nodeKinds, node.kind);
 	// A Node is as tall as its Kind's header and its Rows' bands together.
-	const frames = new Map(diagram.nodes.map((node) => [node.id, frameOf(node)]));
+	const frames = new Map(diagram.nodes.map((node) => [node.id, frameOf(node, lookOf(node))]));
 	/** The Group that each Node or Group is a member of, unless it's on the Diagram itself. */
 	const parentOf = parentsOf(diagram);
 
@@ -209,7 +234,13 @@ export function layOut(
 			if (from === undefined || to === undefined) {
 				continue;
 			}
-			connections.push({ from, to, lane: laneOf.get(edge.id) ?? edge.id, label: labelRoom(edge) });
+			connections.push({
+				from,
+				to,
+				lane: laneOf.get(edge.id) ?? edge.id,
+				label: labelRoom(edge),
+				ends: roleRoom(edge),
+			});
 			if (from !== to) {
 				anchors.set(from, anchors.get(from) ?? fromNode);
 				anchors.set(to, anchors.get(to) ?? toNode);
@@ -262,17 +293,19 @@ export function layOut(
 
 	const nodes = diagram.nodes.map((node): SceneNode => {
 		const corner = drawing.nodes.get(node.id) ?? { x: 0, y: 0 };
-		const frame = frames.get(node.id) ?? frameOf(node);
+		const look = lookOf(node);
+		const frame = frames.get(node.id) ?? frameOf(node, look);
 		const { width, height } = frame;
 		const box = { x: origin.x + corner.x, y: origin.y + corner.y, width, height };
 		const ports = box[order] + axes.toPorts(frame);
 		const { header, badge, title, technology, logo, status, callout } = partsOf(
 			node,
+			look,
 			box,
 			diagram.direction,
 		);
 		// Row text keeps to the outline's face, as the title does.
-		const face = faceOf(node, box);
+		const face = faceOf(look, box);
 		return {
 			id: node.id,
 			kind: node.kind,

@@ -4,15 +4,21 @@ import { callerOf, declarationsKey } from "./declarations.ts";
 import { recordUnknownOptions, unknownOptions } from "./options.ts";
 
 /**
- * The Atlas config. It has no settings yet: its file marks the repo root, and
- * so the Atlas. Slice 2 adds the bounded contexts that have a glossary.
+ * A bounded context with a glossary. Paths are relative to the Atlas root.
  */
-export type AtlasConfig = Record<string, never>;
+export interface AtlasContext {
+	glossary: string;
+}
+
+/** Context ids are kebab-case namespace ids, as the Diagrams use them. */
+export interface AtlasConfig {
+	contexts?: Readonly<Record<string, AtlasContext>>;
+}
 
 /**
  * The config file default-exports what this returns. Beside the config, under
  * keys that JSON leaves out, it records where it was called from, and an error
- * for each option, since the config has none yet, so that lint rejects them.
+ * for each option it does not know, so that lint rejects misspellings.
  */
 export function atlas(config: AtlasConfig): AtlasConfig {
 	const built = { ...config };
@@ -20,5 +26,8 @@ export function atlas(config: AtlasConfig): AtlasConfig {
 	Object.defineProperty(built, declarationsKey, {
 		value: position === undefined ? {} : { "": position },
 	});
-	return recordUnknownOptions(built, unknownOptions(config, [], "The Atlas config", ""));
+	return recordUnknownOptions(
+		built,
+		unknownOptions(config, { known: ["contexts"] }, "The Atlas config", ""),
+	);
 }

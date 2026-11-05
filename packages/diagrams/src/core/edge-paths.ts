@@ -1,21 +1,23 @@
 /**
  * The path data of what the SVG writer draws along an Edge: its line, in
  * pieces between hops, with its corners' arcs; its arrowhead; its chevrons;
- * and the globe on its badge, when it crosses between regions or zones.
+ * and the globe on its badge, when it crosses between Groups.
  */
 
+import { arrowSize } from "./arrowheads.ts";
 import { headingOf } from "./geometry.ts";
 import { markSizes } from "./marks.ts";
-import type { Point, RoutePoint, SceneChevron, SceneEdge, ScenePort } from "./scene.ts";
+import type { Point, RoutePoint, SceneChevron, SceneEdge } from "./scene.ts";
 import { number } from "./xml.ts";
 
 /**
  * The arrowhead at an Edge's target: how far it reaches back from its tip, and
  * half its width there. Its outline is the casing's, a pixel wide.
  */
-const arrowLength = 8;
-const arrowHalfWidth = 4.5;
-export const arrowOutline = 1;
+const { length: arrowLength, halfWidth: arrowHalfWidth, outline: arrowOutline } = arrowSize;
+
+export { arrowOutline };
+
 /** The globe on a badge: its radius, and the half-width of its meridian. */
 const globeRadius = 3.5;
 const meridian = 1.5;
@@ -23,17 +25,19 @@ const meridian = 1.5;
 /**
  * The path data of an Edge's line: each piece of its stroke, between hops, as
  * a subpath of its own, so that hops show as gaps in both casing and body.
- * The piece at the target stops just inside the arrowhead, so that the
- * casing doesn't show beside the tip. The pieces are written from the target
- * back, so that the dashes of a dashed line start there: the Edges of one
- * bundle end at one Port, hop together, and so dash alike along the trunk
+ * Under an arrowhead, the piece at the target stops just inside it, so that
+ * the casing doesn't show beside the tip. The pieces are written from the
+ * target back, so that the dashes of a dashed line start there: the Edges of
+ * one bundle end at one Port, hop together, and so dash alike along the trunk
  * they share.
  */
-export function linePath({ route, stroke }: SceneEdge): string {
+export function linePath({ route, stroke }: SceneEdge, arrow: boolean): string {
 	const pieces = stroke.length === 0 ? [route] : stroke;
 	return pieces
 		.map((piece, index) =>
-			index === pieces.length - 1 ? trimmed(piece, arrowLength - arrowOutline) : [...piece],
+			arrow && index === pieces.length - 1
+				? trimmed(piece, arrowLength - arrowOutline)
+				: [...piece],
 		)
 		.reverse()
 		.map((piece) => pathData(piece.reverse()))
@@ -65,8 +69,7 @@ export function chevronPath({ point, heading: way }: SceneChevron): string {
  * The arrowhead at a Port: a triangle whose tip touches the Node's side, and
  * which points into the Node, along the Port's stub.
  */
-export function arrowhead({ point, stub }: ScenePort): string {
-	const into = headingOf(stub, point);
+export function arrowhead({ point, heading: into }: SceneChevron): string {
 	const base = { x: point.x - into.x * arrowLength, y: point.y - into.y * arrowLength };
 	const across = { x: -into.y * arrowHalfWidth, y: into.x * arrowHalfWidth };
 	return [

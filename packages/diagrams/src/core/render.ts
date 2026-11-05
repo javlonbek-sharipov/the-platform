@@ -4,12 +4,16 @@
  * errors, it also returns the scene and the SVG.
  */
 
-import { type Bundling, defaultBundling, lanes } from "./bundles.ts";
+import type { Notation } from "../notations/notation.ts";
+import { notations } from "../notations/notations.ts";
+import { placeArrowheads } from "./arrowheads.ts";
+import { type Bundling, lanes } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { hop } from "./hops.ts";
 import { labelSpacing } from "./labels.ts";
 import { clearance, grid, layOut, margin } from "./layout.ts";
 import { junctionsOf, markEdges } from "./marks.ts";
+import { roleSpacing } from "./roles.ts";
 import { route } from "./route.ts";
 import type { Box, Scene, SceneEdge } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
@@ -24,10 +28,9 @@ export interface RenderResult {
 
 export interface RenderOptions {
 	/**
-	 * Which Edges share a trunk: those of one Kind into one Port (`target`,
-	 * which the architecture Notation uses and the default), those of one Kind
-	 * out of one Port (`source`), or none. A later Notation may bundle
-	 * differently, and tests compare the three.
+	 * Which Edges share a trunk: those of one Kind into one Port (`target`),
+	 * those of one Kind out of one Port (`source`), or none. The default is
+	 * the bundling of the Diagram's Notation, and tests compare the three.
 	 */
 	bundle?: Bundling;
 	/**
@@ -35,6 +38,11 @@ export interface RenderOptions {
 	 * SVG embeds no font, which suits callers that only look at the scene.
 	 */
 	fontData?: FontData;
+	/**
+	 * The Notations that the Diagram may be written in, each by its definition.
+	 * The default is the engine's own.
+	 */
+	notations?: readonly Notation[];
 	/**
 	 * How many states each Edge's route search may visit. An Edge whose search
 	 * runs out falls back to a simple route, with a warning. The default is well
@@ -51,27 +59,31 @@ export interface RenderOptions {
 const rounds = 5;
 
 export function render(diagram: unknown, options: RenderOptions = {}): RenderResult {
-	const validation = validate(diagram);
+	const validation = validate(diagram, options.notations ?? notations);
 	if (validation.diagram === undefined) {
 		return { diagnostics: validation.diagnostics };
 	}
-	const model = validation.diagram;
+	const { diagram: model, notation } = validation;
 	// A labeled Edge that its bundle's trunk leaves no run of its own that holds
 	// its label keeps a lane of its own instead (spec: Edge routing, step 8).
 	// Layout leaves room for that lane too, so both run again, until no trunk
 	// crowds out another label.
 	const ownLanes = new Set<string>();
-	const bundle = options.bundle ?? defaultBundling;
-	let { nodes, groups } = layOut(model, bundle, ownLanes);
+	const bundle = options.bundle ?? notation.bundling;
+	let { nodes, groups } = layOut(model, notation, bundle, ownLanes);
 	let routing = route(model, nodes, groups, { ...options, bundle, ownLanes });
 	for (let round = 1; round < rounds && routing.crowdedOut.length > 0; round += 1) {
 		for (const id of routing.crowdedOut) {
 			ownLanes.add(id);
 		}
-		({ nodes, groups } = layOut(model, bundle, ownLanes));
+		({ nodes, groups } = layOut(model, notation, bundle, ownLanes));
 		routing = route(model, nodes, groups, { ...options, bundle, ownLanes });
 	}
-	const edges = markEdges(model, routing.edges);
+	const edges = markEdges(model, notation, routing.edges);
+	const arrowDiagnostics = placeArrowheads(notation, edges, [
+		...nodes.flatMap(({ box, callout }) => (callout === undefined ? [box] : [box, callout.tag])),
+		...groups.map(({ label }) => label),
+	]);
 	const scene: Scene = {
 		bounds: boundsOf(
 			[
@@ -80,6 +92,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 				),
 				...groups.map(({ box }) => box),
 				...edges.flatMap(({ label }) => (label === undefined ? [] : [label.box])),
+				...edges.flatMap(({ roles }) => roles.map(({ tag }) => tag)),
 			],
 			edges,
 		),
@@ -87,24 +100,29 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		grid,
 		lanes,
 		labelSpacing,
+		roleSpacing,
 		hop,
 		nodes,
 		groups,
 		edges,
 		junctions: junctionsOf(routing.edges),
-		diagnostics: [...textDiagnostics(model, nodes, groups, edges), ...routing.diagnostics],
+		diagnostics: [
+			...textDiagnostics(model, nodes, groups, edges),
+			...routing.diagnostics,
+			...arrowDiagnostics,
+		],
 	};
 	return {
 		diagnostics: [...validation.diagnostics, ...scene.diagnostics],
 		scene,
-		svg: writeSvg(model, scene, options.fontData),
+		svg: writeSvg(model, notation, scene, options.fontData),
 	};
 }
 
 /**
  * The bounds of the drawing, with a margin: every Node's and Group's box,
- * every callout's tag, which sits above its Node, every label, and every
- * route.
+ * every callout's tag, which sits above its Node, every label, every role
+ * tag, and every route.
  */
 function boundsOf(boxes: Box[], edges: SceneEdge[]): Box {
 	const xs = [

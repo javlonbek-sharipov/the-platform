@@ -8,25 +8,41 @@
 import schema from "@the-platform/diagrams/diagram.schema.json" with { type: "json" };
 import { Ajv2020, type ErrorObject } from "ajv/dist/2020.js";
 
-const validator = new Ajv2020({ strict: true, allErrors: true }).compile(schema);
-
-/** What the schema finds wrong with a model: nothing, when the model passes. */
-export function schemaErrors(model: unknown): ErrorObject[] {
-	return validator(model) ? [] : [...(validator.errors ?? [])];
+/** A schema, compiled: what it finds wrong with a model, and where. */
+export interface SchemaChecker {
+	/** What the schema finds wrong with a model: nothing, when the model passes. */
+	errors(model: unknown): ErrorObject[];
+	/**
+	 * Where the schema finds a model wrong: a JSON Pointer for each problem,
+	 * once each, in Ajv's order. A missing field, or one the schema doesn't
+	 * allow, is pointed at by its own name, as the core's diagnostics point at it.
+	 */
+	pointers(model: unknown): string[];
 }
 
-/**
- * Where the schema finds a model wrong: a JSON Pointer for each problem,
- * once each, in Ajv's order. A missing field, or one the schema doesn't
- * allow, is pointed at by its own name, as the core's diagnostics point at it.
- */
-export function schemaPointers(model: unknown): string[] {
-	const pointers = schemaErrors(model).map(({ instancePath, params }) => {
-		const field = params.missingProperty ?? params.additionalProperty;
-		return typeof field === "string" ? `${instancePath}/${escaped(field)}` : instancePath;
-	});
-	return [...new Set(pointers)];
+/** Compiles a JSON Schema for the model, such as one generated for other Notations. */
+export function schemaChecker(schema: object): SchemaChecker {
+	const validator = new Ajv2020({ strict: true, allErrors: true }).compile(schema);
+	const errors = (model: unknown) => (validator(model) ? [] : [...(validator.errors ?? [])]);
+	return {
+		errors,
+		pointers(model) {
+			const pointers = errors(model).map(({ instancePath, params }) => {
+				const field = params.missingProperty ?? params.additionalProperty;
+				return typeof field === "string" ? `${instancePath}/${escaped(field)}` : instancePath;
+			});
+			return [...new Set(pointers)];
+		},
+	};
 }
+
+const shipped = schemaChecker(schema);
+
+/** What the shipped schema finds wrong with a model: nothing, when the model passes. */
+export const schemaErrors = shipped.errors;
+
+/** Where the shipped schema finds a model wrong. */
+export const schemaPointers = shipped.pointers;
 
 /** A field's name as a segment of a JSON Pointer. */
 function escaped(field: string): string {

@@ -4,47 +4,65 @@
  */
 
 import {
-	type Diagram,
-	type Edge,
+	type AnyDiagram,
+	type AnyEdge,
+	type AnyGroup,
+	type AnyNode,
+	type Direction,
+	type EdgeRoles,
 	endNode,
-	type Group,
 	type Link,
-	type Node,
 	type Row,
 	type RowEnd,
 } from "../authoring/model.ts";
 import { unknownOptionsOf } from "../authoring/options.ts";
 import {
-	architectureEdgeKinds,
-	architectureGroupKinds,
-	architectureNodeKinds,
-	architectureStatuses,
-} from "../notations/architecture.ts";
+	type EdgeField,
+	edgeKindsOf,
+	endRolesOf,
+	type GroupField,
+	groupKindsOf,
+	hasField,
+	type NodeField,
+	type Notation,
+	nodeKindsOf,
+	rolesOf,
+	statusesOf,
+} from "../notations/notation.ts";
 import { codePointOf, type Diagnostic, list, pointerSegment } from "./diagnostics.ts";
 import { type TextField, type TextOwner, textsOf } from "./texts.ts";
 
-export interface Validation {
-	diagnostics: Diagnostic[];
-	/** The Diagram, when it has no errors. */
-	diagram?: Diagram;
-}
-
-const nodeKinds: readonly string[] = architectureNodeKinds;
-const groupKinds: readonly string[] = architectureGroupKinds;
-const edgeKinds: readonly string[] = architectureEdgeKinds;
-const statuses: readonly string[] = architectureStatuses;
+/** What validation found: only diagnostics, or a Diagram without errors and its Notation. */
+export type Validation =
+	| { diagnostics: Diagnostic[]; diagram?: undefined }
+	| { diagnostics: Diagnostic[]; diagram: AnyDiagram; notation: Notation };
 
 const kebabCase = "[a-z0-9]+(?:-[a-z0-9]+)*";
-/** Lowercase kebab-case words, optionally namespaced by a context, as in `billing/order`. */
 const id = `${kebabCase}(?:/${kebabCase})*`;
-const idPattern = new RegExp(`^${id}$`);
-/** An id, or an Edge's default name: its two ends' ids joined by `->`. */
-const edgeIdPattern = new RegExp(`^${id}(?:->${id})?$`);
-/** A Technology's slug: lowercase words joined by hyphens, as in `postgres` or `aws-lambda`. */
-export const slugPattern = new RegExp(`^${kebabCase}$`);
-/** A number, an optional `k` or `M`, a slash, and `s`, `min` or `h`, as in `2k/s` or `30/min`. */
-const ratePattern = /^[0-9]+(?:\.[0-9]+)?[kM]?\/(?:s|min|h)$/;
+/**
+ * How the model writes ids, Technologies and rates, as the patterns that the
+ * JSON Schema holds too, so that both read each one alike.
+ */
+export const formats = {
+	/** Lowercase kebab-case words, optionally namespaced by a context, as in `billing/order`. */
+	id: `^${id}$`,
+	/** An id, or an Edge's default name: its two ends' ids joined by `->`. */
+	edgeId: `^${id}(?:->${id})?$`,
+	/** A Technology's slug: lowercase words joined by hyphens, as in `postgres` or `aws-lambda`. */
+	slug: `^${kebabCase}$`,
+	/** A number, an optional `k` or `M`, a slash, and `s`, `min` or `h`, as in `2k/s` or `30/min`. */
+	rate: "^[0-9]+(?:\\.[0-9]+)?[kM]?/(?:s|min|h)$",
+};
+const idPattern = new RegExp(formats.id);
+const edgeIdPattern = new RegExp(formats.edgeId);
+export const slugPattern = new RegExp(formats.slug);
+const ratePattern = new RegExp(formats.rate);
 
+/**
+ * Which way a Diagram's ranks run when its model doesn't say. The builder
+ * always says, but generated JSON may leave `direction` out.
+ */
+export const defaultDirection: Direction = "right";
 const directions: unknown[] = [undefined, "right", "down"];
 
 /**
@@ -58,10 +76,12 @@ function fieldsOf<T>(fields: Record<keyof T, true>): readonly string[] {
 
 /**
  * Every field that a version-1 model may have. Any other is an error, as the
- * types make it one, so that a misspelled field is never silently ignored.
+ * types make it one, so that a misspelled field is never silently ignored. Of
+ * the optional fields of a Node, a Group and an Edge, a Diagram may have only
+ * those that its Notation's definition lists.
  */
 const fields = {
-	diagram: fieldsOf<Diagram>({
+	diagram: fieldsOf<AnyDiagram>({
 		version: true,
 		notation: true,
 		id: true,
@@ -74,7 +94,7 @@ const fields = {
 		edges: true,
 		walkthroughs: true,
 	}),
-	node: fieldsOf<Node>({
+	node: fieldsOf<AnyNode>({
 		id: true,
 		kind: true,
 		title: true,
@@ -87,7 +107,7 @@ const fields = {
 		callout: true,
 	}),
 	row: fieldsOf<Row>({ name: true, value: true }),
-	group: fieldsOf<Group>({
+	group: fieldsOf<AnyGroup>({
 		id: true,
 		kind: true,
 		title: true,
@@ -95,7 +115,7 @@ const fields = {
 		description: true,
 		links: true,
 	}),
-	edge: fieldsOf<Edge>({
+	edge: fieldsOf<AnyEdge>({
 		id: true,
 		kind: true,
 		from: true,
@@ -103,17 +123,43 @@ const fields = {
 		label: true,
 		technology: true,
 		rate: true,
+		roles: true,
 	}),
+	roles: fieldsOf<EdgeRoles>({ from: true, to: true }),
 	rowEnd: fieldsOf<RowEnd>({ node: true, row: true }),
-	link: fieldsOf<Link>({ id: true, doc: true, section: true, label: true }),
+	link: fieldsOf<Link>({
+		id: true,
+		doc: true,
+		term: true,
+		context: true,
+		section: true,
+		label: true,
+	}),
 };
 
-export function validate(input: unknown): Validation {
-	const shape = checkShape(input);
+/**
+ * Checks a Diagram against the model's rules and its Notation's, which is
+ * the one of `notations` that it names.
+ */
+export function validate(input: unknown, notations: readonly Notation[]): Validation {
+	const read = readNotation(input, notations);
+	if ("diagnostics" in read) {
+		return read;
+	}
+	const { notation } = read;
+	const shape = checkShape(read.model, notation);
 	if (shape.length > 0) {
 		return { diagnostics: shape };
 	}
-	const diagram = input as Diagram;
+	// Everything after validation reads the Diagram with its direction filled in.
+	const diagram = {
+		...read.model,
+		direction: read.model.direction ?? defaultDirection,
+	} as AnyDiagram;
+	const nodeKinds: readonly string[] = nodeKindsOf(notation);
+	const groupKinds: readonly string[] = groupKindsOf(notation);
+	const edgeKinds: readonly string[] = edgeKindsOf(notation);
+	const statuses: readonly string[] = statusesOf(notation);
 	const diagnostics: Diagnostic[] = [];
 
 	const nodeIds = new Set<string>();
@@ -141,7 +187,7 @@ export function validate(input: unknown): Validation {
 			diagnostics.push(
 				error(
 					"unknown-kind",
-					`Node \`${node.id}\` has the Kind \`${node.kind}\`, which the architecture Notation doesn't have. Its Node Kinds are ${list(nodeKinds)}.`,
+					`Node \`${node.id}\` has the Kind \`${node.kind}\`, which the ${notation.name} Notation doesn't have. ${owned("Node Kind", "Node Kinds", nodeKinds)}`,
 					`/nodes/${index}/kind`,
 				),
 			);
@@ -150,7 +196,7 @@ export function validate(input: unknown): Validation {
 			diagnostics.push(
 				error(
 					"unknown-status",
-					`Node \`${node.id}\` has the status \`${node.status}\`, which the architecture Notation doesn't have. Its statuses are ${list(statuses)}.`,
+					`Node \`${node.id}\` has the status \`${node.status}\`, which the ${notation.name} Notation doesn't have. ${owned("status", "statuses", statuses)}`,
 					`/nodes/${index}/status`,
 				),
 			);
@@ -205,7 +251,7 @@ export function validate(input: unknown): Validation {
 			diagnostics.push(
 				error(
 					"unknown-kind",
-					`Group \`${group.id}\` has the Kind \`${group.kind}\`, which the architecture Notation doesn't have. Its Group Kinds are ${list(groupKinds)}.`,
+					`Group \`${group.id}\` has the Kind \`${group.kind}\`, which the ${notation.name} Notation doesn't have. ${owned("Group Kind", "Group Kinds", groupKinds)}`,
 					`/groups/${index}/kind`,
 				),
 			);
@@ -214,6 +260,7 @@ export function validate(input: unknown): Validation {
 
 	// An Edge end names a Row by its name, among its Node's Rows.
 	const rowsOf = new Map(diagram.nodes.map((node) => [node.id, node.rows ?? []]));
+	const kindOf = new Map(diagram.nodes.map((node) => [node.id, node.kind]));
 	const edgeIds = new Set<string>();
 	diagram.edges.forEach((edge, index) => {
 		if (!edgeIdPattern.test(edge.id)) {
@@ -242,6 +289,7 @@ export function validate(input: unknown): Validation {
 			const end = edge[field];
 			const node = endNode(end);
 			const at = `/edges/${index}/${field}`;
+			const atNode = typeof end === "string" ? at : `${at}/node`;
 			if (!nodeIds.has(node)) {
 				diagnostics.push(
 					error(
@@ -249,10 +297,31 @@ export function validate(input: unknown): Validation {
 						groupIds.has(node)
 							? `Edge \`${edge.id}\` ${verb} at \`${node}\`, which is a Group. An Edge starts and ends at Nodes, never at Groups.`
 							: `Edge \`${edge.id}\` ${verb} at \`${node}\`, which isn't a Node on this Diagram.`,
-						typeof end === "string" ? at : `${at}/node`,
+						atNode,
 					),
 				);
-			} else if (typeof end !== "string") {
+				continue;
+			}
+			// An Edge's ends have Kinds that its own Kind allows. An end or an Edge
+			// of a Kind the Notation lacks has its own error.
+			const allowed = edgeKinds.includes(edge.kind)
+				? notation.edgeKinds[edge.kind]?.[field]
+				: undefined;
+			const kind = kindOf.get(node) ?? "";
+			if (allowed !== undefined && nodeKinds.includes(kind) && !allowed.includes(kind)) {
+				const kinds = list(
+					allowed.map((name) => `\`${name}\``),
+					"or",
+				);
+				diagnostics.push(
+					error(
+						"edge-end-kind",
+						`Edge \`${edge.id}\` ${verb} at \`${node}\`, whose Kind is \`${kind}\`. An Edge of the Kind \`${edge.kind}\` may ${field === "from" ? "start" : "end"} only at a Node of the Kind ${kinds}.`,
+						atNode,
+					),
+				);
+			}
+			if (typeof end !== "string") {
 				const names = (rowsOf.get(node) ?? []).map((row) => row.name);
 				if (!names.includes(end.row)) {
 					// Row names may hold spaces, so each one is quoted.
@@ -275,7 +344,7 @@ export function validate(input: unknown): Validation {
 			diagnostics.push(
 				error(
 					"unknown-kind",
-					`Edge \`${edge.id}\` has the Kind \`${edge.kind}\`, which the architecture Notation doesn't have. Its Edge Kinds are ${list(edgeKinds)}.`,
+					`Edge \`${edge.id}\` has the Kind \`${edge.kind}\`, which the ${notation.name} Notation doesn't have. ${owned("Edge Kind", "Edge Kinds", edgeKinds)}`,
 					`/edges/${index}/kind`,
 				),
 			);
@@ -292,17 +361,120 @@ export function validate(input: unknown): Validation {
 				),
 			);
 		}
+		diagnostics.push(...checkEndRoles(edge, index, notation));
 	});
 
 	diagnostics.push(
+		...checkWalkthroughs(diagram),
 		...checkDefaultEdgeIds(diagram),
 		...checkNesting(diagram),
 		...checkCharacters(diagram),
 	);
+	if (diagnostics.length === 0) {
+		diagnostics.push(...checkNamespaces(diagram, notation));
+	}
+	if (diagnostics.length === 0) {
+		diagnostics.push(...(notation.validation?.check(diagram) ?? []));
+	}
 
 	return diagnostics.some((diagnostic) => diagnostic.severity === "error")
 		? { diagnostics }
-		: { diagnostics, diagram };
+		: { diagnostics, diagram, notation };
+}
+
+/** Step targets belong to this Diagram; a Group is never a Node-only Step. */
+function checkWalkthroughs(diagram: AnyDiagram): Diagnostic[] {
+	const nodes = new Set(diagram.nodes.map(({ id }) => id));
+	const edges = new Set(diagram.edges.map(({ id }) => id));
+	return diagram.walkthroughs.flatMap((walkthrough, index) => [
+		...(diagram.walkthroughs.slice(0, index).some(({ id }) => id === walkthrough.id)
+			? [
+					error(
+						"duplicate-id",
+						`Two Walkthroughs have the id \`${walkthrough.id}\`. Each Walkthrough on a Diagram needs its own id.`,
+						`/walkthroughs/${index}/id`,
+					),
+				]
+			: []),
+		...(idPattern.test(walkthrough.id)
+			? []
+			: [
+					error(
+						"id-format",
+						`Walkthrough \`${walkthrough.id}\` needs a lowercase kebab-case id.`,
+						`/walkthroughs/${index}/id`,
+					),
+				]),
+		...walkthrough.steps.flatMap((step, stepIndex) => {
+			const at = `/walkthroughs/${index}/steps/${stepIndex}`;
+			const targets =
+				step.edges === undefined
+					? [{ kind: "Node", id: step.node, pointer: `${at}/node`, exists: nodes.has(step.node) }]
+					: step.edges.map((edge, place) => {
+							const id = typeof edge === "string" ? edge : edge.edge;
+							return {
+								kind: "Edge",
+								id,
+								pointer: `${at}/edges/${place}${typeof edge === "string" ? "" : "/edge"}`,
+								exists: edges.has(id),
+							};
+						});
+			return targets.flatMap(({ kind, id, pointer, exists }) => {
+				if (!(kind === "Node" ? idPattern : edgeIdPattern).test(id)) {
+					return [
+						error(
+							"id-format",
+							`Step target \`${id}\` isn't a lowercase kebab-case ${kind} id.`,
+							pointer,
+						),
+					];
+				}
+				return exists
+					? []
+					: [
+							error(
+								"walkthrough-target",
+								`Walkthrough \`${walkthrough.id}\`'s Step ${stepIndex + 1} names ${kind} \`${id}\`, which isn't on this Diagram. Name ${kind === "Edge" ? "an" : "a"} ${kind} drawn here.`,
+								pointer,
+							),
+						];
+			});
+		}),
+	]);
+}
+
+/** A namespaced Group's members carry its prefix and exactly one local id. */
+function checkNamespaces(diagram: AnyDiagram, notation: Notation): Diagnostic[] {
+	return diagram.groups.flatMap((group, index) => {
+		if (notation.groupKinds[group.kind]?.namespace !== true) {
+			return [];
+		}
+		const prefix = `${group.id}/`;
+		return group.members.flatMap((member, at) =>
+			member.startsWith(prefix) && !member.slice(prefix.length).includes("/")
+				? []
+				: [
+						error(
+							"namespace",
+							`Group \`${group.id}\` has the member \`${member}\`, whose full id doesn't belong to its namespace. Write a local id in the builder, or a full id like \`${group.id}/order\` in JSON.`,
+							`/groups/${index}/members/${at}`,
+						),
+					],
+		);
+	});
+}
+
+/**
+ * What a message says there is of something, such as a Notation's Group
+ * Kinds, after naming one that it lacks: each of them, the only one, or that
+ * there are none. `thing` names one of them, and `things` several.
+ */
+function owned(thing: string, things: string, names: readonly string[]): string {
+	const [only] = names;
+	if (only === undefined) {
+		return `It has no ${things}.`;
+	}
+	return names.length === 1 ? `Its only ${thing} is ${only}.` : `Its ${things} are ${list(names)}.`;
 }
 
 /**
@@ -312,8 +484,8 @@ export function validate(input: unknown): Validation {
  * keeps the default, and is an error when another Edge would get it too.
  * Two Edges that both keep it are already a `duplicate-id` error.
  */
-function checkDefaultEdgeIds(diagram: Diagram): Diagnostic[] {
-	const nameOf = (edge: Diagram["edges"][number]) => `${endNode(edge.from)}->${endNode(edge.to)}`;
+function checkDefaultEdgeIds(diagram: AnyDiagram): Diagnostic[] {
+	const nameOf = (edge: AnyEdge) => `${endNode(edge.from)}->${endNode(edge.to)}`;
 	return diagram.edges.flatMap((edge, index) => {
 		const name = nameOf(edge);
 		const other = diagram.edges.find(
@@ -330,6 +502,109 @@ function checkDefaultEdgeIds(diagram: Diagram): Diagnostic[] {
 			),
 		];
 	});
+}
+
+const ends = ["from", "to"] as const;
+
+/**
+ * The roles at an Edge's ends. Each must be one of its Notation's roles, and
+ * one that the Edge's Kind lets that end carry, alone where the Kind lets the
+ * end carry only one. A symmetric Edge's ends are alike, so it takes no roles
+ * at all. An Edge of a Kind that the Notation lacks has its error already, so
+ * only the first rule judges its roles.
+ */
+function checkEndRoles(edge: AnyEdge, index: number, notation: Notation): Diagnostic[] {
+	const roles: readonly string[] = rolesOf(notation);
+	const at = `/edges/${index}/roles`;
+	const quoted = (names: readonly string[]) => names.map((name) => `\`${name}\``);
+	const has = (role: string, end: string) =>
+		`Edge \`${edge.id}\` has the role \`${role}\` at its \`${end}\` end`;
+	/** Each role that an end carries, with its place in the end's list, as the model orders them. */
+	const carried = ends.flatMap((end) =>
+		(edge.roles?.[end] ?? []).map((role, place) => ({ end, role, place })),
+	);
+	const unknown = carried
+		.filter(({ role }) => !roles.includes(role))
+		.map(({ end, role, place }) =>
+			error(
+				"unknown-role",
+				`${has(role, end)}, which the ${notation.name} Notation doesn't have. ${owned("role", "roles", roles)}`,
+				`${at}/${end}/${place}`,
+			),
+		);
+	// An end lists each of its roles once, whatever the Edge's Kind.
+	const repeated = ends.flatMap((end) => {
+		const listed = edge.roles?.[end] ?? [];
+		return [...new Set(listed.filter((role, place) => listed.indexOf(role) !== place))].map(
+			(role) =>
+				error(
+					"edge-end-role",
+					`Edge \`${edge.id}\` lists the role \`${role}\` twice at its \`${end}\` end. List each role once.`,
+					`${at}/${end}`,
+				),
+		);
+	});
+	const listing = [...unknown, ...repeated];
+	const known = carried.filter(({ role }) => roles.includes(role));
+	const kind = Object.hasOwn(notation.edgeKinds, edge.kind)
+		? notation.edgeKinds[edge.kind]
+		: undefined;
+	if (kind === undefined || known.length === 0) {
+		return listing;
+	}
+	// A Kind may take no roles at all: one that's symmetric, or whose definition lists none.
+	const takesNone =
+		kind.symmetric === true
+			? `its Kind, \`${edge.kind}\`, is symmetric: its two ends are alike, so it takes no roles`
+			: ends.every((end) => endRolesOf(kind, end).roles.length === 0)
+				? `an Edge of the Kind \`${edge.kind}\` takes none`
+				: undefined;
+	if (takesNone !== undefined) {
+		return [
+			...listing,
+			error("edge-end-role", `Edge \`${edge.id}\` has roles, but ${takesNone}.`, at),
+		];
+	}
+	const misplaced = ends.flatMap((end) => {
+		const other = end === "from" ? "to" : "from";
+		const allowed = endRolesOf(kind, end);
+		const here = known.filter((role) => role.end === end);
+		const each = here.flatMap(({ role, place }) => {
+			if (allowed.roles.includes(role)) {
+				return [];
+			}
+			// Where the role belongs instead, or else what this end may carry.
+			const may = endRolesOf(kind, other).roles.includes(role)
+				? `may carry \`${role}\` only at its \`${other}\` end`
+				: allowed.roles.length === 0
+					? "carries no roles there"
+					: `may carry only ${list(quoted(allowed.roles), "or")} there`;
+			return [
+				error(
+					"edge-end-role",
+					`${has(role, end)}. An Edge of the Kind \`${edge.kind}\` ${may}.`,
+					`${at}/${end}/${place}`,
+				),
+			];
+		});
+		// Where the end may carry only one of its roles, it has at most one of them.
+		const together = [
+			...new Set(here.map(({ role }) => role).filter((role) => allowed.roles.includes(role))),
+		];
+		const [first = "", second = ""] = quoted(together);
+		const tooMany =
+			allowed.one && together.length > 1
+				? [
+						error(
+							"edge-end-role",
+							`Edge \`${edge.id}\` has ${together.length === 2 ? `both ${first} and ${second}` : list(quoted(together))} at its \`${end}\` end. An Edge of the Kind \`${edge.kind}\` may carry only one of them there.`,
+							`${at}/${end}`,
+						),
+					]
+				: [];
+		return [...each, ...tooMany];
+	});
+	return [...listing, ...misplaced];
 }
 
 /**
@@ -359,7 +634,7 @@ function checkTechnology(
  * surrogate pairs on their own, and U+FFFE and U+FFFF. A Technology and a
  * rate have formats that leave them out already, as ids and Kinds do.
  */
-function checkCharacters(diagram: Diagram): Diagnostic[] {
+function checkCharacters(diagram: AnyDiagram): Diagnostic[] {
 	return textsOf(diagram).flatMap(({ owner, field, text, pointer }) => {
 		if (field.name === "technology" || field.name === "rate") {
 			return [];
@@ -395,8 +670,14 @@ function textNamed(owner: TextOwner, field: TextField): string {
 			return `the ${field.name === "row name" ? "name" : "value"} of ${named}'s Row \`${shown(field.row)}\``;
 		case "link doc":
 		case "link section":
+		case "link term":
 		case "link label": {
-			const part = { "link doc": "document", "link section": "section", "link label": "label" };
+			const part = {
+				"link doc": "document",
+				"link section": "section",
+				"link label": "label",
+				"link term": "term",
+			};
 			return `the ${part[field.name]} of ${named}'s Link to \`${shown(field.target)}\``;
 		}
 		case "end row":
@@ -443,15 +724,26 @@ function shown(text: string): string {
 /** A Link to an id must name it as the model writes ids. `owner` is the Node or Group that has the Links. */
 function checkLinkIds(owner: string, links: Link[] | undefined, pointer: string): Diagnostic[] {
 	return (links ?? []).flatMap((link, index) =>
-		link.id === undefined || idPattern.test(link.id)
-			? []
-			: [
-					error(
-						"id-format",
-						`${owner} has a Link to \`${link.id}\`, which isn't a lowercase kebab-case id. Write ids like \`payments-api\`.`,
-						`${pointer}/links/${index}/id`,
-					),
-				],
+		[
+			...(link.context === undefined || slugPattern.test(link.context)
+				? []
+				: [
+						error(
+							"id-format",
+							`${owner} has a term Link whose context \`${link.context}\` isn't one lowercase kebab-case name. Write a context id like \`billing\`.`,
+							`${pointer}/links/${index}/context`,
+						),
+					]),
+			link.id === undefined || idPattern.test(link.id)
+				? []
+				: [
+						error(
+							"id-format",
+							`${owner} has a Link to \`${link.id}\`, which isn't a lowercase kebab-case id. Write ids like \`payments-api\`.`,
+							`${pointer}/links/${index}/id`,
+						),
+					],
+		].flat(),
 	);
 }
 
@@ -466,7 +758,7 @@ function parentName(parent: string | undefined): string {
  * Every Node and Group is a member of exactly one parent: the Diagram itself,
  * or one Group. So Groups nest as a tree, rooted at the Diagram.
  */
-function checkNesting(diagram: Diagram): Diagnostic[] {
+function checkNesting(diagram: AnyDiagram): Diagnostic[] {
 	const diagnostics: Diagnostic[] = [];
 	const things = new Map<string, string>([
 		...diagram.groups.map((group) => [group.id, "Group"] as const),
@@ -535,7 +827,7 @@ function checkNesting(diagram: Diagram): Diagnostic[] {
  * it comes back round. Each cycle is reported once, at the first of its
  * Groups in model order, where that Group lists the next one.
  */
-function checkCycles(diagram: Diagram, parents: Map<string, string | undefined>): Diagnostic[] {
+function checkCycles(diagram: AnyDiagram, parents: Map<string, string | undefined>): Diagnostic[] {
 	const index = new Map(diagram.groups.map((group, at) => [group.id, at]));
 	const seen = new Set<string>();
 	const diagnostics: Diagnostic[] = [];
@@ -575,35 +867,57 @@ function checkCycles(diagram: Diagram, parents: Map<string, string | undefined>)
 }
 
 /**
- * Checks that the input is a version-1 model of the architecture Notation,
- * with every field of the right type and no field that the model doesn't
- * have, so the rules after it can read it.
+ * Reads which Notation the input is written in: it must be a version-1
+ * model, in one of the Notations. Every other rule depends on its Notation.
  */
-function checkShape(input: unknown): Diagnostic[] {
+function readNotation(
+	input: unknown,
+	notations: readonly Notation[],
+): { diagnostics: Diagnostic[] } | { model: Record<string, unknown>; notation: Notation } {
 	if (!isObject(input)) {
-		return [error("model-shape", "A Diagram must be a JSON object.", "")];
+		return { diagnostics: [error("model-shape", "A Diagram must be a JSON object.", "")] };
 	}
 	if (input.version !== 1) {
-		return [
-			error(
-				"model-version",
-				input.version === undefined
-					? "The model has no `version`. This engine reads version 1 of the JSON model."
-					: `This engine reads version 1 of the JSON model, not version ${JSON.stringify(input.version)}.`,
-				"/version",
-			),
-		];
+		return {
+			diagnostics: [
+				error(
+					"model-version",
+					input.version === undefined
+						? "The model has no `version`. This engine reads version 1 of the JSON model."
+						: `This engine reads version 1 of the JSON model, not version ${JSON.stringify(input.version)}.`,
+					"/version",
+				),
+			],
+		};
 	}
-	if (input.notation !== "architecture") {
-		return [
-			error(
-				"unknown-notation",
-				`The Diagram's Notation is \`${String(input.notation)}\`, which this engine doesn't have. Its Notations are architecture.`,
-				"/notation",
-			),
-		];
+	const notation = notations.find(({ name }) => name === input.notation);
+	if (notation === undefined) {
+		return {
+			diagnostics: [
+				error(
+					"unknown-notation",
+					`The Diagram's Notation is \`${String(input.notation)}\`, which this engine doesn't have. ${owned(
+						"Notation",
+						"Notations",
+						notations.map(({ name }) => name),
+					)}`,
+					"/notation",
+				),
+			],
+		};
 	}
+	return { model: input, notation };
+}
 
+/** What checks one optional field's value, at its pointer. */
+type FieldCheck = (value: unknown, at: string) => void;
+
+/**
+ * Checks that a version-1 model has every field of the right type, and no
+ * field that the model doesn't have, or that its Notation's Diagrams don't,
+ * so the rules after it can read it.
+ */
+function checkShape(input: Record<string, unknown>, notation: Notation): Diagnostic[] {
 	// The authoring API's functions record each option they don't know, rather
 	// than leave it behind, so that it's rejected as a field the model doesn't
 	// have would be.
@@ -637,29 +951,60 @@ function checkShape(input: unknown): Diagnostic[] {
 	};
 	/**
 	 * Reports each field of `value` that `thing` doesn't have, listing those it
-	 * does. `alsoRead` holds fields that a later check reports in its own words.
+	 * does. `all` holds every field that the model has for it, of which its
+	 * Notation's Diagrams may have only some. `alsoRead` holds fields that a
+	 * later check reports in its own words.
 	 */
 	const checkFields = (
 		value: Record<string, unknown>,
 		pointer: string,
 		thing: string,
 		known: readonly string[],
+		all: readonly string[] = known,
 		alsoRead: readonly string[] = [],
 	) => {
 		for (const field of Object.keys(value)) {
 			if (!known.includes(field) && !alsoRead.includes(field)) {
 				const at = `${pointer}/${pointerSegment(field)}`;
 				const listed = list(known.map((name) => `\`${name}\``));
+				const where = all.includes(field) ? ` in the ${notation.name} Notation` : "";
 				diagnostics.push(
 					error(
 						"model-shape",
-						`\`${at}\` must be left out: ${thing} has no such field. Its fields are ${listed}.`,
+						`\`${at}\` must be left out: ${thing} has no such field${where}. Its fields are ${listed}.`,
 						at,
 					),
 				);
 			}
 		}
 	};
+	/** The fields that the Notation's Nodes, Groups or Edges may have, in the model's order. */
+	const fieldsOfIts = (thing: "node" | "group" | "edge") =>
+		fields[thing].filter((field) => hasField(notation, thing, field));
+	/**
+	 * Checks each optional field that `value` has and that its Notation's
+	 * Diagrams may have, in the order of `checks`. One they may not have is
+	 * already reported as a field to leave out.
+	 */
+	const checkOptional = <F extends string>(
+		value: Record<string, unknown>,
+		pointer: string,
+		thing: "node" | "group" | "edge",
+		checks: Record<F, FieldCheck>,
+	) => {
+		for (const [field, checkField] of Object.entries<FieldCheck>(checks)) {
+			if (hasField(notation, thing, field) && value[field] !== undefined) {
+				checkField(value[field], `${pointer}/${field}`);
+			}
+		}
+	};
+	const isText: FieldCheck = (value, at) => check(typeof value === "string", at, "a string");
+	const isSomeText: FieldCheck = (value, at) =>
+		check(
+			typeof value === "string" && /[^ \t\n\r]/.test(value),
+			at,
+			"a string with some text in it",
+		);
 
 	checkFields(input, "", "a Diagram", fields.diagram);
 	check(input.id === undefined || typeof input.id === "string", "/id", "a string");
@@ -674,27 +1019,32 @@ function checkShape(input: unknown): Diagnostic[] {
 		check(typeof member === "string", at, "an id");
 	});
 	/**
-	 * A Link has exactly one target, `id` or `doc`, and only a `doc` has a
-	 * `section`. The model's third target, `term`, comes in slice 2.
+	 * A Link has exactly one target. Only a document has sections, and only a
+	 * term has a context override.
 	 */
 	const checkLink = (link: unknown, at: string) => {
 		if (!isObject(link)) {
 			check(false, at, "an object");
 			return;
 		}
-		// A Link to a glossary term is reported below, as a Link without a target.
-		checkFields(link, at, "a Link", fields.link, ["term"]);
+		checkFields(link, at, "a Link", fields.link);
 		const targets = ["id", "doc", "term"].filter((field) => link[field] !== undefined);
 		const [target] = targets;
-		if (target === undefined || target === "term" || targets.length > 1) {
+		if (target === undefined || targets.length > 1) {
 			diagnostics.push(
-				error("model-shape", `\`${at}\` must have exactly one of \`id\` and \`doc\`.`, at),
+				error(
+					"model-shape",
+					`\`${at}\` must have exactly one of \`id\`, \`doc\` and \`term\`.`,
+					at,
+				),
 			);
 			return;
 		}
 		check(typeof link[target] === "string", `${at}/${target}`, "a string");
+		if (target === "term" && typeof link.term === "string")
+			check(link.term.trim() !== "", `${at}/term`, "a nonempty string");
 		check(link.label === undefined || typeof link.label === "string", `${at}/label`, "a string");
-		if (link.section !== undefined && target === "id") {
+		if (link.section !== undefined && target !== "doc") {
 			diagnostics.push(
 				error(
 					"model-shape",
@@ -706,6 +1056,21 @@ function checkShape(input: unknown): Diagnostic[] {
 			check(
 				link.section === undefined || typeof link.section === "string",
 				`${at}/section`,
+				"a string",
+			);
+		}
+		if (link.context !== undefined && target !== "term") {
+			diagnostics.push(
+				error(
+					"model-shape",
+					`\`${at}/context\` must be left out: only a Link to a term has a context.`,
+					`${at}/context`,
+				),
+			);
+		} else {
+			check(
+				link.context === undefined || typeof link.context === "string",
+				`${at}/context`,
 				"a string",
 			);
 		}
@@ -731,93 +1096,111 @@ function checkShape(input: unknown): Diagnostic[] {
 		}
 	};
 
+	const nodeChecks: Record<NodeField, FieldCheck> = {
+		technology: isText,
+		external: (value, at) => check(typeof value === "boolean", at, "`true` or `false`"),
+		status: isText,
+		description: isText,
+		callout: isSomeText,
+		rows: (rows, at) => checkList(rows, at, checkRow),
+		links: (links, at) => checkList(links, at, checkLink),
+	};
 	checkList(input.nodes, "/nodes", (node, at) => {
 		if (isObject(node)) {
-			checkFields(node, at, "a Node", fields.node);
+			checkFields(node, at, "a Node", fieldsOfIts("node"), fields.node);
 		}
 		checkStrings(node, at, ["id", "kind", "title"]);
 		if (isObject(node)) {
-			const { technology, external, status, description, callout } = node;
-			check(
-				technology === undefined || typeof technology === "string",
-				`${at}/technology`,
-				"a string",
-			);
-			check(
-				external === undefined || typeof external === "boolean",
-				`${at}/external`,
-				"`true` or `false`",
-			);
-			check(status === undefined || typeof status === "string", `${at}/status`, "a string");
-			check(
-				description === undefined || typeof description === "string",
-				`${at}/description`,
-				"a string",
-			);
-			check(
-				callout === undefined || (typeof callout === "string" && /[^ \t\n\r]/.test(callout)),
-				`${at}/callout`,
-				"a string with some text in it",
-			);
-		}
-		if (isObject(node) && node.rows !== undefined) {
-			checkList(node.rows, `${at}/rows`, checkRow);
-		}
-		if (isObject(node) && node.links !== undefined) {
-			checkList(node.links, `${at}/links`, checkLink);
+			checkOptional(node, at, "node", nodeChecks);
 		}
 	});
+	const groupChecks: Record<GroupField, FieldCheck> = {
+		description: isText,
+		links: (links, at) => checkList(links, at, checkLink),
+	};
 	checkList(input.groups, "/groups", (group, at) => {
 		if (isObject(group)) {
-			checkFields(group, at, "a Group", fields.group);
+			checkFields(group, at, "a Group", fieldsOfIts("group"), fields.group);
 		}
 		checkStrings(group, at, ["id", "kind", "title"]);
 		if (isObject(group)) {
-			check(
-				group.description === undefined || typeof group.description === "string",
-				`${at}/description`,
-				"a string",
-			);
+			// Its members come between its description and its Links, as they always have.
+			const { description, links } = groupChecks;
+			checkOptional(group, at, "group", { description });
 			checkList(group.members, `${at}/members`, (member, memberAt) => {
 				check(typeof member === "string", memberAt, "an id");
 			});
-			if (group.links !== undefined) {
-				checkList(group.links, `${at}/links`, checkLink);
-			}
+			checkOptional(group, at, "group", { links });
 		}
 	});
+	/** An Edge's roles hold a list of roles for each end that carries any, by the end's name. */
+	const checkRoles: FieldCheck = (roles, at) => {
+		if (!isObject(roles)) {
+			check(false, at, "an object");
+			return;
+		}
+		checkFields(roles, at, "an Edge's `roles`", fields.roles);
+		for (const end of fields.roles) {
+			if (roles[end] !== undefined) {
+				checkList(roles[end], `${at}/${end}`, isText);
+			}
+		}
+	};
+	const edgeChecks: Record<EdgeField, FieldCheck> = {
+		label: isSomeText,
+		technology: isText,
+		rate: isText,
+		roles: checkRoles,
+	};
 	checkList(input.edges, "/edges", (edge, at) => {
 		if (isObject(edge)) {
-			checkFields(edge, at, "an Edge", fields.edge);
+			checkFields(edge, at, "an Edge", fieldsOfIts("edge"), fields.edge);
 		}
 		checkStrings(edge, at, ["id", "kind"]);
 		if (isObject(edge)) {
-			const { label, technology, rate } = edge;
 			checkEnd(edge.from, `${at}/from`);
 			checkEnd(edge.to, `${at}/to`);
-			check(
-				label === undefined || (typeof label === "string" && /[^ \t\n\r]/.test(label)),
-				`${at}/label`,
-				"a string with some text in it",
-			);
-			check(
-				technology === undefined || typeof technology === "string",
-				`${at}/technology`,
-				"a string",
-			);
-			check(rate === undefined || typeof rate === "string", `${at}/rate`, "a string");
+			checkOptional(edge, at, "edge", edgeChecks);
 		}
 	});
-	// Walkthroughs come in slice 4. Until then, one would be dropped unseen.
-	if (Array.isArray(input.walkthroughs)) {
-		check(
-			input.walkthroughs.length === 0,
-			"/walkthroughs",
-			"an empty list: this engine doesn't play Walkthroughs yet",
-		);
-	} else {
-		check(false, "/walkthroughs", "a list");
-	}
+	checkList(input.walkthroughs, "/walkthroughs", (walkthrough, at) => {
+		checkStrings(walkthrough, at, ["id", "title"]);
+		if (!isObject(walkthrough)) return;
+		checkFields(walkthrough, at, "a Walkthrough", ["id", "title", "steps"]);
+		isSomeText(walkthrough.title, `${at}/title`);
+		if (Array.isArray(walkthrough.steps))
+			check(walkthrough.steps.length > 0, `${at}/steps`, "a nonempty list of Steps");
+		checkList(walkthrough.steps, `${at}/steps`, (step, stepAt) => {
+			if (!isObject(step)) {
+				check(false, stepAt, "an object");
+				return;
+			}
+			checkFields(step, stepAt, "a Step", ["edges", "node", "note"]);
+			check(
+				(step.edges !== undefined) !== (step.node !== undefined),
+				stepAt,
+				"a Step with exactly one of `edges` and `node`",
+			);
+			if (step.note !== undefined) isText(step.note, `${stepAt}/note`);
+			if (step.node !== undefined) isText(step.node, `${stepAt}/node`);
+			if (Array.isArray(step.edges))
+				check(step.edges.length > 0, `${stepAt}/edges`, "a nonempty list of Edges");
+			if (step.edges !== undefined)
+				checkList(step.edges, `${stepAt}/edges`, (edge, edgeAt) => {
+					if (!isObject(edge)) {
+						isText(edge, edgeAt);
+						return;
+					}
+					checkFields(edge, edgeAt, "a Step's Edge", ["edge", "back"]);
+					isText(edge.edge, `${edgeAt}/edge`);
+					check(
+						edge.back === undefined || typeof edge.back === "boolean",
+						`${edgeAt}/back`,
+						"`true` or `false`",
+					);
+				});
+		});
+	});
 	return diagnostics;
 }
 

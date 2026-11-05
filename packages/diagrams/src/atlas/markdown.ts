@@ -1,15 +1,16 @@
 /**
- * Just enough Markdown to resolve a Link's section: the anchors of a
- * document's headings, as GitHub makes them. Only ATX headings (`#` to
- * `######`) count, and lines inside code fences are skipped.
+ * The Atlas's accepted section identities, shared with document publishers.
+ * Only ATX headings (`#` to `######`) count, outside code fences. A publisher
+ * uses their source lines to map these identities to its rendered heading ids.
  */
 
-/** The anchor of every heading in `markdown`. A repeated anchor gets `-1`, `-2`, and so on. */
-export function headingAnchors(markdown: string): Set<string> {
+/** Section identities and source lines, so a publisher can map them to its actual heading ids. */
+export function documentHeadings(markdown: string): { anchor: string; line: number }[] {
 	const anchors = new Set<string>();
+	const headings: { anchor: string; line: number }[] = [];
 	const repeats = new Map<string, number>();
 	let fence: { marker: string; length: number } | undefined;
-	for (const line of markdown.split(/\r?\n/)) {
+	for (const [index, line] of markdown.split(/\r?\n/).entries()) {
 		const fenceLine = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
 		if (fence !== undefined) {
 			const [, marker = "", rest = ""] = fenceLine ?? [];
@@ -35,8 +36,14 @@ export function headingAnchors(markdown: string): Set<string> {
 			unique = `${anchor}-${count}`;
 		}
 		anchors.add(unique);
+		headings.push({ anchor: unique, line: index + 1 });
 	}
-	return anchors;
+	return headings;
+}
+
+/** The identity of every accepted ATX section, with duplicate suffixes retained. */
+export function headingAnchors(markdown: string): Set<string> {
+	return new Set(documentHeadings(markdown).map(({ anchor }) => anchor));
 }
 
 /**

@@ -1,9 +1,12 @@
 import { describe, expect, test } from "vitest";
 import example from "../docs/example-system.diagram.ts";
 import {
+	type ArchitectureNotation,
 	architecture,
 	type Box,
-	type Diagram,
+	type DiagramOf,
+	type EdgeKindDefinition,
+	notations,
 	type Point,
 	type SceneEdge,
 	type Side,
@@ -11,7 +14,15 @@ import {
 import { crowded } from "./fixtures/crowded.ts";
 import orderFlow from "./fixtures/edges.ts";
 import { twoRegions } from "./fixtures/groups.ts";
-import { type Drawn, draw, edgeGroupOf, linesOf, sceneOf, strokeOf } from "./support/drawn.ts";
+import {
+	type Drawn,
+	distanceToRoute,
+	draw,
+	edgeGroupOf,
+	linesOf,
+	sceneOf,
+	strokeOf,
+} from "./support/drawn.ts";
 import { everyFixture } from "./support/fixtures.ts";
 import {
 	colorUnder,
@@ -26,6 +37,9 @@ import {
 	runsOf,
 	type Theme,
 } from "./support/svg.ts";
+
+/** The tests here draw architecture Diagrams, so they read the fields that those have. */
+type Diagram = DiagramOf<ArchitectureNotation>;
 
 const themes: Theme[] = ["light", "dark"];
 const fixtures = await everyFixture();
@@ -78,6 +92,7 @@ function chevronMarksOf(drawn: Drawn, edge: SceneEdge): { points: Point[]; reach
 		.filter(
 			(shape) =>
 				isShape(shape) &&
+				computedStyle(shape, drawn.rules, "light").get("display") !== "none" &&
 				!lines.includes(shape) &&
 				computedStyle(shape, drawn.rules, "light").get("fill") === "none" &&
 				computedStyle(shape, drawn.rules, "light").get("stroke") === color,
@@ -142,32 +157,59 @@ const inward: Record<Side, Point> = {
 	bottom: { x: 0, y: -1 },
 };
 
+/** Whether an Edge Kind of a fixture's Notation is symmetric, as the Notation's definition has it. */
+function symmetric(notation: string, kind: string): boolean {
+	const kinds: Record<string, EdgeKindDefinition> =
+		notations.find(({ name }) => name === notation)?.edgeKinds ?? {};
+	return kinds[kind]?.symmetric === true;
+}
+
 describe("an Edge's arrowhead", () => {
-	test("sits at its target, pointing into the Node, wider than its line and in its color, in every fixture", () => {
+	test("points along its route, at its target when the terminal is unambiguous, wider than its line and in its color, in every fixture", () => {
+		const seen = { directed: 0, symmetric: 0 };
 		for (const [name, diagram] of fixtures) {
 			const drawn = draw(diagram);
 			for (const edge of drawn.scene.edges) {
-				const { point, side } = edge.toPort;
-				const into = inward[side];
-				/** How far a point lies ahead of the Port, into the Node, and how far to one side. */
-				const ahead = (at: Point) => (at.x - point.x) * into.x + (at.y - point.y) * into.y;
-				const aside = (at: Point) => (at.x - point.x) * into.y - (at.y - point.y) * into.x;
 				const heads = descendants(edgeGroupOf(drawn, edge.id)).filter(
 					(shape) =>
 						isShape(shape) &&
-						computedStyle(shape, drawn.rules, "light").get("fill") !== "none" &&
-						runsOf(shape)
-							.flat()
-							.every((at) => ahead(at) <= 0.01 && ahead(at) >= -16 && Math.abs(aside(at)) <= 8),
+						shape.attributes.get("fill") === "currentColor" &&
+						runsOf(shape).length === 1 &&
+						runsOf(shape)[0]?.length === 4,
 				);
+				const sharedSymmetric = drawn.scene.edges.some(
+					(other) => symmetric(diagram.notation, other.kind) && other.to === edge.to,
+				);
+				const points = heads.flatMap(runsOf).flat();
+				const { point: port, side } = edge.toPort;
+				const point = sharedSymmetric ? (points[0] ?? port) : port;
+				const base = points[1];
+				const other = points[2];
+				const into =
+					sharedSymmetric && base !== undefined && other !== undefined
+						? {
+								x: Math.sign(point.x - (base.x + other.x) / 2),
+								y: Math.sign(point.y - (base.y + other.y) / 2),
+							}
+						: inward[side];
+				/** How far a point lies ahead of the Port, into the Node, and how far to one side. */
+				const ahead = (at: Point) => (at.x - point.x) * into.x + (at.y - point.y) * into.y;
+				const aside = (at: Point) => (at.x - point.x) * into.y - (at.y - point.y) * into.x;
+				// A symmetric Edge runs neither way, so nothing points into its target.
+				if (symmetric(diagram.notation, edge.kind)) {
+					expect(heads, `${name}: ${edge.id}`).toEqual([]);
+					seen.symmetric += 1;
+					continue;
+				}
+				seen.directed += 1;
 				expect(heads, `${name}: ${edge.id}`).toHaveLength(1);
 				const [head] = heads;
 				const [casing] = linesOf(drawn, edge);
 				if (head === undefined || casing === undefined) {
 					continue;
 				}
-				const points = runsOf(head).flat();
-				// Its tip touches the Node's side, on the line, and it widens behind the tip.
+				expect(distanceToRoute(point, edge.route)).toBeLessThan(0.01);
+				// Its tip sits on the directed line, and it widens behind the tip.
 				const tip = points.filter((at) => ahead(at) > -0.5);
 				expect(tip.length, `${name}: ${edge.id}`).toBeGreaterThan(0);
 				expect(
@@ -186,6 +228,9 @@ describe("an Edge's arrowhead", () => {
 				}
 			}
 		}
+		// The fixtures hold Edges of both sorts.
+		expect(seen.directed).toBeGreaterThan(100);
+		expect(seen.symmetric).toBeGreaterThan(1);
 	});
 });
 
@@ -318,6 +363,7 @@ describe("an Edge's chevrons", () => {
 					.filter(
 						(shape) =>
 							isShape(shape) &&
+							computedStyle(shape, drawn.rules, "light").get("display") !== "none" &&
 							!lines.includes(shape) &&
 							computedStyle(shape, drawn.rules, "light").get("fill") === "none" &&
 							computedStyle(shape, drawn.rules, "light").get("stroke") === color,

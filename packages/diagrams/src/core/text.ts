@@ -5,8 +5,7 @@
  * matches measured text.
  */
 
-import type { Diagram, Row } from "../authoring/model.ts";
-import { technologyOf } from "../notations/architecture.ts";
+import type { AnyDiagram, Row } from "../authoring/model.ts";
 import { codePointOf, type Diagnostic, list } from "./diagnostics.ts";
 import { fontMetrics } from "./font-metrics.ts";
 import type {
@@ -18,6 +17,7 @@ import type {
 	SceneNode,
 	SceneText,
 } from "./scene.ts";
+import { technologyOf } from "./technology.ts";
 import { type ModelText, textsOf } from "./texts.ts";
 
 /** The weights that text is drawn in: regular for Rows and labels, and semibold for titles. */
@@ -377,7 +377,38 @@ export function labelTexts(
 	};
 }
 
-/** Every piece of text the scene draws: each Node's, then each Group's title, then each label's. */
+/** A role's tag: the size of its text, its height, and the room on each side of its text. */
+const roleSize = 10;
+const roleTagHeight = 14;
+const roleTagPadding = 4;
+
+/**
+ * The size of the tag that shows a role: as high as every tag, and as wide as
+ * the role, as its Notation names it, with some room on each side, to the
+ * next even number of pixels, so that a tag centered on a whole pixel has its
+ * sides on whole pixels too.
+ */
+export function roleTagSize(role: string): { width: number; height: number } {
+	const width = widthOf(role, "semibold", roleSize) + 2 * roleTagPadding;
+	return { width: 2 * Math.ceil(width / 2), height: roleTagHeight };
+}
+
+/** A role, centered in its tag. It's never shortened: its tag is as wide as it needs. */
+export function roleText(role: string, tag: Box): SceneText {
+	return {
+		text: role,
+		point: { x: tag.x + tag.width / 2, y: tag.y + tag.height / 2 },
+		width: widthOf(role, "semibold", roleSize),
+		shortened: false,
+		weight: "semibold",
+		size: roleSize,
+	};
+}
+
+/**
+ * Every piece of text the scene draws: each Node's, then each Group's title,
+ * then each label's, then each role tag's.
+ */
 export function drawnTexts(scene: Scene): SceneText[] {
 	return [
 		...scene.nodes.flatMap((node) => [
@@ -394,6 +425,7 @@ export function drawnTexts(scene: Scene): SceneText[] {
 						text === undefined ? [] : [text],
 					),
 		),
+		...scene.edges.flatMap(({ roles }) => roles.map(({ text }) => text)),
 	];
 }
 
@@ -409,7 +441,7 @@ export function rowTextsOf(node: SceneNode): SceneText[] {
  * Technology and rate, as the model holds them.
  */
 export function textDiagnostics(
-	diagram: Diagram,
+	diagram: AnyDiagram,
 	nodes: SceneNode[],
 	groups: SceneGroup[],
 	edges: SceneEdge[],
@@ -428,7 +460,7 @@ function checkedText(
 	groups: SceneGroup[],
 	edges: SceneEdge[],
 ): CheckedText | undefined {
-	if (owner.thing === "Diagram") {
+	if (owner.thing === "Diagram" || owner.thing === "Walkthrough") {
 		return undefined;
 	}
 	const named = `${owner.thing} \`${owner.id}\``;

@@ -6,18 +6,24 @@
 
 import { readFileSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
+import type { AtlasConfig } from "../authoring/atlas.ts";
 import type { Declarations } from "../authoring/declarations.ts";
-import type { Diagram, Link } from "../authoring/model.ts";
+import { type AnyDiagram, type Link, namespaceOf } from "../authoring/model.ts";
 import { list } from "../core/diagnostics.ts";
+import type { Notation } from "../notations/notation.ts";
+import { notations } from "../notations/notations.ts";
+import { isExcluded } from "./excluded.ts";
 import { anchorOf, headingAnchors } from "./markdown.ts";
 import { type AtlasMessage, located } from "./messages.ts";
+import { termOf } from "./terms.ts";
+import type { GlossaryTerm } from "./types.ts";
 
 /** A Diagram that passed validation, with where its module declared each thing. */
 export interface CheckedDiagram {
 	module: string;
 	/** The module's path from the repo root, minus `.diagram.ts`. */
 	id: string;
-	model: Diagram;
+	model: AnyDiagram;
 	declarations: Declarations;
 }
 
@@ -40,7 +46,7 @@ interface Drawing {
 }
 
 /** Every Node and Group a Diagram draws, Nodes first, each in model order. */
-function thingsOf(model: Diagram): Thing[] {
+function thingsOf(model: AnyDiagram): Thing[] {
 	return [
 		...model.nodes.map((node, index) => ({ thing: "Node", ...node, pointer: `/nodes/${index}` })),
 		...model.groups.map((group, index) => ({
@@ -101,6 +107,45 @@ export function checkIds(diagrams: CheckedDiagram[]): AtlasMessage[] {
 	);
 }
 
+/** A borrowed namespaced Node needs a drawing inside its own namespace somewhere in the Atlas. */
+export function checkNamespaceHomes(diagrams: CheckedDiagram[]): AtlasMessage[] {
+	const scoped = diagrams.flatMap((diagram) => {
+		const notation: Notation | undefined = notations.find(
+			({ name }) => name === diagram.model.notation,
+		);
+		const kinds = new Set(
+			Object.entries(notation?.groupKinds ?? {})
+				.filter(([, kind]) => kind.namespace === true)
+				.map(([name]) => name),
+		);
+		return kinds.size === 0 ? [] : [{ diagram, kinds }];
+	});
+	const homes = new Set(
+		scoped.flatMap(({ diagram, kinds }) =>
+			diagram.model.groups
+				.filter((group) => kinds.has(group.kind))
+				.flatMap((group) => group.members.map((id) => `${diagram.model.notation}:${id}`)),
+		),
+	);
+	return scoped.flatMap(({ diagram }) =>
+		diagram.model.nodes.flatMap((node, index) => {
+			const slash = node.id.lastIndexOf("/");
+			if (slash < 0 || homes.has(`${diagram.model.notation}:${node.id}`)) {
+				return [];
+			}
+			const namespace = node.id.slice(0, slash);
+			return [
+				located(diagram.module, diagram.declarations, {
+					severity: "warning",
+					rule: "namespace-home-missing",
+					pointer: `/nodes/${index}/id`,
+					message: `Node \`${node.id}\` is drawn from namespace \`${namespace}\`, but no Diagram in the Atlas draws it inside Group \`${namespace}\`. Draw it inside its own namespace on another Diagram so readers can find where it belongs.`,
+				}),
+			];
+		}),
+	);
+}
+
 /**
  * Every Link must resolve: a Link to an id, to an id in `drawn`; a Link to a
  * document, to a file in the repo and, when it names a section, to a heading
@@ -113,6 +158,9 @@ export function checkLinks(
 	root: string,
 	diagrams: CheckedDiagram[],
 	drawn: ReadonlySet<string>,
+	config: AtlasConfig,
+	terms: readonly GlossaryTerm[],
+	excluded: readonly string[] = [],
 ): AtlasMessage[] {
 	const anchors = new Map<string, Set<string>>();
 	const anchorsIn = (file: string) => {
@@ -121,11 +169,22 @@ export function checkLinks(
 		return known;
 	};
 	/** What's wrong with a Link, as the end of a sentence that starts "has a Link to". */
-	const problemWith = (link: Link): string | undefined => {
+	const problemWith = (link: Link, context: string | undefined): string | undefined => {
 		if (link.id !== undefined) {
 			return drawn.has(link.id) ? undefined : `\`${link.id}\`, which no Diagram in the Atlas draws`;
 		}
+		if (link.term !== undefined) {
+			const named = link.context ?? context;
+			if (named === undefined)
+				return `term \`${link.term}\`, but this id has no context. Name the glossary's \`context\` in the Link`;
+			if (!Object.hasOwn(config.contexts ?? {}, named))
+				return `term \`${link.term}\` in context \`${named}\`, which has no glossary in \`diagrams.config.ts\``;
+			return termOf(terms, link, context) === undefined
+				? `term \`${link.term}\`, which context \`${named}\`'s glossary doesn't define`
+				: undefined;
+		}
 		const file = resolve(root, link.doc);
+		if (isExcluded(file, excluded)) return `\`${link.doc}\`, which is excluded by this Atlas host`;
 		const path = relative(root, file);
 		const inRepo = path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path);
 		if (!inRepo || statSync(file, { throwIfNoEntry: false })?.isFile() !== true) {
@@ -139,7 +198,11 @@ export function checkLinks(
 	return diagrams.flatMap(({ module, model, declarations }) =>
 		thingsOf(model).flatMap(({ thing, id, links, pointer }) =>
 			(links ?? []).flatMap((link, linkIndex) => {
-				const problem = problemWith(link);
+				const notation: Notation | undefined = notations.find(
+					({ name }) => name === model.notation,
+				);
+				const context = notation === undefined ? undefined : namespaceOf(model, id, notation);
+				const problem = problemWith(link, context);
 				return problem === undefined
 					? []
 					: [

@@ -6,13 +6,15 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, relative, sep } from "node:path";
+import type { AtlasConfig } from "../authoring/atlas.ts";
 import type { Declarations } from "../authoring/declarations.ts";
-import type { Diagram } from "../authoring/model.ts";
-import { recordUnknownOptions } from "../authoring/options.ts";
+import { type AnyDiagram, namespaceOf } from "../authoring/model.ts";
+import { recordUnknownOptions, unknownOptions } from "../authoring/options.ts";
 import { compareText } from "../core/bundles.ts";
 import { render } from "../core/render.ts";
 import { bundledFontData } from "../fonts/bundled.ts";
-import { checkIds, checkLinks } from "./checks.ts";
+import { notations } from "../notations/notations.ts";
+import { checkIds, checkLinks, checkNamespaceHomes } from "./checks.ts";
 import {
 	type AtlasFiles,
 	byPath,
@@ -22,8 +24,11 @@ import {
 	stagedAtlas,
 	svgSuffix,
 } from "./discover.ts";
-import { type Loaded, load } from "./load.ts";
+import { readGlossaries } from "./glossaries.ts";
+import { checkLanguage } from "./language.ts";
+import { type Loaded, type LoadOptions, load } from "./load.ts";
 import { type AtlasMessage, type FilePlace, located, placeText } from "./messages.ts";
+import type { AtlasIndex, GlossaryTerm } from "./types.ts";
 
 /** The engine's cache folder, at the repo root. Git ignores it. */
 export const cacheFolder = ".diagrams-cache";
@@ -48,7 +53,7 @@ export interface RenderedDiagram {
 	svgFile: string;
 	/** The fresh render, and the valid model, when the Diagram has no errors. */
 	svg?: string;
-	model?: Diagram;
+	model?: AnyDiagram;
 	declarations: Declarations;
 	messages: AtlasMessage[];
 }
@@ -66,9 +71,56 @@ export function svgFileOf(module: string): string {
 	return `${module.slice(0, -moduleSuffix.length)}${svgSuffix}`;
 }
 
-/** Loads each module, and renders its Diagram, embedding a subset of the bundled font. */
-export async function renderDiagrams(root: string, modules: string[]): Promise<RenderedDiagram[]> {
-	return (await load(modules)).map((loaded) => renderLoaded(root, loaded));
+/** One opening of the Atlas, shared by render, lint, export and the index. */
+export interface OpenAtlas {
+	root: string;
+	files: AtlasFiles;
+	config: AtlasConfig;
+	terms: GlossaryTerm[];
+	/** Config, modules and glossary files, including missing glossaries, for rebuild watchers. */
+	dependencies: string[];
+	diagrams: RenderedDiagram[];
+	/** Config errors apply to every command, including one that selects a single Diagram. */
+	messages: AtlasMessage[];
+	/** Even an invalid Diagram may draw an id, so Links don't duplicate its own errors. */
+	drawn: ReadonlySet<string>;
+	/** Host-excluded folders, retained for checks after opening the Atlas. */
+	excluded?: readonly string[];
+}
+
+export type OpenAtlasOptions = LoadOptions;
+
+/** Loads the config and every module together, in a fresh module context. */
+export async function openAtlas(
+	root: string,
+	files?: AtlasFiles,
+	options?: OpenAtlasOptions,
+): Promise<OpenAtlas> {
+	files ??= await discover(root, options?.exclude);
+	const [config, ...modules] = await load([join(root, configFile), ...files.modules], options);
+	const messages = config === undefined ? [] : checkConfig(root, config);
+	const glossaries =
+		config !== undefined && !("failed" in config) && messages.length === 0
+			? readGlossaries(root, config.module, config.exported, config.declarations, options?.exclude)
+			: { config: {}, terms: [], files: [], messages: [] };
+	return {
+		root,
+		files,
+		config: glossaries.config,
+		terms: glossaries.terms,
+		dependencies: [
+			...new Set([
+				join(root, configFile),
+				...files.modules,
+				...glossaries.files,
+				...[config, ...modules].flatMap((loaded) => loaded?.dependencies ?? []),
+			]),
+		].sort(),
+		diagrams: modules.map((loaded) => renderLoaded(root, loaded)),
+		messages: [...messages, ...glossaries.messages],
+		drawn: new Set(modules.flatMap(idsDrawnBy)),
+		excluded: options?.exclude,
+	};
 }
 
 /** What lint found: how many Diagrams it checked, and its messages, file by file. */
@@ -87,26 +139,28 @@ export interface Linted {
  * `svgWords` how the messages about SVGs read.
  */
 export async function lintAtlas(
-	root: string,
+	input: string | OpenAtlas,
 	files?: AtlasFiles,
 	svgWords: SvgWords = workingTree,
 ): Promise<Linted> {
-	files ??= await discover(root);
-	const [config, ...modules] = await load([join(root, configFile), ...files.modules]);
-	const rendered = modules.map((loaded) => renderLoaded(root, loaded));
+	const atlas = typeof input === "string" ? await openAtlas(input, files) : input;
+	const { root } = atlas;
+	const { diagrams: rendered } = atlas;
 	const valid = rendered.flatMap(({ module, model, declarations }) =>
 		model === undefined ? [] : [{ module, id: diagramIdOf(root, module), model, declarations }],
 	);
 	const messages = [
-		...(config === undefined ? [] : checkConfig(root, config)),
+		...atlas.messages,
 		...rendered.flatMap((diagram) => {
 			const stale =
 				diagram.svg === undefined ? undefined : checkSvg(diagram.svgFile, diagram.svg, svgWords);
 			return stale === undefined ? diagram.messages : [...diagram.messages, stale];
 		}),
-		...checkOrphans(files, svgWords),
+		...checkOrphans(atlas.files, svgWords),
 		...checkIds(valid),
-		...checkLinks(root, valid, new Set(modules.flatMap(idsDrawnBy))),
+		...checkNamespaceHomes(valid),
+		...checkLanguage(valid, atlas.terms),
+		...checkLinks(root, valid, atlas.drawn, atlas.config, atlas.terms, atlas.excluded),
 	];
 	return { diagrams: rendered.length, messages: messages.sort(byPlace) };
 }
@@ -163,13 +217,7 @@ const stagedFiles: SvgWords = {
  * its Kind, its title, and the Diagrams that draw it as a Node or as a Group,
  * each in path order. Paths and Diagram ids are repo paths.
  */
-export interface AtlasIndex {
-	diagrams: { id: string; title: string; notation: string; svg: string }[];
-	/** By id, in code unit order. */
-	ids: Record<string, { kind: string; title: string; asNode: string[]; asGroup: string[] }>;
-	/** Every glossary term, with its context, its definition and the words it avoids: none until slice 2 brings glossaries. */
-	terms: never[];
-}
+export type { AtlasIndex } from "./types.ts";
 
 /**
  * Builds the Atlas index from every Diagram. The index lists only what holds
@@ -177,13 +225,20 @@ export interface AtlasIndex {
  * different Kinds or titles, leaves no index: their errors come instead.
  */
 export async function indexAtlas(
-	root: string,
+	input: string | OpenAtlas,
 ): Promise<{ index?: AtlasIndex; errors: AtlasMessage[] }> {
-	const rendered = await renderDiagrams(root, (await discover(root)).modules);
+	const atlas = typeof input === "string" ? await openAtlas(input) : input;
+	const { root } = atlas;
+	const { diagrams: rendered } = atlas;
 	const valid = rendered.flatMap(({ module, model, declarations }) =>
 		model === undefined ? [] : [{ module, id: diagramIdOf(root, module), model, declarations }],
 	);
-	const errors = [...rendered.flatMap(({ messages }) => messages), ...checkIds(valid)]
+	const errors = [
+		...atlas.messages,
+		...rendered.flatMap(({ messages }) => messages),
+		...checkIds(valid),
+		...checkLinks(root, valid, atlas.drawn, atlas.config, atlas.terms, atlas.excluded),
+	]
 		.filter((message) => message.severity === "error")
 		.sort(byPlace);
 	if (errors.length > 0) {
@@ -196,11 +251,17 @@ export async function indexAtlas(
 		return entry;
 	};
 	for (const { id, model } of valid) {
+		const notation = notations.find(({ name }) => name === model.notation);
+		const addContext = (entry: AtlasIndex["ids"][string], drawn: string) => {
+			const context = notation === undefined ? undefined : namespaceOf(model, drawn, notation);
+			if (context !== undefined) entry.context = context;
+			return entry;
+		};
 		for (const node of model.nodes) {
-			entryOf(node).asNode.push(id);
+			addContext(entryOf(node), node.id).asNode.push(id);
 		}
 		for (const group of model.groups) {
-			entryOf(group).asGroup.push(id);
+			addContext(entryOf(group), group.id).asGroup.push(id);
 		}
 	}
 	const index: AtlasIndex = {
@@ -211,7 +272,7 @@ export async function indexAtlas(
 			svg: repoPath(root, svgFileOf(module)),
 		})),
 		ids: Object.fromEntries([...ids].sort(([a], [b]) => compareText(a, b))),
-		terms: [],
+		terms: atlas.terms,
 	};
 	return { index, errors };
 }
@@ -262,7 +323,7 @@ function renderLoaded(root: string, loaded: Loaded): RenderedDiagram {
 	const messages = diagnostics.map((diagnostic) => located(module, declarations, diagnostic));
 	return svg === undefined
 		? { module, svgFile, declarations, messages }
-		: { module, svgFile, svg, model: exported as Diagram, declarations, messages };
+		: { module, svgFile, svg, model: exported as AnyDiagram, declarations, messages };
 }
 
 /** The config must load, and default-export what `atlas()` returns, with no option it doesn't know. */
@@ -270,7 +331,7 @@ function checkConfig(root: string, config: Loaded): AtlasMessage[] {
 	if ("failed" in config) {
 		return [loadFailure(root, config)];
 	}
-	const { exported, declarations, unknownOptions } = config;
+	const { exported, declarations } = config;
 	if (typeof exported !== "object" || exported === null || Array.isArray(exported)) {
 		return [
 			moduleLoad(
@@ -279,7 +340,9 @@ function checkConfig(root: string, config: Loaded): AtlasMessage[] {
 			),
 		];
 	}
-	return unknownOptions.map((diagnostic) => located(config.module, declarations, diagnostic));
+	return unknownOptions(exported, { known: ["contexts"] }, "The Atlas config", "").map(
+		(diagnostic) => located(config.module, declarations, diagnostic),
+	);
 }
 
 /**
