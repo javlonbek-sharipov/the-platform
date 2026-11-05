@@ -40,15 +40,17 @@ afterAll(async () => {
 });
 
 /**
- * Builds the site of the repo at `repo`. It's written, with what the build
- * keeps to build faster, into a temporary folder, so that a test's build
- * leaves the app's own alone.
+ * Builds the site of the repo at `repo`, or of the repo that the app is in.
+ * It's written, with what the build keeps to build faster, into a temporary
+ * folder, so that a test's build leaves the app's own alone.
  */
-export async function buildSite(repo: string): Promise<Site> {
+export async function buildSite(repo?: string): Promise<Site> {
 	const folder = await mkdtemp(join(tmpdir(), "docs-site-"));
 	written.push(folder);
 	const outDir = join(folder, "dist");
-	process.env.DOCS_REPO = repo;
+	if (repo !== undefined) {
+		process.env.DOCS_REPO = repo;
+	}
 	try {
 		await build({ root: app, outDir, cacheDir: join(folder, "cache"), logLevel: "silent" });
 	} catch (error) {

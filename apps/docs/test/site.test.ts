@@ -1,6 +1,8 @@
+import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { symlink, writeFile } from "node:fs/promises";
+import { readFile, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { closeBrowser, open, reading } from "./support/browser.ts";
@@ -405,5 +407,55 @@ describe("the docs site, while it's being developed", () => {
 
 		expect(watched).toContain(join(repo, "docs/specs/checkout.md"));
 		expect(watched.filter((path) => path.startsWith(join(repo, "repos")))).toEqual([]);
+	});
+});
+
+describe("the docs site of the-platform", () => {
+	/** The repo that this app is in. */
+	const root = fileURLToPath(new URL("../../../", import.meta.url));
+	let site: Site;
+
+	beforeAll(async () => {
+		site = await buildSite();
+	}, 120_000);
+
+	test("has a page for every glossary, ADR, spec and doc that git tracks", async () => {
+		// The places where the repo keeps its docs: its own, and each package's and app's.
+		const tracked = execFileSync(
+			"git",
+			[
+				"ls-files",
+				"--",
+				"GLOSSARY-MAP.md",
+				"GLOSSARY.md",
+				"docs",
+				...["apps", "packages"].flatMap((folder) => [
+					`:(glob)${folder}/*/GLOSSARY.md`,
+					`:(glob)${folder}/*/docs/**`,
+				]),
+			],
+			{ cwd: root, encoding: "utf8" },
+		);
+		const docs = tracked.split("\n").filter((path) => path.endsWith(".md"));
+		expect(docs).toContain("docs/specs/diagram-engine.md");
+		expect(docs).toContain("packages/diagrams/GLOSSARY.md");
+		expect(docs).toContain("packages/diagrams/docs/adr/0001-clean-room-diagram-engine.md");
+
+		for (const doc of docs) {
+			const [, title] = /^# (.+)$/m.exec(await readFile(join(root, doc), "utf8")) ?? [];
+			const page = await site.page(doc.slice(0, -".md".length).toLowerCase());
+			expect(headingsOf(page), doc).toEqual([title]);
+		}
+	});
+
+	test("shows the example system's Diagram as it's committed, in the web component", async () => {
+		const drawing = await readFile(
+			join(root, "packages/diagrams/docs/example-system.diagram.svg"),
+			"utf8",
+		);
+
+		const page = await site.page("packages/diagrams/docs/example-system");
+
+		expect(page).toContain(`<platform-diagram>${drawing}</platform-diagram>`);
 	});
 });
