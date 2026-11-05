@@ -44,6 +44,14 @@ const shop = {
 		"",
 		"Shoppers can fill a cart, but they can't pay for it.",
 		'A shopper who types "pay" -- or presses Enter -- gets nothing...',
+		"",
+		"```ts",
+		"const paid: boolean = await checkout(cart);",
+		"```",
+		"",
+		"```nginx",
+		"server { listen 80; }",
+		"```",
 	),
 	"packages/shop/GLOSSARY.md": lines(
 		"# Shop",
@@ -263,6 +271,23 @@ describe("the docs site of a sample repo", () => {
 
 		const picture = page.getByRole("img", { name: "The shop's logo" });
 		expect(await picture.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(1);
+	});
+
+	test("code is colored only in a language whose grammar has a permissive license", async () => {
+		const page = await open(await reading(site), "docs/specs/checkout");
+		/** How many colors a block of code is written in. */
+		const colors = (code: string) =>
+			page
+				.locator("pre", { hasText: code })
+				.evaluate(
+					(block) =>
+						new Set([...block.querySelectorAll("span")].map((span) => getComputedStyle(span).color))
+							.size,
+				);
+
+		// TypeScript's grammar is MIT. Shiki's grammar for nginx is GPL-3.0, so the site leaves it out.
+		expect(await colors("const paid: boolean")).toBeGreaterThan(1);
+		expect(await colors("server { listen 80; }")).toBe(1);
 	});
 
 	test("a page says where its doc is edited: its file, on GitHub", async () => {

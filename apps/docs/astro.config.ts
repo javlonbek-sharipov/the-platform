@@ -4,6 +4,7 @@ import { defineConfig, passthroughImageService } from "astro/config";
 import { diagramImages } from "./src/diagrams/images.ts";
 import { diagrams } from "./src/diagrams/integration.ts";
 import { themeStyle } from "./src/diagrams/theme.ts";
+import { codeLanguages } from "./src/markdown/code-languages.ts";
 import { pageTitle } from "./src/markdown/page-title.ts";
 import { repoLinks } from "./src/markdown/repo-links.ts";
 import { docsOf, repoRoot } from "./src/repo.ts";
@@ -18,7 +19,7 @@ export default defineConfig({
 	image: { service: passthroughImageService() },
 	markdown: {
 		processor: satteri({
-			mdastPlugins: [diagramImages(repoRoot), repoLinks(repoRoot)],
+			mdastPlugins: [diagramImages(repoRoot), repoLinks(repoRoot), codeLanguages],
 			// The headings get their ids first, the title's among them, as on GitHub.
 			hastPlugins: [satteriHeadingIdsPlugin(), pageTitle],
 			// A doc reads as it's written, and as GitHub shows it: `--` stays two hyphens.
