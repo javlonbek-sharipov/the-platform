@@ -2105,6 +2105,13 @@ Focus, keyboard selection and the screen-reader lists. This is GitHub's issue #7
    - A Node's entry is its whole title and its Notation's facts, as in the SVG description, followed by `Rows: name: value; name.` when it has Rows. The Edge entries use `sentenceOf` and the SVG's crossing hook, so roles, Row ends, Technology names, rates and crossing phrases are exactly the SVG description's sentences.
    - The lists are clipped to one pixel rather than hidden, so assistive technology and find-in-page can read them, including titles shortened in the drawing. They become a visible, scrollable text panel while a list button has keyboard focus.
    - In the component the SVG is hidden from assistive technology to avoid a second description. The stage keeps its named `group` role and keyboard instructions. A polite status announces the selected entry while the stage has focus; list buttons announce themselves. The committed SVG retains its own accessible image description.
+9. **Explicit highlights.**
+   - `PlatformDiagram.setHighlight({ nodes?, edges? })` keeps exactly the listed Node and Edge ids at full strength. It takes precedence over hover and ordinary selection, and doesn't change the selection or raise a selection event. Passing `undefined` gives emphasis back to hover or selection; Escape clears it along with ordinary focus.
+   - The parts share that controller as `Stage.highlights`, so a Walkthrough can apply a Step's emphasis through it. Playback, Step controls and details remain their own tickets. Focus writes only its own `--focus-opacity`; it doesn't change animation or a motion setting.
+10. **Other drawing parts.** Groups enclosing a kept Node stay at full strength, including nested parents; other Groups fade. A junction stays at full strength when a kept Edge leaves from its Port, Row Ports included. These layers are separate from the Nodes and Edges, so none is faded twice.
+11. **Replacement and activation seams.**
+    - Selection survives a new SVG that still draws its target id. Removing that id clears selection and raises the clearing event. The lists are rebuilt in the new layout order, and old listeners, hit paths, tooltips and selection marks are removed. Keyboard focus on a list item returns to its selected id after a redraw; if that item is gone it returns to the stage. Disconnecting doesn't restore focus on reconnect.
+    - List buttons carry `data-node-item` or `data-edge-item`, each with its target id. A later details part can handle their ordinary click or Enter activation separately from selection changes, just as it can handle the drawing's `data-node` clicks and Enter on the stage.
 
 ### References
 

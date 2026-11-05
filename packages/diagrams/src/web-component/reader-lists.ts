@@ -51,7 +51,10 @@ export const readerLists: Part = {
 }
 `,
 	setUp({ element, selection, onShow }) {
+		let focused: SelectionTarget | undefined;
 		onShow((svg) => {
+			const restore = focused;
+			focused = undefined;
 			const model = modelOf(svg);
 			const notation = notations.find(({ name }) => name === model?.notation);
 			if (model === undefined || notation === undefined) {
@@ -77,6 +80,7 @@ export const readerLists: Part = {
 				const item = document.createElement("li");
 				const button = document.createElement("button");
 				button.type = "button";
+				button.dataset.nodeItem = node.id;
 				const rows = (node.rows ?? []).map(({ name, value }) =>
 					value ? `${collapseSpaces(name)}: ${collapseSpaces(value)}` : collapseSpaces(name),
 				);
@@ -104,6 +108,7 @@ export const readerLists: Part = {
 				const item = document.createElement("li");
 				const button = document.createElement("button");
 				button.type = "button";
+				button.dataset.edgeItem = edge.id;
 				button.textContent = `${sentenceOf(model, notation, edge, crossings.get(edge.id))}.`;
 				bind(button, { kind: "edge", id: edge.id });
 				item.append(button);
@@ -142,7 +147,20 @@ export const readerLists: Part = {
 				},
 				{ signal: events.signal },
 			);
+			if (restore !== undefined) {
+				const item = buttons.find(
+					({ target }) =>
+						target.kind === restore.kind &&
+						target.id === restore.id &&
+						selection.current?.kind === target.kind &&
+						selection.current.id === target.id,
+				);
+				(item?.button ?? element).focus({ preventScroll: true });
+			}
 			return () => {
+				focused = element.isConnected
+					? buttons.find(({ button }) => button.matches(":focus"))?.target
+					: undefined;
 				events.abort();
 				unwatch();
 				holder.remove();

@@ -1,3 +1,4 @@
+import type { PlatformDiagram } from "@the-platform/diagrams/web-component";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { architecture, type Diagram, domain } from "../../src/index.ts";
@@ -10,14 +11,19 @@ import { mount } from "./support/page.ts";
 function dependencies(): Diagram {
 	return architecture({ title: "Dependencies" }, (d) => {
 		const source = d.node({ id: "source", kind: "client", title: "Source" });
-		const focus = d.node({ id: "focus", kind: "service", title: "Focus" });
+		const focus = d.node({
+			id: "focus",
+			kind: "service",
+			title: "Focus",
+			rows: [{ name: "tasks" }],
+		});
 		const downstream = d.node({ id: "downstream", kind: "worker", title: "Downstream" });
 		const leaf = d.node({ id: "leaf", kind: "database", title: "Leaf" });
 		const sibling = d.node({ id: "sibling", kind: "function", title: "Sibling" });
 		const other = d.node({ id: "other", kind: "gateway", title: "Other caller" });
 		d.node({ id: "isolated", kind: "cache", title: "Isolated" });
 		d.edge(source, focus, { kind: "call", label: "Starts" });
-		d.edge(focus, downstream, { kind: "message", label: "Work" });
+		d.edge(focus.row("tasks"), downstream, { kind: "message", label: "Work" });
 		d.edge(downstream, leaf, { kind: "call", label: "Stores" });
 		d.edge(leaf, downstream, { kind: "call", label: "Returns" });
 		d.edge(source, sibling, { kind: "call", label: "Sibling work" });
@@ -197,4 +203,50 @@ test("an Edge's line is easy to hover, and names a known Technology in full", as
 	expect(page.elementLocator(diagram).getByRole("tooltip").element().textContent).toBe(
 		"PostgreSQL",
 	);
+});
+
+test("explicit highlights can override hover without changing the selected Node", async () => {
+	const diagram = (await mount(
+		draw(dependencies()).svg,
+		"width: 1200px; height: 500px",
+	)) as PlatformDiagram;
+	expect(diagram.selectNode("focus")).toBe(true);
+
+	diagram.setHighlight({ nodes: ["isolated"] });
+	await userEvent.hover(textOf(diagram, "Focus"));
+
+	expect(diagram.selectedNode).toBe("focus");
+	expect(opacityOf(textOf(diagram, "Isolated"))).toBe(1);
+	expect(opacityOf(textOf(diagram, "Focus"))).toBeLessThan(0.5);
+	diagram.setHighlight(undefined);
+	expect(opacityOf(textOf(diagram, "Focus"))).toBe(1);
+	expect(opacityOf(textOf(diagram, "Isolated"))).toBeLessThan(0.5);
+});
+
+test("unrelated Groups and junctions fade along with their Nodes and Edges", async () => {
+	const model = architecture({ title: "Grouped focus" }, (d) => {
+		d.group({ id: "main", kind: "system", title: "Main" }, (g) => {
+			g.node({ id: "focus", kind: "service", title: "Focus" });
+		});
+		d.group({ id: "elsewhere", kind: "system", title: "Elsewhere" }, (g) => {
+			const other = g.node({ id: "other", kind: "service", title: "Other" });
+			const one = g.node({ id: "one", kind: "service", title: "One" });
+			const two = g.node({ id: "two", kind: "service", title: "Two" });
+			d.edge(other, one, { kind: "call" });
+			d.edge(other, two, { kind: "call" });
+		});
+	});
+	const drawing = draw(model);
+	expect(drawing.scene.junctions.length).toBeGreaterThan(0);
+	const diagram = await mount(drawing.svg, "width: 1200px; height: 600px");
+
+	await userEvent.hover(textOf(diagram, "Focus"));
+
+	expect(opacityOf(textOf(diagram, "Main"))).toBe(1);
+	expect(opacityOf(textOf(diagram, "Elsewhere"))).toBeLessThan(0.5);
+	for (const junction of diagram.shadowRoot?.querySelectorAll(
+		'[data-from="other"]:not([data-edge])',
+	) ?? []) {
+		expect(opacityOf(junction)).toBeLessThan(0.5);
+	}
 });

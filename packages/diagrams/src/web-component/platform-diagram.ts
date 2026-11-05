@@ -9,6 +9,7 @@
  */
 
 import { Camera, huggingHeight, type View } from "./camera.ts";
+import { Highlights, type HighlightTargets } from "./highlights.ts";
 import { parts } from "./parts.ts";
 import { Selection, type SelectionTarget } from "./selection.ts";
 import type { Shown } from "./stage.ts";
@@ -26,6 +27,7 @@ export class PlatformDiagram extends HTMLElement {
 	readonly #stage = document.createElement("div");
 	readonly #camera = new Camera();
 	readonly #selection = new Selection();
+	readonly #highlights = new Highlights();
 	readonly #sizes = new ResizeObserver(([entry]) => {
 		const size = entry?.contentBoxSize[0];
 		if (size !== undefined) {
@@ -61,6 +63,11 @@ export class PlatformDiagram extends HTMLElement {
 		return this.#selection.select(id === undefined ? undefined : { kind: "node", id });
 	}
 
+	/** Emphasizes exactly these Nodes and Edges until cleared, without changing selection. */
+	setHighlight(targets: HighlightTargets | undefined): void {
+		this.#highlights.set(targets);
+	}
+
 	constructor() {
 		super();
 		const root = this.attachShadow({ mode: "open" });
@@ -83,6 +90,7 @@ export class PlatformDiagram extends HTMLElement {
 				element: this.#stage,
 				camera: this.#camera,
 				selection: this.#selection,
+				highlights: this.#highlights,
 				onShow: (listener) => this.#shown.add(listener),
 			});
 		}

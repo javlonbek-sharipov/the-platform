@@ -1,6 +1,6 @@
 /** A Node's upstream and downstream dependencies, shown at full strength. */
 
-import { type AnyDiagram, endNode } from "../authoring/model.ts";
+import { type AnyDiagram, endNode, parentsOf } from "../authoring/model.ts";
 import { definitionOf, type Notation } from "../notations/notation.ts";
 import { notations } from "../notations/notations.ts";
 import type { SelectionTarget } from "./selection.ts";
@@ -9,11 +9,11 @@ import { modelOf } from "./svg.ts";
 
 export const focus: Part = {
 	css: `
-[data-node], [data-edge], [data-edge-label], [data-edge-role] {
+[data-node], [data-group], [data-edge], [data-edge-label], [data-edge-role], [data-from]:not([data-edge]) {
 	opacity: var(--focus-opacity, 1);
 }
 `,
-	setUp({ element, selection, onShow }) {
+	setUp({ element, selection, highlights, onShow }) {
 		onShow((svg) => {
 			const diagram = modelOf(svg);
 			if (diagram === undefined) {
@@ -28,19 +28,23 @@ export const focus: Part = {
 			const edges = [
 				...svg.querySelectorAll<SVGGElement>("[data-edge], [data-edge-label], [data-edge-role]"),
 			];
+			const groups = [...svg.querySelectorAll<SVGGElement>("[data-group]")];
+			const junctions = [...svg.querySelectorAll<SVGElement>("[data-from]:not([data-edge])")];
+			const parents = parentsOf(diagram);
 			let hovered: SelectionTarget | undefined;
 			const show = () => {
 				const target = hovered ?? selection.current;
 				const edge = diagram.edges.find(({ id }) => target?.kind === "edge" && id === target.id);
 				const kept =
-					target === undefined
+					highlights.current ??
+					(target === undefined
 						? undefined
 						: edge === undefined
 							? dependenciesOf(diagram, notation, target.id)
 							: {
 									nodes: new Set([endNode(edge.from), endNode(edge.to)]),
 									edges: new Set([edge.id]),
-								};
+								});
 				for (const node of nodes) {
 					node.style.setProperty(
 						"--focus-opacity",
@@ -56,6 +60,32 @@ export const focus: Part = {
 							? "0.2"
 							: "1",
 					);
+				}
+				const keptGroups = new Set<string>();
+				for (const node of kept?.nodes ?? []) {
+					let parent = parents.get(node);
+					while (parent !== undefined) {
+						keptGroups.add(parent);
+						parent = parents.get(parent);
+					}
+				}
+				for (const group of groups) {
+					group.style.setProperty(
+						"--focus-opacity",
+						kept === undefined || keptGroups.has(group.dataset.group ?? "") ? "1" : "0.2",
+					);
+				}
+				for (const junction of junctions) {
+					const active =
+						kept === undefined ||
+						diagram.edges.some(
+							(edge) =>
+								kept.edges.has(edge.id) &&
+								endNode(edge.from) === junction.dataset.from &&
+								(typeof edge.from === "string" ? undefined : edge.from.row) ===
+									junction.dataset.fromRow,
+						);
+					junction.style.setProperty("--focus-opacity", active ? "1" : "0.2");
 				}
 			};
 			const events = new AbortController();
@@ -94,6 +124,7 @@ export const focus: Part = {
 					if (path !== null) {
 						const hit = path.cloneNode(false) as SVGPathElement;
 						hit.removeAttribute("class");
+						hit.removeAttribute("stroke-dasharray");
 						hit.setAttribute("stroke", "transparent");
 						hit.setAttribute("stroke-width", "12");
 						hit.setAttribute("fill", "none");
@@ -125,12 +156,14 @@ export const focus: Part = {
 				hovered = undefined;
 				show();
 			});
+			const unhighlight = highlights.watch(show);
 			show();
 			element.addEventListener(
 				"keydown",
 				(event) => {
 					if (event.key === "Escape" && !event.defaultPrevented) {
 						hovered = undefined;
+						highlights.set(undefined);
 						selection.select(undefined);
 						show();
 						event.preventDefault();
@@ -141,10 +174,11 @@ export const focus: Part = {
 			return () => {
 				events.abort();
 				unwatch();
+				unhighlight();
 				for (const hit of hits) {
 					hit.remove();
 				}
-				for (const part of [...nodes, ...edges]) {
+				for (const part of [...nodes, ...edges, ...groups, ...junctions]) {
 					part.style.removeProperty("--focus-opacity");
 				}
 			};
