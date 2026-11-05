@@ -23,6 +23,7 @@ const repo = new URL("../../../", import.meta.url);
  * module that it copies.
  */
 const examples: { heading: string; module: string; support: string[]; glossary?: string }[] = [
+	{ heading: "Walkthroughs", module: "docs/example-walkthrough.diagram.ts", support: [] },
 	{ heading: "Example", module: "docs/example-system.diagram.ts", support: [] },
 	{
 		heading: "Context maps",

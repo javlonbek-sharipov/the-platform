@@ -216,6 +216,14 @@ test.each(["architecture", "domain"] as const)(
 		const back = marks(host)[0];
 		if (back === undefined) throw new Error("Back Step's mark missing");
 		expect(back.getBoundingClientRect().x).toBeGreaterThan(start + 40);
+		const path = host.shadowRoot?.querySelector<SVGPathElement>('[data-edge="save"] path');
+		const matrix = path?.getScreenCTM();
+		if (path === null || path === undefined || matrix === null || matrix === undefined)
+			throw new Error("Edge path missing");
+		const target = path.getPointAtLength(0).matrixTransform(matrix);
+		const box = back.getBoundingClientRect();
+		expect(box.x + box.width / 2).toBeCloseTo(target.x, 1);
+		expect(box.y + box.height / 2).toBeCloseTo(target.y, 1);
 		await controls.getByRole("button", { name: "Play" }).click();
 		const reverse = marks(host)[0];
 		if (reverse === undefined) throw new Error("Back Step's mark missing");
@@ -229,8 +237,25 @@ test.each(["architecture", "domain"] as const)(
 		expect(reverse.getBoundingClientRect().x).toBe(stopped);
 		await controls.getByRole("button", { name: "Next Step" }).click();
 		expect(marks(host).map((mark) => mark.dataset.walkthroughEdge)).toEqual(["save", "charge"]);
+		await controls.getByRole("button", { name: "Play" }).click();
+		const parallel = marks(host);
+		const offsets = parallel.map((mark) =>
+			Number.parseFloat(getComputedStyle(mark).offsetDistance),
+		);
+		await frame();
+		expect(
+			parallel.map(
+				(mark, i) => Number.parseFloat(getComputedStyle(mark).offsetDistance) < (offsets[i] ?? 0),
+			),
+		).toEqual([true, true]);
 		await controls.getByRole("button", { name: "Next Step" }).click();
 		expect(marks(host)).toEqual([]);
+		if (notation === "domain") {
+			await expect.poll(() => opacityOf(textOf(host, "Products"))).toBe(0.2);
+			expect(opacityOf(textOf(host, "OHS"))).toBe(0.2);
+			expect(opacityOf(textOf(host, "CF"))).toBe(0.2);
+			expect(opacityOf(textOf(host, "Ordering"))).toBe(1);
+		}
 	},
 );
 
@@ -330,4 +355,23 @@ test("a Step's moving marks pause off screen and resume when the Diagram is visi
 	await expect.poll(() => motion.playState).toBe("running");
 	await frame();
 	expect(motion.currentTime).not.toBe(time);
+});
+
+test("Walkthrough keyboard handling leaves a host's prevented keys available to other parts", async () => {
+	const { host, ui } = await setup();
+	await ui.getByRole("button", { name: "Place an order" }).click();
+	const controls = ui.getByRole("region", { name: "Walkthrough" });
+	const handled = (event: KeyboardEvent) => {
+		if (event.key === "ArrowRight") event.preventDefault();
+	};
+	host.addEventListener("keydown", handled, { capture: true });
+	await userEvent.keyboard("{ArrowRight}");
+	await expect
+		.element(controls.getByRole("status"), { timeout: 500 })
+		.toHaveTextContent("Step 1 of 4");
+	host.removeEventListener("keydown", handled, { capture: true });
+	await userEvent.keyboard("{ArrowRight}");
+	await expect
+		.element(controls.getByRole("status"), { timeout: 500 })
+		.toHaveTextContent("Step 2 of 4");
 });

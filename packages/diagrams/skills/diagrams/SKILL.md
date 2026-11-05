@@ -150,6 +150,37 @@ export default domain({ title: "Diagrams language" }, (d) => {
 });
 ```
 
+## Walkthroughs
+
+Use a Walkthrough for an ordered explanation on one Diagram, in either `architecture` or `domain`. Call `d.walkthrough({ id, title, steps })` with an id unique among that Diagram's Walkthroughs, a title and at least one Step. Each Step chooses `edges: [...]` or one `node`, and may carry a plain-text `note`. Edges take handles or ids; `{ edge: handleOrId, back: true }` shows a reply from `to` to `from`. Several Edges in one Step run together. A Node takes a handle or id. Every target must be on this Diagram. Inside a context's builder, local Node ids expand as usual; Edge ids stay local to the Diagram.
+
+The web component plays Walkthroughs from their title buttons, with play/pause and Step controls. Escape leaves playback. Reduced motion and host motion-off keep the marks still. The static SVG carries the Steps for the component to play.
+
+This complete example is `packages/diagrams/docs/example-walkthrough.diagram.ts`:
+
+```ts
+import { architecture } from "@the-platform/diagrams";
+
+/** Forward, reply, parallel and Node-only Steps on a small checkout Diagram. */
+export default architecture({ title: "Checkout Walkthrough" }, (d) => {
+	const api = d.node({ id: "walkthrough-api", kind: "service", title: "Checkout API" });
+	const orders = d.node({ id: "walkthrough-orders", kind: "database", title: "Orders" });
+	const payments = d.node({ id: "walkthrough-payments", kind: "service", title: "Payments" });
+	const save = d.edge(api, orders, { id: "save", kind: "call" });
+	const charge = d.edge(api, payments, { id: "charge", kind: "call" });
+	d.walkthrough({
+		id: "place-order",
+		title: "Place an order",
+		steps: [
+			{ edges: [save], note: "Save the order." },
+			{ edges: [{ edge: save, back: true }], note: "Return its id." },
+			{ edges: [save, charge], note: "Save and charge together." },
+			{ node: api, note: "Order placed." },
+		],
+	});
+});
+```
+
 ## Finish
 
 Run each command from the repo root, with the module's path for `<module>`:

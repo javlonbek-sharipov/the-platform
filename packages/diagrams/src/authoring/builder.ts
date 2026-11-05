@@ -1,6 +1,6 @@
 /**
  * What every Notation's builder shares: the functions that declare Nodes,
- * Groups and Edges, the handles they return, Groups that declare their
+ * Groups, Edges and Walkthroughs, the handles they return, Groups that declare their
  * members in a callback, Rows whose names the types carry, an error for each
  * option a function doesn't know, and the place each declaration was called
  * from. A Notation's builder is `builderOf` its definition, which gives the

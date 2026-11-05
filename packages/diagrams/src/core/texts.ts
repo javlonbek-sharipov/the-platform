@@ -8,7 +8,7 @@
 
 import type { AnyDiagram, Link } from "../authoring/model.ts";
 
-/** What holds a text: the Diagram, or one of its Nodes, Groups or Edges, by its index and id. */
+/** What holds a text: the Diagram, or a Node, Group, Edge or Walkthrough, by its index and id. */
 export type TextOwner =
 	| { thing: "Diagram" }
 	| { thing: "Node" | "Group" | "Edge" | "Walkthrough"; index: number; id: string };

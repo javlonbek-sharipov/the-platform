@@ -35,6 +35,7 @@ test("a Walkthrough keeps ordered Edge, back, parallel and Node Steps in the SVG
 	expect(schemaErrors(diagram)).toEqual([]);
 	const result = render(diagram);
 	expect(result.diagnostics).toEqual([]);
+	expect(render(JSON.parse(JSON.stringify(diagram))).svg).toBe(result.svg);
 	const metadata = result.svg
 		?.match(/<metadata>(.*?)<\/metadata>/)?.[1]
 		?.replaceAll("&lt;", "<")
