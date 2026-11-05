@@ -47,7 +47,7 @@ const solidOpacity = 0.5;
 const badgeStroke = 1.5;
 /** How much wider a callout makes its Node's outline. */
 const highlightGain = 1;
-/** The dashes of a dashed line, a message's or a zone's: 6 px drawn, then 4 px left out. */
+/** The dashes of a dashed line, an Edge's or a Group's border: 6 px drawn, then 4 px left out. */
 const dashes = "6 4";
 
 /** Writes a Diagram's scene as an SVG, with each Kind's look from the Diagram's Notation. */
@@ -104,7 +104,7 @@ export function writeSvg(
 				["fill", "none"],
 			]),
 		),
-		// Edges that cross between regions or zones go beneath the others, so a
+		// Edges that cross between Groups go beneath the others, so a
 		// trunk they share with Edges that don't shows the plain color.
 		...[
 			...scene.edges.filter((edge) => edge.crosses !== undefined),
@@ -492,7 +492,7 @@ function cased(d: string, attributes: Attribute[]): string[] {
 	];
 }
 
-/** The badge of an Edge that crosses between regions or zones: a disc in its color, with a globe on it. */
+/** The badge of an Edge that crosses between Groups: a disc in its color, with a globe on it. */
 const globeStroke = 1;
 
 /** A badge, centered on its point: a disc, cased like the Edge, with a globe on it. */

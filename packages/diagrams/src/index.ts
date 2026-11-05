@@ -71,6 +71,7 @@ export type {
 	ArchitectureEdgeKind,
 	ArchitectureGroupKind,
 	ArchitectureNodeKind,
+	ArchitectureNotation,
 	ArchitectureStatus,
 } from "./notations/architecture.ts";
 export { architectureNotation } from "./notations/architecture.ts";

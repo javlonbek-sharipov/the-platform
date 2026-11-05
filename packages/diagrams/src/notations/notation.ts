@@ -13,15 +13,6 @@ export interface Notation {
 	/** What a Diagram's `notation` names it by. */
 	name: string;
 	/**
-	 * The hues its Node Kinds are drawn in, by name. Each is a color of the
-	 * theme, the CSS custom property `--diagram-hue-` and its name, with a
-	 * fallback for the light theme and one for the dark theme. Kinds that
-	 * belong together share one.
-	 */
-	hues: Record<string, ThemeColor>;
-	/** Its Node Kinds, in the order messages list them, each with its look. */
-	nodeKinds: Record<string, NodeKindDefinition>;
-	/**
 	 * The fields its Diagrams may have: of the optional fields that the model
 	 * has for a Node, a Group and an Edge, the ones that its own may have.
 	 * Any other is an error on one of its Diagrams.
@@ -32,19 +23,34 @@ export interface Notation {
 		edge: readonly EdgeField[];
 	};
 	/**
+	 * The hues its Node Kinds are drawn in, by name. Each is a color of the
+	 * theme, the CSS custom property `--diagram-hue-` and its name, with a
+	 * fallback for the light theme and one for the dark theme. Kinds that
+	 * belong together share one.
+	 */
+	hues: Record<string, ThemeColor>;
+	/** Its Node Kinds, in the order messages list them, each with its look. */
+	nodeKinds: Record<string, NodeKindDefinition>;
+	/**
+	 * The statuses its Nodes may have, which say how each is doing, in the
+	 * order messages list them, each with its look.
+	 */
+	statuses: Record<string, StatusDefinition>;
+	/**
 	 * The facts that the SVG's description lists for each Node, after its
 	 * title, in this order. A fact that a Node lacks, such as a status, is
 	 * left out.
 	 */
 	facts: readonly NodeFact[];
 	/**
-	 * The statuses its Nodes may have, which say how each is doing, in the
-	 * order messages list them, each with its look.
+	 * Its Group Kinds, in the order messages list them, each with its look,
+	 * and whether an Edge crosses between two Groups of it.
 	 */
-	statuses: Record<string, StatusDefinition>;
-	/** Its Group Kinds, in the order messages list them, each with its look. */
 	groupKinds: Record<string, GroupKindDefinition>;
-	/** Its Edge Kinds, in the order messages list them, each with its look and its sentence form. */
+	/**
+	 * Its Edge Kinds, in the order messages list them, each with its look, its
+	 * sentence form, whether it's symmetric, and the Node Kinds it may join.
+	 */
 	edgeKinds: Record<string, EdgeKindDefinition>;
 	/**
 	 * How its Edges bundle: which Edges of one Kind share a trunk, and so a
@@ -53,7 +59,7 @@ export interface Notation {
 	bundling: Bundling;
 }
 
-/** How a Node of one Kind looks. A Kind alone decides it. */
+/** How a Node of one Kind looks: its size, its outline, its badge and its hue. A Kind alone decides it. */
 export interface NodeKindDefinition {
 	/** The Node's size, in px, which its title never changes. Both are multiples of 16, twice the grid. */
 	width: number;
@@ -62,7 +68,7 @@ export interface NodeKindDefinition {
 	outline: Outline;
 	/** The badge at the start of the header: path data for a glyph 16 px square, stroked. */
 	badge: string;
-	/** Which of the Notation's hues the Node takes. */
+	/** Which of the Notation's hues the Node takes, by its name. */
 	hue: string;
 }
 
@@ -115,7 +121,10 @@ export interface StatusDefinition {
 	color: ColorName;
 }
 
-/** How a Group of one Kind draws its box. A Kind alone decides it. */
+/**
+ * How a Group of one Kind draws its box, and whether Edges cross between
+ * Groups of it. A Kind alone decides both.
+ */
 export interface GroupKindDefinition {
 	/** How wide its box's stroke is, in px. */
 	stroke: number;
@@ -131,7 +140,10 @@ export interface GroupKindDefinition {
 	crossing?: string;
 }
 
-/** How an Edge of one Kind looks, and how a sentence names it. A Kind alone decides both. */
+/**
+ * How an Edge of one Kind looks, how a sentence names it, and which Nodes it
+ * may join. A Kind alone decides them.
+ */
 export interface EdgeKindDefinition {
 	/** Its line: solid or dashed. */
 	line: "solid" | "dashed";

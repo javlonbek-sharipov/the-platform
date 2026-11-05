@@ -7,8 +7,13 @@
 
 import type { EdgeKindOf, GroupKindOf, NodeKindOf, Notation, StatusOf } from "./notation.ts";
 
-export const architectureNotation = {
+const definition = {
 	name: "architecture",
+	fields: {
+		node: ["technology", "external", "status", "rows", "description", "links", "callout"],
+		group: ["description", "links"],
+		edge: ["label", "technology", "rate"],
+	},
 	// The Kinds of one family share a hue: the people who use the system and
 	// the apps they use it with; systems; the things that run code; the things
 	// that keep data; and queues.
@@ -122,14 +127,6 @@ export const architectureNotation = {
 			hue: "data",
 		},
 	},
-	fields: {
-		node: ["technology", "external", "status", "rows", "description", "links", "callout"],
-		group: ["description", "links"],
-		edge: ["label", "technology", "rate"],
-	},
-	// The description names what the drawing shows only as a logo, a dashed
-	// outline or a mark.
-	facts: ["kind", "technology", "external", "status"],
 	statuses: {
 		// A dot.
 		ok: { mark: "M 1 6 A 5 5 0 1 0 11 6 A 5 5 0 1 0 1 6 Z", line: false, color: "ok" },
@@ -140,6 +137,9 @@ export const architectureNotation = {
 		// A square.
 		unknown: { mark: "M 1.75 1.75 H 10.25 V 10.25 H 1.75 Z", line: false, color: "muted" },
 	},
+	// The description names what the drawing shows only as a logo, a dashed
+	// outline or a mark.
+	facts: ["kind", "technology", "external", "status"],
 	groupKinds: {
 		// A `system` is heavier than a `region`, and a `zone` is dashed. A call
 		// between two regions, or two zones, costs latency and egress, so it
@@ -158,7 +158,14 @@ export const architectureNotation = {
 	bundling: "target",
 } as const satisfies Notation;
 
-export type ArchitectureNodeKind = NodeKindOf<typeof architectureNotation>;
-export type ArchitectureStatus = StatusOf<typeof architectureNotation>;
-export type ArchitectureGroupKind = GroupKindOf<typeof architectureNotation>;
-export type ArchitectureEdgeKind = EdgeKindOf<typeof architectureNotation>;
+type Definition = typeof definition;
+
+/** The type of the architecture Notation's definition, by a name that messages can show. */
+export interface ArchitectureNotation extends Definition {}
+
+export const architectureNotation: ArchitectureNotation = definition;
+
+export type ArchitectureNodeKind = NodeKindOf<ArchitectureNotation>;
+export type ArchitectureStatus = StatusOf<ArchitectureNotation>;
+export type ArchitectureGroupKind = GroupKindOf<ArchitectureNotation>;
+export type ArchitectureEdgeKind = EdgeKindOf<ArchitectureNotation>;

@@ -1,7 +1,7 @@
 /**
  * The path data of what the SVG writer draws along an Edge: its line, in
  * pieces between hops, with its corners' arcs; its arrowhead; its chevrons;
- * and the globe on its badge, when it crosses between regions or zones.
+ * and the globe on its badge, when it crosses between Groups.
  */
 
 import { headingOf } from "./geometry.ts";

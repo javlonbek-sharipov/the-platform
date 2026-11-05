@@ -50,10 +50,10 @@ export function descriptionOf(diagram: AnyDiagram, notation: Notation, scene: Sc
 /**
  * An Edge as a sentence: its Kind's sentence form, as in "Checkout API calls
  * Payments API", then how it travels, by its Technology's name, how much
- * passes over it, whether it crosses between regions or zones, which the
- * drawing shows only by its color and its badge, and its label, as in
- * "Checkout API calls Payments API over grpc at 2k/s across regions:
- * authorize".
+ * passes over it, whether it crosses between Groups, as its Notation words
+ * it, which the drawing shows only by its color and its badge, and its
+ * label, as in "Checkout API calls Payments API over grpc at 2k/s across
+ * regions: authorize".
  */
 export function sentenceOf(
 	diagram: AnyDiagram,

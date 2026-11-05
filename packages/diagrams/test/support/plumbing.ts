@@ -8,6 +8,12 @@ import type { Notation } from "../../src/index.ts";
 
 export const plumbingNotation = {
 	name: "plumbing",
+	// Plumbing has no Technologies, callouts, Links or rates.
+	fields: {
+		node: ["external", "status", "rows", "description"],
+		group: ["description"],
+		edge: ["label"],
+	},
 	hues: {
 		water: { light: "#0b6e99", dark: "#5cc8f0" },
 		metal: { light: "#6b5b3e", dark: "#d9c08a" },
@@ -32,19 +38,13 @@ export const plumbingNotation = {
 		// A spout.
 		tap: { width: 144, height: 48, outline: "pill", badge: "M 2 8 H 14 M 8 2 V 14", hue: "metal" },
 	},
-	// Plumbing has no Technologies, callouts, Links or rates.
-	fields: {
-		node: ["external", "status", "rows", "description"],
-		group: ["description"],
-		edge: ["label"],
-	},
-	// Whether its valve is open comes first, and whose it is goes unsaid.
-	facts: ["status", "kind"],
 	statuses: {
 		// A drop, and a bar across the pipe.
 		open: { mark: "M 6 1 L 10 7 A 4 4 0 1 1 2 7 Z", line: false, color: "ok" },
 		shut: { mark: "M 2 6 H 10", line: true, color: "danger" },
 	},
+	// Whether its valve is open comes first, and whose it is goes unsaid.
+	facts: ["status", "kind"],
 	groupKinds: {
 		room: { stroke: 1, line: "dashed" },
 		// Water that changes floors needs pressure, so an Edge between two floors stands out.
