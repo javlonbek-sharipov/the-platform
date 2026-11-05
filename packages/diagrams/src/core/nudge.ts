@@ -29,7 +29,7 @@ export interface NudgeRoute {
 	fromPort: ScenePort;
 	toPort: ScenePort;
 	/** Routes of one lane group may share a lane, as a bundle's trunk does. */
-	group: string;
+	laneGroup: string;
 }
 
 export interface Corridors {
@@ -65,13 +65,9 @@ interface Run extends LineSpan {
 
 /** The stretch of one line that one lane group uses, which takes one lane. */
 interface Stretch extends LineSpan {
-	group: string;
+	laneGroup: string;
 	runs: Run[];
-	/**
-	 * How much it would rather keep its line: 2 when it holds a route that runs
-	 * straight from stub to stub, which would jog at both ends, 1 when it holds
-	 * a first or last run that carries a stub straight on, and 0 otherwise.
-	 */
+	/** How much it would rather keep its line, as `keepsLine` ranks it. */
 	pinned: number;
 	/** Whether it must keep its line, as a Port's junction does. */
 	fixed: boolean;
@@ -94,6 +90,15 @@ interface Stretch extends LineSpan {
  * time before found, until no junction reaches further.
  */
 const rounds = 3;
+
+/**
+ * How much a stretch would rather keep its line, so that an overlap set's
+ * lanes keep on it the lane of the stretch that would most rather: a Port's
+ * junction most, then a route that runs straight from stub to stub, which
+ * would jog at both ends, then a first or last run that carries a stub
+ * straight on, which would jog at one, and least, any other.
+ */
+const keepsLine = { junction: 3, bothStubs: 2, oneStub: 1, none: 0 } as const;
 
 /** A stretch of a grid line whose lanes had to squeeze closer than the minimum spacing. */
 export type Squeeze = LineSpan;
@@ -217,9 +222,9 @@ function arrange(
 			line: run.line,
 			low: run.low,
 			high: run.high,
-			group: `junction ${junction.end} ${junction.port.x} ${junction.port.y}`,
+			laneGroup: `junction ${junction.end} ${junction.port.x} ${junction.port.y}`,
 			runs: [run],
-			pinned: 0,
+			pinned: keepsLine.none,
 			fixed: false,
 			fixedLow: true,
 			fixedHigh: true,
@@ -233,7 +238,7 @@ function arrange(
 		holder.low = Math.min(holder.low, run.low);
 		holder.high = Math.max(holder.high, run.high);
 		holder.fixed = true;
-		holder.pinned = 3;
+		holder.pinned = keepsLine.junction;
 		if (own === undefined) {
 			stretches.push(holder);
 		}
@@ -242,8 +247,8 @@ function arrange(
 		limit(stretch, runs, routes, corridors, lanes);
 	}
 	const sorted = overlapSets(stretches).map((set) => sortSet(set, allRuns));
-	for (const group of shareRoom(sorted, lanes)) {
-		place(group, lanes);
+	for (const joined of shareRoom(sorted, lanes)) {
+		place(joined, lanes);
 	}
 	const offsets = new Map<Run, number>();
 	for (const stretch of stretches) {
@@ -354,10 +359,10 @@ function stretchesOf(runs: Run[], routes: NudgeRoute[]): Stretch[] {
 	for (const lineRuns of byLine.values()) {
 		const byGroup = new Map<string, Run[]>();
 		for (const run of lineRuns) {
-			const group = routes[run.route]?.group ?? "";
-			byGroup.set(group, [...(byGroup.get(group) ?? []), run]);
+			const laneGroup = routes[run.route]?.laneGroup ?? "";
+			byGroup.set(laneGroup, [...(byGroup.get(laneGroup) ?? []), run]);
 		}
-		for (const [group, groupRuns] of byGroup) {
+		for (const [laneGroup, groupRuns] of byGroup) {
 			groupRuns.sort((a, b) => a.low - b.low || a.high - b.high);
 			let current: Stretch | undefined;
 			for (const run of groupRuns) {
@@ -371,9 +376,9 @@ function stretchesOf(runs: Run[], routes: NudgeRoute[]): Stretch[] {
 					line: run.line,
 					low: run.low,
 					high: run.high,
-					group,
+					laneGroup,
 					runs: [run],
-					pinned: 0,
+					pinned: keepsLine.none,
 					fixed: false,
 					fixedLow: false,
 					fixedHigh: false,
@@ -389,15 +394,23 @@ function stretchesOf(runs: Run[], routes: NudgeRoute[]): Stretch[] {
 		}
 	}
 	for (const stretch of stretches) {
-		stretch.pinned = Math.max(0, ...stretch.runs.map((run) => stubsCarried(run, routes)));
+		stretch.pinned = Math.max(
+			keepsLine.none,
+			...stretch.runs.map((run) => stubsCarried(run, routes)),
+		);
 	}
 	return stretches;
 }
 
-/** How many of its Ports' stubs a run carries straight on: as a route's first run, its last, or both. */
+/**
+ * How much a run would rather keep its line, by the Ports' stubs it carries
+ * straight on: as a route's first run, its last, or both.
+ */
 function stubsCarried(run: Run, routes: NudgeRoute[]): number {
 	const last = (routes[run.route]?.points.length ?? 0) - 2;
-	return (run.index === 0 ? 1 : 0) + (run.index === last ? 1 : 0);
+	const first = run.index === 0;
+	const final = run.index === last;
+	return first && final ? keepsLine.bothStubs : first || final ? keepsLine.oneStub : keepsLine.none;
 }
 
 /**
@@ -516,30 +529,47 @@ function overlapSets(stretches: Stretch[]): Stretch[][] {
 	const sets: Stretch[][] = [];
 	for (const lineStretches of byLine.values()) {
 		lineStretches.sort((a, b) => a.low - b.low || a.high - b.high);
-		const root = lineStretches.map((_, index) => index);
-		const find = (index: number): number => {
-			let at = index;
-			while (root[at] !== at) {
-				at = root[at] ?? at;
-			}
-			return at;
-		};
+		const joined = disjointSets(lineStretches.length);
 		lineStretches.forEach((a, i) => {
 			for (let j = i + 1; j < lineStretches.length; j += 1) {
 				const b = lineStretches[j];
 				if (b !== undefined && overlaps(a, b)) {
-					root[find(j)] = find(i);
+					joined.join(i, j);
 				}
 			}
 		});
-		const byRoot = new Map<number, Stretch[]>();
-		lineStretches.forEach((stretch, index) => {
-			const key = find(index);
-			byRoot.set(key, [...(byRoot.get(key) ?? []), stretch]);
-		});
-		sets.push(...byRoot.values());
+		sets.push(...joined.sets().map((set) => set.flatMap((index) => lineStretches[index] ?? [])));
 	}
 	return sets;
+}
+
+/**
+ * Indices from 0 to `count` - 1, joined pair by pair into disjoint sets: each
+ * set lists its indices in order, and the sets come in the order of their
+ * first indices.
+ */
+function disjointSets(count: number): { join(a: number, b: number): void; sets(): number[][] } {
+	const root = Array.from({ length: count }, (_, index) => index);
+	const find = (index: number): number => {
+		let at = index;
+		while (root[at] !== at) {
+			at = root[at] ?? at;
+		}
+		return at;
+	};
+	return {
+		join(a, b) {
+			root[find(b)] = find(a);
+		},
+		sets() {
+			const byRoot = new Map<number, number[]>();
+			root.forEach((_, index) => {
+				const key = find(index);
+				byRoot.set(key, [...(byRoot.get(key) ?? []), index]);
+			});
+			return [...byRoot.values()];
+		},
+	};
 }
 
 /**
@@ -594,7 +624,7 @@ function compare(a: Stretch, b: Stretch, runs: Run[][]): number {
 		return order;
 	}
 	const heading = travelOf(runA, 1);
-	return (a.group < b.group ? 1 : -1) * leftward(runA.horizontal, heading);
+	return (a.laneGroup < b.laneGroup ? 1 : -1) * leftward(runA.horizontal, heading);
 }
 
 /** A unit vector along a run, the way the route travels, or the other way for `step` -1. */
@@ -782,15 +812,15 @@ function spread(
 }
 
 /**
- * Spaces a group of sorted overlap sets into lanes, at the preferred spacing
- * where there's room. A group is one set, or sets of neighboring lines too
+ * Spaces sorted overlap sets that are placed as one into lanes, at the
+ * preferred spacing where there's room: one set, or sets of neighboring lines too
  * close for their lanes, which are placed as one: the lower line's lanes
  * below the upper line's. Where keeping clear of other Ports' stubs would
  * squeeze the lanes below the minimum spacing, they keep clear only of
  * obstacles and borders, and cross those stubs instead.
  */
-function place(group: Stretch[][], lanes: LaneSpacing): void {
-	const sets = [...group].sort((a, b) => (a[0]?.line ?? 0) - (b[0]?.line ?? 0));
+function place(joined: Stretch[][], lanes: LaneSpacing): void {
+	const sets = [...joined].sort((a, b) => (a[0]?.line ?? 0) - (b[0]?.line ?? 0));
 	const sorted = sets.flat();
 	const laneOf: number[] = [];
 	let base = 0;
@@ -857,14 +887,7 @@ function shareRoom(sets: Stretch[][], lanes: LaneSpacing): Stretch[][][] {
 		Number.NEGATIVE_INFINITY,
 		Number.POSITIVE_INFINITY,
 	]);
-	const root = sets.map((_, index) => index);
-	const find = (index: number): number => {
-		let at = index;
-		while (root[at] !== at) {
-			at = root[at] ?? at;
-		}
-		return at;
-	};
+	const placedAsOne = disjointSets(sets.length);
 	sets.forEach((lower, i) => {
 		sets.forEach((upper, j) => {
 			const [a, b] = [lower[0], upper[0]];
@@ -878,7 +901,7 @@ function shareRoom(sets: Stretch[][], lanes: LaneSpacing): Stretch[][][] {
 				a.line >= b.line ||
 				needA.span[0] > needB.span[1] ||
 				needB.span[0] > needA.span[1] ||
-				a.group === b.group
+				a.laneGroup === b.laneGroup
 			) {
 				return;
 			}
@@ -889,7 +912,7 @@ function shareRoom(sets: Stretch[][], lanes: LaneSpacing): Stretch[][][] {
 			if (slack < 0) {
 				// Too close for their lanes even at the minimum spacing: they're placed
 				// as one, the lower line's lanes below the upper line's.
-				root[find(j)] = find(i);
+				placedAsOne.join(i, j);
 				return;
 			}
 			const [wantA, wantB] = [mostA - leastA, mostB - leastB];
@@ -914,12 +937,9 @@ function shareRoom(sets: Stretch[][], lanes: LaneSpacing): Stretch[][][] {
 			}
 		}
 	});
-	const groups = new Map<number, Stretch[][]>();
-	sets.forEach((set, index) => {
-		const key = find(index);
-		groups.set(key, [...(groups.get(key) ?? []), set]);
-	});
-	return [...groups.values()];
+	return placedAsOne
+		.sets()
+		.map((indices) => indices.flatMap((index) => (sets[index] === undefined ? [] : [sets[index]])));
 }
 
 /**
@@ -1041,14 +1061,14 @@ function placeJogs(
 		// The routes of one lane group share a lane, so they share one jog too.
 		const groupJogs = new Map<string, number>();
 		for (const jog of portJogs) {
-			const group = routes[jog.route]?.group ?? "";
-			const key = `${group} ${jog.lane}`;
+			const laneGroup = routes[jog.route]?.laneGroup ?? "";
+			const key = `${laneGroup} ${jog.lane}`;
 			const shared = groupJogs.get(key);
 			if (shared !== undefined) {
 				jog.along = shared;
 				continue;
 			}
-			const others = (index: number) => routes[index]?.group !== group;
+			const others = (index: number) => routes[index]?.laneGroup !== laneGroup;
 			const side = Math.sign(jog.lane);
 			let start = 0;
 			for (const other of placed.filter((candidate) => Math.sign(candidate.lane) === side)) {

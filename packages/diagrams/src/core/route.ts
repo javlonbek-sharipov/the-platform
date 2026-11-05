@@ -155,7 +155,7 @@ export function route(
 	const search = searchOn(grid);
 	const budget = options.searchBudget ?? defaultSearchBudget;
 	const bundle = options.bundle ?? "target";
-	const groupOf = laneGroups(diagram, bundle, options.ownLanes);
+	const laneGroupOf = laneGroups(diagram, bundle, options.ownLanes);
 	// The Group that holds each Node or Group, and each Group's box.
 	const parentOf = new Map<string, string>();
 	for (const group of diagram.groups) {
@@ -197,7 +197,7 @@ export function route(
 	// Edges are routed in a stable order, by bundle and then by id, so that no
 	// route depends on the order the Diagram declares its Edges in.
 	const order = [...diagram.edges].sort((a, b) => {
-		const [groupA = "", groupB = ""] = [groupOf.get(a.id), groupOf.get(b.id)];
+		const [groupA = "", groupB = ""] = [laneGroupOf.get(a.id), laneGroupOf.get(b.id)];
 		return compareText(groupA, groupB) || compareText(a.id, b.id);
 	});
 	const segments = 2 * grid.xs.length * grid.ys.length;
@@ -242,7 +242,7 @@ export function route(
 					]),
 					fromPort,
 					toPort,
-					group: groupOf.get(edge.id) ?? edge.id,
+					laneGroup: laneGroupOf.get(edge.id) ?? edge.id,
 				});
 			}
 		}
@@ -270,11 +270,11 @@ export function route(
 			if (fromPort === undefined || toPort === undefined) {
 				continue;
 			}
-			const group = groupOf.get(edge.id) ?? edge.id;
-			const trunk = trunks.get(group) ?? new Map();
-			trunks.set(group, trunk);
-			const own = used.get(group) ?? new Set<number>();
-			used.set(group, own);
+			const laneGroup = laneGroupOf.get(edge.id) ?? edge.id;
+			const trunk = trunks.get(laneGroup) ?? new Map();
+			trunks.set(laneGroup, trunk);
+			const own = used.get(laneGroup) ?? new Set<number>();
+			used.set(laneGroup, own);
 			congestion.stamp += 1;
 			for (const corridor of own) {
 				congestion.own[corridor] = congestion.stamp;
@@ -378,7 +378,7 @@ export function route(
 	edges.forEach((edge, index) => {
 		edge.stroke = strokes[index] ?? [edge.route];
 	});
-	const labeling = placeLabels(diagram, nodes, groups, edges, groupOf);
+	const labeling = placeLabels(diagram, nodes, groups, edges, laneGroupOf);
 	for (const edge of edges) {
 		const label = labeling.labels.get(edge.id);
 		if (label !== undefined) {
