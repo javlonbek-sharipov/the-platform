@@ -313,6 +313,14 @@ describe("the docs site of a sample repo", () => {
 		expect(await heading.getAttribute("id")).toBe("shop-1");
 	});
 
+	test("a heading has a link to itself, to send a teammate straight to it", async () => {
+		const page = await open(await reading(site), "docs/specs/checkout");
+
+		const link = page.getByRole("main").getByRole("link", { name: /Problem Statement/ });
+
+		expect(await link.getAttribute("href")).toBe("#problem-statement");
+	});
+
 	test("a link from one doc to another opens that doc's page", async () => {
 		const page = await open(await reading(site), "glossary-map");
 
