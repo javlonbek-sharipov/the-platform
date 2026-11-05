@@ -5,6 +5,7 @@
 
 import type { Point } from "../core/scene.ts";
 import type { Camera, View } from "./camera.ts";
+import type { Part } from "./stage.ts";
 
 /** How much closer one press of `+` brings the drawing, and one of `−` takes it back. */
 const step = 1.25;
@@ -27,8 +28,21 @@ const mostTurn = 0.25;
 /** A turn counted in lines or in pages, as some mice report it, in pixels. */
 const turnUnits = [1, 30, 300];
 
+export const gestures: Part = {
+	css: `
+.stage {
+	/* A finger on the stage moves the drawing, not the page. */
+	touch-action: none;
+	cursor: grab;
+}
+`,
+	setUp({ element, camera }) {
+		steer(element, camera);
+	},
+};
+
 /** Lets the reader's input on the stage move the camera. */
-export function steer(stage: HTMLElement, camera: Camera): void {
+function steer(stage: HTMLElement, camera: Camera): void {
 	/** Where a pointer is on the stage, from the stage's top left corner. */
 	const place = (event: MouseEvent): Point => {
 		const { left, top } = stage.getBoundingClientRect();

@@ -1,8 +1,11 @@
 /**
  * The component's own style sheet, shared by every `<platform-diagram>` on a
  * page. It lives in each one's shadow root, so the page's styles and the
- * component's never meet.
+ * component's never meet. It holds the rules for the stage, and each part's
+ * own.
  */
+
+import { parts } from "./parts.ts";
 
 const css = `
 :host {
@@ -17,9 +20,6 @@ const css = `
 	overflow: hidden;
 	/* The SVG's own height is worked out from the stage's width. */
 	container-type: inline-size;
-	/* A finger on the stage moves the drawing, not the page. */
-	touch-action: none;
-	cursor: grab;
 }
 /*
  * The SVG fills the stage. Where the page gives the component a height, that
@@ -37,4 +37,4 @@ const css = `
 `;
 
 export const styles = new CSSStyleSheet();
-styles.replaceSync(css);
+styles.replaceSync([css, ...parts.map((part) => part.css ?? "")].join(""));

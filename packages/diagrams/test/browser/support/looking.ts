@@ -93,3 +93,24 @@ export function gapsOf(inner: ScreenBox, frame: ScreenBox): ScreenBox {
 		bottom: frame.bottom - inner.bottom,
 	};
 }
+
+/**
+ * How strongly an element shows, from 0 to 1: its own opacity and that of
+ * everything around it, out to the page, since each one fades what it holds.
+ */
+export function opacityOf(element: Element): number {
+	let opacity = 1;
+	let node: Node | null = element;
+	while (node !== null) {
+		if (node instanceof Element) {
+			opacity *= Number(getComputedStyle(node).opacity);
+		}
+		node = node instanceof ShadowRoot ? node.host : node.parentNode;
+	}
+	return opacity;
+}
+
+/** Whether a reader can see an element: it's rendered, not hidden, and not faded to nothing. */
+export function isSeen(element: Element): boolean {
+	return element.checkVisibility({ opacityProperty: true, visibilityProperty: true });
+}

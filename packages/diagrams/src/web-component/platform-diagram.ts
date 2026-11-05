@@ -9,7 +9,7 @@
  */
 
 import { Camera, huggingHeight, type View } from "./camera.ts";
-import { steer } from "./gestures.ts";
+import { parts } from "./parts.ts";
 import { styles } from "./styles.ts";
 import { boundsOf, fetchSvg } from "./svg.ts";
 
@@ -45,7 +45,9 @@ export class PlatformDiagram extends HTMLElement {
 		this.#stage.tabIndex = 0;
 		root.append(this.#stage);
 		this.#camera.watch((view) => this.#look(view));
-		steer(this.#stage, this.#camera);
+		for (const part of parts) {
+			part.setUp({ element: this.#stage, camera: this.#camera });
+		}
 	}
 
 	connectedCallback(): void {
