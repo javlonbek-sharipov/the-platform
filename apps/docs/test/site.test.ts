@@ -938,4 +938,49 @@ describe("Atlas navigation on the built site", () => {
 			await reader.close();
 		}
 	});
+
+	test.each([
+		["a Node without a Diagram", "node=shop%2Fpaid"],
+		["an absent Node", "diagram=packages%2Fshop%2Fdocs%2Fdetails&node=absent"],
+		["a Group id instead of a Node", "diagram=packages%2Fshop%2Fdocs%2Fdetails&node=shop"],
+		["a Node on another Diagram", "diagram=packages%2Fshop%2Fdocs%2Fborrowed&node=shop%2Forder"],
+		["an absent Diagram", "diagram=absent&node=shop%2Fpaid"],
+		[
+			"duplicate Diagram parameters",
+			"diagram=packages%2Fshop%2Fdocs%2Fdetails&diagram=packages%2Fshop%2Fdocs%2Fborrowed&node=shop%2Fpaid",
+		],
+		[
+			"duplicate Node parameters",
+			"diagram=packages%2Fshop%2Fdocs%2Fdetails&node=shop%2Fpaid&node=shop%2Forder",
+		],
+		["an invalid escape", "diagram=%E0%A4%A&node=shop%2Fpaid"],
+	])(
+		"a Node URL with %s leaves the drawings usable without selecting a different Node",
+		async (_what, fragment) => {
+			const reader = await reading(site);
+			try {
+				const page = await reader.newPage();
+				const errors: string[] = [];
+				page.on("pageerror", (error) => errors.push(error.message));
+				await page.goto(`/packages/shop/docs/details/#${fragment}`);
+				await page.getByRole("group", { name: "Shop details", exact: true }).waitFor();
+				await page.evaluate(
+					() =>
+						new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+				);
+
+				expect(
+					await page.locator("platform-diagram").locator('[aria-current="true"]').count(),
+				).toBe(0);
+				expect(errors).toEqual([]);
+				await page
+					.locator('platform-diagram[data-diagram="packages/shop/docs/details"]')
+					.getByText("Order", { exact: true })
+					.click();
+				expect(await page.getByRole("dialog", { name: "Order details" }).isVisible()).toBe(true);
+			} finally {
+				await reader.close();
+			}
+		},
+	);
 });

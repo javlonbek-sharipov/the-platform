@@ -70,6 +70,7 @@ for (const diagram of diagrams) {
 function showTarget(): void {
 	if (!window.location.hash.startsWith("#diagram=")) return;
 	const parameters = new URLSearchParams(window.location.hash.slice(1));
+	if (parameters.getAll("diagram").length !== 1 || parameters.getAll("node").length > 1) return;
 	const id = parameters.get("diagram");
 	const diagram = diagrams.find((element) => element.dataset.diagram === id);
 	if (diagram === undefined || id === null) return;
