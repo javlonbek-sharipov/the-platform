@@ -1,8 +1,9 @@
 import {
 	type ArchitectureBuilder,
 	type ArchitectureNodeKind,
+	type ArchitectureNotation,
 	architecture,
-	type Diagram,
+	type DiagramOf,
 	type Direction,
 } from "../../src/index.ts";
 
@@ -13,7 +14,7 @@ import {
  * the rate limiter. Layout counts the region as one block there, so the whole
  * fan-out passes that rank through one corridor, which it overfills.
  */
-export function crowded(direction: Direction = "right"): Diagram {
+export function crowded(direction: Direction = "right"): DiagramOf<ArchitectureNotation> {
 	return architecture({ id: "crowded", title: "Online shop", direction }, (d) => {
 		const node = (builder: ArchitectureBuilder, id: string, kind: ArchitectureNodeKind) =>
 			builder.node({ id, kind, title: titleOf(id) });

@@ -82,7 +82,7 @@ export function markEdges(
 	const fromPort = byPort(edges, "fromPort");
 	const toPort = byPort(edges, "toPort");
 	const clear = clearOf(edges);
-	const labels = edges.flatMap(({ label }) => (label === undefined ? [] : [label.box]));
+	const labels = edges.flatMap(drawnOver);
 	const crossing = crossingOf(diagram, notation);
 	return edges.map((edge) => {
 		const others = (sharing: Map<string, SceneEdge[]>, end: "fromPort" | "toPort") =>
@@ -101,8 +101,16 @@ export function markEdges(
 				(other) => parting([...edge.route].reverse(), [...other.route].reverse()).length,
 			),
 		);
-		const fromSource = sharedOut + sharedClearance;
-		const intoTarget = sharedIn + sharedClearance;
+		// Its role tags sit at the ends of the stretch that's its own, so its
+		// marks keep to what's left between them.
+		const length = lengthOf(edge.route);
+		const tagged = (end: "from" | "to") =>
+			edge.roles.flatMap((role) => {
+				const covered = role.end === end ? coveredAlong(edge.route, role.tag) : undefined;
+				return covered === undefined ? [] : [end === "from" ? covered.end : length - covered.start];
+			});
+		const fromSource = Math.max(sharedOut, ...tagged("from")) + sharedClearance;
+		const intoTarget = Math.max(sharedIn, ...tagged("to")) + sharedClearance;
 		const chevrons = chevronsOf(edge.route, fromSource, clear);
 		const kind = crossing(edge.from, edge.to);
 		return {
@@ -118,6 +126,14 @@ export function markEdges(
 				: { crosses: { kind, badge: badgeOf(edge.route, sharedOut, sharedIn, labels) } }),
 		};
 	});
+}
+
+/**
+ * What's drawn over an Edge's line, which no mark may sit under: its label,
+ * and its role tags.
+ */
+function drawnOver({ label, roles }: SceneEdge): Box[] {
+	return [...(label === undefined ? [] : [label.box]), ...roles.map(({ tag }) => tag)];
 }
 
 /**
@@ -175,6 +191,38 @@ function badgeOf(route: RoutePoint[], sharedOut: number, sharedIn: number, label
 		}
 	}
 	return pointAlong(route, middle);
+}
+
+/**
+ * The stretch of a route that a box covers: how far along the route, from
+ * its source, the first point that the box covers lies, and the last, if it
+ * covers any.
+ */
+function coveredAlong(route: RoutePoint[], box: Box): { start: number; end: number } | undefined {
+	let start = 0;
+	let covered: { start: number; end: number } | undefined;
+	for (let index = 1; index < route.length; index += 1) {
+		const from = route[index - 1];
+		const to = route[index];
+		if (from === undefined || to === undefined) {
+			break;
+		}
+		const horizontal = from.y === to.y;
+		const [line, a, b] = horizontal ? [from.y, from.x, to.x] : [from.x, from.y, to.y];
+		const [near, low, size] = horizontal ? [box.y, box.x, box.width] : [box.x, box.y, box.height];
+		const across = horizontal ? box.height : box.width;
+		const first = Math.max(Math.min(a, b), low);
+		const last = Math.min(Math.max(a, b), low + size);
+		if (near <= line && line <= near + across && first <= last) {
+			const [one, other] = [start + Math.abs(first - a), start + Math.abs(last - a)];
+			covered = {
+				start: Math.min(covered?.start ?? one, one, other),
+				end: Math.max(covered?.end ?? one, one, other),
+			};
+		}
+		start += Math.abs(b - a);
+	}
+	return covered;
 }
 
 /** The point a distance along a route from its source. */
@@ -257,8 +305,8 @@ function clearOf(edges: SceneEdge[]): Clear {
 			list.push({ at, reach });
 		}
 	};
-	const labels: Box[] = [];
-	for (const { route, stroke, label } of edges) {
+	const labels: Box[] = edges.flatMap(drawnOver);
+	for (const { route, stroke } of edges) {
 		for (const point of route.slice(1, -1)) {
 			take(`y ${point.y}`, point.x, point.radius);
 			take(`x ${point.x}`, point.y, point.radius);
@@ -272,9 +320,6 @@ function clearOf(edges: SceneEdge[]): Clear {
 				take(line, (a + b) / 2, Math.abs(a - b) / 2);
 			}
 		});
-		if (label !== undefined) {
-			labels.push(label.box);
-		}
 	}
 	return (point, heading) => {
 		const [line, at] = heading.y === 0 ? [`y ${point.y}`, point.x] : [`x ${point.x}`, point.y];

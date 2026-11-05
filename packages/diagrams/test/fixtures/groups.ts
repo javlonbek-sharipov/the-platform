@@ -1,4 +1,12 @@
-import { architecture, type Diagram, type Direction } from "../../src/index.ts";
+import {
+	type ArchitectureNotation,
+	architecture,
+	type DiagramOf,
+	type Direction,
+} from "../../src/index.ts";
+
+/** Each fixture here is an architecture Diagram. */
+type Diagram = DiagramOf<ArchitectureNotation>;
 
 /**
  * The web app calls the Shop API in a region. The region's zone holds the

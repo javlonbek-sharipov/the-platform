@@ -163,11 +163,11 @@ describe("a builder made from a Notation's definition", () => {
 					"/nodes/2/rows/0/valeu",
 				),
 				shape(
-					"An Edge has no option `rate` in the plumbing Notation. Its options are `kind`, `id` and `label`.",
+					"An Edge has no option `rate` in the plumbing Notation. Its options are `kind`, `id`, `label` and `roles`.",
 					"/edges/0/rate",
 				),
 				shape(
-					"An Edge has no option `lable`. Its options are `kind`, `id` and `label`.",
+					"An Edge has no option `lable`. Its options are `kind`, `id`, `label` and `roles`.",
 					"/edges/0/lable",
 				),
 			],

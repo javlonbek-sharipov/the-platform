@@ -4,13 +4,7 @@
  * carries, which lists the Nodes and then the Edges.
  */
 
-import {
-	type AnyDiagram,
-	type AnyEdge,
-	type AnyNode,
-	endNode,
-	type RowEnd,
-} from "../authoring/model.ts";
+import { type AnyDiagram, type AnyEdge, type AnyNode, endNode } from "../authoring/model.ts";
 import { definitionOf, type NodeFact, type Notation } from "../notations/notation.ts";
 import type { Scene } from "./scene.ts";
 import { technologyOf } from "./technology.ts";
@@ -49,7 +43,9 @@ export function descriptionOf(diagram: AnyDiagram, notation: Notation, scene: Sc
 
 /**
  * An Edge as a sentence: its Kind's sentence form, as in "Checkout API calls
- * Payments API", then how it travels, by its Technology's name, how much
+ * Payments API", with each end's roles after its title, as in "Catalog (open
+ * host service) is upstream of Ordering (conformist)", then how it travels,
+ * by its Technology's name, how much
  * passes over it, whether it crosses between Groups, as its Notation words
  * it, which the drawing shows only by its color and its badge, and its
  * label, as in "Checkout API calls Payments API over grpc at 2k/s across
@@ -62,17 +58,26 @@ export function sentenceOf(
 	crosses?: string,
 ): string {
 	const titles = new Map(diagram.nodes.map((node) => [node.id, collapseSpaces(node.title)]));
-	/** An end as a sentence names it: its Node's title, then the Row it attaches to, if any. */
-	const name = (end: string | RowEnd) => {
+	/**
+	 * An end as a sentence names it: its Node's title, then, in parentheses,
+	 * the Row it attaches to, if any, and the roles it carries, each by the
+	 * name that its Notation gives it, which the drawing shortens to a tag.
+	 */
+	const name = (which: "from" | "to") => {
+		const end = edge[which];
 		const title = titles.get(endNode(end)) ?? endNode(end);
-		return typeof end === "string" ? title : `${title} (${collapseSpaces(end.row)})`;
+		const details = [
+			...(typeof end === "string" ? [] : [collapseSpaces(end.row)]),
+			...(edge.roles?.[which] ?? []).map((role) => definitionOf(notation.roles, role).name),
+		];
+		return details.length === 0 ? title : `${title} (${details.join(", ")})`;
 	};
 	// How the description says that the Edge crosses between Groups of a Kind.
 	const crossing =
 		crosses === undefined ? undefined : definitionOf(notation.groupKinds, crosses).crossing;
 	const sentence = definitionOf(notation.edgeKinds, edge.kind).sentence.replace(
 		/\{(from|to)\}/g,
-		(_, end: string) => name(end === "from" ? edge.from : edge.to),
+		(_, end: string) => name(end === "from" ? "from" : "to"),
 	);
 	return [
 		sentence,

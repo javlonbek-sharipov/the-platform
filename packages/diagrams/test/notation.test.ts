@@ -1,5 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { architectureNotation, builderOf, nodeKindsOf, render, schemaOf } from "../src/index.ts";
+import {
+	architectureNotation,
+	builderOf,
+	type Notation,
+	nodeKindsOf,
+	render,
+	schemaOf,
+} from "../src/index.ts";
 import {
 	draw,
 	edgeGroupOf,
@@ -56,7 +63,7 @@ describe("a Notation defined only in the tests", () => {
 					severity: "error",
 					rule: "unknown-notation",
 					message:
-						"The Diagram's Notation is `plumbing`, which this engine doesn't have. Its Notations are architecture.",
+						"The Diagram's Notation is `plumbing`, which this engine doesn't have. Its Notations are architecture and domain.",
 					pointer: "/notation",
 				},
 			],
@@ -69,7 +76,7 @@ describe("a Notation defined only in the tests", () => {
 					severity: "error",
 					rule: "unknown-notation",
 					message:
-						"The Diagram's Notation is `wiring`, which this engine doesn't have. Its Notations are plumbing.",
+						"The Diagram's Notation is `wiring`, which this engine doesn't have. Its only Notation is plumbing.",
 					pointer: "/notation",
 				},
 			],
@@ -376,6 +383,105 @@ describe("a Notation defined only in the tests", () => {
 		});
 	});
 
+	test("lets each end of an Edge carry the roles that its Kind's definition lists for that end", () => {
+		const fitted = (kind: string, roles: unknown, from = "boiler", to = "pump") => ({
+			...house,
+			edges: [{ id: "run", kind, from, to, roles }],
+		});
+		const wrong = (message: string, pointer: string, rule = "edge-end-role") => ({
+			severity: "error",
+			rule,
+			message,
+			pointer,
+		});
+
+		// A pipe may start at a valve, and end at a filter.
+		expect(renderPlumbing(fitted("pipe", { from: ["NRV"], to: ["FLT"] })).diagnostics).toEqual([]);
+		// Another Notation's roles aren't plumbing's.
+		expect(renderPlumbing(fitted("pipe", { from: ["OHS"] })).diagnostics).toEqual([
+			wrong(
+				"Edge `run` has the role `OHS` at its `from` end, which the plumbing Notation doesn't have. Its roles are ISO, NRV, FLT and TRP.",
+				"/edges/0/roles/from/0",
+				"unknown-role",
+			),
+		]);
+		// It starts at one valve at most.
+		expect(renderPlumbing(fitted("pipe", { from: ["ISO", "NRV"] })).diagnostics).toEqual([
+			wrong(
+				"Edge `run` has both `ISO` and `NRV` at its `from` end. An Edge of the Kind `pipe` may carry only one of them there.",
+				"/edges/0/roles/from",
+			),
+		]);
+		// A trap is a drain's, not a pipe's, at either end.
+		expect(renderPlumbing(fitted("pipe", { from: ["TRP"], to: ["TRP"] })).diagnostics).toEqual([
+			wrong(
+				"Edge `run` has the role `TRP` at its `from` end. An Edge of the Kind `pipe` may carry only `ISO` or `NRV` there.",
+				"/edges/0/roles/from/0",
+			),
+			wrong(
+				"Edge `run` has the role `TRP` at its `to` end. An Edge of the Kind `pipe` may carry only `FLT` there.",
+				"/edges/0/roles/to/0",
+			),
+		]);
+		// A drain's trap is at its end, and its start carries nothing.
+		const drained = (roles: unknown) => fitted("drain", roles, "kitchen-tap", "boiler");
+		expect(renderPlumbing(drained({ to: ["TRP"] })).diagnostics).toEqual([]);
+		expect(renderPlumbing(drained({ from: ["TRP", "FLT"] })).diagnostics).toEqual([
+			wrong(
+				"Edge `run` has the role `TRP` at its `from` end. An Edge of the Kind `drain` may carry `TRP` only at its `to` end.",
+				"/edges/0/roles/from/0",
+			),
+			wrong(
+				"Edge `run` has the role `FLT` at its `from` end. An Edge of the Kind `drain` carries no roles there.",
+				"/edges/0/roles/from/1",
+			),
+		]);
+		// A coupling is symmetric, so neither of its ends carries a role.
+		expect(
+			renderPlumbing(fitted("coupling", { to: ["ISO"] }, "boiler", "boiler")).diagnostics,
+		).toEqual([
+			wrong(
+				"Edge `run` has roles, but its Kind, `coupling`, is symmetric: its two ends are alike, so it takes no roles.",
+				"/edges/0/roles",
+			),
+		]);
+		// A Kind whose definition lists no roles takes none, at either end.
+		const plainDrains = {
+			...plumbingNotation,
+			edgeKinds: {
+				...plumbingNotation.edgeKinds,
+				drain: { line: "dashed", sentence: "{from} drains into {to}" },
+			},
+		} as const satisfies Notation;
+		expect(render(drained({ to: ["TRP"] }), { notations: [plainDrains] }).diagnostics).toEqual([
+			wrong("Edge `run` has roles, but an Edge of the Kind `drain` takes none.", "/edges/0/roles"),
+		]);
+	});
+
+	test("describes each end of an Edge with its roles, by the names its definition gives them, after the Row it attaches to", () => {
+		const fitted = plumbingModel({
+			members: ["boiler", "pump"],
+			nodes: [
+				{ id: "boiler", kind: "tank", title: "Boiler", rows: [{ name: "outlet" }] },
+				{ id: "pump", kind: "pump", title: "Pump" },
+			],
+			edges: [
+				{
+					id: "run",
+					kind: "pipe",
+					from: { node: "boiler", row: "outlet" },
+					to: "pump",
+					roles: { from: ["NRV"], to: ["FLT"] },
+				},
+			],
+		});
+		const { root } = draw(fitted, plumbing);
+
+		expect(root.children.find((child) => child.name === "desc")?.text).toBe(
+			"Nodes: Boiler (tank); Pump (pump). Edges: Boiler (outlet, non-return valve) feeds Pump (filter).",
+		);
+	});
+
 	test("flags an Edge between two Groups of a Kind that its definition says Edges cross between", () => {
 		// A boiler and a pump in two rooms of the ground floor, and a tap on the floor above.
 		const floors = plumbingModel({
@@ -470,7 +576,7 @@ describe("a Notation defined only in the tests", () => {
 		});
 		const nodeFields = "`id`, `kind`, `title`, `external`, `status`, `rows` and `description`";
 		const groupFields = "`id`, `kind`, `title`, `members` and `description`";
-		const edgeFields = "`id`, `kind`, `from`, `to` and `label`";
+		const edgeFields = "`id`, `kind`, `from`, `to`, `label` and `roles`";
 
 		const allowed = cellar(
 			{

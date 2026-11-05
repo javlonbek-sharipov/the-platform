@@ -3,10 +3,11 @@ import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import {
-	architectureNotation,
 	edgeKindsOf,
 	groupKindsOf,
 	nodeKindsOf,
+	notations,
+	rolesOf,
 	statusesOf,
 	technologies,
 } from "../src/index.ts";
@@ -16,11 +17,22 @@ import { pngSize } from "./support/png.ts";
 const skillFile = new URL("../skills/diagrams/SKILL.md", import.meta.url);
 const repo = new URL("../../../", import.meta.url);
 
-/** The complete example Diagram that the skill shows: the code block under its `## Example` heading. */
-function exampleIn(skill: string): string {
-	const example = /^## Example\n[\s\S]*?^```ts\n([\s\S]*?)^```$/m.exec(skill)?.[1];
+/**
+ * The complete example Diagrams that the skill shows, one for each form of
+ * Diagram: the heading that each sits under in the skill, and the package's
+ * module that it copies.
+ */
+const examples = [
+	{ heading: "Example", module: "docs/example-system.diagram.ts" },
+	{ heading: "Context maps", module: "docs/example-context-map.diagram.ts" },
+];
+
+/** A complete example Diagram that the skill shows: the first code block under a heading of its own. */
+function exampleUnder(skill: string, heading: string): string {
+	const section = skill.split(/^## /m).find((part) => part.startsWith(`${heading}\n`));
+	const example = /^```ts\n([\s\S]*?)^```$/m.exec(section ?? "")?.[1];
 	if (example === undefined) {
-		throw new Error("The skill has no `## Example` heading with a ```ts block under it.");
+		throw new Error(`The skill has no \`## ${heading}\` heading with a \`\`\`ts block under it.`);
 	}
 	return example;
 }
@@ -36,54 +48,63 @@ function commandsIn(skill: string, module: string): string[][] {
 }
 
 describe("the agent skill", () => {
-	test("its own commands render its example, lint it without a message, and export it as a PNG", async () => {
-		const skill = await readFile(skillFile, "utf8");
-		const module = "docs/example-system.diagram.ts";
-		const atlas = await sampleAtlas({ [module]: exampleIn(skill) });
+	test.each(examples)(
+		"its own commands render its example under `$heading`, lint it without a message, and export it as a PNG",
+		async ({ heading, module }) => {
+			const skill = await readFile(skillFile, "utf8");
+			const atlas = await sampleAtlas({ [module]: exampleUnder(skill, heading) });
+			const name = module.slice(0, -".diagram.ts".length);
 
-		const runs: Record<string, CliRun> = {};
-		for (const args of commandsIn(skill, module)) {
-			runs[args.join(" ")] = await runCli(args, atlas);
-		}
-		const png = join(atlas, ".diagrams-cache/export/docs/example-system.light.png");
-		expect(runs).toEqual({
-			[`render ${module}`]: {
-				code: 0,
-				stdout: "Wrote docs/example-system.diagram.svg\n",
-				stderr: "",
-			},
-			"lint --json": { code: 0, stdout: expect.any(String), stderr: "" },
-			[`export ${module} --format png`]: { code: 0, stdout: `${png}\n`, stderr: "" },
-		});
-		expect(JSON.parse(runs["lint --json"]?.stdout ?? "")).toEqual({
-			diagrams: 1,
-			errors: 0,
-			warnings: 0,
-			messages: [],
-		});
-		expect(pngSize(await readFile(png)).width).toBeGreaterThan(0);
-	});
+			const runs: Record<string, CliRun> = {};
+			for (const args of commandsIn(skill, module)) {
+				runs[args.join(" ")] = await runCli(args, atlas);
+			}
+			const png = join(atlas, `.diagrams-cache/export/${name}.light.png`);
+			expect(runs).toEqual({
+				[`render ${module}`]: { code: 0, stdout: `Wrote ${name}.diagram.svg\n`, stderr: "" },
+				"lint --json": { code: 0, stdout: expect.any(String), stderr: "" },
+				[`export ${module} --format png`]: { code: 0, stdout: `${png}\n`, stderr: "" },
+			});
+			expect(JSON.parse(runs["lint --json"]?.stdout ?? "")).toEqual({
+				diagrams: 1,
+				errors: 0,
+				warnings: 0,
+				messages: [],
+			});
+			expect(pngSize(await readFile(png)).width).toBeGreaterThan(0);
+		},
+	);
 
-	test("its example is the package's example, so the repo renders, lints and type-checks the Diagram it teaches", async () => {
-		const skill = await readFile(skillFile, "utf8");
-		const example = await readFile(new URL("../docs/example-system.diagram.ts", import.meta.url));
+	test.each(examples)(
+		"its example under `$heading` is the package's, so the repo renders, lints and type-checks the Diagram it teaches",
+		async ({ heading, module }) => {
+			const skill = await readFile(skillFile, "utf8");
+			const example = await readFile(new URL(`../${module}`, import.meta.url));
 
-		// Each ticket that adds to the engine extends the example. Copy it into the skill then.
-		expect(exampleIn(skill), "the skill's copy of docs/example-system.diagram.ts").toBe(
-			example.toString(),
-		);
-	});
+			// Each ticket that adds to the engine extends an example. Copy it into the skill then.
+			expect(exampleUnder(skill, heading), `the skill's copy of ${module}`).toBe(
+				example.toString(),
+			);
+		},
+	);
 
-	test("it names every Kind and status of the architecture Notation, and every Technology that has a logo", async () => {
+	test("it names every Kind, status and role of each Notation, and every Technology that has a logo", async () => {
 		const skill = await readFile(skillFile, "utf8");
 		const words = [
-			...nodeKindsOf(architectureNotation),
-			...groupKindsOf(architectureNotation),
-			...edgeKindsOf(architectureNotation),
-			...statusesOf(architectureNotation),
+			...notations.flatMap((notation) => [
+				notation.name,
+				...nodeKindsOf(notation),
+				...groupKindsOf(notation),
+				...edgeKindsOf(notation),
+				...statusesOf(notation),
+				...rolesOf(notation),
+			]),
 			...Object.keys(technologies),
 		];
 
+		expect(words).toEqual(
+			expect.arrayContaining(["context", "partnership", "customer-supplier", "OHS", "ACL"]),
+		);
 		expect(words.filter((word) => !skill.includes(`\`${word}\``))).toEqual([]);
 	});
 

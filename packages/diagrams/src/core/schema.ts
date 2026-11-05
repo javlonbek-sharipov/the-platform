@@ -14,9 +14,10 @@ import {
 	hasField,
 	type Notation,
 	nodeKindsOf,
+	rolesOf,
 	statusesOf,
 } from "../notations/notation.ts";
-import { formats } from "./validate.ts";
+import { defaultDirection, formats } from "./validate.ts";
 
 /** A JSON Schema, or a part of one. */
 type Schema = { [keyword: string]: unknown };
@@ -65,6 +66,7 @@ A model that fails this schema fails the engine's validation too. But passing th
 - \`duplicate-row\`: the Rows of one Node have names of their own, since an Edge end names a Row by its name.
 - \`edge-end\`: each Edge end names a Node on the Diagram, never a Group, and an end at a Row names one of that Node's Rows.
 - \`edge-end-kind\`: each Edge starts and ends at Nodes of Kinds that its own Kind may join.
+- \`edge-end-role\`: each end of an Edge carries only the roles that the Edge's Kind lets that end carry.
 - \`nesting\`: each member names a Node or a Group on the Diagram, every Node and Group is a member of exactly one parent, the Diagram or one Group, and so Groups nest as a tree.
 - \`default-edge-id\`: an Edge whose id is its default name, its two Nodes' ids joined by \`->\`, keeps it only while no other Edge joins the same two Nodes.
 
@@ -176,6 +178,14 @@ const shared: Record<string, Schema> = {
 };
 
 /**
+ * One of the names given, such as a Notation's Group Kinds. A Notation may
+ * have none, and then no value will do.
+ */
+function oneOf(names: readonly string[]): Schema {
+	return names.length === 0 ? { not: {} } : { enum: [...names] };
+}
+
+/**
  * The fields that a Notation's Nodes, Groups or Edges may have, of every
  * field that the model has for them: each with its schema, in the model's
  * order. The type checker makes `all` name every field of the model's type.
@@ -194,6 +204,13 @@ function fieldsOf<T>(
 function notationSchema(notation: Notation): NotationSchema {
 	const { name } = notation;
 	const of = (thing: string) => ({ $ref: `#/$defs/${name}/$defs/${thing}` });
+	/** The roles at one end of an Edge: some of the Notation's, each once. */
+	const rolesAt = (where: string) => ({
+		description: `The roles at the end ${where}.`,
+		type: "array",
+		items: oneOf(rolesOf(notation)),
+		uniqueItems: true,
+	});
 	const node = fieldsOf<AnyNode>(notation, "node", {
 		id: {
 			description:
@@ -202,7 +219,7 @@ function notationSchema(notation: Notation): NotationSchema {
 		},
 		kind: {
 			description: "The Node's Kind, which alone decides how it looks.",
-			enum: nodeKindsOf(notation),
+			...oneOf(nodeKindsOf(notation)),
 		},
 		title: {
 			description:
@@ -217,7 +234,7 @@ function notationSchema(notation: Notation): NotationSchema {
 		},
 		status: {
 			description: "How the Node is doing, shown as a mark at the end of its header.",
-			enum: statusesOf(notation),
+			...oneOf(statusesOf(notation)),
 		},
 		rows: {
 			description: "The Node's Rows, drawn below its header, one band each, in order.",
@@ -243,7 +260,7 @@ function notationSchema(notation: Notation): NotationSchema {
 		},
 		kind: {
 			description: "The Group's Kind, which alone decides how it looks.",
-			enum: groupKindsOf(notation),
+			...oneOf(groupKindsOf(notation)),
 		},
 		title: { description: "The Group's title, drawn in its label band.", ...text },
 		members: {
@@ -263,7 +280,7 @@ function notationSchema(notation: Notation): NotationSchema {
 		},
 		kind: {
 			description: "The Edge's Kind, which alone decides how it looks.",
-			enum: edgeKindsOf(notation),
+			...oneOf(edgeKindsOf(notation)),
 		},
 		from: { description: "Where the Edge leaves from.", $ref: "#/$defs/end" },
 		to: { description: "Where the Edge enters.", $ref: "#/$defs/end" },
@@ -277,6 +294,16 @@ function notationSchema(notation: Notation): NotationSchema {
 				"How much passes over it, drawn below the label: a number, an optional `k` or `M`, a slash, and `s`, `min` or `h`, as in `2k/s` or `30/min`.",
 			type: "string",
 			pattern: formats.rate,
+		},
+		roles: {
+			description:
+				"The roles that the Edge's ends carry, each drawn as a short tag at its end. The Edge's Kind decides which roles each end may carry.",
+			type: "object",
+			properties: {
+				from: rolesAt("where the Edge leaves"),
+				to: rolesAt("where the Edge enters"),
+			},
+			additionalProperties: false,
 		},
 	});
 	const closed = (
@@ -364,7 +391,7 @@ export function schemaOf<const Notations extends readonly Notation[]>(
 			direction: {
 				description: "Which way the ranks run: `right`, the default, or `down`.",
 				enum: ["right", "down"],
-				default: "right",
+				default: defaultDirection,
 			},
 			members: {
 				description:

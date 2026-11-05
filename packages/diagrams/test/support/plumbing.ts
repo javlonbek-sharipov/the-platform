@@ -12,7 +12,7 @@ export const plumbingNotation = {
 	fields: {
 		node: ["external", "status", "rows", "description"],
 		group: ["description"],
-		edge: ["label"],
+		edge: ["label", "roles"],
 	},
 	hues: {
 		water: { light: "#0b6e99", dark: "#5cc8f0" },
@@ -50,15 +50,29 @@ export const plumbingNotation = {
 		// Water that changes floors needs pressure, so an Edge between two floors stands out.
 		floor: { stroke: 2.5, line: "solid", crossing: "between floors" },
 	},
+	// What's fitted at an end of a run: a valve that shuts it off, one that lets
+	// water through one way only, a filter, or a trap.
+	roles: {
+		ISO: { name: "isolating valve" },
+		NRV: { name: "non-return valve" },
+		FLT: { name: "filter" },
+		TRP: { name: "trap" },
+	},
 	edgeKinds: {
 		// A pipe runs from a tank or a pump to a pump or a tap, and a drain joins any two Nodes.
+		// A pipe starts at one valve at most, and may end at a filter. A drain may end at a trap.
 		pipe: {
 			line: "solid",
 			sentence: "{from} feeds {to}",
 			from: ["tank", "pump"],
 			to: ["pump", "tap"],
+			roles: { from: { oneOf: ["ISO", "NRV"] }, to: { anyOf: ["FLT"] } },
 		},
-		drain: { line: "dashed", sentence: "{from} drains into {to}" },
+		drain: {
+			line: "dashed",
+			sentence: "{from} drains into {to}",
+			roles: { to: { anyOf: ["TRP"] } },
+		},
 		// A coupling joins two tanks, and runs neither way.
 		coupling: {
 			line: "solid",
