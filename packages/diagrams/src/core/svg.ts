@@ -38,7 +38,7 @@ import type {
 } from "./scene.ts";
 import { colorUses, embeddedFonts, fontWeights, styleElement, themeRules } from "./style.ts";
 import { logoUnits, technologyOf } from "./technology.ts";
-import { collapseSpaces, type FontData, rowTextsOf } from "./text.ts";
+import { collapseSpaces, type FontData } from "./text.ts";
 import { type Attribute, attributesText, element, empty, indent, number, start } from "./xml.ts";
 
 /** How opaque the hue is in the solid parts of an outline, such as a window's title bar. */
@@ -60,6 +60,10 @@ export function writeSvg(
 	// Labels are drawn over every Edge, so that no route runs across one.
 	const labels = scene.edges.flatMap(({ id, label }): [string, SceneLabel][] =>
 		label === undefined ? [] : [[id, label]],
+	);
+	// Each Node's Rows' names, as the model has them: the scene holds them as drawn.
+	const rowNames = new Map(
+		diagram.nodes.map((node) => [node.id, (node.rows ?? []).map((row) => row.name)]),
 	);
 	const size: Attribute[] = [
 		["viewBox", [bounds.x, bounds.y, bounds.width, bounds.height].map(number).join(" ")],
@@ -127,7 +131,9 @@ export function writeSvg(
 					indent(1, "</g>"),
 				]),
 		indent(1, start("g", [["class", "diagram-nodes"]])),
-		...scene.nodes.flatMap((node) => writeNode(node, notation).map((text) => indent(2, text))),
+		...scene.nodes.flatMap((node) =>
+			writeNode(node, notation, rowNames.get(node.id) ?? []).map((text) => indent(2, text)),
+		),
 		indent(1, "</g>"),
 	];
 	const fonts = fontData === undefined ? [] : embeddedFonts(scene, fontData);
@@ -188,8 +194,11 @@ function writeGroup(group: SceneGroup, look: GroupKindDefinition): string[] {
  * tinted and stroked in the Kind's hue; its badge, its Technology's logo, its
  * title and its Technology's name; a line across it above its Rows, and their
  * names and values; its status mark; and its callout's tag.
+ *
+ * Each Row's texts sit in a group that carries the Row's name, as an Edge's
+ * group names the Row it ends at. The web component finds a Row by it.
  */
-function writeNode(node: SceneNode, notation: Notation): string[] {
+function writeNode(node: SceneNode, notation: Notation, rowNames: string[]): string[] {
 	const { box, badge, title, technology, logo, rows, callout } = node;
 	const look = definitionOf(notation.nodeKinds, node.kind);
 	const outline = outlines[look.outline];
@@ -262,7 +271,13 @@ function writeNode(node: SceneNode, notation: Notation): string[] {
 						...stroke(outline.detail),
 					]),
 				]),
-		...rowTextsOf(node).map((text) => writeText(text, "diagram-text")),
+		...rows.flatMap(({ name, value }, index) => [
+			start("g", [["data-row", rowNames[index] ?? name.text]]),
+			...(value === undefined ? [name] : [name, value]).map((text) =>
+				indent(1, writeText(text, "diagram-text")),
+			),
+			"</g>",
+		]),
 		...(node.status === undefined
 			? []
 			: [writeStatus(node.status, definitionOf(notation.statuses, node.status.value))]),

@@ -78,7 +78,8 @@
 				"packages/diagrams/src/index.ts",
 				"packages/diagrams/src/authoring/**",
 				"packages/diagrams/src/notations/**",
-				"packages/diagrams/src/core/**"
+				"packages/diagrams/src/core/**",
+				"packages/diagrams/src/web-component/**"
 			],
 			"linter": {
 				"rules": {
