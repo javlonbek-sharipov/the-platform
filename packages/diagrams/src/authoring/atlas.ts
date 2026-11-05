@@ -20,5 +20,5 @@ export function atlas(config: AtlasConfig): AtlasConfig {
 	Object.defineProperty(built, declarationsKey, {
 		value: position === undefined ? {} : { "": position },
 	});
-	return recordUnknownOptions(built, unknownOptions(config, [], "The Atlas config", ""));
+	return recordUnknownOptions(built, unknownOptions(config, { known: [] }, "The Atlas config", ""));
 }

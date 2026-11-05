@@ -1,12 +1,13 @@
 import { describe, expect, test } from "vitest";
 import {
 	architecture,
-	architectureNodeKinds,
-	architectureStatuses,
+	architectureNotation,
 	type Box,
 	type Direction,
+	nodeKindsOf,
 	render,
 	type Scene,
+	statusesOf,
 } from "../src/index.ts";
 import { type Drawn, draw, nodeOf, paintsWithin, shapesOf, withoutColor } from "./support/drawn.ts";
 import { computedStyle, type Element } from "./support/svg.ts";
@@ -14,7 +15,7 @@ import { computedStyle, type Element } from "./support/svg.ts";
 /** One Node of each architecture Kind, with ids named after their Kinds. */
 function oneOfEach(details: { external?: boolean; callout?: string } = {}) {
 	return architecture({ title: "Kinds" }, (d) => {
-		for (const kind of architectureNodeKinds) {
+		for (const kind of nodeKindsOf(architectureNotation)) {
 			d.node({ id: kind, kind, title: "Shop", ...details });
 		}
 	});
@@ -49,7 +50,7 @@ describe("an External Node", () => {
 
 	test("draws its outline dashed and its badge solid, for every Kind", () => {
 		const drawn = draw(oneOfEach({ external: true }));
-		for (const kind of architectureNodeKinds) {
+		for (const kind of nodeKindsOf(architectureNotation)) {
 			expect(nodeOf(drawn.scene, kind).external, kind).toBe(true);
 			const { badge, outline } = strokedParts(drawn, kind);
 			expect(outline.length, kind).toBeGreaterThan(0);
@@ -66,7 +67,7 @@ describe("an External Node", () => {
 
 	test("isn't what a Node is unless it's marked so", () => {
 		for (const drawn of [draw(oneOfEach()), draw(oneOfEach({ external: false }))]) {
-			for (const kind of architectureNodeKinds) {
+			for (const kind of nodeKindsOf(architectureNotation)) {
 				expect(nodeOf(drawn.scene, kind).external, kind).toBe(false);
 				const dashes = shapesOf(drawn, kind).filter((shape) => dashed(drawn, shape));
 				expect(dashes, kind).toEqual([]);
@@ -78,8 +79,8 @@ describe("an External Node", () => {
 /** One Node of each Kind for each status, with ids like `database-down`. */
 function everyStatus(title = "Shop") {
 	return architecture({ title: "Statuses" }, (d) => {
-		for (const status of architectureStatuses) {
-			for (const kind of architectureNodeKinds) {
+		for (const status of statusesOf(architectureNotation)) {
+			for (const kind of nodeKindsOf(architectureNotation)) {
 				d.node({ id: `${kind}-${status}`, kind, title, status });
 			}
 		}
@@ -107,7 +108,7 @@ function markColors(drawn: Drawn, shapes: Element[], theme: "light" | "dark"): s
 
 describe("a Node's status", () => {
 	test("is one of ok, degraded, down and unknown, in the model", () => {
-		expect(architectureStatuses).toEqual(["ok", "degraded", "down", "unknown"]);
+		expect(statusesOf(architectureNotation)).toEqual(["ok", "degraded", "down", "unknown"]);
 		const diagram = architecture({ title: "Payments" }, (d) => {
 			d.node({ id: "payments-api", kind: "service", title: "Payments API", status: "degraded" });
 			d.node({ id: "ledger", kind: "database", title: "Ledger" });
@@ -142,8 +143,8 @@ describe("a Node's status", () => {
 
 	test("draws a mark that differs from every other status's in both shape and color", () => {
 		const drawn = draw(everyStatus());
-		for (const kind of architectureNodeKinds) {
-			const marks = architectureStatuses.map((status) => {
+		for (const kind of nodeKindsOf(architectureNotation)) {
+			const marks = statusesOf(architectureNotation).map((status) => {
 				const id = `${kind}-${status}`;
 				const shapes = markOf(drawn, id);
 				const mark = nodeOf(drawn.scene, id).status?.mark ?? { x: 0, y: 0 };
@@ -160,15 +161,17 @@ describe("a Node's status", () => {
 					looks.every((look) => look !== ""),
 					`${kind}: ${part}`,
 				).toBe(true);
-				expect(new Set(looks).size, `${kind}: ${part}`).toBe(architectureStatuses.length);
+				expect(new Set(looks).size, `${kind}: ${part}`).toBe(
+					statusesOf(architectureNotation).length,
+				);
 			}
 		}
 	});
 
 	test("draws the same mark for a status, whatever the Kind", () => {
 		const drawn = draw(everyStatus());
-		for (const status of architectureStatuses) {
-			const looks = architectureNodeKinds.map((kind) => {
+		for (const status of statusesOf(architectureNotation)) {
+			const looks = nodeKindsOf(architectureNotation).map((kind) => {
 				const id = `${kind}-${status}`;
 				const mark = nodeOf(drawn.scene, id).status?.mark ?? { x: 0, y: 0 };
 				const shapes = markOf(drawn, id);
@@ -365,7 +368,7 @@ describe("a Node's callout", () => {
 		const plain = draw(oneOfEach());
 		for (const theme of ["light", "dark"] as const) {
 			const highlights = new Set<string>();
-			for (const kind of architectureNodeKinds) {
+			for (const kind of nodeKindsOf(architectureNotation)) {
 				const stroke = (from: Drawn) => {
 					const [outline] = strokedParts(from, kind).outline.filter(
 						(shape) => computedStyle(shape, from.rules, theme).get("fill") !== "none",

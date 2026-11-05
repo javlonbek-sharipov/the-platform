@@ -9,10 +9,10 @@ import { type ColorName, palette } from "../core/theme.ts";
 import { parts } from "./parts.ts";
 
 /**
- * The theme's colors, as the stage's own properties: `--theme-ink` is the
- * page's `--diagram-ink`, or the fallback that the SVG draws with where the
- * page sets none. So a rule writes `var(--theme-ink)`, and follows the page
- * and the reader's color scheme as the drawing does.
+ * The colors that all Diagrams share, as the stage's own properties:
+ * `--theme-ink` is the page's `--diagram-ink`, or the fallback that the SVG
+ * draws with where the page sets none. So a rule writes `var(--theme-ink)`,
+ * and follows the page and the reader's color scheme as the drawing does.
  */
 function themeOf(scheme: "light" | "dark"): string {
 	return (Object.keys(palette) as ColorName[])

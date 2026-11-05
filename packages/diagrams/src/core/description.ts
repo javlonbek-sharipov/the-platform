@@ -4,32 +4,43 @@
  * carries, which lists the Nodes and then the Edges.
  */
 
-import { type Diagram, type Edge, endNode, type RowEnd } from "../authoring/model.ts";
-import { architectureEdgeLooks, technologyOf } from "../notations/architecture.ts";
+import {
+	type AnyDiagram,
+	type AnyEdge,
+	type AnyNode,
+	endNode,
+	type RowEnd,
+} from "../authoring/model.ts";
+import { definitionOf, type NodeFact, type Notation } from "../notations/notation.ts";
 import type { Scene } from "./scene.ts";
+import { technologyOf } from "./technology.ts";
 import { collapseSpaces } from "./text.ts";
 
-/** How the description says that an Edge crosses between Groups of a Kind. */
-const across = { region: "across regions", zone: "across zones" } as const;
+/** What a description says of a Node for each fact, if the Node has it. */
+const factOf: Record<NodeFact, (node: AnyNode) => string | undefined> = {
+	kind: (node) => node.kind,
+	// The drawing shows it beside a logo.
+	technology: (node) =>
+		node.technology === undefined ? undefined : technologyOf(node.technology).name,
+	// The drawing shows these two only as shapes and colors.
+	external: (node) => (node.external === true ? "External" : undefined),
+	status: (node) => node.status,
+};
 
 /**
- * The SVG's description: each Node, by its title, with its Kind, its
- * Technology's name, which the drawing shows beside a logo, and whether it's
- * External and its status, which the drawing shows only as shapes and colors;
- * then each Edge as a sentence. Both lists are in model order.
+ * The SVG's description: each Node, by its title, with the facts that its
+ * Notation's definition lists, such as its Kind and its status; then each
+ * Edge as a sentence. Both lists are in model order.
  */
-export function descriptionOf(diagram: Diagram, scene: Scene): string {
+export function descriptionOf(diagram: AnyDiagram, notation: Notation, scene: Scene): string {
 	const crosses = new Map(scene.edges.map((edge) => [edge.id, edge.crosses?.kind]));
 	const nodes = diagram.nodes.map((node) => {
-		const facts = [
-			node.kind,
-			...(node.technology === undefined ? [] : [technologyOf(node.technology).name]),
-			...(node.external ? ["External"] : []),
-			...(node.status === undefined ? [] : [node.status]),
-		];
+		const facts = notation.facts.flatMap((fact) => factOf[fact](node) ?? []);
 		return `${collapseSpaces(node.title)} (${facts.join(", ")})`;
 	});
-	const edges = diagram.edges.map((edge) => `${sentenceOf(diagram, edge, crosses.get(edge.id))}.`);
+	const edges = diagram.edges.map(
+		(edge) => `${sentenceOf(diagram, notation, edge, crosses.get(edge.id))}.`,
+	);
 	return [
 		`Nodes: ${nodes.length === 0 ? "none" : nodes.join("; ")}.`,
 		`Edges: ${edges.length === 0 ? "none." : edges.join(" ")}`,
@@ -39,19 +50,27 @@ export function descriptionOf(diagram: Diagram, scene: Scene): string {
 /**
  * An Edge as a sentence: its Kind's sentence form, as in "Checkout API calls
  * Payments API", then how it travels, by its Technology's name, how much
- * passes over it, whether it crosses between regions or zones, which the
- * drawing shows only by its color and its badge, and its label, as in
- * "Checkout API calls Payments API over grpc at 2k/s across regions:
- * authorize".
+ * passes over it, whether it crosses between Groups, as its Notation words
+ * it, which the drawing shows only by its color and its badge, and its
+ * label, as in "Checkout API calls Payments API over grpc at 2k/s across
+ * regions: authorize".
  */
-export function sentenceOf(diagram: Diagram, edge: Edge, crosses?: "region" | "zone"): string {
+export function sentenceOf(
+	diagram: AnyDiagram,
+	notation: Notation,
+	edge: AnyEdge,
+	crosses?: string,
+): string {
 	const titles = new Map(diagram.nodes.map((node) => [node.id, collapseSpaces(node.title)]));
 	/** An end as a sentence names it: its Node's title, then the Row it attaches to, if any. */
 	const name = (end: string | RowEnd) => {
 		const title = titles.get(endNode(end)) ?? endNode(end);
 		return typeof end === "string" ? title : `${title} (${collapseSpaces(end.row)})`;
 	};
-	const sentence = architectureEdgeLooks[edge.kind].sentence.replace(
+	// How the description says that the Edge crosses between Groups of a Kind.
+	const crossing =
+		crosses === undefined ? undefined : definitionOf(notation.groupKinds, crosses).crossing;
+	const sentence = definitionOf(notation.edgeKinds, edge.kind).sentence.replace(
 		/\{(from|to)\}/g,
 		(_, end: string) => name(end === "from" ? edge.from : edge.to),
 	);
@@ -59,7 +78,7 @@ export function sentenceOf(diagram: Diagram, edge: Edge, crosses?: "region" | "z
 		sentence,
 		...(edge.technology === undefined ? [] : [` over ${technologyOf(edge.technology).name}`]),
 		...(edge.rate === undefined ? [] : [` at ${edge.rate}`]),
-		...(crosses === undefined ? [] : [` ${across[crosses]}`]),
+		...(crossing === undefined ? [] : [` ${crossing}`]),
 		...(edge.label === undefined ? [] : [`: ${collapseSpaces(edge.label)}`]),
 	].join("");
 }

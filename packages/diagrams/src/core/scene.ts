@@ -3,7 +3,6 @@
  * SVG, so another renderer could draw it. It isn't a versioned format.
  */
 
-import type { Edge, Group, Node } from "../authoring/model.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import type { FontWeight } from "./text.ts";
 
@@ -56,7 +55,8 @@ export interface SceneText {
 
 export interface SceneNode {
 	id: string;
-	kind: Node["kind"];
+	/** Its Kind, one of its Notation's Node Kinds. */
+	kind: string;
 	box: Box;
 	/** The band that holds the badge and the title: the whole Node, or the part below a person's head. */
 	header: Box;
@@ -107,7 +107,8 @@ export interface SceneLogo {
 
 /** A Node's status, and where its mark is drawn, at the end of the header. */
 export interface SceneStatus {
-	value: NonNullable<Node["status"]>;
+	/** One of its Notation's statuses. */
+	value: string;
 	mark: Box;
 }
 
@@ -120,7 +121,8 @@ export interface SceneCallout {
 /** A Group's box, with its label band along the top. */
 export interface SceneGroup {
 	id: string;
-	kind: Group["kind"];
+	/** Its Kind, one of its Notation's Group Kinds. */
+	kind: string;
 	box: Box;
 	/**
 	 * The label box: the part of the label band, along the top of the box,
@@ -135,7 +137,8 @@ export interface SceneGroup {
 
 export interface SceneEdge {
 	id: string;
-	kind: Edge["kind"];
+	/** Its Kind, one of its Notation's Edge Kinds. */
+	kind: string;
 	/** The id of the Node that the route leaves. */
 	from: string;
 	/** The name of the Row it leaves from, when the Edge starts at one. */
@@ -181,12 +184,12 @@ export interface SceneEdge {
 	 */
 	chevrons: SceneChevron[];
 	/**
-	 * Set when the Edge's ends sit in different `region` Groups, or in
-	 * different `zone` Groups, since such calls cost latency and egress: which
-	 * Kind of Group it crosses between, regions before zones, and where its
-	 * badge sits, in the middle of the stretch of its route that's its own.
+	 * Set when the Edge's ends sit in different Groups of a Kind that its
+	 * Notation says Edges cross between, as architecture's regions and zones
+	 * are: which Kind of Group it crosses between, and where its badge sits,
+	 * in the middle of the stretch of its route that's its own.
 	 */
-	crosses?: { kind: "region" | "zone"; badge: Point };
+	crosses?: { kind: string; badge: Point };
 }
 
 /**

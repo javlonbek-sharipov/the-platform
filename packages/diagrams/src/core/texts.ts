@@ -6,7 +6,7 @@
  * is, so that a text added to the model is a field added here.
  */
 
-import type { Diagram, Link } from "../authoring/model.ts";
+import type { AnyDiagram, Link } from "../authoring/model.ts";
 
 /** What holds a text: the Diagram, or one of its Nodes, Groups or Edges, by its index and id. */
 export type TextOwner =
@@ -33,7 +33,7 @@ export interface ModelText {
 }
 
 /** Every text in the model, in model order: what holds it, which field it is, and where. */
-export function textsOf(diagram: Diagram): ModelText[] {
+export function textsOf(diagram: AnyDiagram): ModelText[] {
 	const texts: ModelText[] = [];
 	const add = (owner: TextOwner, field: TextField, text: string | undefined, pointer: string) => {
 		if (text !== undefined) {

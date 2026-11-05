@@ -3,10 +3,11 @@ import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import {
-	architectureEdgeKinds,
-	architectureGroupKinds,
-	architectureNodeKinds,
-	architectureStatuses,
+	architectureNotation,
+	edgeKindsOf,
+	groupKindsOf,
+	nodeKindsOf,
+	statusesOf,
 	technologies,
 } from "../src/index.ts";
 import { type CliRun, runCli, sampleAtlas } from "./support/atlas.ts";
@@ -76,10 +77,10 @@ describe("the agent skill", () => {
 	test("it names every Kind and status of the architecture Notation, and every Technology that has a logo", async () => {
 		const skill = await readFile(skillFile, "utf8");
 		const words = [
-			...architectureNodeKinds,
-			...architectureGroupKinds,
-			...architectureEdgeKinds,
-			...architectureStatuses,
+			...nodeKindsOf(architectureNotation),
+			...groupKindsOf(architectureNotation),
+			...edgeKindsOf(architectureNotation),
+			...statusesOf(architectureNotation),
 			...Object.keys(technologies),
 		];
 

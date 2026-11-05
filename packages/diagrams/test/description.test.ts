@@ -1,10 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-	architecture,
-	architectureEdgeKinds,
-	architectureEdgeLooks,
-	render,
-} from "../src/index.ts";
+import { architecture, architectureNotation, edgeKindsOf, render } from "../src/index.ts";
 import orderFlow from "./fixtures/edges.ts";
 import { everyFixture } from "./support/fixtures.ts";
 import { descendants, parseSvg } from "./support/svg.ts";
@@ -50,12 +45,12 @@ function rootOf(diagram: unknown) {
 
 describe("each Edge Kind of the architecture Notation", () => {
 	test("declares a sentence form that names both ends", () => {
-		for (const kind of architectureEdgeKinds) {
-			const { sentence } = architectureEdgeLooks[kind];
+		for (const kind of edgeKindsOf(architectureNotation)) {
+			const { sentence } = architectureNotation.edgeKinds[kind];
 			expect(sentence, kind).toContain("{from}");
 			expect(sentence, kind).toContain("{to}");
 		}
-		expect(architectureEdgeLooks.call.sentence).toBe("{from} calls {to}");
+		expect(architectureNotation.edgeKinds.call.sentence).toBe("{from} calls {to}");
 	});
 });
 

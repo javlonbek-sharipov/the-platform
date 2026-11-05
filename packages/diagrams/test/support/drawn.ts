@@ -3,7 +3,14 @@
  * SVG read back with its style, and the parts of a Node's drawing.
  */
 
-import { type Box, render, type Scene, type SceneEdge, type SceneNode } from "../../src/index.ts";
+import {
+	type Box,
+	type RenderOptions,
+	render,
+	type Scene,
+	type SceneEdge,
+	type SceneNode,
+} from "../../src/index.ts";
 import {
 	colorUnder,
 	computedStyle,
@@ -20,8 +27,8 @@ import {
 	type Theme,
 } from "./svg.ts";
 
-export function sceneOf(diagram: unknown): Scene {
-	const { scene } = render(diagram);
+export function sceneOf(diagram: unknown, options?: RenderOptions): Scene {
+	const { scene } = render(diagram, options);
 	if (scene === undefined) {
 		throw new Error("expected a scene");
 	}
@@ -43,8 +50,8 @@ export interface Drawn {
 	rules: Rule[];
 }
 
-export function draw(diagram: unknown): Drawn {
-	const { scene, svg } = render(diagram);
+export function draw(diagram: unknown, options?: RenderOptions): Drawn {
+	const { scene, svg } = render(diagram, options);
 	if (scene === undefined || svg === undefined) {
 		throw new Error("expected a scene and an SVG");
 	}
