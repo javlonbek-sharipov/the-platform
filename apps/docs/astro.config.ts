@@ -31,6 +31,7 @@ export default defineConfig({
 			title,
 			sidebar: sidebarOf(docsOf(repoRoot), title),
 			head: [{ tag: "style", content: themeStyle() }],
+			customCss: ["./src/diagrams/frame.css"],
 			// Starlight's own touches, such as each heading's link to itself, are for the repo's docs too.
 			markdown: { processedDirs: [repoRoot] },
 		}),
