@@ -22,6 +22,7 @@ import {
 } from "../notations/architecture.ts";
 import { compareText } from "./bundles.ts";
 import { descriptionOf } from "./description.ts";
+import { headingOf } from "./geometry.ts";
 import { outlines, type PathData } from "./outlines.ts";
 import type {
 	Point,
@@ -800,7 +801,7 @@ function chevronPath({ point, heading: way }: SceneChevron): string {
  * which points into the Node, along the Port's stub.
  */
 function arrowhead({ point, stub }: ScenePort): string {
-	const into = heading(stub, point);
+	const into = headingOf(stub, point);
 	const base = { x: point.x - into.x * arrowLength, y: point.y - into.y * arrowLength };
 	const across = { x: -into.y * arrowHalfWidth, y: into.x * arrowHalfWidth };
 	return [
@@ -823,7 +824,7 @@ function trimmed(route: RoutePoint[], by: number): RoutePoint[] {
 	}
 	const room = Math.abs(end.x - before.x) + Math.abs(end.y - before.y) - before.radius;
 	const cut = Math.max(0, Math.min(by, room));
-	const back = heading(end, before);
+	const back = headingOf(end, before);
 	return [...route.slice(0, -1), { x: end.x + back.x * cut, y: end.y + back.y * cut, radius: 0 }];
 }
 
@@ -848,8 +849,8 @@ function pathData(route: RoutePoint[]): string {
 			return;
 		}
 		const { radius } = point;
-		const into = heading(before, point);
-		const out = heading(point, after);
+		const into = headingOf(before, point);
+		const out = headingOf(point, after);
 		lineTo({ x: point.x - into.x * radius, y: point.y - into.y * radius });
 		const end = { x: point.x + out.x * radius, y: point.y + out.y * radius };
 		// With y pointing down, a turn whose cross product is positive is clockwise
@@ -861,11 +862,6 @@ function pathData(route: RoutePoint[]): string {
 		pen = end;
 	});
 	return commands.join(" ");
-}
-
-/** The unit vector along a horizontal or vertical run. */
-function heading(from: Point, to: Point): Point {
-	return { x: Math.sign(to.x - from.x), y: Math.sign(to.y - from.y) };
 }
 
 function start(name: string, attributes: Attribute[]): string {

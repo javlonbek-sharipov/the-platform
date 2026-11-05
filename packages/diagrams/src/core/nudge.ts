@@ -17,6 +17,7 @@
  * can, and otherwise jogs to its lane at or past the stub's end.
  */
 
+import { headingOf, type LineSpan } from "./geometry.ts";
 import type { Box, Point, ScenePort } from "./scene.ts";
 
 export interface NudgeRoute {
@@ -52,27 +53,18 @@ export interface LaneSpacing {
 	padding: number;
 }
 
-/** A run of a route: a straight stretch from one corner to the next. */
-interface Run {
+/** A run of a route: a straight stretch from one corner to the next, on its line. */
+interface Run extends LineSpan {
 	route: number;
 	index: number;
-	horizontal: boolean;
-	/** The coordinate of its line: y for a horizontal run, x for a vertical one. */
-	line: number;
 	from: Point;
 	to: Point;
-	low: number;
-	high: number;
 	/** Whether it's only a Port's stub: a first run that turns at the stub's end, or the like last run. */
 	stubOnly: boolean;
 }
 
 /** The stretch of one line that one lane group uses, which takes one lane. */
-interface Stretch {
-	horizontal: boolean;
-	line: number;
-	low: number;
-	high: number;
+interface Stretch extends LineSpan {
 	group: string;
 	runs: Run[];
 	/**
@@ -104,12 +96,7 @@ interface Stretch {
 const rounds = 3;
 
 /** A stretch of a grid line whose lanes had to squeeze closer than the minimum spacing. */
-export interface Squeeze {
-	horizontal: boolean;
-	line: number;
-	low: number;
-	high: number;
-}
+export type Squeeze = LineSpan;
 
 export interface Nudged {
 	/** Each route's corners, offset into its lanes, in the order of the routes given. */
@@ -300,7 +287,7 @@ function junctionsOf(
 			const port = end === "first" ? route.fromPort : route.toPort;
 			const stub = end === "first" ? routeRuns[0] : routeRuns.at(-1);
 			const turn = end === "first" ? routeRuns[1] : routeRuns.at(-2);
-			const out = unit(port.point, port.stub);
+			const out = headingOf(port.point, port.stub);
 			let reach = jogs.get(`${index} ${end}`)?.along ?? 0;
 			if (stub?.stubOnly === true && turn !== undefined) {
 				reach = Math.max(reach, offsetOf(turn) * (turn.horizontal ? out.y : out.x));
@@ -606,12 +593,12 @@ function compare(a: Stretch, b: Stretch, runs: Run[][]): number {
 	if (order !== 0) {
 		return order;
 	}
-	const heading = headingOf(runA, 1);
+	const heading = travelOf(runA, 1);
 	return (a.group < b.group ? 1 : -1) * leftward(runA.horizontal, heading);
 }
 
 /** A unit vector along a run, the way the route travels, or the other way for `step` -1. */
-function headingOf(run: Run, step: number): Point {
+function travelOf(run: Run, step: number): Point {
 	return {
 		x: Math.sign(run.to.x - run.from.x) * step,
 		y: Math.sign(run.to.y - run.from.y) * step,
@@ -637,7 +624,7 @@ function leftward(horizontal: boolean, heading: Point): number {
  */
 function sideOf(a: Run, b: Run, runs: Run[][]): number {
 	for (const step of [1, -1]) {
-		const heading = headingOf(a, step);
+		const heading = travelOf(a, step);
 		const left = walk(a, b, step, runs);
 		if (left !== 0) {
 			return left * leftward(a.horizontal, heading);
@@ -655,9 +642,9 @@ function sideOf(a: Run, b: Run, runs: Run[][]): number {
 function walk(a: Run, b: Run, step: number, runs: Run[][]): number {
 	const routeA = runs[a.route] ?? [];
 	const routeB = runs[b.route] ?? [];
-	const headingA = headingOf(a, step);
+	const headingA = travelOf(a, step);
 	const sameWay = (() => {
-		const headingB = headingOf(b, 1);
+		const headingB = travelOf(b, 1);
 		return headingA.x === headingB.x && headingA.y === headingB.y;
 	})();
 	const stepB = sameWay ? 1 : -1;
@@ -669,7 +656,7 @@ function walk(a: Run, b: Run, step: number, runs: Run[][]): number {
 		if (runA === undefined || runB === undefined) {
 			return 0;
 		}
-		const heading = headingOf(runA, step);
+		const heading = travelOf(runA, step);
 		const endA = step > 0 ? runA.to : runA.from;
 		const endB = stepB > 0 ? runB.to : runB.from;
 		const reachA = endA.x * heading.x + endA.y * heading.y;
@@ -696,7 +683,7 @@ function turnAt(next: Run | undefined, step: number, heading: Point): number {
 	if (next === undefined) {
 		return 0;
 	}
-	const turned = headingOf(next, step);
+	const turned = travelOf(next, step);
 	// With y pointing down, left of heading (x, y) is (y, -x).
 	return turned.x === heading.y && turned.y === -heading.x ? 1 : -1;
 }
@@ -990,7 +977,7 @@ function jogsOf(
 				continue;
 			}
 			const port = end === "first" ? route.fromPort : route.toPort;
-			const out = unit(port.point, port.stub);
+			const out = headingOf(port.point, port.stub);
 			// The lane reaches as far as the corner after it, which moves out by the
 			// next run's lane. A route of one run shares its length between its jogs.
 			const next = end === "first" ? routeRuns[1] : routeRuns.at(-2);
@@ -1012,10 +999,6 @@ function jogsOf(
 		}
 	});
 	return jogs;
-}
-
-function unit(from: Point, to: Point): Point {
-	return { x: Math.sign(to.x - from.x), y: Math.sign(to.y - from.y) };
 }
 
 /** How far `to` lies past `from`, along a unit vector. */
@@ -1187,7 +1170,7 @@ function offsetRoute(
 			: { x: point.x + offset, y: point.y };
 	};
 	const outFrom = (port: ScenePort, end: End): Point => {
-		const out = unit(port.point, port.stub);
+		const out = headingOf(port.point, port.stub);
 		const at = jogAt(end);
 		return { x: port.stub.x + out.x * at, y: port.stub.y + out.y * at };
 	};

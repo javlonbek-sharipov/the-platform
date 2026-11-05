@@ -8,6 +8,8 @@
  * order axis is y, as for `right`. The caller turns the result for `down`.
  */
 
+import { roundUp } from "./geometry.ts";
+
 /** A member of the level, such as a Node, measured in the layout's frame. */
 export interface Member {
 	/** Its size along the rank axis, centered on its rank's line. */
@@ -81,11 +83,6 @@ export function arrange(
 	const top = Math.min(...members.map((member, index) => (across[index] ?? 0) - member.before));
 	const shift = Math.floor(top / spacing.grid) * spacing.grid;
 	return members.map((_, index) => ({ x: along[index] ?? 0, y: (across[index] ?? 0) - shift }));
-}
-
-/** The first line of the grid at or after a position. */
-function snap(position: number, grid: number): number {
-	return Math.ceil(position / grid) * grid;
 }
 
 /**
@@ -339,7 +336,7 @@ function ranksAlong(
 		);
 		const after = Math.max(...members.map((vertex) => (vertex?.depth ?? 0) / 2));
 		const gap = gaps[index - 1] ?? spacing.rankGap;
-		line = snap(index === 0 ? before : line + previousAfter + gap + before, grid);
+		line = roundUp(index === 0 ? before : line + previousAfter + gap + before, grid);
 		previousAfter = after;
 		for (const vertex of rank) {
 			along[vertex] = line;
@@ -423,7 +420,10 @@ function alignOneWay(
 	const separation = (earlier: number, later: number) => {
 		const [first, second] = fromEnd ? [later, earlier] : [earlier, later];
 		const { clearance, grid } = spacing;
-		return snap((vertices[first]?.after ?? 0) + clearance + (vertices[second]?.before ?? 0), grid);
+		return roundUp(
+			(vertices[first]?.after ?? 0) + clearance + (vertices[second]?.before ?? 0),
+			grid,
+		);
 	};
 	const blockOf = (start: number) => {
 		const block = [start];

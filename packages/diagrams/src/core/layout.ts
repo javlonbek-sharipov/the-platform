@@ -16,6 +16,7 @@
 
 import { type Diagram, type Edge, endNode } from "../authoring/model.ts";
 import { type Bundling, laneGroups } from "./bundles.ts";
+import { roundUp } from "./geometry.ts";
 import { labelEnds, labelSize } from "./labels.ts";
 import { arrange, type Connection, type Member } from "./layers.ts";
 import { faceOf, frameOf, type NodeFrame, partsOf, rowHeight } from "./nodes.ts";
@@ -303,11 +304,6 @@ function place(level: Level, block: Level, corner: Point): void {
 	}
 	level.width = Math.max(level.width, corner.x + block.width);
 	level.height = Math.max(level.height, corner.y + block.height);
-}
-
-/** The first multiple of `step` at or after `value`. */
-function roundUp(value: number, step: number): number {
-	return Math.ceil(value / step) * step;
 }
 
 const outward: Record<Side, Point> = {

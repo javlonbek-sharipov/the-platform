@@ -10,6 +10,7 @@
  */
 
 import type { Diagram } from "../authoring/model.ts";
+import { headingOf } from "./geometry.ts";
 import type { Box, Point, RoutePoint, SceneChevron, SceneEdge, SceneJunction } from "./scene.ts";
 
 /**
@@ -368,11 +369,6 @@ function lengthOf(points: Point[]): number {
 		}
 	}
 	return length;
-}
-
-/** The unit vector along a horizontal or vertical run. */
-function headingOf(from: Point, to: Point): Point {
-	return { x: Math.sign(to.x - from.x), y: Math.sign(to.y - from.y) };
 }
 
 function pointKey({ x, y }: Point): string {
