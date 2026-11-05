@@ -8,10 +8,10 @@
 
 import type { AnyDiagram, Link } from "../authoring/model.ts";
 
-/** What holds a text: the Diagram, or one of its Nodes, Groups or Edges, by its index and id. */
+/** What holds a text: the Diagram, or a Node, Group, Edge or Walkthrough, by its index and id. */
 export type TextOwner =
 	| { thing: "Diagram" }
-	| { thing: "Node" | "Group" | "Edge"; index: number; id: string };
+	| { thing: "Node" | "Group" | "Edge" | "Walkthrough"; index: number; id: string };
 
 /**
  * Which of its owner's fields a text is. A Row's name and value name the
@@ -19,7 +19,7 @@ export type TextOwner =
  * that an Edge end names says which end.
  */
 export type TextField =
-	| { name: "id" | "title" | "description" | "callout" | "label" | "technology" | "rate" }
+	| { name: "id" | "title" | "description" | "callout" | "label" | "technology" | "rate" | "note" }
 	| { name: "row name" | "row value"; row: string; rowIndex: number }
 	| { name: "link doc" | "link section" | "link label" | "link term"; target: string }
 	| { name: "end row"; end: "from" | "to" };
@@ -86,6 +86,14 @@ export function textsOf(diagram: AnyDiagram): ModelText[] {
 		add(owner, { name: "label" }, edge.label, `${at}/label`);
 		add(owner, { name: "technology" }, edge.technology, `${at}/technology`);
 		add(owner, { name: "rate" }, edge.rate, `${at}/rate`);
+	});
+	diagram.walkthroughs.forEach((walkthrough, index) => {
+		const owner: TextOwner = { thing: "Walkthrough", index, id: walkthrough.id };
+		const at = `/walkthroughs/${index}`;
+		add(owner, { name: "title" }, walkthrough.title, `${at}/title`);
+		walkthrough.steps.forEach((step, place) => {
+			add(owner, { name: "note" }, step.note, `${at}/steps/${place}/note`);
+		});
 	});
 	return texts;
 }
