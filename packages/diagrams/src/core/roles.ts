@@ -1,9 +1,9 @@
 /**
  * Role tags (spec: Static SVG, Look): each role that an end of an Edge
  * carries is drawn as a short tag at that end. A tag sits on its Edge's line,
- * centered on it, so that it's plain which Edge it belongs to, on a stretch
- * that's the Edge's own: past its Port's stub, where the Edges that share the
- * Port have parted, and not along another route.
+ * which runs through it, so that it's plain which Edge it belongs to, on a
+ * stretch that's the Edge's own: past its Port's stub, where the Edges that
+ * share the Port have parted, and not along another route.
  *
  * The tags of an Edge's `from` end come first along its route, as near its
  * source as they have room, in the model's order. Those of its `to` end come
