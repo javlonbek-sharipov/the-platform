@@ -536,7 +536,7 @@ A domain Diagram is either a context map or an aggregate diagram, never both. A 
   - Its Rows list the aggregate's entities, value objects and invariants, such as `OrderLine: entity`.
 - **Edge Kinds.**
   - `references` runs from aggregate to aggregate.
-  - `emits` runs from aggregate to event.
+  - `emits` runs from aggregate to an event inside its own context.
   - `reacts` runs from event to aggregate.
 - **Events from other contexts.**
   - An event from another context is drawn outside the Group, under its full id, such as `ordering/order-placed`.
@@ -2075,6 +2075,26 @@ Context maps. This is GitHub's issue #3, not ticket 03 above.
     - Issue 10: a definition says nothing about flow animation. That issue adds what says that architecture's Edges flow and that domain's don't.
     - The glossary has no entry for a role. The spec's own words, "role" and "role tag", are used as it uses them.
 16. **Speed.** On one machine, `pnpm bench` reported 88 ms median drawn `right`, 118 ms drawn `down`, and 377 and 156 ms with every Edge labeled, for the commit this issue started from, and 88, 123, 383 and 157 ms with it. The crowded fixture has no roles.
+
+**Issue 4**
+
+Aggregate diagrams. This is GitHub's issue #4, not ticket 04 above.
+
+1. **The new Kinds.**
+   - An aggregate is a Node, as ADR-0005 requires: 256 by 64 px before its Rows, with a heavy framed outline and a badge showing a root and its members. Its hue is `aggregate`, #27694c light and #70cda0 dark.
+   - An event is 224 by 48 px, with cut corners, a lightning badge, and the hue `event`, #935619 light and #e8ae68 dark. The sizes leave room for the Rows' entity, value object and invariant names, and for event titles.
+   - `references` is dashed, `emits` solid, and `reacts` dotted (`1 4`). All three are directed and take no roles. Their sentences are "{from} references {to}", "{from} emits {to}" and "{from} triggers {to}". Domain bundling stays `none`, so each Edge keeps its own line.
+   - The domain Notation now has the `context` Group Kind, a solid border 2 px wide. Its Groups take descriptions and Links. Nodes gain Rows, as issue 3's decision 15 foresaw; fields remain a matter of the Notation, not of each Kind.
+2. **Local and full ids.**
+   - A Group Kind's `namespace: true` makes its builder prefix local Node and Group ids, and string or Row-object Edge endpoints, with its full id and `/`. Node handles and their Row handles carry full ids already. Full ids are preserved, so validation can report a member from the wrong namespace instead of silently moving it.
+   - A builder keeps its own parent and namespace whenever it is called. In particular, `d.node` inside a context callback still declares on the Diagram itself; only the callback's builder declares context members. Local Edge endpoints work before their Nodes are declared. An Edge's default id uses its full endpoints, and an explicit Edge id stays local to the Diagram. Links to ids name full Atlas ids.
+   - JSON always holds full ids, including Group membership and Row endpoints. Validation never expands generated JSON. The rule `namespace` rejects a member without its Group's prefix, or with more than one local segment after it.
+   - A context's own id has one segment, on either form: `billing`. Its members have two: `billing/order`. Contexts don't nest.
+3. **Legal domain forms.**
+   - An empty domain Diagram is an empty context map. Otherwise, a context map has only context Nodes and no Groups; an aggregate diagram has exactly one top-level context Group, with its aggregates and events inside it. Only events from other contexts may sit outside, under their two-segment full ids. An aggregate emits events inside its own Group; another context's event may react into it.
+   - `domain-form` reports a mix of the two forms, a missing or extra context Group, a local aggregate or event outside it, or emission of another context's event. Endpoint Kinds and roles keep their existing validation rules.
+   - A Notation may provide `validation: { rules, check }` for whole-Diagram rules: a pure check after the model, nesting and namespace rules pass, and each rule's meaning for its schema's description. Domain-specific rules and Kind names stay in the domain definition. The schema lists the Kinds and fields and describes the further semantic checks, as it does for endpoint and nesting rules.
+4. **Types.** The package exports `DomainGroup`, `DomainGroupKind` and `DomainRow`, alongside the domain types that issue 3 added. An aggregate's handle carries its Rows' literal names, as an architecture Node's does.
 
 ### References
 

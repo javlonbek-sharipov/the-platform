@@ -14,10 +14,16 @@ import {
 	type RoleOf,
 } from "../src/index.ts";
 
-test("the domain Notation has one Node Kind, `context`, and four Edge Kinds", () => {
-	expectTypeOf<DomainNodeKind>().toEqualTypeOf<"context">();
+test("the domain Notation types the Kinds of its two forms", () => {
+	expectTypeOf<DomainNodeKind>().toEqualTypeOf<"context" | "aggregate" | "event">();
 	expectTypeOf<DomainEdgeKind>().toEqualTypeOf<
-		"partnership" | "shared-kernel" | "upstream-downstream" | "customer-supplier"
+		| "partnership"
+		| "shared-kernel"
+		| "upstream-downstream"
+		| "customer-supplier"
+		| "references"
+		| "emits"
+		| "reacts"
 	>();
 });
 
@@ -48,9 +54,9 @@ test("an Edge Kind that the Notation doesn't have is a type error", () => {
 	});
 });
 
-test("a context map has no Groups, so declaring one is a type error", () => {
+test("a Group Kind that the domain Notation doesn't have is a type error", () => {
 	domain({ title: "Shop" }, (d) => {
-		// @ts-expect-error: the domain Notation has no Group Kinds.
+		// @ts-expect-error: the domain Notation's only Group Kind is `context`.
 		d.group({ id: "sales", kind: "subdomain", title: "Sales" }, () => {});
 	});
 });

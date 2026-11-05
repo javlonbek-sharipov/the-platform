@@ -28,8 +28,10 @@ export { builderOf } from "./authoring/builder.ts";
 export type {
 	DomainBuilder,
 	DomainEdgeOptions,
+	DomainGroup,
 	DomainNode,
 	DomainOptions,
+	DomainRow,
 } from "./authoring/domain.ts";
 export { domain } from "./authoring/domain.ts";
 export type {
@@ -87,6 +89,7 @@ export type {
 export { architectureNotation } from "./notations/architecture.ts";
 export type {
 	DomainEdgeKind,
+	DomainGroupKind,
 	DomainNodeKind,
 	DomainNotation,
 	DomainRole,

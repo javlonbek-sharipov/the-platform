@@ -362,10 +362,37 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 		...checkNesting(diagram),
 		...checkCharacters(diagram),
 	);
+	if (diagnostics.length === 0) {
+		diagnostics.push(...checkNamespaces(diagram, notation));
+	}
+	if (diagnostics.length === 0) {
+		diagnostics.push(...(notation.validation?.check(diagram) ?? []));
+	}
 
 	return diagnostics.some((diagnostic) => diagnostic.severity === "error")
 		? { diagnostics }
 		: { diagnostics, diagram, notation };
+}
+
+/** A namespaced Group's members carry its prefix and exactly one local id. */
+function checkNamespaces(diagram: AnyDiagram, notation: Notation): Diagnostic[] {
+	return diagram.groups.flatMap((group, index) => {
+		if (notation.groupKinds[group.kind]?.namespace !== true) {
+			return [];
+		}
+		const prefix = `${group.id}/`;
+		return group.members.flatMap((member, at) =>
+			member.startsWith(prefix) && !member.slice(prefix.length).includes("/")
+				? []
+				: [
+						error(
+							"namespace",
+							`Group \`${group.id}\` has the member \`${member}\`, whose full id doesn't belong to its namespace. Write a local id in the builder, or a full id like \`${group.id}/order\` in JSON.`,
+							`/groups/${index}/members/${at}`,
+						),
+					],
+		);
+	});
 }
 
 /**
