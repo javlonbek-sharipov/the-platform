@@ -14,6 +14,7 @@ import {
 	hasField,
 	type Notation,
 	nodeKindsOf,
+	rolesOf,
 	statusesOf,
 } from "../notations/notation.ts";
 import { defaultDirection, formats } from "./validate.ts";
@@ -65,6 +66,7 @@ A model that fails this schema fails the engine's validation too. But passing th
 - \`duplicate-row\`: the Rows of one Node have names of their own, since an Edge end names a Row by its name.
 - \`edge-end\`: each Edge end names a Node on the Diagram, never a Group, and an end at a Row names one of that Node's Rows.
 - \`edge-end-kind\`: each Edge starts and ends at Nodes of Kinds that its own Kind may join.
+- \`edge-end-role\`: each end of an Edge carries only the roles that the Edge's Kind lets that end carry.
 - \`nesting\`: each member names a Node or a Group on the Diagram, every Node and Group is a member of exactly one parent, the Diagram or one Group, and so Groups nest as a tree.
 - \`default-edge-id\`: an Edge whose id is its default name, its two Nodes' ids joined by \`->\`, keeps it only while no other Edge joins the same two Nodes.
 
@@ -202,6 +204,13 @@ function fieldsOf<T>(
 function notationSchema(notation: Notation): NotationSchema {
 	const { name } = notation;
 	const of = (thing: string) => ({ $ref: `#/$defs/${name}/$defs/${thing}` });
+	/** The roles at one end of an Edge: some of the Notation's, each once. */
+	const rolesAt = (where: string) => ({
+		description: `The roles at the end ${where}.`,
+		type: "array",
+		items: oneOf(rolesOf(notation)),
+		uniqueItems: true,
+	});
 	const node = fieldsOf<AnyNode>(notation, "node", {
 		id: {
 			description:
@@ -285,6 +294,16 @@ function notationSchema(notation: Notation): NotationSchema {
 				"How much passes over it, drawn below the label: a number, an optional `k` or `M`, a slash, and `s`, `min` or `h`, as in `2k/s` or `30/min`.",
 			type: "string",
 			pattern: formats.rate,
+		},
+		roles: {
+			description:
+				"The roles that the Edge's ends carry, each drawn as a short tag at its end. The Edge's Kind decides which roles each end may carry.",
+			type: "object",
+			properties: {
+				from: rolesAt("where the Edge leaves"),
+				to: rolesAt("where the Edge enters"),
+			},
+			additionalProperties: false,
 		},
 	});
 	const closed = (

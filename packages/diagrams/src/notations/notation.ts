@@ -48,8 +48,16 @@ export interface Notation {
 	 */
 	groupKinds: Record<string, GroupKindDefinition>;
 	/**
+	 * The roles that an end of one of its Edges may carry, in the order
+	 * messages list them, such as a context map's `OHS`. Each is drawn at its
+	 * end as a short tag that shows its name here. Each Edge Kind says which
+	 * of them each of its ends may carry.
+	 */
+	roles: Record<string, RoleDefinition>;
+	/**
 	 * Its Edge Kinds, in the order messages list them, each with its look, its
-	 * sentence form, whether it's symmetric, and the Node Kinds it may join.
+	 * sentence form, whether it's symmetric, the Node Kinds it may join, and
+	 * the roles its ends may carry.
 	 */
 	edgeKinds: Record<string, EdgeKindDefinition>;
 	/**
@@ -80,7 +88,7 @@ export interface NodeKindDefinition {
 export const optionalFields = {
 	node: ["technology", "external", "status", "rows", "description", "links", "callout"],
 	group: ["description", "links"],
-	edge: ["label", "technology", "rate"],
+	edge: ["label", "technology", "rate", "roles"],
 } as const;
 
 export type NodeField = (typeof optionalFields.node)[number];
@@ -140,9 +148,21 @@ export interface GroupKindDefinition {
 	crossing?: string;
 }
 
+/** A role that an end of an Edge may carry, which says what part that end's Node plays. */
+export interface RoleDefinition {
+	/** What the description calls it: its name in full, such as `open host service`. */
+	name: string;
+}
+
 /**
- * How an Edge of one Kind looks, how a sentence names it, and which Nodes it
- * may join. A Kind alone decides them.
+ * The roles that one end of an Edge may carry, of its Notation's roles: any
+ * of those listed together, or one of them at most.
+ */
+export type EndRoles = { anyOf: readonly string[] } | { oneOf: readonly string[] };
+
+/**
+ * How an Edge of one Kind looks, how a sentence names it, which Nodes it
+ * may join, and which roles its ends may carry. A Kind alone decides them.
  */
 export interface EdgeKindDefinition {
 	/** Its line: solid or dashed. */
@@ -164,6 +184,11 @@ export interface EdgeKindDefinition {
 	 */
 	from?: readonly string[];
 	to?: readonly string[];
+	/**
+	 * The roles that each of its ends may carry. An end left out carries none.
+	 * A symmetric Kind's ends are alike, so neither carries any.
+	 */
+	roles?: { from?: EndRoles; to?: EndRoles };
 }
 
 /** The names of a Notation's Node Kinds. */
@@ -196,6 +221,31 @@ export type EdgeKindOf<N extends Notation> = keyof N["edgeKinds"] & string;
 /** A Notation's Edge Kinds, in its definition's order. */
 export function edgeKindsOf<N extends Notation>(notation: N): EdgeKindOf<N>[] {
 	return Object.keys(notation.edgeKinds);
+}
+
+/** The names of a Notation's roles. */
+export type RoleOf<N extends Notation> = keyof N["roles"] & string;
+
+/** A Notation's roles, in its definition's order. */
+export function rolesOf<N extends Notation>(notation: N): RoleOf<N>[] {
+	return Object.keys(notation.roles);
+}
+
+/**
+ * The roles that one end of an Edge of a Kind may carry, as its definition
+ * lists them, and whether it may carry only one of them.
+ */
+export function endRolesOf(
+	kind: EdgeKindDefinition,
+	end: "from" | "to",
+): { roles: readonly string[]; one: boolean } {
+	const allowed = kind.roles?.[end];
+	if (allowed === undefined) {
+		return { roles: [], one: false };
+	}
+	return "oneOf" in allowed
+		? { roles: allowed.oneOf, one: true }
+		: { roles: allowed.anyOf, one: false };
 }
 
 /**

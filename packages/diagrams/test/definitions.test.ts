@@ -9,6 +9,7 @@ import {
 	type NodeKindDefinition,
 	nodeKindsOf,
 	notations,
+	rolesOf,
 	statusesOf,
 } from "../src/index.ts";
 
@@ -85,6 +86,25 @@ describe.each(notations.map((notation) => [notation.name, notation] as const))(
 			expect(nodeFields.includes("status")).toBe(statusesOf(notation).length > 0);
 		});
 
+		test("lets its Edges' ends carry only roles that it defines, each of which some end may carry, and none on a symmetric Kind", () => {
+			const roles: string[] = rolesOf(notation);
+			const edgeKinds = Object.entries<EdgeKindDefinition>(notation.edgeKinds);
+			const carried = edgeKinds.flatMap(([, kind]) =>
+				[kind.roles?.from, kind.roles?.to].flatMap((end) =>
+					end === undefined ? [] : "oneOf" in end ? end.oneOf : end.anyOf,
+				),
+			);
+
+			expect(carried.filter((role) => !roles.includes(role))).toEqual([]);
+			expect(roles.filter((role) => !carried.includes(role))).toEqual([]);
+			expect(
+				edgeKinds.filter(([, kind]) => kind.symmetric === true && kind.roles !== undefined),
+			).toEqual([]);
+			// Its Edges may have roles exactly when it has roles for them.
+			const edgeFields: readonly string[] = notation.fields.edge;
+			expect(edgeFields.includes("roles")).toBe(roles.length > 0);
+		});
+
 		test("sizes each Node Kind in whole steps of 16 px, twice the grid, so that its corners land on the grid", () => {
 			for (const [kind, { width, height }] of Object.entries<NodeKindDefinition>(
 				notation.nodeKinds,
@@ -93,8 +113,13 @@ describe.each(notations.map((notation) => [notation.name, notation] as const))(
 			}
 		});
 
-		test("has Kinds that nothing outside its definition names", () => {
-			const kinds = [...nodeKindsOf(notation), ...groupKindsOf(notation), ...edgeKindsOf(notation)];
+		test("has Kinds and roles that nothing outside its definition names", () => {
+			const kinds = [
+				...nodeKindsOf(notation),
+				...groupKindsOf(notation),
+				...edgeKindsOf(notation),
+				...rolesOf(notation),
+			];
 			expect(kinds.length).toBeGreaterThan(0);
 			const named = modules()
 				.filter((module) => module !== definition)
@@ -110,7 +135,7 @@ describe.each(notations.map((notation) => [notation.name, notation] as const))(
 
 			expect(
 				named,
-				"Read the Kind's rule from the Notation's definition instead. A string that only looks like a Kind's name goes in `otherMeanings`.",
+				"Read the Kind's or the role's rule from the Notation's definition instead. A string that only looks like the name of one goes in `otherMeanings`.",
 			).toEqual([]);
 		});
 	},

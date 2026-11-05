@@ -148,6 +148,8 @@ const definition = {
 		region: { stroke: 1.5, line: "solid", crossing: "across regions" },
 		zone: { stroke: 1.5, line: "dashed", crossing: "across zones" },
 	},
+	// Neither end of a call or a message plays a part that a tag would name.
+	roles: {},
 	edgeKinds: {
 		// Solid for a call, which waits for its answer, and dashed for a message, which doesn't.
 		call: { line: "solid", sentence: "{from} calls {to}" },

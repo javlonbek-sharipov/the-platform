@@ -22,7 +22,7 @@ import {
 	strokeOf,
 	strokesOf,
 } from "./support/drawn.ts";
-import { schemaErrors, schemaPointers } from "./support/schema.ts";
+import { schema, schemaErrors, schemaPointers } from "./support/schema.ts";
 import { computedStyle, descendants, isShape, runsOf } from "./support/svg.ts";
 
 /** A shop's Catalog, which Ordering takes its products from. */
@@ -233,7 +233,7 @@ describe("a context map's Edges", () => {
 			["technology", "rate"].map((field) => ({
 				severity: "error",
 				rule: "model-shape",
-				message: `\`/edges/0/${field}\` must be left out: an Edge has no such field in the domain Notation. Its fields are \`id\`, \`kind\`, \`from\`, \`to\` and \`label\`.`,
+				message: `\`/edges/0/${field}\` must be left out: an Edge has no such field in the domain Notation. Its fields are \`id\`, \`kind\`, \`from\`, \`to\`, \`label\` and \`roles\`.`,
 				pointer: `/edges/0/${field}`,
 			})),
 		);
@@ -461,5 +461,241 @@ describe("a context", () => {
 				[["color", "var(--diagram-hue-context, #8f96f5)"]],
 			],
 		]);
+	});
+});
+
+/** The shop's Catalog and Ordering, with an Edge between them that carries the roles given. */
+function withRoles(kind: string, roles: unknown) {
+	return { ...shop, edges: [{ ...shop.edges[0], kind, roles }] };
+}
+
+describe("the roles at the ends of a context map's Edge", () => {
+	test("are part of the model, which the builder writes as given and the schema passes", () => {
+		const tagged = domain({ title: "Shop" }, (d) => {
+			const catalog = d.node({ id: "catalog", kind: "context", title: "Catalog" });
+			const ordering = d.node({ id: "ordering", kind: "context", title: "Ordering" });
+			const billing = d.node({ id: "billing", kind: "context", title: "Billing" });
+			d.edge(catalog, ordering, {
+				kind: "upstream-downstream",
+				roles: { from: ["OHS", "PL"], to: ["ACL"] },
+			});
+			d.edge(ordering, billing, { kind: "customer-supplier", roles: { to: ["CF"] } });
+			d.edge(catalog, billing, { kind: "upstream-downstream", roles: { from: ["PL"] } });
+		});
+
+		expect(tagged.edges).toEqual([
+			{
+				id: "catalog->ordering",
+				kind: "upstream-downstream",
+				from: "catalog",
+				to: "ordering",
+				roles: { from: ["OHS", "PL"], to: ["ACL"] },
+			},
+			{
+				id: "ordering->billing",
+				kind: "customer-supplier",
+				from: "ordering",
+				to: "billing",
+				roles: { to: ["CF"] },
+			},
+			{
+				id: "catalog->billing",
+				kind: "upstream-downstream",
+				from: "catalog",
+				to: "billing",
+				roles: { from: ["PL"] },
+			},
+		]);
+		expect(render(tagged).diagnostics).toEqual([]);
+		expect(schemaErrors(tagged)).toEqual([]);
+	});
+
+	test("are each one of the Notation's roles, where the schema agrees", () => {
+		const misspelled = withRoles("upstream-downstream", { from: ["OHS", "PLS"], to: ["acl"] });
+
+		expect(render(misspelled).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "unknown-role",
+				message:
+					"Edge `catalog->ordering` has the role `PLS` at its `from` end, which the domain Notation doesn't have. Its roles are OHS, PL, CF and ACL.",
+				pointer: "/edges/0/roles/from/1",
+			},
+			{
+				severity: "error",
+				rule: "unknown-role",
+				message:
+					"Edge `catalog->ordering` has the role `acl` at its `to` end, which the domain Notation doesn't have. Its roles are OHS, PL, CF and ACL.",
+				pointer: "/edges/0/roles/to/0",
+			},
+		]);
+		expect(schemaPointers(misspelled)).toEqual(
+			expect.arrayContaining(["/edges/0/roles/from/1", "/edges/0/roles/to/0"]),
+		);
+	});
+
+	test("sit only at the end that their Edge's Kind lets carry them, which the schema can't express", () => {
+		const swapped = withRoles("upstream-downstream", { from: ["CF"], to: ["OHS", "ACL"] });
+
+		expect(render(swapped).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "edge-end-role",
+				message:
+					"Edge `catalog->ordering` has the role `CF` at its `from` end. An Edge of the Kind `upstream-downstream` may carry `CF` only at its `to` end.",
+				pointer: "/edges/0/roles/from/0",
+			},
+			{
+				severity: "error",
+				rule: "edge-end-role",
+				message:
+					"Edge `catalog->ordering` has the role `OHS` at its `to` end. An Edge of the Kind `upstream-downstream` may carry `OHS` only at its `from` end.",
+				pointer: "/edges/0/roles/to/0",
+			},
+		]);
+		expect(schemaErrors(swapped)).toEqual([]);
+		expect(schema.description).toContain("`edge-end-role`");
+	});
+
+	test("let the downstream end conform or keep the upstream's model out, never both, while the upstream end may do both", () => {
+		const both = withRoles("customer-supplier", { from: ["OHS", "PL"], to: ["CF", "ACL"] });
+
+		expect(render(both).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "edge-end-role",
+				message:
+					"Edge `catalog->ordering` has both `CF` and `ACL` at its `to` end. An Edge of the Kind `customer-supplier` may carry only one of them there.",
+				pointer: "/edges/0/roles/to",
+			},
+		]);
+		expect(schemaErrors(both)).toEqual([]);
+		for (const one of ["CF", "ACL"]) {
+			const either = withRoles("customer-supplier", { from: ["PL", "OHS"], to: [one] });
+			expect(render(either).diagnostics, one).toEqual([]);
+		}
+	});
+
+	test("aren't carried by a symmetric Edge, whose ends are alike", () => {
+		for (const kind of ["partnership", "shared-kernel"]) {
+			for (const roles of [{ from: ["OHS", "PL"], to: ["ACL"] }, { to: ["CF"] }]) {
+				const tagged = withRoles(kind, roles);
+
+				expect(render(tagged).diagnostics, kind).toEqual([
+					{
+						severity: "error",
+						rule: "edge-end-role",
+						message: `Edge \`catalog->ordering\` has roles, but its Kind, \`${kind}\`, is symmetric: its two ends are alike, so it takes no roles.`,
+						pointer: "/edges/0/roles",
+					},
+				]);
+				expect(schemaErrors(tagged), kind).toEqual([]);
+			}
+			// Roles that list no role are no roles.
+			expect(render(withRoles(kind, {})).diagnostics, kind).toEqual([]);
+			expect(render(withRoles(kind, { from: [], to: [] })).diagnostics, kind).toEqual([]);
+		}
+	});
+
+	test("are written as a list for each end, under the end's name, where the schema agrees", () => {
+		const cases: [roles: unknown, pointer: string, message: string][] = [
+			[["OHS"], "/edges/0/roles", "`/edges/0/roles` must be an object."],
+			[{ from: "OHS" }, "/edges/0/roles/from", "`/edges/0/roles/from` must be a list."],
+			[{ to: [7] }, "/edges/0/roles/to/0", "`/edges/0/roles/to/0` must be a string."],
+			[
+				{ upstream: ["OHS"] },
+				"/edges/0/roles/upstream",
+				"`/edges/0/roles/upstream` must be left out: an Edge's `roles` has no such field. Its fields are `from` and `to`.",
+			],
+		];
+		for (const [roles, pointer, message] of cases) {
+			const model = withRoles("upstream-downstream", roles);
+
+			expect(render(model).diagnostics, pointer).toEqual([
+				{ severity: "error", rule: "model-shape", message, pointer },
+			]);
+			expect(schemaPointers(model), pointer).toContain(pointer);
+		}
+	});
+
+	test("are each listed once at an end, where the schema agrees", () => {
+		const twice = withRoles("upstream-downstream", { from: ["OHS", "PL", "OHS"] });
+
+		expect(render(twice).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "edge-end-role",
+				message:
+					"Edge `catalog->ordering` lists the role `OHS` twice at its `from` end. List each role once.",
+				pointer: "/edges/0/roles/from",
+			},
+		]);
+		expect(schemaPointers(twice)).toContain("/edges/0/roles/from");
+	});
+
+	test("are the domain Notation's alone: an architecture Edge has no such field", () => {
+		const shopSystem = architecture({ title: "Shop" }, (d) => {
+			const api = d.node({ id: "shop-api", kind: "service", title: "Shop API" });
+			const db = d.node({ id: "shop-db", kind: "database", title: "Shop database" });
+			d.edge(api, db, { kind: "call" });
+		});
+		const tagged = { ...shopSystem, edges: [{ ...shopSystem.edges[0], roles: { from: ["OHS"] } }] };
+
+		expect(render(tagged).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "model-shape",
+				message:
+					"`/edges/0/roles` must be left out: an Edge has no such field in the architecture Notation. Its fields are `id`, `kind`, `from`, `to`, `label`, `technology` and `rate`.",
+				pointer: "/edges/0/roles",
+			},
+		]);
+		expect(schemaPointers(tagged)).toContain("/edges/0/roles");
+	});
+
+	test("are an option that the builder checks: one that it doesn't know is an error, not left out", () => {
+		const misspelled = domain({ title: "Shop" }, (d) => {
+			const catalog = d.node({ id: "catalog", kind: "context", title: "Catalog" });
+			const ordering = d.node({ id: "ordering", kind: "context", title: "Ordering" });
+			const roles = { form: ["OHS"], to: ["ACL"] } as { to: ["ACL"] };
+			d.edge(catalog, ordering, { kind: "upstream-downstream", roles });
+		});
+		const architectural = architecture({ title: "Shop" }, (d) => {
+			const api = d.node({ id: "shop-api", kind: "service", title: "Shop API" });
+			const db = d.node({ id: "shop-db", kind: "database", title: "Shop database" });
+			const options = { kind: "call", roles: { from: ["OHS"] } } as { kind: "call" };
+			d.edge(api, db, options);
+		});
+
+		expect(misspelled.edges[0]?.roles).toEqual({ to: ["ACL"] });
+		expect(render(misspelled).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "model-shape",
+				message: "An Edge's `roles` has no option `form`. Its options are `from` and `to`.",
+				pointer: "/edges/0/roles/form",
+			},
+		]);
+		expect(render(architectural).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "model-shape",
+				message:
+					"An Edge has no option `roles` in the architecture Notation. Its options are `kind`, `id`, `label`, `technology` and `rate`.",
+				pointer: "/edges/0/roles",
+			},
+		]);
+	});
+
+	test("are copied into the model, so a shared definition never changes with it", () => {
+		const upstream = { from: ["OHS", "PL"] } as const;
+		const tagged = domain({ title: "Shop" }, (d) => {
+			const catalog = d.node({ id: "catalog", kind: "context", title: "Catalog" });
+			const ordering = d.node({ id: "ordering", kind: "context", title: "Ordering" });
+			d.edge(catalog, ordering, { kind: "upstream-downstream", roles: upstream });
+		});
+
+		expect(tagged.edges[0]?.roles).toEqual({ from: ["OHS", "PL"] });
+		expect(tagged.edges[0]?.roles?.from).not.toBe(upstream.from);
 	});
 });

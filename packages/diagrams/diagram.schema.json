@@ -1,7 +1,7 @@
 {
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"title": "Diagram",
-	"description": "A Diagram, in version 1 of the JSON model that @the-platform/diagrams reads. A tool that generates Diagrams can check its output against this schema, then default-export the JSON from a `<name>.diagram.ts` module, where the Diagram joins the Atlas like any other.\n\nA Diagram's Notation decides which Kinds and statuses its Nodes, Groups and Edges may have, and which fields. The schema checks each Diagram against its own Notation's.\n\nA model that fails this schema fails the engine's validation too. But passing this schema doesn't make a Diagram valid. Some rules relate one part of the model to another, which JSON Schema can't express. The engine's validation checks them, and reports each under its rule's name:\n\n- `duplicate-id`: Node and Group ids are unique within a Diagram, in one namespace, and each Edge id is unique among its Edges.\n- `duplicate-row`: the Rows of one Node have names of their own, since an Edge end names a Row by its name.\n- `edge-end`: each Edge end names a Node on the Diagram, never a Group, and an end at a Row names one of that Node's Rows.\n- `edge-end-kind`: each Edge starts and ends at Nodes of Kinds that its own Kind may join.\n- `nesting`: each member names a Node or a Group on the Diagram, every Node and Group is a member of exactly one parent, the Diagram or one Group, and so Groups nest as a tree.\n- `default-edge-id`: an Edge whose id is its default name, its two Nodes' ids joined by `->`, keeps it only while no other Edge joins the same two Nodes.\n\n`diagrams lint` checks the Atlas as a whole too:\n\n- `kind-conflict` and `title-conflict`: an id names one thing across the Atlas, with one Kind and one title on every Diagram that draws it, as a Node or as a Group.\n- `broken-link`: every Link resolves, to an id that some Diagram draws, or to a file inside the repo and, with a `section`, to one of its headings.",
+	"description": "A Diagram, in version 1 of the JSON model that @the-platform/diagrams reads. A tool that generates Diagrams can check its output against this schema, then default-export the JSON from a `<name>.diagram.ts` module, where the Diagram joins the Atlas like any other.\n\nA Diagram's Notation decides which Kinds and statuses its Nodes, Groups and Edges may have, and which fields. The schema checks each Diagram against its own Notation's.\n\nA model that fails this schema fails the engine's validation too. But passing this schema doesn't make a Diagram valid. Some rules relate one part of the model to another, which JSON Schema can't express. The engine's validation checks them, and reports each under its rule's name:\n\n- `duplicate-id`: Node and Group ids are unique within a Diagram, in one namespace, and each Edge id is unique among its Edges.\n- `duplicate-row`: the Rows of one Node have names of their own, since an Edge end names a Row by its name.\n- `edge-end`: each Edge end names a Node on the Diagram, never a Group, and an end at a Row names one of that Node's Rows.\n- `edge-end-kind`: each Edge starts and ends at Nodes of Kinds that its own Kind may join.\n- `edge-end-role`: each end of an Edge carries only the roles that the Edge's Kind lets that end carry.\n- `nesting`: each member names a Node or a Group on the Diagram, every Node and Group is a member of exactly one parent, the Diagram or one Group, and so Groups nest as a tree.\n- `default-edge-id`: an Edge whose id is its default name, its two Nodes' ids joined by `->`, keeps it only while no other Edge joins the same two Nodes.\n\n`diagrams lint` checks the Atlas as a whole too:\n\n- `kind-conflict` and `title-conflict`: an id names one thing across the Atlas, with one Kind and one title on every Diagram that draws it, as a Node or as a Group.\n- `broken-link`: every Link resolves, to an id that some Diagram draws, or to a file inside the repo and, with a `section`, to one of its headings.",
 	"type": "object",
 	"properties": {
 		"version": {
@@ -484,6 +484,29 @@
 						"label": {
 							"description": "What passes over the Edge, drawn beside it, such as `Places orders`.",
 							"$ref": "#/$defs/someText"
+						},
+						"roles": {
+							"description": "The roles that the Edge's ends carry, each drawn as a short tag at its end. The Edge's Kind decides which roles each end may carry.",
+							"type": "object",
+							"properties": {
+								"from": {
+									"description": "The roles at the end where the Edge leaves.",
+									"type": "array",
+									"items": {
+										"enum": ["OHS", "PL", "CF", "ACL"]
+									},
+									"uniqueItems": true
+								},
+								"to": {
+									"description": "The roles at the end where the Edge enters.",
+									"type": "array",
+									"items": {
+										"enum": ["OHS", "PL", "CF", "ACL"]
+									},
+									"uniqueItems": true
+								}
+							},
+							"additionalProperties": false
 						}
 					},
 					"required": ["id", "kind", "from", "to"],

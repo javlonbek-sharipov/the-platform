@@ -18,6 +18,7 @@ import type {
 	NodeField,
 	NodeKindOf,
 	Notation,
+	RoleOf,
 	StatusOf,
 } from "../notations/notation.ts";
 import type { notations } from "../notations/notations.ts";
@@ -145,7 +146,7 @@ export interface DocLink {
 }
 
 /** The optional fields that the model has for an Edge. */
-interface EdgeFields {
+interface EdgeFields<N extends Notation> {
 	/** What passes over the Edge, drawn beside it, such as `Places orders`. */
 	label: string;
 	/**
@@ -158,6 +159,17 @@ interface EdgeFields {
 	 * `s`, `min` or `h`, as in `2k/s` or `30/min`. It's drawn below the label.
 	 */
 	rate: string;
+	/**
+	 * The roles that each end carries, of its Notation's roles, each drawn as
+	 * a short tag at that end. Its Kind decides which roles each end may carry.
+	 */
+	roles: EdgeRoles<RoleOf<N>>;
+}
+
+/** The roles at the ends of an Edge: those where it leaves, and those where it enters. */
+export interface EdgeRoles<R extends string = string> {
+	from?: R[];
+	to?: R[];
 }
 
 /**
@@ -174,7 +186,7 @@ export type EdgeOf<N extends Notation> = Fields<
 		/** Where the Edge enters. */
 		to: string | RowEnd;
 	},
-	EdgeFields,
+	EdgeFields<N>,
 	N["fields"]["edge"][number] & EdgeField
 >;
 

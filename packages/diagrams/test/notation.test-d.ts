@@ -117,7 +117,7 @@ test("the model's types take a Notation's Kinds, statuses and fields from its de
 		"id" | "kind" | "title" | "members" | "description"
 	>();
 	expectTypeOf<keyof Model["edges"][number]>().toEqualTypeOf<
-		"id" | "kind" | "from" | "to" | "label"
+		"id" | "kind" | "from" | "to" | "label" | "roles"
 	>();
 });
 

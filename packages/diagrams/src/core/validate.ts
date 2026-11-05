@@ -9,6 +9,7 @@ import {
 	type AnyGroup,
 	type AnyNode,
 	type Direction,
+	type EdgeRoles,
 	endNode,
 	type Link,
 	type Row,
@@ -18,12 +19,14 @@ import { unknownOptionsOf } from "../authoring/options.ts";
 import {
 	type EdgeField,
 	edgeKindsOf,
+	endRolesOf,
 	type GroupField,
 	groupKindsOf,
 	hasField,
 	type NodeField,
 	type Notation,
 	nodeKindsOf,
+	rolesOf,
 	statusesOf,
 } from "../notations/notation.ts";
 import { codePointOf, type Diagnostic, list, pointerSegment } from "./diagnostics.ts";
@@ -120,7 +123,9 @@ const fields = {
 		label: true,
 		technology: true,
 		rate: true,
+		roles: true,
 	}),
+	roles: fieldsOf<EdgeRoles>({ from: true, to: true }),
 	rowEnd: fieldsOf<RowEnd>({ node: true, row: true }),
 	link: fieldsOf<Link>({ id: true, doc: true, section: true, label: true }),
 };
@@ -349,6 +354,7 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 				),
 			);
 		}
+		diagnostics.push(...checkEndRoles(edge, index, notation));
 	});
 
 	diagnostics.push(
@@ -400,6 +406,109 @@ function checkDefaultEdgeIds(diagram: AnyDiagram): Diagnostic[] {
 			),
 		];
 	});
+}
+
+const ends = ["from", "to"] as const;
+
+/**
+ * The roles at an Edge's ends. Each must be one of its Notation's roles, and
+ * one that the Edge's Kind lets that end carry, alone where the Kind lets the
+ * end carry only one. A symmetric Edge's ends are alike, so it takes no roles
+ * at all. An Edge of a Kind that the Notation lacks has its error already, so
+ * only the first rule judges its roles.
+ */
+function checkEndRoles(edge: AnyEdge, index: number, notation: Notation): Diagnostic[] {
+	const roles: readonly string[] = rolesOf(notation);
+	const at = `/edges/${index}/roles`;
+	const quoted = (names: readonly string[]) => names.map((name) => `\`${name}\``);
+	const has = (role: string, end: string) =>
+		`Edge \`${edge.id}\` has the role \`${role}\` at its \`${end}\` end`;
+	/** Each role that an end carries, with its place in the end's list, as the model orders them. */
+	const carried = ends.flatMap((end) =>
+		(edge.roles?.[end] ?? []).map((role, place) => ({ end, role, place })),
+	);
+	const unknown = carried
+		.filter(({ role }) => !roles.includes(role))
+		.map(({ end, role, place }) =>
+			error(
+				"unknown-role",
+				`${has(role, end)}, which the ${notation.name} Notation doesn't have. ${owned("role", "roles", roles)}`,
+				`${at}/${end}/${place}`,
+			),
+		);
+	// An end lists each of its roles once, whatever the Edge's Kind.
+	const repeated = ends.flatMap((end) => {
+		const listed = edge.roles?.[end] ?? [];
+		return [...new Set(listed.filter((role, place) => listed.indexOf(role) !== place))].map(
+			(role) =>
+				error(
+					"edge-end-role",
+					`Edge \`${edge.id}\` lists the role \`${role}\` twice at its \`${end}\` end. List each role once.`,
+					`${at}/${end}`,
+				),
+		);
+	});
+	const listing = [...unknown, ...repeated];
+	const known = carried.filter(({ role }) => roles.includes(role));
+	const kind = Object.hasOwn(notation.edgeKinds, edge.kind)
+		? notation.edgeKinds[edge.kind]
+		: undefined;
+	if (kind === undefined || known.length === 0) {
+		return listing;
+	}
+	// A Kind may take no roles at all: one that's symmetric, or whose definition lists none.
+	const takesNone =
+		kind.symmetric === true
+			? `its Kind, \`${edge.kind}\`, is symmetric: its two ends are alike, so it takes no roles`
+			: ends.every((end) => endRolesOf(kind, end).roles.length === 0)
+				? `an Edge of the Kind \`${edge.kind}\` takes none`
+				: undefined;
+	if (takesNone !== undefined) {
+		return [
+			...listing,
+			error("edge-end-role", `Edge \`${edge.id}\` has roles, but ${takesNone}.`, at),
+		];
+	}
+	const misplaced = ends.flatMap((end) => {
+		const other = end === "from" ? "to" : "from";
+		const allowed = endRolesOf(kind, end);
+		const here = known.filter((role) => role.end === end);
+		const each = here.flatMap(({ role, place }) => {
+			if (allowed.roles.includes(role)) {
+				return [];
+			}
+			// Where the role belongs instead, or else what this end may carry.
+			const may = endRolesOf(kind, other).roles.includes(role)
+				? `may carry \`${role}\` only at its \`${other}\` end`
+				: allowed.roles.length === 0
+					? "carries no roles there"
+					: `may carry only ${list(quoted(allowed.roles), "or")} there`;
+			return [
+				error(
+					"edge-end-role",
+					`${has(role, end)}. An Edge of the Kind \`${edge.kind}\` ${may}.`,
+					`${at}/${end}/${place}`,
+				),
+			];
+		});
+		// Where the end may carry only one of its roles, it has at most one of them.
+		const together = [
+			...new Set(here.map(({ role }) => role).filter((role) => allowed.roles.includes(role))),
+		];
+		const [first = "", second = ""] = quoted(together);
+		const tooMany =
+			allowed.one && together.length > 1
+				? [
+						error(
+							"edge-end-role",
+							`Edge \`${edge.id}\` has ${together.length === 2 ? `both ${first} and ${second}` : list(quoted(together))} at its \`${end}\` end. An Edge of the Kind \`${edge.kind}\` may carry only one of them there.`,
+							`${at}/${end}`,
+						),
+					]
+				: [];
+		return [...each, ...tooMany];
+	});
+	return [...listing, ...misplaced];
 }
 
 /**
@@ -891,10 +1000,24 @@ function checkShape(input: Record<string, unknown>, notation: Notation): Diagnos
 			checkOptional(group, at, "group", { links });
 		}
 	});
+	/** An Edge's roles hold a list of roles for each end that carries any, by the end's name. */
+	const checkRoles: FieldCheck = (roles, at) => {
+		if (!isObject(roles)) {
+			check(false, at, "an object");
+			return;
+		}
+		checkFields(roles, at, "an Edge's `roles`", fields.roles);
+		for (const end of fields.roles) {
+			if (roles[end] !== undefined) {
+				checkList(roles[end], `${at}/${end}`, isText);
+			}
+		}
+	};
 	const edgeChecks: Record<EdgeField, FieldCheck> = {
 		label: isSomeText,
 		technology: isText,
 		rate: isText,
+		roles: checkRoles,
 	};
 	checkList(input.edges, "/edges", (edge, at) => {
 		if (isObject(edge)) {

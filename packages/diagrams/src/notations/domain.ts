@@ -8,14 +8,25 @@
  * Edges show how those contexts relate.
  */
 
-import type { EdgeKindOf, NodeKindOf, Notation } from "./notation.ts";
+import type { EdgeKindOf, NodeKindOf, Notation, RoleOf } from "./notation.ts";
+
+/**
+ * What each end of an Edge that runs from an upstream context to a
+ * downstream one may carry. The upstream context may offer an open host
+ * service, a published language, or both. The downstream one conforms to the
+ * upstream's model or keeps it out with an anticorruption layer, never both.
+ */
+const upstreamAndDownstream = {
+	from: { anyOf: ["OHS", "PL"] },
+	to: { oneOf: ["CF", "ACL"] },
+} as const;
 
 const definition = {
 	name: "domain",
 	// A context may be one we don't own, such as a payment provider's. What an
 	// architecture Node shows of how it's built and how it's doing, a context
 	// doesn't have.
-	fields: { node: ["external", "description", "links"], group: [], edge: ["label"] },
+	fields: { node: ["external", "description", "links"], group: [], edge: ["label", "roles"] },
 	hues: {
 		context: { light: "#4f55c8", dark: "#8f96f5" },
 	},
@@ -36,6 +47,13 @@ const definition = {
 	// The description names what the drawing shows only as a dashed outline.
 	facts: ["kind", "external"],
 	groupKinds: {},
+	// How a context integrates with the one at the Edge's other end.
+	roles: {
+		OHS: { name: "open host service" },
+		PL: { name: "published language" },
+		CF: { name: "conformist" },
+		ACL: { name: "anticorruption layer" },
+	},
 	edgeKinds: {
 		// Two contexts that are partners, or that share a kernel, relate both ways
 		// alike. The other two Kinds run from the upstream context to the
@@ -60,12 +78,14 @@ const definition = {
 			sentence: "{from} is upstream of {to}",
 			from: ["context"],
 			to: ["context"],
+			roles: upstreamAndDownstream,
 		},
 		"customer-supplier": {
 			line: "dashed",
 			sentence: "{from} supplies {to}",
 			from: ["context"],
 			to: ["context"],
+			roles: upstreamAndDownstream,
 		},
 	},
 	bundling: "none",
@@ -80,3 +100,4 @@ export const domainNotation: DomainNotation = definition;
 
 export type DomainNodeKind = NodeKindOf<DomainNotation>;
 export type DomainEdgeKind = EdgeKindOf<DomainNotation>;
+export type DomainRole = RoleOf<DomainNotation>;
