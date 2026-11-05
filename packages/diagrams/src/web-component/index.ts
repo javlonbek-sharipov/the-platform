@@ -10,3 +10,9 @@ export { PlatformDiagram };
 if (customElements.get("platform-diagram") === undefined) {
 	customElements.define("platform-diagram", PlatformDiagram);
 }
+
+declare global {
+	interface HTMLElementTagNameMap {
+		"platform-diagram": PlatformDiagram;
+	}
+}

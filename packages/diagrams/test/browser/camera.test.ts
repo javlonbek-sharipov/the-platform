@@ -5,7 +5,7 @@ import { architecture, type Diagram, type Direction, type Point } from "../../sr
 import { draw } from "./support/drawing.ts";
 import { drag, letGo, moveTo, press, touch, wheel } from "./support/input.ts";
 import { gapsOf, middleOf, textOf, viewOf } from "./support/looking.ts";
-import { frame, mount, show } from "./support/page.ts";
+import { frame, mount, next, show } from "./support/page.ts";
 
 /**
  * Three Nodes in a line. Drawn `right`, its drawing is 768 px wide and 96 px
@@ -37,6 +37,16 @@ function tower(): Diagram {
 }
 
 describe("the component's size", () => {
+	test("is nothing while the component is hidden", async () => {
+		const diagram = await show(`<platform-diagram hidden>${draw(shop()).svg}</platform-diagram>`);
+
+		expect(diagram.getBoundingClientRect().height).toBe(0);
+
+		diagram.hidden = false;
+		await frame();
+		expect(diagram.getBoundingClientRect().height).toBeGreaterThan(100);
+	});
+
 	test("is the size the page gives it", async () => {
 		const diagram = await mount(draw(shop()).svg, "width: 600px; height: 300px");
 
@@ -301,6 +311,36 @@ describe("dragging", () => {
 		}
 	});
 
+	test("stops where an end of the drawing comes a padding in from the frame's side", async () => {
+		const { svg, scene } = draw(example);
+		const diagram = await mount(svg, "width: 800px; height: 420px");
+		const frame = diagram.getBoundingClientRect();
+
+		// The drawing is 1641 px wide on the screen: four drags of 700 px pass its end.
+		for (let turn = 0; turn < 4; turn += 1) {
+			await drag(diagram, { x: 750, y: 200 }, { x: 50, y: 200 });
+		}
+		const far = gapsOf(viewOf(diagram, scene).bounds, frame);
+		expect(far.right).toBeGreaterThanOrEqual(8);
+		expect(far.right).toBeLessThanOrEqual(32);
+
+		for (let turn = 0; turn < 4; turn += 1) {
+			await drag(diagram, { x: 50, y: 200 }, { x: 750, y: 200 });
+		}
+		const near = gapsOf(viewOf(diagram, scene).bounds, frame);
+		expect(near.left).toBeGreaterThanOrEqual(8);
+		expect(near.left).toBeLessThanOrEqual(32);
+	});
+
+	test("leaves a drawing that's whole in view where it is", async () => {
+		const diagram = await mount(draw(shop()).svg, "width: 600px; height: 300px");
+		const before = placesOf([textOf(diagram, "Shop API")]);
+
+		await drag(diagram, { x: 300, y: 150 }, { x: 400, y: 220 });
+
+		expect(shiftOf(before)).toEqual([{ x: 0, y: 0 }]);
+	});
+
 	test("goes on when the pointer leaves the frame", async () => {
 		const diagram = await mount(draw(example).svg, "width: 800px; height: 420px; margin: 40px");
 		const before = placesOf([textOf(diagram, "Shop gateway")]);
@@ -555,6 +595,36 @@ describe("touch", () => {
 		await expect.poll(() => pressed).toEqual([title]);
 
 		expect(shiftOf(before)).toEqual([{ x: 0, y: 0 }]);
+	});
+});
+
+describe("the keyboard's focus", () => {
+	test("comes to the Diagram with Tab, and finds it named by its title", async () => {
+		const diagram = await mount(draw(shop()).svg, "width: 600px; height: 300px");
+
+		await userEvent.tab();
+
+		expect(document.activeElement).toBe(diagram);
+		expect(page.getByRole("group", { name: "Shop" }).element().matches(":focus")).toBe(true);
+	});
+
+	test("stays on the Diagram when a new SVG takes the old one's place", async () => {
+		const { svg, scene } = draw(shop());
+		const diagram = await mount(draw(example).svg, "width: 600px; height: 300px");
+		await userEvent.tab();
+		const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+		const loaded = next(diagram, "load");
+
+		diagram.setAttribute("src", url);
+		await loaded;
+		URL.revokeObjectURL(url);
+		await frame();
+
+		expect(document.activeElement).toBe(diagram);
+		expect(page.getByRole("group", { name: "Shop" }).element().matches(":focus")).toBe(true);
+		const fitted = viewOf(diagram, scene).scale;
+		await userEvent.keyboard("+");
+		expect(viewOf(diagram, scene).scale).toBeGreaterThan(fitted * 1.1);
 	});
 });
 

@@ -5,7 +5,8 @@
  */
 
 import { afterEach } from "vitest";
-import "../../../src/web-component/index.ts";
+// As a page loads the component: by the package's name, which defines the element.
+import "@the-platform/diagrams/web-component";
 
 /** A frame of the browser's rendering: its layout, and whatever watches sizes, have run. */
 export async function frame(): Promise<void> {
