@@ -205,8 +205,10 @@ describe("the docs site of a sample repo", () => {
 		const node = page.getByText("Checkout API", { exact: true });
 		const before = await node.boundingBox();
 
-		// A click into the Diagram gives it the focus, and `+` then brings the drawing closer.
+		// A Node click opens details; Escape returns focus to the drawing for camera keys.
 		await node.click();
+		expect(await page.getByRole("dialog", { name: "Checkout API details" }).isVisible()).toBe(true);
+		await page.keyboard.press("Escape");
 		await page.keyboard.press("+");
 
 		const after = await node.boundingBox();
