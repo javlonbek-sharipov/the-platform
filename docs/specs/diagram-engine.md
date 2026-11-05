@@ -2095,6 +2095,9 @@ Aggregate diagrams. This is GitHub's issue #4, not ticket 04 above.
    - `domain-form` reports a mix of the two forms, a missing or extra context Group, a local aggregate or event outside it, or emission of another context's event. Endpoint Kinds and roles keep their existing validation rules.
    - A Notation may provide `validation: { rules, check }` for whole-Diagram rules: a pure check after the model, nesting and namespace rules pass, and each rule's meaning for its schema's description. Domain-specific rules and Kind names stay in the domain definition. The schema lists the Kinds and fields and describes the further semantic checks, as it does for endpoint and nesting rules.
 4. **Types.** The package exports `DomainGroup`, `DomainGroupKind` and `DomainRow`, alongside the domain types that issue 3 added. An aggregate's handle carries its Rows' literal names, as an architecture Node's does.
+5. **The Atlas.**
+   - `namespace-home-missing` warns at each borrowed Node's declaration when no valid Diagram draws that full id as a member of its own namespace Group. Merely drawing the context Node, or an empty context Group, doesn't supply the Node's home. The check reads the Group Kind's namespace flag, so no domain Kind is named in the Atlas code. It runs in lint, including staged lint; warnings still exit with 0.
+   - The existing index format suffices: a context id's `asNode` lists its context maps, and `asGroup` its aggregate diagrams. An event's `asNode` includes both its own context's Diagram and Diagrams that borrow it. Each id still has one Kind and title across both forms; local ids in different contexts remain distinct full ids. Exporting the index doesn't require a borrowed Node's home, as that is a lint warning.
 
 ### References
 

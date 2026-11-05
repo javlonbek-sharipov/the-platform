@@ -12,7 +12,7 @@ import { recordUnknownOptions } from "../authoring/options.ts";
 import { compareText } from "../core/bundles.ts";
 import { render } from "../core/render.ts";
 import { bundledFontData } from "../fonts/bundled.ts";
-import { checkIds, checkLinks } from "./checks.ts";
+import { checkIds, checkLinks, checkNamespaceHomes } from "./checks.ts";
 import {
 	type AtlasFiles,
 	byPath,
@@ -106,6 +106,7 @@ export async function lintAtlas(
 		}),
 		...checkOrphans(files, svgWords),
 		...checkIds(valid),
+		...checkNamespaceHomes(valid),
 		...checkLinks(root, valid, new Set(modules.flatMap(idsDrawnBy))),
 	];
 	return { diagrams: rendered.length, messages: messages.sort(byPlace) };
