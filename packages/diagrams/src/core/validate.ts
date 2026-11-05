@@ -41,7 +41,7 @@ const idPattern = new RegExp(`^${id}$`);
 /** An id, or an Edge's default name: its two ends' ids joined by `->`. */
 const edgeIdPattern = new RegExp(`^${id}(?:->${id})?$`);
 /** A Technology's slug: lowercase words joined by hyphens, as in `postgres` or `aws-lambda`. */
-const slugPattern = new RegExp(`^${kebabCase}$`);
+export const slugPattern = new RegExp(`^${kebabCase}$`);
 /** A number, an optional `k` or `M`, a slash, and `s`, `min` or `h`, as in `2k/s` or `30/min`. */
 const ratePattern = /^[0-9]+(?:\.[0-9]+)?[kM]?\/(?:s|min|h)$/;
 

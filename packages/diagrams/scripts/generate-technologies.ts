@@ -16,6 +16,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { SimpleIcon } from "simple-icons";
 import * as simpleIcons from "simple-icons";
+import { slugPattern } from "../src/core/validate.ts";
 
 /**
  * The Technologies that have a logo: the slug that Diagrams write, and the
@@ -104,8 +105,6 @@ const { version } = JSON.parse(
 	readFileSync(new URL("package.json", import.meta.resolve("simple-icons")), "utf8"),
 ) as { version: string };
 
-/** A Technology's slug, as the model takes it: lowercase words joined by hyphens. */
-const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 /** A key that JavaScript reads without quotes. */
 const identifierPattern = /^[a-z_$][a-z0-9_$]*$/;
 

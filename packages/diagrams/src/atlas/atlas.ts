@@ -22,8 +22,8 @@ import {
 	stagedAtlas,
 	svgSuffix,
 } from "./discover.ts";
-import { type Loaded, load, type Place } from "./load.ts";
-import { type AtlasMessage, located, placeText } from "./messages.ts";
+import { type Loaded, load } from "./load.ts";
+import { type AtlasMessage, type FilePlace, located, placeText } from "./messages.ts";
 
 /** The engine's cache folder, at the repo root. Git ignores it. */
 export const cacheFolder = ".diagrams-cache";
@@ -299,7 +299,7 @@ function loadFailure(root: string, failure: Extract<Loaded, { failed: unknown }>
 	return moduleLoad({ file: module }, `The module failed to load: ${where}${reason}`);
 }
 
-function moduleLoad(place: Place | { file: string }, message: string): AtlasMessage {
+function moduleLoad(place: FilePlace, message: string): AtlasMessage {
 	return { ...place, severity: "error", rule: "module-load", message };
 }
 
@@ -321,12 +321,22 @@ function checkOrphans({ modules, svgs }: AtlasFiles, words: SvgWords): AtlasMess
 		}));
 }
 
-function checkSvg(svgFile: string, svg: string, words: SvgWords): AtlasMessage | undefined {
+/** How the SVG on disk compares with a fresh render, byte for byte. */
+export function svgOnDisk(svgFile: string, svg: string): "missing" | "out-of-date" | "current" {
 	if (!existsSync(svgFile)) {
-		return { file: svgFile, severity: "error", rule: "svg-missing", message: words.missing };
+		return "missing";
 	}
-	if (!readFileSync(svgFile).equals(Buffer.from(svg, "utf8"))) {
-		return { file: svgFile, severity: "error", rule: "svg-out-of-date", message: words.outOfDate };
-	}
-	return undefined;
+	return readFileSync(svgFile).equals(Buffer.from(svg, "utf8")) ? "current" : "out-of-date";
+}
+
+function checkSvg(svgFile: string, svg: string, words: SvgWords): AtlasMessage | undefined {
+	const state = svgOnDisk(svgFile, svg);
+	return state === "current"
+		? undefined
+		: {
+				file: svgFile,
+				severity: "error",
+				rule: `svg-${state}`,
+				message: state === "missing" ? words.missing : words.outOfDate,
+			};
 }

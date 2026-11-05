@@ -3,7 +3,7 @@
  * output streams. The binary only calls it, so tests can run it in-process.
  */
 
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
 	cacheFolderOf,
@@ -11,6 +11,7 @@ import {
 	lintAtlas,
 	lintStaged,
 	renderDiagrams,
+	svgOnDisk,
 } from "../atlas/atlas.ts";
 import { AtlasError, configFile, discover, findRoot, moduleSuffix } from "../atlas/discover.ts";
 import { type AtlasMessage, placeText } from "../atlas/messages.ts";
@@ -96,7 +97,7 @@ async function renderCommand(paths: string[], context: CliContext): Promise<numb
 			failed = true;
 			continue;
 		}
-		if (!existsSync(diagram.svgFile) || readFileSync(diagram.svgFile, "utf8") !== diagram.svg) {
+		if (svgOnDisk(diagram.svgFile, diagram.svg) !== "current") {
 			writeFileSync(diagram.svgFile, diagram.svg);
 			context.stdout.write(`Wrote ${shown(diagram.svgFile, context)}\n`);
 		}

@@ -1,15 +1,10 @@
 import { Worker } from "node:worker_threads";
 import type { Declarations } from "../authoring/declarations.ts";
 import type { Diagnostic } from "../core/diagnostics.ts";
+import type { FilePlace } from "./messages.ts";
 
-/** A place in a file: where an error was thrown, or where a syntax error is. */
-export interface Place {
-	/** A path. */
-	file: string;
-	line: number;
-	/** Node gives no column for a syntax error. */
-	column?: number;
-}
+/** Where an error was thrown, or where a syntax error is. Node gives no column for a syntax error. */
+export type Place = FilePlace & { line: number };
 
 /**
  * What loading one module gave: its default export, with the positions of

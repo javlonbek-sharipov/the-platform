@@ -17,15 +17,18 @@ export interface TrueTypeFont {
 	glyphData(glyph: number): Uint8Array;
 }
 
+/** The bytes of one of a font's tables, by its tag, which the font must have. */
+export function tableOf(tables: ReadonlyMap<string, Uint8Array>, tag: string): Uint8Array {
+	const found = tables.get(tag);
+	if (found === undefined) {
+		throw new Error(`The font has no \`${tag}\` table.`);
+	}
+	return found;
+}
+
 export function readTrueType(bytes: Uint8Array): TrueTypeFont {
 	const tables = readTables(bytes);
-	const table = (tag: string) => {
-		const found = tables.get(tag);
-		if (found === undefined) {
-			throw new Error(`The font has no \`${tag}\` table.`);
-		}
-		return found;
-	};
+	const table = (tag: string) => tableOf(tables, tag);
 
 	const head = view(table("head"));
 	const unitsPerEm = head.getUint16(18);
