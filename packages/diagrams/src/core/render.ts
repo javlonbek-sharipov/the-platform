@@ -6,6 +6,7 @@
 
 import type { Notation } from "../notations/notation.ts";
 import { notations } from "../notations/notations.ts";
+import { placeArrowheads } from "./arrowheads.ts";
 import { type Bundling, lanes } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { hop } from "./hops.ts";
@@ -79,6 +80,10 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		routing = route(model, nodes, groups, { ...options, bundle, ownLanes });
 	}
 	const edges = markEdges(model, notation, routing.edges);
+	const arrowDiagnostics = placeArrowheads(notation, edges, [
+		...nodes.flatMap(({ box, callout }) => (callout === undefined ? [box] : [box, callout.tag])),
+		...groups.map(({ label }) => label),
+	]);
 	const scene: Scene = {
 		bounds: boundsOf(
 			[
@@ -101,7 +106,11 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		groups,
 		edges,
 		junctions: junctionsOf(routing.edges),
-		diagnostics: [...textDiagnostics(model, nodes, groups, edges), ...routing.diagnostics],
+		diagnostics: [
+			...textDiagnostics(model, nodes, groups, edges),
+			...routing.diagnostics,
+			...arrowDiagnostics,
+		],
 	};
 	return {
 		diagnostics: [...validation.diagnostics, ...scene.diagnostics],

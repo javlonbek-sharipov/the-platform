@@ -340,6 +340,44 @@ test("leaving a Walkthrough restores explicit host emphasis and respects a newer
 	expect(host.selectedNode).toBe("api");
 });
 
+for (const exit of ["close", "replacement", "disconnect"] as const) {
+	for (const clear of [false, true]) {
+		test(`playback returns the latest host intent after another Step (${exit}, clear ${clear})`, async () => {
+			const { host, ui } = await setup();
+			host.selectNode("db");
+			const selections: unknown[] = [];
+			host.addEventListener("diagram-select", (event) =>
+				selections.push((event as CustomEvent).detail),
+			);
+			host.setHighlight({ nodes: ["aside"] });
+			await ui.getByRole("button", { name: "Place an order" }).click();
+			await ui.getByRole("button", { name: "Pause", exact: true }).click();
+			host.setHighlight({ nodes: ["api"] });
+			host.setHighlight(clear ? undefined : { nodes: ["payment"] });
+			await ui.getByRole("button", { name: "Next Step" }).click();
+			// The new Step owns emphasis again, but must remember the newer host intent.
+			await expect.poll(() => opacityOf(textOf(host, "Payments"))).toBe(0.2);
+			await expect.poll(() => opacityOf(textOf(host, "Checkout API"))).toBe(1);
+			if (exit === "close") await ui.getByRole("button", { name: "Close Walkthrough" }).click();
+			else if (exit === "replacement") {
+				host.innerHTML = draw({ ...checkout(), direction: "down" }).svg;
+				await frame();
+			} else {
+				const parent = host.parentElement;
+				host.remove();
+				parent?.append(host);
+				await frame();
+			}
+			await expect.poll(() => opacityOf(textOf(host, "Unrelated"))).toBe(0.2);
+			await expect.poll(() => opacityOf(textOf(host, "Payments"))).toBe(clear ? 0.2 : 1);
+			await expect.poll(() => opacityOf(textOf(host, "Orders"))).toBe(clear ? 1 : 0.2);
+			expect(host.selectedNode).toBe("db");
+			expect(selections).toEqual([]);
+			expect(marks(host)).toEqual([]);
+		});
+	}
+}
+
 test("a Step's moving marks pause off screen and resume when the Diagram is visible", async () => {
 	const { host, ui } = await setup();
 	await ui.getByRole("button", { name: "Place an order" }).click();

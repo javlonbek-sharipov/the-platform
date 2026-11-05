@@ -85,9 +85,13 @@ export function readGlossaries(
 			continue;
 		}
 		try {
-			if (!statSync(file).isFile() || !inside(realpathSync(root), realpathSync(file))) {
+			const real = realpathSync(file);
+			if (!statSync(file).isFile() || !inside(realpathSync(root), real)) {
 				throw new Error("It must name a file inside the Atlas.");
 			}
+			// Keep the authored path for diagnostics and link changes, and the
+			// resolved target for native events reported at its real location.
+			files.push(real);
 			const path = contexts[context]?.glossary ?? glossary;
 			terms.push(
 				...parseGlossary(readFileSync(file, "utf8"), context, path, (line, message) =>

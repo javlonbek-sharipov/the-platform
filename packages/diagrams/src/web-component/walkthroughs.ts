@@ -44,9 +44,6 @@ export const walkthroughs: Part = {
 .walkthroughs button:focus-visible { outline: 2px solid var(--theme-accent); outline-offset: 2px; }
 .walkthroughs li + li { margin-top: 4px; }
 .walkthrough-controls { display: flex; flex-wrap: wrap; gap: 8px; }
-.stage[data-walkthroughs] :is([data-node], [data-group], [data-edge], [data-edge-label], [data-edge-role], [data-from]:not([data-edge])) {
-	transition: opacity 180ms ease;
-}
 ${markCss}
 `,
 	setUp({ element, highlights, onShow }) {
@@ -134,6 +131,13 @@ ${markCss}
 				stop();
 				const step = active?.steps[index];
 				if (step === undefined) return;
+				// A host override can arrive between Steps, including an explicit
+				// clear. Remember it before playback takes emphasis again.
+				if (highlights.current !== owned)
+					previous =
+						highlights.current === undefined
+							? undefined
+							: { nodes: [...highlights.current.nodes], edges: [...highlights.current.edges] };
 				finished = false;
 				clearMarks();
 				marks = stepMarks(svg, step);
@@ -203,7 +207,6 @@ ${markCss}
 			controls.append(title, number, note, buttons);
 			panel.append(list, controls);
 			element.append(panel);
-			element.toggleAttribute("data-walkthroughs", true);
 			const visibility = new IntersectionObserver(([entry]) => {
 				if (signal.aborted || entry === undefined) return;
 				const visible =
@@ -261,7 +264,6 @@ ${markCss}
 				)
 					element.focus({ preventScroll: true });
 				panel.remove();
-				element.removeAttribute("data-walkthroughs");
 				element.removeAttribute("data-walkthrough-open");
 			};
 		});

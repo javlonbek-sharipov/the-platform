@@ -195,9 +195,9 @@ test("closing details preserves an explicit highlight until the next Escape on t
 	await userEvent.keyboard("{Enter}{Escape}");
 
 	expect(page.elementLocator(diagram).getByRole("dialog").query()).toBeNull();
-	expect(opacityOf(textOf(diagram, "Aside"))).toBeLessThan(0.5);
+	await expect.poll(() => opacityOf(textOf(diagram, "Aside"))).toBeLessThan(0.5);
 	await userEvent.keyboard("{Escape}");
-	expect(opacityOf(textOf(diagram, "Aside"))).toBe(1);
+	await expect.poll(() => opacityOf(textOf(diagram, "Aside"))).toBe(1);
 });
 
 test("details and Walkthroughs share Escape without releasing playback highlights or ordinary selection", async () => {

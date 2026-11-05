@@ -189,6 +189,8 @@ export interface SceneEdge {
 	 * them along their trunk.
 	 */
 	chevrons: SceneChevron[];
+	/** Its directed marker, at the target unless a symmetric stroke shares that terminal. */
+	arrowhead?: SceneChevron;
 	/** Moving marks, when the Notation enables flow on this directed Edge. */
 	flow?: SceneFlow;
 	/**

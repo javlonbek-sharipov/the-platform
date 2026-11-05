@@ -240,9 +240,14 @@ export class PlatformDiagram extends HTMLElement {
 		const same = this.#svg !== undefined && sameDiagram(this.#svg, svg);
 		const transition: SvgTransition | undefined =
 			this.#svg !== undefined && this.motion !== "off" && !this.#reduced.matches && same
-				? new SvgTransition(this.#svg, svg, () => {
-						if (this.#transition === transition) this.#transition = undefined;
-					})
+				? new SvgTransition(
+						this.#svg,
+						svg,
+						() => {
+							if (this.#transition === transition) this.#transition = undefined;
+						},
+						this.#transition !== undefined,
+					)
 				: undefined;
 		this.#transition?.finish();
 		this.#transition = transition;

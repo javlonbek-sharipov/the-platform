@@ -105,8 +105,8 @@ test("focusing a Node in the list selects it in the drawing", async () => {
 			.element()
 			.getAttribute("aria-current"),
 	).toBe("true");
-	expect(opacityOf(textOf(diagram, "Audit"))).toBe(1);
-	expect(opacityOf(textOf(diagram, "Orders API"))).toBeLessThan(0.5);
+	await expect.poll(() => opacityOf(textOf(diagram, "Audit"))).toBe(1);
+	await expect.poll(() => opacityOf(textOf(diagram, "Orders API"))).toBeLessThan(0.5);
 });
 
 test("focusing an Edge in the list selects only that Edge and its ends", async () => {
@@ -126,9 +126,9 @@ test("focusing an Edge in the list selects only that Edge and its ends", async (
 	expect(item.matches(":focus")).toBe(true);
 	expect(item.getAttribute("aria-current")).toBe("true");
 	expect(diagram.selection).toEqual({ kind: "edge", id: "web->api" });
-	expect(opacityOf(textOf(diagram, "Places orders"))).toBe(1);
-	expect(opacityOf(textOf(diagram, "Saves orders"))).toBeLessThan(0.5);
-	expect(opacityOf(textOf(diagram, "Orders DB"))).toBeLessThan(0.5);
+	await expect.poll(() => opacityOf(textOf(diagram, "Places orders"))).toBe(1);
+	await expect.poll(() => opacityOf(textOf(diagram, "Saves orders"))).toBeLessThan(0.5);
+	await expect.poll(() => opacityOf(textOf(diagram, "Orders DB"))).toBeLessThan(0.5);
 });
 
 test("find-in-page selects a Node's whole title even when the SVG shortened it", async () => {

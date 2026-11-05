@@ -29,7 +29,12 @@ export class Dependencies {
 						this.add(file);
 						this.#changed();
 					} else this.check();
-				} else if (this.#files.has(file)) this.check();
+				} else {
+					// A glossary can be reached through file or folder symlinks.
+					// Their target edits and retargets arrive under different names;
+					// stamps still decide whether any real dependency changed.
+					this.check();
+				}
 			},
 		);
 		this.#folders.set(root, discovery);

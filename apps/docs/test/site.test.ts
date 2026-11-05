@@ -834,6 +834,29 @@ describe("Atlas navigation on the built site", () => {
 					},
 					{ doc: "docs/specs/payments.md", section: "Payments v1", label: "Payment title" },
 					{ doc: "./docs/specs/../adr/0001-payments.md", label: "Normalized document path" },
+					{ doc: "docs/specs/payments.md", section: "Coffee &amp; tea", label: "Entity heading" },
+					{
+						doc: "docs/specs/payments.md",
+						section: "[Reference][ref]",
+						label: "Reference heading",
+					},
+					{ doc: "docs/specs/payments.md", section: "referenceref-1", label: "Repeated reference" },
+					{ doc: "docs/specs/payments.md", section: "Tea &#38; biscuits", label: "Numeric entity" },
+					{
+						doc: "docs/specs/payments.md",
+						section: "[A **shared** glossary][terms]",
+						label: "Formatted reference",
+					},
+					{
+						doc: "docs/headings.md",
+						section: "[Heading **Links**][ref]",
+						label: "Formatted title",
+					},
+					{
+						doc: "docs/headings.md",
+						section: "heading-linksref-1",
+						label: "Repeated formatted title",
+					},
 				],
 			});
 		});
@@ -894,6 +917,26 @@ describe("Atlas navigation on the built site", () => {
 				"## Problem Statement",
 				"",
 				"The second problem.",
+				"",
+				"## Coffee &amp; tea",
+				"",
+				"## [Reference][ref]",
+				"",
+				"## [Reference][ref]",
+				"",
+				"## Tea &#38; biscuits",
+				"",
+				"## [A **shared** glossary][terms]",
+				"",
+				"[ref]: https://example.com/reference",
+				"[terms]: https://example.com/terms",
+			),
+			"docs/headings.md": lines(
+				"# [Heading **Links**][ref]",
+				"",
+				"## [Heading **Links**][ref]",
+				"",
+				"[ref]: https://example.com/reference",
 			),
 			"diagrams.config.ts":
 				'export default { contexts: { shop: { glossary: "packages/shop/GLOSSARY.md" } } };',
@@ -969,6 +1012,33 @@ describe("Atlas navigation on the built site", () => {
 			await reader.close();
 		}
 	});
+
+	test.each([
+		["Entity heading", "/docs/specs/payments/#coffee--tea", "coffee--tea"],
+		["Reference heading", "/docs/specs/payments/#reference", "reference"],
+		["Repeated reference", "/docs/specs/payments/#reference-1", "reference-1"],
+		["Numeric entity", "/docs/specs/payments/#tea--biscuits", "tea--biscuits"],
+		["Formatted reference", "/docs/specs/payments/#a-shared-glossary", "a-shared-glossary"],
+		["Formatted title", "/docs/headings/#_top", "_top"],
+		["Repeated formatted title", "/docs/headings/#heading-links-1", "heading-links-1"],
+	])(
+		"an accepted Markdown section Link to %s reaches the real built heading",
+		async (label, url, anchor) => {
+			const reader = await reading(site);
+			try {
+				const page = await open(reader, "packages/shop/docs/overview");
+				await page.locator("platform-diagram").getByText("Shop", { exact: true }).click();
+				await page
+					.getByRole("dialog", { name: "Shop details" })
+					.getByRole("button", { name: label, exact: true })
+					.click();
+				await page.waitForURL(`**${url}`, { timeout: 1500 });
+				expect(await page.locator(":target").getAttribute("id")).toBe(anchor);
+			} finally {
+				await reader.close();
+			}
+		},
+	);
 
 	test.each([
 		["Payments decision", "/docs/adr/0001-payments/", undefined],

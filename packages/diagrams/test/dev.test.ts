@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium } from "playwright";
 import { expect, onTestFinished, test } from "vitest";
@@ -207,6 +207,69 @@ test("config and glossary edits refresh diagnostics and the Atlas index", async 
 	await matchesRender(root, drawingSvg(update));
 });
 
+test("symlinked glossary targets invalidate promptly, including retarget, removal and recovery", async () => {
+	const root = await sampleAtlas({
+		"diagrams.config.ts":
+			'import { atlas } from "@the-platform/diagrams"; export default atlas({ contexts: { billing: { glossary: "context/GLOSSARY.md" } } });\n',
+		"language.md": "**Invoice**:\nInitial definition.\n",
+		"replacement.md": "**Invoice**:\nReplacement definition.\n",
+		"docs/shop.diagram.ts": shopModule().replace(
+			'title: "Shop API"',
+			'title: "Shop API", links: [{ term: "Invoice", context: "billing" }]',
+		),
+	});
+	await mkdir(join(root, "context"));
+	const link = join(root, "context/GLOSSARY.md");
+	await symlink("../language.md", link);
+	const server = await preview(root);
+	const events = await subscribe(server.url);
+	let count = 0;
+	const next = async (definition: string) => {
+		const update = await events.next(count);
+		count = events.updates.length;
+		expect(update.messages).toEqual([]);
+		expect(JSON.stringify(update)).toContain(definition);
+		return update;
+	};
+	await next("Initial definition.");
+	await writeFile(join(root, "language.md"), "**Invoice**:\nEdited real target.\n");
+	await next("Edited real target.");
+	await symlink("../replacement.md", `${link}.tmp`);
+	await rename(`${link}.tmp`, link);
+	await next("Replacement definition.");
+	await writeFile(join(root, "replacement.md"), "**Invoice**:\nEdited replacement.\n");
+	await next("Edited replacement.");
+	await rm(join(root, "replacement.md"));
+	const missing = await events.next(count);
+	count = events.updates.length;
+	const diagnostic = missing.messages.find(({ message }) =>
+		message.includes("Cannot read context"),
+	);
+	expect(diagnostic).toMatchObject({ file: join(root, "diagrams.config.ts"), line: 1 });
+	expect(diagnostic?.message).toContain("context/GLOSSARY.md");
+	await writeFile(join(root, "replacement.md"), "**Invoice**:\nRecovered target.\n");
+	await next("Recovered target.");
+	await rm(link);
+	const removed = await events.next(count);
+	count = events.updates.length;
+	expect(removed.messages.some(({ message }) => message.includes("context/GLOSSARY.md"))).toBe(
+		true,
+	);
+	await symlink("../language.md", link);
+	await next("Edited real target.");
+	// A retarget to a temporarily missing file must recover when that file
+	// appears, even though no realpath could be recorded by the failed build.
+	await symlink("../created-later.md", `${link}.tmp`);
+	await rename(`${link}.tmp`, link);
+	await events.next(count);
+	count = events.updates.length;
+	await writeFile(join(root, "created-later.md"), "**Invoice**:\nCreated target.\n");
+	await next("Created target.");
+	server.stop();
+	expect(await server.done).toBe(0);
+	await events.reading;
+});
+
 test("changes during a slow rebuild publish only the newest result", async () => {
 	const root = await sampleAtlas({ "docs/shop.diagram.ts": shopModule() });
 	const server = await preview(root);
@@ -235,7 +298,10 @@ test("the browser redraws on saves and shows file-and-line errors over the last 
 	onTestFinished(() => browser.close());
 	const page = await browser.newPage();
 	await page.goto(server.url);
-	await page.locator("platform-diagram").getByText("Shop API", { exact: true }).waitFor();
+	await page
+		.locator("platform-diagram [data-node]")
+		.getByText("Shop API", { exact: true })
+		.waitFor();
 	await writeFile(join(root, "docs/shop.diagram.ts"), shopModule("Browser edit"));
 	await page.locator("platform-diagram").getByText("Browser edit API", { exact: true }).waitFor();
 	await writeFile(
@@ -252,7 +318,10 @@ test("the browser redraws on saves and shows file-and-line errors over the last 
 	await page.locator("platform-diagram").getByText("Browser edit API", { exact: true }).waitFor();
 	await writeFile(join(root, "docs/shop.diagram.ts"), source);
 	await page.getByRole("alert").waitFor({ state: "hidden" });
-	await page.locator("platform-diagram").getByText("Shop API", { exact: true }).waitFor();
+	await page
+		.locator("platform-diagram [data-node]")
+		.getByText("Shop API", { exact: true })
+		.waitFor();
 }, 15000);
 
 test("stopping dev terminates an in-flight module load and closes its event streams", async () => {

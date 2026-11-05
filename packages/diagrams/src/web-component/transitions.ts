@@ -20,6 +20,37 @@ interface ObjectPosition {
 	box: Box;
 }
 
+/** Freeze the complete visible route layers before the previous timeline is cancelled. */
+function snapshotOf(svg: SVGSVGElement): SVGSVGElement {
+	const copy = svg.cloneNode(true) as SVGSVGElement;
+	const originals = [svg, ...svg.querySelectorAll("*")];
+	const copies = [copy, ...copy.querySelectorAll("*")];
+	for (const [index, original] of originals.entries()) {
+		const frozen = copies[index];
+		if (!(original instanceof SVGElement) || !(frozen instanceof SVGElement)) continue;
+		const style = getComputedStyle(original);
+		frozen.style.opacity = style.opacity;
+		frozen.style.transform = style.transform;
+		frozen.style.setProperty("animation", "none", "important");
+		frozen.style.setProperty("transition", "none", "important");
+		if (original instanceof SVGPathElement) {
+			const data = style.d.match(/^path\(["'](.*)["']\)$/)?.[1];
+			if (data !== undefined) frozen.setAttribute("d", data);
+			frozen.style.removeProperty("d");
+		}
+		for (const attribute of [...frozen.attributes]) {
+			if (attribute.name.startsWith("data-retired-")) {
+				frozen.setAttribute(attribute.name.replace("data-retired-", "data-"), attribute.value);
+				frozen.removeAttribute(attribute.name);
+			}
+		}
+	}
+	for (const style of copy.querySelectorAll("style"))
+		style.textContent = style.textContent?.replaceAll("[data-retired-", "[data-") ?? "";
+	for (const mark of copy.querySelectorAll("[data-walkthrough-edge]")) mark.remove();
+	return copy;
+}
+
 /**
  * Capture before the old drawing is detached. Preparation transplants the
  * actual Nodes and Groups; parts then bind once to the new model's geometry.
@@ -38,10 +69,13 @@ export class SvgTransition {
 	#started: CSSNumberish | null = null;
 	#finished = false;
 
-	constructor(before: SVGSVGElement, after: SVGSVGElement, done: () => void) {
-		this.#before = before;
+	constructor(before: SVGSVGElement, after: SVGSVGElement, done: () => void, interrupted = false) {
+		this.#before = interrupted ? snapshotOf(before) : before;
 		this.#after = after;
-		this.#releaseFonts = retainFontFaces(before);
+		const releases = [before, ...before.querySelectorAll("svg")].map(retainFontFaces);
+		this.#releaseFonts = () => {
+			for (const release of releases) release();
+		};
 		this.#done = done;
 		const matrix = before.getScreenCTM()?.inverse();
 		for (const element of before.querySelectorAll<SVGGElement>("[data-node], [data-group]")) {
@@ -77,11 +111,16 @@ export class SvgTransition {
 			for (const attribute of next.attributes) old.setAttribute(attribute.name, attribute.value);
 			old.replaceChildren(...next.childNodes);
 			next.replaceWith(old);
+			// Interrupted snapshots hold copies; retained Nodes still reuse their
+			// original elements, so remove the copies from the retiring drawing.
+			for (const copy of before.querySelectorAll<SVGGElement>("[data-node], [data-group]"))
+				if ((copy.dataset.node ?? copy.dataset.group) === id) copy.remove();
 			this.#moves.push({ element: old, x: previous.box.x - box.x, y: previous.box.y - box.y });
 			deltas.set(id, { x: box.x - previous.box.x, y: box.y - previous.box.y });
 			this.#positions.delete(id);
 		}
-		for (const { element } of this.#positions.values()) this.#fade(element, false);
+		for (const element of before.querySelectorAll<SVGGElement>("[data-node], [data-group]"))
+			this.#fade(element, false);
 		const oldEdges = [...before.querySelectorAll<SVGGElement>("[data-edge]")];
 		const oldIds = new Set(oldEdges.map((edge) => edge.dataset.edge));
 		const newIds = new Set(
@@ -90,7 +129,11 @@ export class SvgTransition {
 		for (const edge of oldEdges) {
 			const companions = [
 				...before.querySelectorAll<SVGGraphicsElement>("[data-edge-label], [data-edge-role]"),
-			].filter((part) => (part.dataset.edgeLabel ?? part.dataset.edgeRole) === edge.dataset.edge);
+			].filter(
+				(part) =>
+					part.ownerSVGElement === edge.ownerSVGElement &&
+					(part.dataset.edgeLabel ?? part.dataset.edgeRole) === edge.dataset.edge,
+			);
 			this.#bends.push(
 				...bendEdge(
 					edge,

@@ -421,8 +421,8 @@ const casingWidth = markSizes.casing;
  * between Groups.
  */
 function writeEdge(edge: SceneEdge, look: EdgeKindDefinition): string[] {
-	const directed = look.symmetric !== true;
-	const line = linePath(edge, directed);
+	const marker = edge.arrowhead;
+	const line = linePath(edge, marker !== undefined && marker.point === edge.toPort.point);
 	const dashed: Attribute[] =
 		look.line === "solid" ? [] : [["stroke-dasharray", look.line === "dotted" ? "1 4" : dashes]];
 	const rounded: Attribute[] = [
@@ -448,11 +448,11 @@ function writeEdge(edge: SceneEdge, look: EdgeKindDefinition): string[] {
 					]),
 				]),
 		...(edge.chevrons.length === 0 ? [] : cased(edge.chevrons.map(chevronPath).join(" "), rounded)),
-		...(directed
+		...(marker !== undefined
 			? [
 					empty("path", [
 						["class", "diagram-casing"],
-						["d", arrowhead(edge.toPort)],
+						["d", arrowhead(marker)],
 						["fill", "currentColor"],
 						["stroke-width", arrowOutline],
 						["stroke-linejoin", "round"],

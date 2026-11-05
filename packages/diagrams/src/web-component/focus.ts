@@ -11,6 +11,7 @@ export const focus: Part = {
 	css: `
 [data-node], [data-group], [data-edge], [data-edge-label], [data-edge-role], [data-from]:not([data-edge]) {
 	opacity: var(--focus-opacity, 1);
+	transition: opacity 180ms ease;
 }
 `,
 	setUp({ element, selection, highlights, onShow }) {
