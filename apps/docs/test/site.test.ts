@@ -94,7 +94,20 @@ const shop = {
 		"It's written in [`checkout.diagram.ts`](./checkout.diagram.ts).",
 	),
 	"packages/shop/docs/checkout.diagram.svg": svg,
-	"packages/shop/docs/logo.md": lines("# Logo", "", "![The shop's logo](./logo.png)"),
+	"packages/shop/docs/logo.md": lines(
+		"# Logo",
+		"",
+		"![The shop's logo](./logo.png)",
+		"",
+		"Each can be written as a reference too:",
+		"",
+		"![The logo again][logo]",
+		"",
+		"![Checkout][drawing]",
+		"",
+		"[logo]: ./logo.png",
+		"[drawing]: ./checkout.diagram.svg",
+	),
 	// A picture of one white pixel.
 	"packages/shop/docs/logo.png": Buffer.from(
 		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
@@ -160,6 +173,12 @@ describe("the docs site of a sample repo", () => {
 		expect(page).toContain(
 			`The call, within a sentence: <platform-diagram>${svg}</platform-diagram>`,
 		);
+	});
+
+	test("a Diagram image written as a reference becomes the web component too", async () => {
+		const page = await site.page("packages/shop/docs/logo");
+
+		expect(page).toContain(`<platform-diagram>${svg}</platform-diagram>`);
 	});
 
 	test("a reader explores the Diagram where it's embedded", async () => {
@@ -295,6 +314,9 @@ describe("the docs site of a sample repo", () => {
 
 		const picture = page.getByRole("img", { name: "The shop's logo" });
 		expect(await picture.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(1);
+		// Written as a reference, it's the same picture.
+		const again = page.getByRole("img", { name: "The logo again" });
+		expect(await again.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(1);
 	});
 
 	test("code is colored only in a language whose grammar has a permissive license", async () => {

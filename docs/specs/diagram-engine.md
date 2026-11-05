@@ -2030,7 +2030,7 @@ The docs site. This is GitHub's issue #12, not ticket 12 above.
    - Starlight's own touches are for the repo's docs too (`markdown.processedDirs`), so each heading has a link to itself.
    - Each page's "Edit page" link opens its file on GitHub, and the header links to the repo. The repo's URL and its branch are constants in `repo.ts`.
 7. **Diagram images.**
-   - A Sätteri plugin, `apps/docs/src/diagrams/images.ts`, replaces each image whose URL is relative and names a `*.diagram.svg` with `<platform-diagram>` around the file's text, byte for byte. An image alone in its paragraph replaces the paragraph, so its Diagram is a block of the page. One within a sentence is replaced where it stands.
+   - A Sätteri plugin, `apps/docs/src/diagrams/images.ts`, replaces each image whose URL is relative and names a `*.diagram.svg` with `<platform-diagram>` around the file's text, byte for byte. An image alone in its paragraph replaces the paragraph, so its Diagram is a block of the page. One within a sentence is replaced where it stands. An image written as a reference, `![Checkout][drawing]`, counts as the image that its definition names.
    - The image's alt text and its title are dropped: the SVG has its own `<title>` and `<desc>`.
    - An SVG that isn't there stops the build, with a message that says to run `diagrams render`.
    - An image with an absolute URL stays an image, since a build fetches nothing.
