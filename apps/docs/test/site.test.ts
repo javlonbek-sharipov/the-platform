@@ -180,9 +180,11 @@ describe("the docs site of a sample repo", () => {
 	test("a page's Diagram image becomes the web component, with the SVG inline", async () => {
 		const page = await site.page("packages/shop/docs/checkout");
 
-		expect(page).toContain(`<platform-diagram>${svg}</platform-diagram>`);
+		expect(page).toContain(
+			`<platform-diagram data-diagram="packages/shop/docs/checkout">${svg}</platform-diagram>`,
+		);
 		// It stands on a line of its own in the doc, so it's a block of the page, not part of a paragraph.
-		expect(page).not.toContain("<p><platform-diagram>");
+		expect(page).not.toContain("<p><platform-diagram ");
 		expect(page).not.toMatch(/<img[^>]*checkout\.diagram/);
 	});
 
@@ -190,14 +192,16 @@ describe("the docs site of a sample repo", () => {
 		const page = await site.page("docs/specs/checkout");
 
 		expect(page).toContain(
-			`The call, within a sentence: <platform-diagram>${svg}</platform-diagram>`,
+			`The call, within a sentence: <platform-diagram data-diagram="packages/shop/docs/checkout">${svg}</platform-diagram>`,
 		);
 	});
 
 	test("a Diagram image written as a reference becomes the web component too", async () => {
 		const page = await site.page("packages/shop/docs/logo");
 
-		expect(page).toContain(`<platform-diagram>${svg}</platform-diagram>`);
+		expect(page).toContain(
+			`<platform-diagram data-diagram="packages/shop/docs/checkout">${svg}</platform-diagram>`,
+		);
 	});
 
 	test("a reader explores the Diagram where it's embedded", async () => {
@@ -670,7 +674,9 @@ describe("the docs site of the-platform", () => {
 
 		const page = await site.page("packages/diagrams/docs/example-system");
 
-		expect(page).toContain(`<platform-diagram>${drawing}</platform-diagram>`);
+		expect(page).toContain(
+			`<platform-diagram data-diagram="packages/diagrams/docs/example-system">${drawing}</platform-diagram>`,
+		);
 	});
 });
 
@@ -685,6 +691,7 @@ describe("Atlas navigation on the built site", () => {
 				title: "Shop",
 				links: [
 					{ term: "Cart" },
+					{ id: "shop/order", label: "Order details" },
 					{ doc: "docs/adr/0001-payments.md", label: "Payments decision" },
 					{ doc: "docs/specs/payments.md", section: "Problem Statement", label: "Payment problem" },
 					{
@@ -698,7 +705,29 @@ describe("Atlas navigation on the built site", () => {
 		});
 		const drawing = render(overview).svg;
 		if (drawing === undefined) throw new Error("the navigation Diagram has errors");
+		const details = domain({ id: "packages/shop/docs/details", title: "Shop details" }, (d) => {
+			d.group({ id: "shop", kind: "context", title: "Shop" }, (shop) => {
+				shop.node({ id: "order", kind: "aggregate", title: "Order" });
+				shop.node({ id: "paid", kind: "event", title: "Order paid", links: [{ term: "Cart" }] });
+			});
+		});
+		const borrowed = domain(
+			{ id: "packages/shop/docs/borrowed", title: "Billing details" },
+			(d) => {
+				d.node({ id: "shop/paid", kind: "event", title: "Order paid", links: [{ term: "Cart" }] });
+				d.group({ id: "billing", kind: "context", title: "Billing" }, (billing) => {
+					billing.node({ id: "invoice", kind: "aggregate", title: "Invoice" });
+				});
+			},
+		);
+		const detailFiles = Object.fromEntries(
+			[details, borrowed].flatMap((diagram) => [
+				[`${diagram.id}.diagram.ts`, `export default ${JSON.stringify(diagram)};`],
+				[`${diagram.id}.diagram.svg`, render(diagram).svg ?? ""],
+			]),
+		);
 		const repo = await sampleRepo({
+			...detailFiles,
 			"docs/adr/0001-payments.md": lines(
 				"# Payments decision",
 				"",
@@ -733,6 +762,17 @@ describe("Atlas navigation on the built site", () => {
 				"# Shop overview",
 				"",
 				"![Shop](./overview.diagram.svg)",
+			),
+			"packages/shop/docs/details.md": lines(
+				"# Order details",
+				"",
+				"## Billing",
+				"",
+				"![Billing](./borrowed.diagram.svg)",
+				"",
+				"## Shop",
+				"",
+				"![Orders](./details.diagram.svg)",
 			),
 		});
 		site = await buildSite(repo);
@@ -798,6 +838,102 @@ describe("Atlas navigation on the built site", () => {
 			expect(await page.getByRole("heading", { level: 1 }).textContent()).toBe(
 				label === "Payments decision" ? "Payments decision" : "Payments v1",
 			);
+		} finally {
+			await reader.close();
+		}
+	});
+
+	test("drill-down opens the page and drawing that show a context as a Group", async () => {
+		const reader = await reading(site);
+		try {
+			const page = await open(reader, "packages/shop/docs/overview");
+			await page.locator("platform-diagram").getByText("Shop", { exact: true }).click();
+			await page
+				.getByRole("dialog", { name: "Shop details" })
+				.getByRole("list", { name: "Drill down" })
+				.getByRole("button", { name: "Shop details" })
+				.click();
+
+			await page.waitForURL(
+				"**/packages/shop/docs/details/#diagram=packages%2Fshop%2Fdocs%2Fdetails",
+			);
+			const drawing = page.getByRole("group", { name: "Shop details", exact: true });
+			await drawing.waitFor();
+			expect((await drawing.boundingBox())?.y).toBeGreaterThanOrEqual(0);
+			expect((await drawing.boundingBox())?.y).toBeLessThan(720);
+		} finally {
+			await reader.close();
+		}
+	});
+
+	test("a direct Node URL selects the namespaced Node in its named Diagram", async () => {
+		const reader = await reading(site);
+		try {
+			const page = await reader.newPage();
+			await page.goto(
+				"/packages/shop/docs/details/#diagram=packages%2Fshop%2Fdocs%2Fdetails&node=shop%2Fpaid",
+			);
+			const home = page.locator('platform-diagram[data-diagram="packages/shop/docs/details"]');
+			const borrowed = page.locator('platform-diagram[data-diagram="packages/shop/docs/borrowed"]');
+			const paid = (drawing: ReturnType<Page["locator"]>) =>
+				drawing
+					.getByRole("list", { name: "Nodes", exact: true })
+					.getByRole("button", { name: "Order paid (event).", exact: true });
+
+			await expect.poll(() => paid(home).getAttribute("aria-current")).toBe("true");
+			expect(await paid(borrowed).getAttribute("aria-current")).toBe(null);
+			expect(await page.getByRole("dialog").count()).toBe(0);
+			expect((await home.boundingBox())?.y).toBeLessThan(720);
+		} finally {
+			await reader.close();
+		}
+	});
+
+	test("an id Link opens a Diagram that draws the id and selects its Node", async () => {
+		const reader = await reading(site);
+		try {
+			const page = await open(reader, "packages/shop/docs/overview");
+			await page.locator("platform-diagram").getByText("Shop", { exact: true }).click();
+			await page
+				.getByRole("dialog", { name: "Shop details" })
+				.getByRole("button", { name: "Order details", exact: true })
+				.click();
+
+			await page.waitForURL(
+				"**/packages/shop/docs/details/#diagram=packages%2Fshop%2Fdocs%2Fdetails&node=shop%2Forder",
+			);
+			const drawing = page.locator('platform-diagram[data-diagram="packages/shop/docs/details"]');
+			await expect
+				.poll(() =>
+					drawing
+						.getByRole("button", { name: "Order (aggregate).", exact: true })
+						.getAttribute("aria-current"),
+				)
+				.toBe("true");
+		} finally {
+			await reader.close();
+		}
+	});
+
+	test("selecting a Node produces a shareable URL that restores selection after reload", async () => {
+		const reader = await reading(site);
+		try {
+			const page = await open(reader, "packages/shop/docs/details");
+			const drawing = page.locator('platform-diagram[data-diagram="packages/shop/docs/details"]');
+			await drawing.getByText("Order", { exact: true }).click();
+
+			expect(new URL(page.url()).hash).toBe(
+				"#diagram=packages%2Fshop%2Fdocs%2Fdetails&node=shop%2Forder",
+			);
+			await page.reload();
+			await expect
+				.poll(() =>
+					drawing
+						.getByRole("button", { name: "Order (aggregate).", exact: true })
+						.getAttribute("aria-current"),
+				)
+				.toBe("true");
+			expect(await page.getByRole("dialog").count()).toBe(0);
 		} finally {
 			await reader.close();
 		}
