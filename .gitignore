@@ -8,9 +8,11 @@ node_modules/
 # The diagrams engine's cache (the engine also writes a .gitignore inside it)
 .diagrams-cache/
 
-# Build, test and tool output
+# Build, test and tool output. Vitest keeps a failed browser test's screenshot
+# under .vitest/.
 dist/
 coverage/
+.vitest/
 *.tsbuildinfo
 *.log
 
