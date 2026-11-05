@@ -23,6 +23,9 @@ export type {
 	NodeHandle,
 	RolesDeclaration,
 	RowDeclaration,
+	StepDeclaration,
+	StepEdgeDeclaration,
+	WalkthroughDeclaration,
 } from "./authoring/builder.ts";
 export { builderOf } from "./authoring/builder.ts";
 export type {
@@ -50,6 +53,9 @@ export type {
 	NodeOf,
 	Row,
 	RowEnd,
+	Step,
+	StepEdge,
+	Walkthrough,
 } from "./authoring/model.ts";
 export type { Bundling } from "./core/bundles.ts";
 export type { Diagnostic, Severity } from "./core/diagnostics.ts";

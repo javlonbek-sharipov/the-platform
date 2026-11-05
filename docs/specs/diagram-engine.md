@@ -2221,6 +2221,13 @@ The docs site. This is GitHub's issue #12, not ticket 12 above.
     - Together they take about thirteen seconds.
 15. **Left for issue #13:** the Atlas index, the Links' URLs, Node URLs and drill-down. Nothing on the site reads the Atlas yet, and a page doesn't say which Diagrams it embeds.
 
+**Issue 11**
+
+Walkthroughs. This is GitHub's issue #11, not ticket 11 above.
+
+1. **Authoring and JSON.** `d.walkthrough({ id, title, steps })` belongs to both Notations and may be called from a Group's builder. A Step is `{ edges: [...] , note? }` or `{ node, note? }`, never both. Edge entries accept handles or ids, or `{ edge: handleOrId, back: true }`; a Node accepts a handle or id. JSON holds ids only. Local Node ids expand inside a namespaced Group, while explicit Edge and Walkthrough ids stay local to the Diagram. Shared readonly declarations are copied into the model. The package exports the declaration types and `Walkthrough`, `Step` and `StepEdge` model types.
+2. **Validation.** A Walkthrough has a nonempty title and at least one Step. An Edge Step has at least one Edge. Unknown fields are errors, including misspelled authoring options. Walkthrough ids are kebab-case and unique among Walkthroughs, independently of Node and Edge ids. `walkthrough-target` reports a missing Node or Edge at its Step's target; a Group cannot be a Node-only Step. Schema checks the same shapes and formats; existence and id uniqueness remain semantic checks. Titles and notes must be XML-writable text. Static SVGs carry Walkthroughs only in metadata; their drawings stay the same.
+
 ### References
 
 **Routing and layout papers**

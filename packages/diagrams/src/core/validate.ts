@@ -358,6 +358,7 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 	});
 
 	diagnostics.push(
+		...checkWalkthroughs(diagram),
 		...checkDefaultEdgeIds(diagram),
 		...checkNesting(diagram),
 		...checkCharacters(diagram),
@@ -372,6 +373,67 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 	return diagnostics.some((diagnostic) => diagnostic.severity === "error")
 		? { diagnostics }
 		: { diagnostics, diagram, notation };
+}
+
+/** Step targets belong to this Diagram; a Group is never a Node-only Step. */
+function checkWalkthroughs(diagram: AnyDiagram): Diagnostic[] {
+	const nodes = new Set(diagram.nodes.map(({ id }) => id));
+	const edges = new Set(diagram.edges.map(({ id }) => id));
+	return diagram.walkthroughs.flatMap((walkthrough, index) => [
+		...(diagram.walkthroughs.slice(0, index).some(({ id }) => id === walkthrough.id)
+			? [
+					error(
+						"duplicate-id",
+						`Two Walkthroughs have the id \`${walkthrough.id}\`. Each Walkthrough on a Diagram needs its own id.`,
+						`/walkthroughs/${index}/id`,
+					),
+				]
+			: []),
+		...(idPattern.test(walkthrough.id)
+			? []
+			: [
+					error(
+						"id-format",
+						`Walkthrough \`${walkthrough.id}\` needs a lowercase kebab-case id.`,
+						`/walkthroughs/${index}/id`,
+					),
+				]),
+		...walkthrough.steps.flatMap((step, stepIndex) => {
+			const at = `/walkthroughs/${index}/steps/${stepIndex}`;
+			const targets =
+				step.edges === undefined
+					? [{ kind: "Node", id: step.node, pointer: `${at}/node`, exists: nodes.has(step.node) }]
+					: step.edges.map((edge, place) => {
+							const id = typeof edge === "string" ? edge : edge.edge;
+							return {
+								kind: "Edge",
+								id,
+								pointer: `${at}/edges/${place}${typeof edge === "string" ? "" : "/edge"}`,
+								exists: edges.has(id),
+							};
+						});
+			return targets.flatMap(({ kind, id, pointer, exists }) => {
+				if (!(kind === "Node" ? idPattern : edgeIdPattern).test(id)) {
+					return [
+						error(
+							"id-format",
+							`Step target \`${id}\` isn't a lowercase kebab-case ${kind} id.`,
+							pointer,
+						),
+					];
+				}
+				return exists
+					? []
+					: [
+							error(
+								"walkthrough-target",
+								`Walkthrough \`${walkthrough.id}\`'s Step ${stepIndex + 1} names ${kind} \`${id}\`, which isn't on this Diagram. Name ${kind === "Edge" ? "an" : "a"} ${kind} drawn here.`,
+								pointer,
+							),
+						];
+			});
+		}),
+	]);
 }
 
 /** A namespaced Group's members carry its prefix and exactly one local id. */
@@ -1057,16 +1119,44 @@ function checkShape(input: Record<string, unknown>, notation: Notation): Diagnos
 			checkOptional(edge, at, "edge", edgeChecks);
 		}
 	});
-	// Walkthroughs come in slice 4. Until then, one would be dropped unseen.
-	if (Array.isArray(input.walkthroughs)) {
-		check(
-			input.walkthroughs.length === 0,
-			"/walkthroughs",
-			"an empty list: this engine doesn't play Walkthroughs yet",
-		);
-	} else {
-		check(false, "/walkthroughs", "a list");
-	}
+	checkList(input.walkthroughs, "/walkthroughs", (walkthrough, at) => {
+		checkStrings(walkthrough, at, ["id", "title"]);
+		if (!isObject(walkthrough)) return;
+		checkFields(walkthrough, at, "a Walkthrough", ["id", "title", "steps"]);
+		isSomeText(walkthrough.title, `${at}/title`);
+		if (Array.isArray(walkthrough.steps))
+			check(walkthrough.steps.length > 0, `${at}/steps`, "a nonempty list of Steps");
+		checkList(walkthrough.steps, `${at}/steps`, (step, stepAt) => {
+			if (!isObject(step)) {
+				check(false, stepAt, "an object");
+				return;
+			}
+			checkFields(step, stepAt, "a Step", ["edges", "node", "note"]);
+			check(
+				(step.edges !== undefined) !== (step.node !== undefined),
+				stepAt,
+				"a Step with exactly one of `edges` and `node`",
+			);
+			if (step.note !== undefined) isText(step.note, `${stepAt}/note`);
+			if (step.node !== undefined) isText(step.node, `${stepAt}/node`);
+			if (Array.isArray(step.edges))
+				check(step.edges.length > 0, `${stepAt}/edges`, "a nonempty list of Edges");
+			if (step.edges !== undefined)
+				checkList(step.edges, `${stepAt}/edges`, (edge, edgeAt) => {
+					if (!isObject(edge)) {
+						isText(edge, edgeAt);
+						return;
+					}
+					checkFields(edge, edgeAt, "a Step's Edge", ["edge", "back"]);
+					isText(edge.edge, `${edgeAt}/edge`);
+					check(
+						edge.back === undefined || typeof edge.back === "boolean",
+						`${edgeAt}/back`,
+						"`true` or `false`",
+					);
+				});
+		});
+	});
 	return diagnostics;
 }
 
