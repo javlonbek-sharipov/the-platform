@@ -19,6 +19,7 @@
 		"node_modules",
 		"repos",
 		".diagrams-cache",
+		"apps/docs",
 		"packages/diagrams/src/web-component",
 		"packages/diagrams/test/browser"
 	]
