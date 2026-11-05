@@ -50,6 +50,8 @@ export type {
 	SceneText,
 	Side,
 } from "./core/scene.ts";
+export type { DiagramSchema, NotationSchema } from "./core/schema.ts";
+export { schemaOf } from "./core/schema.ts";
 export type { FontData, FontRequest, FontWeight } from "./core/text.ts";
 export type {
 	ArchitectureEdgeKind,
@@ -72,4 +74,5 @@ export type {
 	StatusOf,
 } from "./notations/notation.ts";
 export { edgeKindsOf, groupKindsOf, nodeKindsOf, statusesOf } from "./notations/notation.ts";
+export { notations } from "./notations/notations.ts";
 export { technologies } from "./notations/technologies.ts";

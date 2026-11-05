@@ -33,15 +33,25 @@ export type Validation =
 	| { diagnostics: Diagnostic[]; diagram: Diagram; notation: Notation };
 
 const kebabCase = "[a-z0-9]+(?:-[a-z0-9]+)*";
-/** Lowercase kebab-case words, optionally namespaced by a context, as in `billing/order`. */
 const id = `${kebabCase}(?:/${kebabCase})*`;
-const idPattern = new RegExp(`^${id}$`);
-/** An id, or an Edge's default name: its two ends' ids joined by `->`. */
-const edgeIdPattern = new RegExp(`^${id}(?:->${id})?$`);
-/** A Technology's slug: lowercase words joined by hyphens, as in `postgres` or `aws-lambda`. */
-export const slugPattern = new RegExp(`^${kebabCase}$`);
-/** A number, an optional `k` or `M`, a slash, and `s`, `min` or `h`, as in `2k/s` or `30/min`. */
-const ratePattern = /^[0-9]+(?:\.[0-9]+)?[kM]?\/(?:s|min|h)$/;
+/**
+ * How the model writes ids, Technologies and rates, as the patterns that the
+ * JSON Schema holds too, so that both read each one alike.
+ */
+export const formats = {
+	/** Lowercase kebab-case words, optionally namespaced by a context, as in `billing/order`. */
+	id: `^${id}$`,
+	/** An id, or an Edge's default name: its two ends' ids joined by `->`. */
+	edgeId: `^${id}(?:->${id})?$`,
+	/** A Technology's slug: lowercase words joined by hyphens, as in `postgres` or `aws-lambda`. */
+	slug: `^${kebabCase}$`,
+	/** A number, an optional `k` or `M`, a slash, and `s`, `min` or `h`, as in `2k/s` or `30/min`. */
+	rate: "^[0-9]+(?:\\.[0-9]+)?[kM]?/(?:s|min|h)$",
+};
+const idPattern = new RegExp(formats.id);
+const edgeIdPattern = new RegExp(formats.edgeId);
+export const slugPattern = new RegExp(formats.slug);
+const ratePattern = new RegExp(formats.rate);
 
 const directions: unknown[] = [undefined, "right", "down"];
 
