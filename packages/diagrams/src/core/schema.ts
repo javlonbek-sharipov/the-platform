@@ -176,6 +176,14 @@ const shared: Record<string, Schema> = {
 };
 
 /**
+ * One of the names given, such as a Notation's Group Kinds. A Notation may
+ * have none, and then no value will do.
+ */
+function oneOf(names: readonly string[]): Schema {
+	return names.length === 0 ? { not: {} } : { enum: [...names] };
+}
+
+/**
  * The fields that a Notation's Nodes, Groups or Edges may have, of every
  * field that the model has for them: each with its schema, in the model's
  * order. The type checker makes `all` name every field of the model's type.
@@ -202,7 +210,7 @@ function notationSchema(notation: Notation): NotationSchema {
 		},
 		kind: {
 			description: "The Node's Kind, which alone decides how it looks.",
-			enum: nodeKindsOf(notation),
+			...oneOf(nodeKindsOf(notation)),
 		},
 		title: {
 			description:
@@ -217,7 +225,7 @@ function notationSchema(notation: Notation): NotationSchema {
 		},
 		status: {
 			description: "How the Node is doing, shown as a mark at the end of its header.",
-			enum: statusesOf(notation),
+			...oneOf(statusesOf(notation)),
 		},
 		rows: {
 			description: "The Node's Rows, drawn below its header, one band each, in order.",
@@ -243,7 +251,7 @@ function notationSchema(notation: Notation): NotationSchema {
 		},
 		kind: {
 			description: "The Group's Kind, which alone decides how it looks.",
-			enum: groupKindsOf(notation),
+			...oneOf(groupKindsOf(notation)),
 		},
 		title: { description: "The Group's title, drawn in its label band.", ...text },
 		members: {
@@ -263,7 +271,7 @@ function notationSchema(notation: Notation): NotationSchema {
 		},
 		kind: {
 			description: "The Edge's Kind, which alone decides how it looks.",
-			enum: edgeKindsOf(notation),
+			...oneOf(edgeKindsOf(notation)),
 		},
 		from: { description: "Where the Edge leaves from.", $ref: "#/$defs/end" },
 		to: { description: "Where the Edge enters.", $ref: "#/$defs/end" },

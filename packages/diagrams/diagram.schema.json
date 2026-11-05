@@ -10,7 +10,7 @@
 		},
 		"notation": {
 			"description": "The Notation the Diagram is written in, which decides the Kinds, statuses and fields that its Nodes, Groups and Edges may have.",
-			"enum": ["architecture"]
+			"enum": ["architecture", "domain"]
 		},
 		"id": {
 			"description": "The path of the Diagram's module from the repo root, minus `.diagram.ts`, such as `docs/shop`. The Atlas sets it, so a generated Diagram can leave it out.",
@@ -77,6 +77,19 @@
 			},
 			"then": {
 				"$ref": "#/$defs/architecture"
+			}
+		},
+		{
+			"if": {
+				"properties": {
+					"notation": {
+						"const": "domain"
+					}
+				},
+				"required": ["notation"]
+			},
+			"then": {
+				"$ref": "#/$defs/domain"
 			}
 		}
 	],
@@ -354,6 +367,123 @@
 							"description": "How much passes over it, drawn below the label: a number, an optional `k` or `M`, a slash, and `s`, `min` or `h`, as in `2k/s` or `30/min`.",
 							"type": "string",
 							"pattern": "^[0-9]+(?:\\.[0-9]+)?[kM]?/(?:s|min|h)$"
+						}
+					},
+					"required": ["id", "kind", "from", "to"],
+					"additionalProperties": false
+				}
+			}
+		},
+		"domain": {
+			"description": "What a Diagram of the domain Notation holds: Nodes, Groups and Edges of the Kinds that the Notation has, each with the fields that its Diagrams may have.",
+			"type": "object",
+			"properties": {
+				"nodes": {
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/domain/$defs/node"
+					}
+				},
+				"groups": {
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/domain/$defs/group"
+					}
+				},
+				"edges": {
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/domain/$defs/edge"
+					}
+				}
+			},
+			"$defs": {
+				"node": {
+					"description": "One thing drawn on a Diagram of the domain Notation.",
+					"type": "object",
+					"properties": {
+						"id": {
+							"description": "The Node's id, which names one thing across the Atlas: it has one Kind and one title on every Diagram.",
+							"$ref": "#/$defs/id"
+						},
+						"kind": {
+							"description": "The Node's Kind, which alone decides how it looks.",
+							"enum": ["context"]
+						},
+						"title": {
+							"description": "The Node's title, drawn in its header. A title too wide for its Kind is shortened.",
+							"$ref": "#/$defs/text"
+						},
+						"external": {
+							"description": "Whether the Node stands for something we don't own or run, drawn with a dashed outline.",
+							"type": "boolean"
+						},
+						"description": {
+							"description": "What the Node is, which isn't drawn. The SVG carries it in its model.",
+							"$ref": "#/$defs/text"
+						},
+						"links": {
+							"description": "\"See also\" pointers, which aren't drawn.",
+							"type": "array",
+							"items": {
+								"$ref": "#/$defs/link"
+							}
+						}
+					},
+					"required": ["id", "kind", "title"],
+					"additionalProperties": false
+				},
+				"group": {
+					"description": "A labeled box drawn around Nodes and other Groups, on a Diagram of the domain Notation.",
+					"type": "object",
+					"properties": {
+						"id": {
+							"description": "The Group's id, which names one thing across the Atlas: it has one Kind and one title on every Diagram.",
+							"$ref": "#/$defs/id"
+						},
+						"kind": {
+							"description": "The Group's Kind, which alone decides how it looks.",
+							"not": {}
+						},
+						"title": {
+							"description": "The Group's title, drawn in its label band.",
+							"$ref": "#/$defs/text"
+						},
+						"members": {
+							"description": "The ids of the Group's Nodes and child Groups, in declaration order.",
+							"type": "array",
+							"items": {
+								"$ref": "#/$defs/id"
+							}
+						}
+					},
+					"required": ["id", "kind", "title", "members"],
+					"additionalProperties": false
+				},
+				"edge": {
+					"description": "A connection from one Port to another, on a Diagram of the domain Notation.",
+					"type": "object",
+					"properties": {
+						"id": {
+							"description": "An id, or the Edge's default name: its two Nodes' ids joined by `->`, as in `checkout-api->payments-api`.",
+							"type": "string",
+							"pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:/[a-z0-9]+(?:-[a-z0-9]+)*)*(?:->[a-z0-9]+(?:-[a-z0-9]+)*(?:/[a-z0-9]+(?:-[a-z0-9]+)*)*)?$"
+						},
+						"kind": {
+							"description": "The Edge's Kind, which alone decides how it looks.",
+							"enum": ["partnership", "shared-kernel", "upstream-downstream", "customer-supplier"]
+						},
+						"from": {
+							"description": "Where the Edge leaves from.",
+							"$ref": "#/$defs/end"
+						},
+						"to": {
+							"description": "Where the Edge enters.",
+							"$ref": "#/$defs/end"
+						},
+						"label": {
+							"description": "What passes over the Edge, drawn beside it, such as `Places orders`.",
+							"$ref": "#/$defs/someText"
 						}
 					},
 					"required": ["id", "kind", "from", "to"],

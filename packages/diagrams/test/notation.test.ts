@@ -56,7 +56,7 @@ describe("a Notation defined only in the tests", () => {
 					severity: "error",
 					rule: "unknown-notation",
 					message:
-						"The Diagram's Notation is `plumbing`, which this engine doesn't have. Its Notations are architecture.",
+						"The Diagram's Notation is `plumbing`, which this engine doesn't have. Its Notations are architecture and domain.",
 					pointer: "/notation",
 				},
 			],
@@ -69,7 +69,7 @@ describe("a Notation defined only in the tests", () => {
 					severity: "error",
 					rule: "unknown-notation",
 					message:
-						"The Diagram's Notation is `wiring`, which this engine doesn't have. Its Notations are plumbing.",
+						"The Diagram's Notation is `wiring`, which this engine doesn't have. Its only Notation is plumbing.",
 					pointer: "/notation",
 				},
 			],

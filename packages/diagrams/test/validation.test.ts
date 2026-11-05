@@ -197,7 +197,7 @@ describe("validation", () => {
 				severity: "error",
 				rule: "unknown-notation",
 				message:
-					"The Diagram's Notation is `sequence`, which this engine doesn't have. Its Notations are architecture.",
+					"The Diagram's Notation is `sequence`, which this engine doesn't have. Its Notations are architecture and domain.",
 				pointer: "/notation",
 			},
 		]);

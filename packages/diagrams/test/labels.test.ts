@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
 import {
+	type ArchitectureNotation,
 	architecture,
 	type Box,
-	type Diagram,
+	type DiagramOf,
 	type Direction,
-	type Edge,
 	type KnownTechnology,
 	type Point,
 	render,
@@ -18,6 +18,10 @@ import { groupFixtures, twoRegions } from "./fixtures/groups.ts";
 import { labeled } from "./support/labeled.ts";
 import { computedStyle, descendants, type Element, parseSvg, rulesOf } from "./support/svg.ts";
 import { advanceOf, bundledFont, characterMap, unitsPerEm } from "./support/truetype.ts";
+
+/** The tests here draw architecture Diagrams, so they read the fields that those have. */
+type Diagram = DiagramOf<ArchitectureNotation>;
+type Edge = Diagram["edges"][number];
 
 const interRegular = bundledFont("Inter-Regular.ttf");
 const regularCharacters = characterMap(interRegular);

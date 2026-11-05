@@ -25,6 +25,13 @@ export type {
 } from "./authoring/builder.ts";
 export { builderOf } from "./authoring/builder.ts";
 export type {
+	DomainBuilder,
+	DomainEdgeOptions,
+	DomainNode,
+	DomainOptions,
+} from "./authoring/domain.ts";
+export { domain } from "./authoring/domain.ts";
+export type {
 	Diagram,
 	DiagramOf,
 	Direction,
@@ -75,6 +82,8 @@ export type {
 	ArchitectureStatus,
 } from "./notations/architecture.ts";
 export { architectureNotation } from "./notations/architecture.ts";
+export type { DomainEdgeKind, DomainNodeKind, DomainNotation } from "./notations/domain.ts";
+export { domainNotation } from "./notations/domain.ts";
 export type {
 	EdgeKindDefinition,
 	EdgeKindOf,

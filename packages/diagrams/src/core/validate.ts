@@ -175,7 +175,7 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 			diagnostics.push(
 				error(
 					"unknown-kind",
-					`Node \`${node.id}\` has the Kind \`${node.kind}\`, which the ${notation.name} Notation doesn't have. Its Node Kinds are ${list(nodeKinds)}.`,
+					`Node \`${node.id}\` has the Kind \`${node.kind}\`, which the ${notation.name} Notation doesn't have. ${owned("Node Kind", "Node Kinds", nodeKinds)}`,
 					`/nodes/${index}/kind`,
 				),
 			);
@@ -184,7 +184,7 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 			diagnostics.push(
 				error(
 					"unknown-status",
-					`Node \`${node.id}\` has the status \`${node.status}\`, which the ${notation.name} Notation doesn't have. Its statuses are ${list(statuses)}.`,
+					`Node \`${node.id}\` has the status \`${node.status}\`, which the ${notation.name} Notation doesn't have. ${owned("status", "statuses", statuses)}`,
 					`/nodes/${index}/status`,
 				),
 			);
@@ -239,7 +239,7 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 			diagnostics.push(
 				error(
 					"unknown-kind",
-					`Group \`${group.id}\` has the Kind \`${group.kind}\`, which the ${notation.name} Notation doesn't have. Its Group Kinds are ${list(groupKinds)}.`,
+					`Group \`${group.id}\` has the Kind \`${group.kind}\`, which the ${notation.name} Notation doesn't have. ${owned("Group Kind", "Group Kinds", groupKinds)}`,
 					`/groups/${index}/kind`,
 				),
 			);
@@ -332,7 +332,7 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 			diagnostics.push(
 				error(
 					"unknown-kind",
-					`Edge \`${edge.id}\` has the Kind \`${edge.kind}\`, which the ${notation.name} Notation doesn't have. Its Edge Kinds are ${list(edgeKinds)}.`,
+					`Edge \`${edge.id}\` has the Kind \`${edge.kind}\`, which the ${notation.name} Notation doesn't have. ${owned("Edge Kind", "Edge Kinds", edgeKinds)}`,
 					`/edges/${index}/kind`,
 				),
 			);
@@ -360,6 +360,19 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 	return diagnostics.some((diagnostic) => diagnostic.severity === "error")
 		? { diagnostics }
 		: { diagnostics, diagram, notation };
+}
+
+/**
+ * What a message says there is of something, such as a Notation's Group
+ * Kinds, after naming one that it lacks: each of them, the only one, or that
+ * there are none. `thing` names one of them, and `things` several.
+ */
+function owned(thing: string, things: string, names: readonly string[]): string {
+	const [only] = names;
+	if (only === undefined) {
+		return `It has no ${things}.`;
+	}
+	return names.length === 1 ? `Its only ${thing} is ${only}.` : `Its ${things} are ${list(names)}.`;
 }
 
 /**
@@ -661,7 +674,11 @@ function readNotation(
 			diagnostics: [
 				error(
 					"unknown-notation",
-					`The Diagram's Notation is \`${String(input.notation)}\`, which this engine doesn't have. Its Notations are ${list(notations.map(({ name }) => name))}.`,
+					`The Diagram's Notation is \`${String(input.notation)}\`, which this engine doesn't have. ${owned(
+						"Notation",
+						"Notations",
+						notations.map(({ name }) => name),
+					)}`,
 					"/notation",
 				),
 			],

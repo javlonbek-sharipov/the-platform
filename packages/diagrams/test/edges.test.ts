@@ -1,9 +1,10 @@
 import { describe, expect, test } from "vitest";
 import example from "../docs/example-system.diagram.ts";
 import {
+	type ArchitectureNotation,
 	architecture,
 	type Box,
-	type Diagram,
+	type DiagramOf,
 	type Point,
 	type SceneEdge,
 	type Side,
@@ -26,6 +27,9 @@ import {
 	runsOf,
 	type Theme,
 } from "./support/svg.ts";
+
+/** The tests here draw architecture Diagrams, so they read the fields that those have. */
+type Diagram = DiagramOf<ArchitectureNotation>;
 
 const themes: Theme[] = ["light", "dark"];
 const fixtures = await everyFixture();

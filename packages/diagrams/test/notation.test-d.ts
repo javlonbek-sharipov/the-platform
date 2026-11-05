@@ -1,10 +1,12 @@
 import { expectTypeOf, test } from "vitest";
 import {
 	type ArchitectureNodeKind,
+	type ArchitectureNotation,
 	type Builder,
 	builderOf,
 	type Diagram,
 	type DiagramOf,
+	type DomainNotation,
 	type Edge,
 	type EdgeKindOf,
 	type Group,
@@ -120,14 +122,23 @@ test("the model's types take a Notation's Kinds, statuses and fields from its de
 });
 
 test("a Diagram is one of the engine's own Notations, with that Notation's Kinds and fields", () => {
-	expectTypeOf<Diagram["notation"]>().toEqualTypeOf<"architecture">();
-	expectTypeOf<Node["kind"]>().toEqualTypeOf<ArchitectureNodeKind>();
-	expectTypeOf<Node["status"]>().toEqualTypeOf<
+	expectTypeOf<Diagram["notation"]>().toEqualTypeOf<"architecture" | "domain">();
+	// Its `notation` tells which, and so which Kinds and fields its Nodes, Groups and Edges have.
+	type Architecture = Extract<Diagram, { notation: "architecture" }>;
+	expectTypeOf<Architecture>().toEqualTypeOf<DiagramOf<ArchitectureNotation>>();
+	expectTypeOf<Extract<Diagram, { notation: "domain" }>>().toEqualTypeOf<
+		DiagramOf<DomainNotation>
+	>();
+	type ArchitectureNode = Architecture["nodes"][number];
+	type ArchitectureGroup = Architecture["groups"][number];
+	type ArchitectureEdge = Architecture["edges"][number];
+	expectTypeOf<ArchitectureNode["kind"]>().toEqualTypeOf<ArchitectureNodeKind>();
+	expectTypeOf<ArchitectureNode["status"]>().toEqualTypeOf<
 		"ok" | "degraded" | "down" | "unknown" | undefined
 	>();
-	expectTypeOf<Group["kind"]>().toEqualTypeOf<"system" | "region" | "zone">();
-	expectTypeOf<Edge["kind"]>().toEqualTypeOf<"call" | "message">();
-	expectTypeOf<keyof Node>().toEqualTypeOf<
+	expectTypeOf<ArchitectureGroup["kind"]>().toEqualTypeOf<"system" | "region" | "zone">();
+	expectTypeOf<ArchitectureEdge["kind"]>().toEqualTypeOf<"call" | "message">();
+	expectTypeOf<keyof ArchitectureNode>().toEqualTypeOf<
 		| "id"
 		| "kind"
 		| "title"
@@ -139,12 +150,17 @@ test("a Diagram is one of the engine's own Notations, with that Notation's Kinds
 		| "links"
 		| "callout"
 	>();
-	expectTypeOf<keyof Group>().toEqualTypeOf<
+	expectTypeOf<keyof ArchitectureGroup>().toEqualTypeOf<
 		"id" | "kind" | "title" | "members" | "description" | "links"
 	>();
-	expectTypeOf<keyof Edge>().toEqualTypeOf<
+	expectTypeOf<keyof ArchitectureEdge>().toEqualTypeOf<
 		"id" | "kind" | "from" | "to" | "label" | "technology" | "rate"
 	>();
+	// A Node, a Group and an Edge are those of any of them.
+	expectTypeOf<Node>().toEqualTypeOf<Diagram["nodes"][number]>();
+	expectTypeOf<Node["kind"]>().toEqualTypeOf<ArchitectureNodeKind | "context">();
+	expectTypeOf<Group>().toEqualTypeOf<Diagram["groups"][number]>();
+	expectTypeOf<Edge>().toEqualTypeOf<Diagram["edges"][number]>();
 	// A plumbing Diagram isn't one, and nor is a Diagram with another Notation's Kind.
 	expectTypeOf<DiagramOf<Plumbing>>().not.toExtend<Diagram>();
 	expectTypeOf<{ id: string; kind: "tank"; title: string }>().not.toExtend<Node>();

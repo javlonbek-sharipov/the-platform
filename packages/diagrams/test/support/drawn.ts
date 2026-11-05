@@ -136,6 +136,24 @@ export function fillAndBackground(drawn: Drawn, id: string, theme: Theme) {
 	};
 }
 
+/** How far a point is from the nearest stretch of any of the shapes' outlines. */
+export function distanceToShapes(point: Point, runs: Point[][]): number {
+	let nearest = Number.POSITIVE_INFINITY;
+	for (const run of runs) {
+		run.forEach((a, index) => {
+			const b = run[(index + 1) % run.length] ?? a;
+			const [dx, dy] = [b.x - a.x, b.y - a.y];
+			const length = dx * dx + dy * dy;
+			const t =
+				length === 0
+					? 0
+					: Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / length));
+			nearest = Math.min(nearest, Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy)));
+		});
+	}
+	return nearest;
+}
+
 /** The group that draws an Edge, which carries its id. */
 export function edgeGroupOf({ root }: Drawn, id: string): Element {
 	const group = descendants(root).find((element) => element.attributes.get("data-edge") === id);

@@ -81,7 +81,8 @@ describe.each(notations.map((notation) => [notation.name, notation] as const))(
 			expect(hues.filter((hue) => !looks.some((look) => look.hue === hue))).toEqual([]);
 			expect(joined.filter((kind) => !nodeKinds.includes(kind))).toEqual([]);
 			// Its Nodes may have a status exactly when it has statuses for them.
-			expect(notation.fields.node.includes("status")).toBe(statusesOf(notation).length > 0);
+			const nodeFields: readonly string[] = notation.fields.node;
+			expect(nodeFields.includes("status")).toBe(statusesOf(notation).length > 0);
 		});
 
 		test("sizes each Node Kind in whole steps of 16 px, twice the grid, so that its corners land on the grid", () => {

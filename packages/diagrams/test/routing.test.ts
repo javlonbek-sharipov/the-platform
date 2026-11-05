@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
 import {
+	type ArchitectureNotation,
 	architecture,
 	type Box,
-	type Diagram,
+	type DiagramOf,
 	type Direction,
-	type Edge,
 	type Point,
 	type RoutePoint,
 	render,
@@ -17,6 +17,10 @@ import {
 import { crowded } from "./fixtures/crowded.ts";
 import { groupFixtures, labelInTheWay, twoRegions } from "./fixtures/groups.ts";
 import { labeled } from "./support/labeled.ts";
+
+/** The tests here draw architecture Diagrams, so they read the fields that those have. */
+type Diagram = DiagramOf<ArchitectureNotation>;
+type Edge = Diagram["edges"][number];
 
 const shop = architecture({ title: "Shop" }, (d) => {
 	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
