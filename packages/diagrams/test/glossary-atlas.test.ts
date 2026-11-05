@@ -64,6 +64,23 @@ Not a term.
 	});
 });
 
+test("term anchors avoid glossary headings so the docs site can address the actual term entry", async () => {
+	const root = await sampleAtlas({
+		"diagrams.config.ts": billingConfig,
+		"billing/GLOSSARY.md":
+			"# Invoice\n\n## Invoice-1\n\n**Invoice**:\nA demand for payment.\n\n**Invoice line**:\nOne charge.\n",
+	});
+	const result = await runCli(["export", "--index"], root);
+	expect(result.code).toBe(0);
+	const index = JSON.parse(await readFile(result.stdout.trim(), "utf8"));
+	expect(
+		index.terms.map(({ term, anchor }: { term: string; anchor: string }) => ({ term, anchor })),
+	).toEqual([
+		{ term: "Invoice", anchor: "invoice-2" },
+		{ term: "Invoice line", anchor: "invoice-line" },
+	]);
+});
+
 test.each([
 	["[]", "/contexts"],
 	['{ "Billing": { glossary: "billing/GLOSSARY.md" } }', "/contexts/Billing"],

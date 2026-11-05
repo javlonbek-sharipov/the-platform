@@ -5,7 +5,7 @@ import type { AtlasConfig, AtlasContext } from "../authoring/atlas.ts";
 import type { Declarations } from "../authoring/declarations.ts";
 import { pointerSegment } from "../core/diagnostics.ts";
 import { formats } from "../core/validate.ts";
-import { anchorOf } from "./markdown.ts";
+import { anchorOf, headingAnchors } from "./markdown.ts";
 import { type AtlasMessage, located } from "./messages.ts";
 import type { GlossaryTerm } from "./types.ts";
 
@@ -113,6 +113,7 @@ function parseGlossary(
 ): GlossaryTerm[] {
 	const terms: GlossaryTerm[] = [];
 	const anchors = new Set<string>();
+	const occupied = headingAnchors(markdown);
 	let current: GlossaryTerm | undefined;
 	let definition: string[] = [];
 	let hasAvoid = false;
@@ -167,6 +168,10 @@ function parseGlossary(
 					`Term \`${term}\` has an anchor already used by another term. Give each entry a distinct name.`,
 				);
 			anchors.add(current.anchor);
+			const base = current.anchor;
+			for (let suffix = 1; occupied.has(current.anchor); suffix++)
+				current.anchor = `${base}-${suffix}`;
+			occupied.add(current.anchor);
 		} else if (/^\*\*.*\*\*:/.test(line)) {
 			finish();
 			report(
