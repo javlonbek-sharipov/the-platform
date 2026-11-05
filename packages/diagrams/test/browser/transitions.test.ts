@@ -162,7 +162,11 @@ test.for(["host", "reduced"] as const)(
 			await cdp().send("Emulation.setEmulatedMedia", {
 				features: [{ name: "prefers-reduced-motion", value: "reduce" }],
 			});
-		await expect.poll(() => host.shadowRoot?.getAnimations()).toEqual([]);
+		// Let the media-query change event arrive, without waiting for the
+		// transition's own duration to expire and accidentally accepting it.
+		await frame();
+		await frame();
+		expect(host.shadowRoot?.getAnimations()).toEqual([]);
 		const stopped = drawnBox(svgOf(host), nodeOf(svgOf(host), "b"));
 		await frame();
 		expect(drawnBox(svgOf(host), nodeOf(svgOf(host), "b"))).toEqual(stopped);

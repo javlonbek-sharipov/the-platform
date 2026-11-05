@@ -28,6 +28,7 @@ export class SvgTransition {
 	readonly #before: SVGSVGElement;
 	readonly #after: SVGSVGElement;
 	readonly #releaseFonts: () => void;
+	readonly #done: () => void;
 	readonly #positions = new Map<string, ObjectPosition>();
 	readonly #moves: { element: SVGGElement; x: number; y: number }[] = [];
 	readonly #fades: { wrapper: SVGElement; incoming: boolean; delay: number; duration: number }[] =
@@ -37,10 +38,11 @@ export class SvgTransition {
 	#started: CSSNumberish | null = null;
 	#finished = false;
 
-	constructor(before: SVGSVGElement, after: SVGSVGElement) {
+	constructor(before: SVGSVGElement, after: SVGSVGElement, done: () => void) {
 		this.#before = before;
 		this.#after = after;
 		this.#releaseFonts = retainFontFaces(before);
+		this.#done = done;
 		const matrix = before.getScreenCTM()?.inverse();
 		for (const element of before.querySelectorAll<SVGGElement>("[data-node], [data-group]")) {
 			const box = element.getBBox();
@@ -168,6 +170,7 @@ export class SvgTransition {
 		}
 		this.#before.remove();
 		this.#releaseFonts();
+		this.#done();
 	}
 
 	#fade(element: SVGElement, incoming: boolean, delay = 0, duration = glide): void {
