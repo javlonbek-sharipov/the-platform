@@ -21,7 +21,6 @@ import {
 	looksOf,
 	nodeOf,
 	paintsWithin,
-	sceneOf,
 	shapesOf,
 	strokeOf,
 	strokesOf,
@@ -972,11 +971,36 @@ describe("a role tag", () => {
 	};
 
 	describe("in every fixture", () => {
-		/** Each fixture's scene, with the tags of its Edges. */
+		/**
+		 * Each fixture's scene, with the tags of its Edges that have room, and the
+		 * Edges whose label has none. A tag or a label without room is drawn anyway,
+		 * with a warning, and may cover anything.
+		 */
 		const drawn = fixtures.map(([name, diagram]) => {
-			const scene = sceneOf(diagram);
-			const tags = scene.edges.flatMap((edge) => edge.roles.map((role) => ({ edge, ...role })));
-			return { name, scene, tags };
+			const { scene, diagnostics } = render(diagram);
+			if (scene === undefined) {
+				throw new Error(`${name} has no scene`);
+			}
+			const warned = (rule: string) =>
+				new Set(
+					diagnostics.filter((warning) => warning.rule === rule).map(({ pointer }) => pointer),
+				);
+			const [unplaced, unlabeled] = [warned("role-placement"), warned("label-placement")];
+			const tags = scene.edges.flatMap((edge, index) =>
+				edge.roles
+					.map((role) => ({ edge, ...role }))
+					.filter(({ end, role }) => {
+						const place = edge.roles.filter((other) => other.end === end);
+						const at = place.findIndex((other) => other.role === role);
+						return !unplaced.has(`/edges/${index}/roles/${end}/${at}`);
+					}),
+			);
+			const labels = scene.edges.flatMap(({ id, label }, index) =>
+				label === undefined || unlabeled.has(`/edges/${index}`)
+					? []
+					: [{ what: `the label of ${id}`, box: label.box }],
+			);
+			return { name, scene, tags, labels };
 		});
 		const named = (name: string, { edge, role, end }: (typeof drawn)[number]["tags"][number]) =>
 			`${name}: ${edge.id}, ${role} at ${end}`;
@@ -1004,11 +1028,13 @@ describe("a role tag", () => {
 		});
 
 		test("comes after its end's other tags along the route, in the model's order", () => {
-			for (const { name, scene } of drawn) {
+			for (const { name, scene, tags } of drawn) {
 				for (const edge of scene.edges) {
-					const shares = edge.roles.map(({ tag }) =>
-						shareAlong(edge.route, { x: tag.x + tag.width / 2, y: tag.y + tag.height / 2 }),
-					);
+					const shares = tags
+						.filter((tag) => tag.edge === edge)
+						.map(({ tag }) =>
+							shareAlong(edge.route, { x: tag.x + tag.width / 2, y: tag.y + tag.height / 2 }),
+						);
 					expect(shares, `${name}: ${edge.id}`).toEqual([...shares].sort((a, b) => a - b));
 					expect(new Set(shares).size, `${name}: ${edge.id}`).toBe(shares.length);
 				}
@@ -1016,7 +1042,7 @@ describe("a role tag", () => {
 		});
 
 		test("is clear of every Node, callout, Group label and Edge label, and of every other tag", () => {
-			for (const { name, scene, tags } of drawn) {
+			for (const { name, scene, tags, labels } of drawn) {
 				const solid = [
 					...scene.nodes.flatMap(({ id, box, callout }) => [
 						{ what: `Node ${id}`, box },
@@ -1026,9 +1052,7 @@ describe("a role tag", () => {
 						what: `the label of Group ${id}`,
 						box: label,
 					})),
-					...scene.edges.flatMap(({ id, label }) =>
-						label === undefined ? [] : [{ what: `the label of ${id}`, box: label.box }],
-					),
+					...labels,
 				];
 				for (const tag of tags) {
 					const others = tags
