@@ -5,17 +5,12 @@
  * the whole page, so every selector is scoped to the SVG.
  */
 
-import {
-	architectureFamilies,
-	architectureNodeKinds,
-	architectureNodeLooks,
-	architectureStatuses,
-	architectureStatusLooks,
-} from "../notations/architecture.ts";
+import { architectureStatuses, architectureStatusLooks } from "../notations/architecture.ts";
+import { type Notation, nodeKindsOf, nodeLookOf } from "../notations/notation.ts";
 import { base64 } from "./encoding.ts";
 import type { Scene } from "./scene.ts";
 import { drawnTexts, type FontData, type FontWeight, hasCharacter } from "./text.ts";
-import { type ColorName, palette } from "./theme.ts";
+import { type ColorName, palette, type ThemeColor } from "./theme.ts";
 import { indent } from "./xml.ts";
 
 export const fontWeights: Record<FontWeight, number> = { regular: 400, semibold: 600 };
@@ -29,12 +24,14 @@ const fallbackFonts = "Helvetica, Arial";
 
 /**
  * One place the SVG uses a color: the elements a selector picks, inside the
- * SVG, and which of their properties takes the color.
+ * SVG, which of their properties takes the color, and the color: the name of
+ * its property, after `--diagram-`, and its fallbacks.
  */
 export interface ColorUse {
 	selector: string;
 	property: "fill" | "stroke" | "color";
-	color: ColorName;
+	color: string;
+	fallback: ThemeColor;
 }
 
 /**
@@ -46,18 +43,28 @@ interface PossibleUse extends ColorUse {
 	needs?: string;
 }
 
-/** A use of a color by the elements of one class, which it needs. */
+/** A use of one of the colors that every Diagram shares. */
+function shared(
+	selector: string,
+	property: ColorUse["property"],
+	color: ColorName,
+	needs: string,
+): PossibleUse {
+	return { selector, property, color, fallback: palette[color], needs };
+}
+
+/** A use of a shared color by the elements of one class, which it needs. */
 function byClass(name: string, property: ColorUse["property"], color: ColorName): PossibleUse {
-	return { selector: `.${name}`, property, color, needs: name };
+	return shared(`.${name}`, property, color, name);
 }
 
 /**
  * The uses of colors that a drawing needs, in a fixed order: each one whose
- * elements the drawing's lines hold. Each Node takes its Kind's hue as its
- * `color`, which the parts of its outline and its badge use, and so does each
- * status mark, and each Edge, its casing apart.
+ * elements the drawing's lines hold. Each Node takes its Kind's hue, from its
+ * Notation, as its `color`, which the parts of its outline and its badge use,
+ * and so does each status mark, and each Edge, its casing apart.
  */
-export function colorUses(drawing: string[]): ColorUse[] {
+export function colorUses(drawing: string[], notation: Notation): ColorUse[] {
 	const text = drawing.join("\n");
 	const held = new Set<string>();
 	for (const [, names = ""] of text.matchAll(/ class="([^"]+)"/g)) {
@@ -73,9 +80,10 @@ export function colorUses(drawing: string[]): ColorUse[] {
 	const kinds = new Set(
 		[...text.matchAll(/ data-node="[^"]*" data-kind="([^"]+)"/g)].map(([, kind]) => kind),
 	);
-	const hues = architectureFamilies.flatMap((family): PossibleUse[] => {
-		const members = architectureNodeKinds.filter(
-			(kind) => kinds.has(kind) && architectureNodeLooks[kind].family === family,
+	// One rule for each hue, which the Kinds that share it take together.
+	const hues = Object.entries(notation.hues).flatMap(([hue, fallback]): PossibleUse[] => {
+		const members = nodeKindsOf(notation).filter(
+			(kind) => kinds.has(kind) && nodeLookOf(notation, kind).hue === hue,
 		);
 		return members.length === 0
 			? []
@@ -83,7 +91,8 @@ export function colorUses(drawing: string[]): ColorUse[] {
 					{
 						selector: members.map((kind) => `[data-node][data-kind="${kind}"]`).join(", "),
 						property: "color",
-						color: `hue-${family}`,
+						color: `hue-${hue}`,
+						fallback,
 					},
 				];
 	});
@@ -91,15 +100,10 @@ export function colorUses(drawing: string[]): ColorUse[] {
 		byClass("diagram-background", "fill", "background"),
 		byClass("diagram-group", "stroke", "border"),
 		byClass("diagram-group-title", "fill", "muted"),
-		{ selector: ".diagram-edges", property: "color", color: "edge", needs: "data-edge" },
+		shared(".diagram-edges", "color", "edge", "data-edge"),
 		byClass("diagram-casing", "stroke", "edge-casing"),
-		{ selector: "[data-crosses]", property: "color", color: "warn", needs: "data-crosses" },
-		{
-			selector: "[data-crosses] .diagram-casing",
-			property: "stroke",
-			color: "warn-casing",
-			needs: "data-crosses",
-		},
+		shared("[data-crosses]", "color", "warn", "data-crosses"),
+		shared("[data-crosses] .diagram-casing", "stroke", "warn-casing", "data-crosses"),
 		byClass("diagram-badge", "stroke", "surface"),
 		byClass("diagram-label", "fill", "background"),
 		byClass("diagram-label-text", "fill", "ink"),
@@ -119,7 +123,7 @@ export function colorUses(drawing: string[]): ColorUse[] {
 	];
 	return possible
 		.filter(({ needs }) => needs === undefined || held.has(needs))
-		.map(({ selector, property, color }) => ({ selector, property, color }));
+		.map(({ selector, property, color, fallback }) => ({ selector, property, color, fallback }));
 }
 
 /**
@@ -133,7 +137,7 @@ export function themeRules(scope: string, uses: ColorUse[]): string[] {
 			.split(", ")
 			.map((selector) => `.${scope} ${selector}`)
 			.join(", ");
-		return `${selectors} { ${use.property}: var(--diagram-${use.color}, ${palette[use.color][theme]}); }`;
+		return `${selectors} { ${use.property}: var(--diagram-${use.color}, ${use.fallback[theme]}); }`;
 	};
 	return [
 		...uses.map((use) => rule(use, "light")),

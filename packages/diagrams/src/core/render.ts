@@ -4,6 +4,8 @@
  * errors, it also returns the scene and the SVG.
  */
 
+import type { Notation } from "../notations/notation.ts";
+import { notations } from "../notations/notations.ts";
 import { type Bundling, defaultBundling, lanes } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { hop } from "./hops.ts";
@@ -36,6 +38,11 @@ export interface RenderOptions {
 	 */
 	fontData?: FontData;
 	/**
+	 * The Notations that the Diagram may be written in, each by its definition.
+	 * The default is the engine's own.
+	 */
+	notations?: readonly Notation[];
+	/**
 	 * How many states each Edge's route search may visit. An Edge whose search
 	 * runs out falls back to a simple route, with a warning. The default is well
 	 * above what routes on Diagrams of a few hundred Nodes need.
@@ -51,24 +58,24 @@ export interface RenderOptions {
 const rounds = 5;
 
 export function render(diagram: unknown, options: RenderOptions = {}): RenderResult {
-	const validation = validate(diagram);
+	const validation = validate(diagram, options.notations ?? notations);
 	if (validation.diagram === undefined) {
 		return { diagnostics: validation.diagnostics };
 	}
-	const model = validation.diagram;
+	const { diagram: model, notation } = validation;
 	// A labeled Edge that its bundle's trunk leaves no run of its own that holds
 	// its label keeps a lane of its own instead (spec: Edge routing, step 8).
 	// Layout leaves room for that lane too, so both run again, until no trunk
 	// crowds out another label.
 	const ownLanes = new Set<string>();
 	const bundle = options.bundle ?? defaultBundling;
-	let { nodes, groups } = layOut(model, bundle, ownLanes);
+	let { nodes, groups } = layOut(model, notation, bundle, ownLanes);
 	let routing = route(model, nodes, groups, { ...options, bundle, ownLanes });
 	for (let round = 1; round < rounds && routing.crowdedOut.length > 0; round += 1) {
 		for (const id of routing.crowdedOut) {
 			ownLanes.add(id);
 		}
-		({ nodes, groups } = layOut(model, bundle, ownLanes));
+		({ nodes, groups } = layOut(model, notation, bundle, ownLanes));
 		routing = route(model, nodes, groups, { ...options, bundle, ownLanes });
 	}
 	const edges = markEdges(model, routing.edges);
@@ -97,7 +104,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 	return {
 		diagnostics: [...validation.diagnostics, ...scene.diagnostics],
 		scene,
-		svg: writeSvg(model, scene, options.fontData),
+		svg: writeSvg(model, notation, scene, options.fontData),
 	};
 }
 

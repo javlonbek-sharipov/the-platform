@@ -5,8 +5,9 @@ import { describe, expect, test } from "vitest";
 import {
 	architectureEdgeKinds,
 	architectureGroupKinds,
-	architectureNodeKinds,
+	architectureNotation,
 	architectureStatuses,
+	nodeKindsOf,
 	technologies,
 } from "../src/index.ts";
 import { type CliRun, runCli, sampleAtlas } from "./support/atlas.ts";
@@ -76,7 +77,7 @@ describe("the agent skill", () => {
 	test("it names every Kind and status of the architecture Notation, and every Technology that has a logo", async () => {
 		const skill = await readFile(skillFile, "utf8");
 		const words = [
-			...architectureNodeKinds,
+			...nodeKindsOf(architectureNotation),
 			...architectureGroupKinds,
 			...architectureEdgeKinds,
 			...architectureStatuses,

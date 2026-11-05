@@ -14,11 +14,11 @@ import type { Diagram } from "../authoring/model.ts";
 import {
 	architectureEdgeLooks,
 	architectureGroupLooks,
-	architectureNodeLooks,
 	architectureStatusLooks,
 	logoUnits,
 	technologyOf,
 } from "../notations/architecture.ts";
+import { type NodeKindDefinition, type Notation, nodeLookOf } from "../notations/notation.ts";
 import { compareText } from "./bundles.ts";
 import { descriptionOf } from "./description.ts";
 import { arrowhead, arrowOutline, chevronPath, globePath, linePath } from "./edge-paths.ts";
@@ -49,7 +49,13 @@ const highlightGain = 1;
 /** The dashes of a dashed line, a message's or a zone's: 6 px drawn, then 4 px left out. */
 const dashes = "6 4";
 
-export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): string {
+/** Writes a Diagram's scene as an SVG, with each Kind's look from the Diagram's Notation. */
+export function writeSvg(
+	diagram: Diagram,
+	notation: Notation,
+	scene: Scene,
+	fontData?: FontData,
+): string {
 	const { bounds } = scene;
 	// Labels are drawn over every Edge, so that no route runs across one.
 	const labels = scene.edges.flatMap(({ id, label }): [string, SceneLabel][] =>
@@ -115,11 +121,13 @@ export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): s
 					indent(1, "</g>"),
 				]),
 		indent(1, start("g", [["class", "diagram-nodes"]])),
-		...scene.nodes.flatMap((node) => writeNode(node).map((text) => indent(2, text))),
+		...scene.nodes.flatMap((node) =>
+			writeNode(node, nodeLookOf(notation, node.kind)).map((text) => indent(2, text)),
+		),
 		indent(1, "</g>"),
 	];
 	const fonts = fontData === undefined ? [] : embeddedFonts(scene, fontData);
-	const uses = colorUses(body);
+	const uses = colorUses(body, notation);
 	// Inlined into a page, an SVG's style applies to the whole page, so the font's
 	// family and every selector carry a name made from everything else in the SVG.
 	const contents = [
@@ -178,9 +186,8 @@ function writeGroup(group: SceneGroup): string[] {
  * title and its Technology's name; a line across it above its Rows, and their
  * names and values; its status mark; and its callout's tag.
  */
-function writeNode(node: SceneNode): string[] {
+function writeNode(node: SceneNode, look: NodeKindDefinition): string[] {
 	const { box, badge, title, technology, logo, rows, callout } = node;
-	const look = architectureNodeLooks[node.kind];
 	const outline = outlines[look.outline];
 	// A callout highlights the outline: wider, and in the accent color.
 	const width = callout === undefined ? outline.stroke : outline.stroke + highlightGain;

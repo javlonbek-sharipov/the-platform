@@ -9,8 +9,9 @@ import * as simpleIcons from "simple-icons";
 import { describe, expect, onTestFinished, test } from "vitest";
 import {
 	architecture,
-	architectureNodeKinds,
+	architectureNotation,
 	type Box,
+	nodeKindsOf,
 	render,
 	type SceneText,
 	technologies,
@@ -320,7 +321,7 @@ describe("a Node with a Technology", () => {
 		const title = "A title as wide as the header";
 		const drawn = draw(
 			architecture({ title: "Kinds" }, (d) => {
-				for (const kind of architectureNodeKinds) {
+				for (const kind of nodeKindsOf(architectureNotation)) {
 					d.node({ id: `${kind}-alone`, kind, title, technology: "typescript" });
 					d.node({
 						id: `${kind}-with-rows`,

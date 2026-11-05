@@ -17,19 +17,17 @@ import { unknownOptionsOf } from "../authoring/options.ts";
 import {
 	architectureEdgeKinds,
 	architectureGroupKinds,
-	architectureNodeKinds,
 	architectureStatuses,
 } from "../notations/architecture.ts";
+import { type Notation, nodeKindsOf } from "../notations/notation.ts";
 import { codePointOf, type Diagnostic, list, pointerSegment } from "./diagnostics.ts";
 import { type TextField, type TextOwner, textsOf } from "./texts.ts";
 
-export interface Validation {
-	diagnostics: Diagnostic[];
-	/** The Diagram, when it has no errors. */
-	diagram?: Diagram;
-}
+/** What validation found: only diagnostics, or a Diagram without errors and its Notation. */
+export type Validation =
+	| { diagnostics: Diagnostic[]; diagram?: undefined }
+	| { diagnostics: Diagnostic[]; diagram: Diagram; notation: Notation };
 
-const nodeKinds: readonly string[] = architectureNodeKinds;
 const groupKinds: readonly string[] = architectureGroupKinds;
 const edgeKinds: readonly string[] = architectureEdgeKinds;
 const statuses: readonly string[] = architectureStatuses;
@@ -108,12 +106,21 @@ const fields = {
 	link: fieldsOf<Link>({ id: true, doc: true, section: true, label: true }),
 };
 
-export function validate(input: unknown): Validation {
-	const shape = checkShape(input);
+/**
+ * Checks a Diagram against the model's rules and its Notation's, which is
+ * the one of `notations` that it names.
+ */
+export function validate(input: unknown, notations: readonly Notation[]): Validation {
+	const shape = checkShape(input, notations);
 	if (shape.length > 0) {
 		return { diagnostics: shape };
 	}
 	const diagram = input as Diagram;
+	const notation = notations.find(({ name }) => name === diagram.notation);
+	if (notation === undefined) {
+		throw new Error("The shape check lets through only a Diagram in one of the Notations");
+	}
+	const nodeKinds: readonly string[] = nodeKindsOf(notation);
 	const diagnostics: Diagnostic[] = [];
 
 	const nodeIds = new Set<string>();
@@ -141,7 +148,7 @@ export function validate(input: unknown): Validation {
 			diagnostics.push(
 				error(
 					"unknown-kind",
-					`Node \`${node.id}\` has the Kind \`${node.kind}\`, which the architecture Notation doesn't have. Its Node Kinds are ${list(nodeKinds)}.`,
+					`Node \`${node.id}\` has the Kind \`${node.kind}\`, which the ${notation.name} Notation doesn't have. Its Node Kinds are ${list(nodeKinds)}.`,
 					`/nodes/${index}/kind`,
 				),
 			);
@@ -302,7 +309,7 @@ export function validate(input: unknown): Validation {
 
 	return diagnostics.some((diagnostic) => diagnostic.severity === "error")
 		? { diagnostics }
-		: { diagnostics, diagram };
+		: { diagnostics, diagram, notation };
 }
 
 /**
@@ -579,7 +586,7 @@ function checkCycles(diagram: Diagram, parents: Map<string, string | undefined>)
  * with every field of the right type and no field that the model doesn't
  * have, so the rules after it can read it.
  */
-function checkShape(input: unknown): Diagnostic[] {
+function checkShape(input: unknown, notations: readonly Notation[]): Diagnostic[] {
 	if (!isObject(input)) {
 		return [error("model-shape", "A Diagram must be a JSON object.", "")];
 	}
@@ -594,11 +601,11 @@ function checkShape(input: unknown): Diagnostic[] {
 			),
 		];
 	}
-	if (input.notation !== "architecture") {
+	if (!notations.some(({ name }) => name === input.notation)) {
 		return [
 			error(
 				"unknown-notation",
-				`The Diagram's Notation is \`${String(input.notation)}\`, which this engine doesn't have. Its Notations are architecture.`,
+				`The Diagram's Notation is \`${String(input.notation)}\`, which this engine doesn't have. Its Notations are ${list(notations.map(({ name }) => name))}.`,
 				"/notation",
 			),
 		];
