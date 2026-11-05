@@ -284,3 +284,65 @@ test("creating a missing imported module recovers without restarting dev", async
 	expect(drawingSvg(update)).toContain("Created import");
 	await matchesRender(root, drawingSvg(update));
 });
+
+test("the preview supplies and refreshes the shared Atlas index for component details and navigation", async () => {
+	const glossary = "# Shop\n\n**Client**:\nA customer's app.\n";
+	const source = shopModule().replace(
+		'title: "Web app"',
+		'title: "Web app", links: [{ term: "Client", context: "shop" }]',
+	);
+	const root = await sampleAtlas({
+		"diagrams.config.ts": 'export default { contexts: { shop: { glossary: "GLOSSARY.md" } } };\n',
+		"GLOSSARY.md": glossary,
+		"docs/shop.diagram.ts": source,
+		"docs/other.diagram.ts": shopModule("Other"),
+	});
+	const server = await preview(root, "docs/shop.diagram.ts");
+	const browser = await chromium.launch();
+	onTestFinished(() => browser.close());
+	const page = await browser.newPage();
+	await page.goto(server.url);
+	await page.locator("platform-diagram").getByText("Web app", { exact: true }).click();
+	const details = page.getByRole("dialog", { name: "Web app details" });
+	await details.getByText("A customer's app.", { exact: true }).waitFor({ timeout: 3000 });
+	await details.getByRole("button", { name: "Other", exact: true }).waitFor();
+	await writeFile(
+		join(root, "GLOSSARY.md"),
+		glossary.replace("A customer's app.", "The edited definition."),
+	);
+	await details.getByText("The edited definition.", { exact: true }).waitFor();
+	await details.getByRole("button", { name: "Other", exact: true }).click();
+	await page.waitForURL(/id=docs%2Fother/);
+	await page.locator("platform-diagram").getByText("Other API", { exact: true }).waitFor();
+}, 15000);
+
+test("an SVG larger than the HTTP write buffer keeps receiving rebuilds on the same stream", async () => {
+	const source = `import { architecture } from "@the-platform/diagrams";
+export default architecture({ title: "Large" }, (d) => {
+	for (let i = 0; i < 80; i++) d.node({ id: "node-" + i, title: "Node " + i, kind: "service" });
+});\n`;
+	const root = await sampleAtlas({ "docs/shop.diagram.ts": source });
+	const server = await preview(root);
+	const events = await subscribe(server.url);
+	expect(drawingSvg(await events.next()).length).toBeGreaterThan(65536);
+	await writeFile(
+		join(root, "docs/shop.diagram.ts"),
+		source.replace('title: "Large"', 'title: "Large edit"'),
+	);
+	const update = await events.next(1);
+	expect(drawingSvg(update)).toContain("Large edit");
+	await matchesRender(root, drawingSvg(update));
+});
+
+test("a new Diagram in a new folder joins the running Atlas", async () => {
+	const root = await sampleAtlas({ "docs/shop.diagram.ts": shopModule() });
+	const server = await preview(root);
+	const events = await subscribe(server.url);
+	await events.next();
+	await mkdir(join(root, "new/nested"), { recursive: true });
+	await writeFile(join(root, "new/nested/added.diagram.ts"), shopModule("Added"));
+	const update = await events.next(1);
+	expect(update.diagrams.find(({ id }) => id === "new/nested/added")?.svg).toContain("Added API");
+	const listing = await (await fetch(server.url)).text();
+	expect(listing).toContain("new/nested/added");
+});

@@ -1,14 +1,38 @@
 /** Watch parent folders so an editor's atomic rename doesn't detach the watch. */
 import { type FSWatcher, statSync, watch } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
+import { moduleSuffix } from "../atlas/discover.ts";
 
 export class Dependencies {
 	readonly #files = new Map<string, string>();
 	readonly #folders = new Map<string, FSWatcher>();
 	readonly #changed: () => void;
 
-	constructor(changed: () => void) {
+	constructor(root: string, changed: () => void) {
 		this.#changed = changed;
+		// Discovery still decides Atlas membership. This watch only notices new
+		// Diagram paths, without entering reference clones or installed packages.
+		const discovery = watch(
+			root,
+			{
+				recursive: true,
+				ignore: /(?:^|[/\\])(?:\.git|node_modules|repos|\.diagrams-cache|\.vitest|dist)(?:[/\\]|$)/,
+			},
+			(_event, name) => {
+				if (name === null) {
+					this.#changed();
+					return;
+				}
+				const file = join(root, String(name));
+				if (file.endsWith(moduleSuffix)) {
+					if (!this.#files.has(file)) {
+						this.add(file);
+						this.#changed();
+					} else this.check();
+				} else if (this.#files.has(file)) this.check();
+			},
+		);
+		this.#folders.set(root, discovery);
 	}
 
 	add(file: string): void {

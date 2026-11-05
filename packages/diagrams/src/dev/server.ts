@@ -32,16 +32,17 @@ export async function serveDev({
 	let update: PreviewUpdate = { revision, diagrams: [], messages: [] };
 	const drawings = new Map<string, string>();
 	const streams = new Set<ServerResponse>();
-	const send = (response: ServerResponse) => {
-		if (
-			!response.write(`event: update\nid: ${update.revision}\ndata: ${JSON.stringify(update)}\n\n`)
-		) {
-			// A stalled browser can reconnect for the newest snapshot instead of
-			// retaining an unbounded queue of obsolete drawings.
-			response.end();
+	const pending = new Map<ServerResponse, PreviewUpdate>();
+	const send = (response: ServerResponse, snapshot = update) => {
+		if (response.writableNeedDrain) {
+			pending.set(response, snapshot);
+			return;
 		}
+		response.write(
+			`event: update\nid: ${snapshot.revision}\ndata: ${JSON.stringify(snapshot)}\n\n`,
+		);
 	};
-	const dependencies = new Dependencies(() => {
+	const dependencies = new Dependencies(root, () => {
 		revision++;
 		clearTimeout(scheduled);
 		scheduled = setTimeout(() => {
@@ -106,6 +107,9 @@ export async function serveDev({
 		await running;
 	};
 	await build();
+	// Startup can itself be superseded by an edit. Serve a completed snapshot,
+	// rather than the empty state while the replacement build is loading.
+	while (running !== undefined) await running;
 	if (context.signal?.aborted) {
 		dependencies.close();
 		return 0;
@@ -117,7 +121,15 @@ export async function serveDev({
 			if (url.pathname === "/events") {
 				response.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8" });
 				streams.add(response);
-				response.on("close", () => streams.delete(response));
+				response.on("drain", () => {
+					const latest = pending.get(response);
+					pending.delete(response);
+					if (latest !== undefined) send(response, latest);
+				});
+				response.on("close", () => {
+					streams.delete(response);
+					pending.delete(response);
+				});
 				send(response);
 				return;
 			}
@@ -166,7 +178,7 @@ export async function serveDev({
 			`Live preview: http://localhost:${address.port}${selected === undefined ? "/" : diagramUrl(selected)}\n`,
 		);
 		const heartbeat = setInterval(() => {
-			for (const stream of streams) stream.write(": heartbeat\n\n");
+			for (const stream of streams) if (!stream.writableNeedDrain) stream.write(": heartbeat\n\n");
 		}, 15000);
 		await new Promise<void>((resolve) => {
 			const stop = () => {
