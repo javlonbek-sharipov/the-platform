@@ -1,6 +1,6 @@
 # Diagram engine v1
 
-Status: ready-for-agent
+Tracked in [issue #1](https://github.com/javlonbek-sharipov/the-platform/issues/1).
 
 The spec for `@the-platform/diagrams`, rewritten on 4 November 2026 after the design session. Its words are defined in the Diagrams glossary (`packages/diagrams/GLOSSARY.md`). The decisions that are hard to reverse are recorded in ADR-0001 to ADR-0005 (`packages/diagrams/docs/adr/`).
 
@@ -1825,7 +1825,7 @@ Scope moved or added while the tickets ran. Each ticket's Comments say why.
 
 **Review 1**
 
-The fix of code review 1 (`../review-1.md`) settled these. Where one amends the spec, the main text says so now.
+The fix of [code review 1](https://github.com/javlonbek-sharipov/the-platform/blob/e5f18741e9601483efb359902bf99cdebf446cc1/.scratch/diagram-engine/review-1.md) settled these. Where one amends the spec, the main text says so now.
 
 1. **The Atlas index.**
    - `diagrams export --index [--out path]` writes it as JSON indented by two spaces, by default to `.diagrams-cache/index.json`, and prints its absolute path. It sits outside `export/`, so that no Diagram's JSON export can take its name.

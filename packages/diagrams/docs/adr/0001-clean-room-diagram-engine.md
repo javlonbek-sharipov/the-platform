@@ -1,6 +1,6 @@
 # Build the diagram engine clean-room
 
-We build our own diagram engine from the ideas in quorum's board renderer, not from its code. quorum is licensed GPL-3.0-or-later, so copying or porting its code would put our engine under the GPL, and we want to choose our own license. The engine is built from `.scratch/diagram-engine/spec.md` and the papers it cites, by people and agents who don't open `repos/quorum` while implementing.
+We build our own diagram engine from the ideas in quorum's board renderer, not from its code. quorum is licensed GPL-3.0-or-later, so copying or porting its code would put our engine under the GPL, and we want to choose our own license. The engine is built from `docs/specs/diagram-engine.md` and the papers it cites, by people and agents who don't open `repos/quorum` while implementing.
 
 ## Considered Options
 

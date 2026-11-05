@@ -2,7 +2,7 @@
 
 ### Issue tracker
 
-Issues and specs live as markdown files under `.scratch/<feature-slug>/`. See `docs/agents/issue-tracker.md`.
+Issues and specs live as GitHub issues in `javlonbek-sharipov/the-platform`, through the `gh` CLI. A spec too long for an issue is a file under `docs/specs/`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
@@ -18,4 +18,4 @@ Read the `diagrams` skill (`packages/diagrams/skills/diagrams/SKILL.md`) before 
 
 ## Reference clones
 
-`repos/` holds gitignored clones of other projects, for reading only. `repos/quorum` is GPL-3.0: take ideas from it, never code. The diagram engine is a clean-room build from `.scratch/diagram-engine/spec.md`; don't open `repos/quorum` while implementing it.
+`repos/` holds gitignored clones of other projects, for reading only. `repos/quorum` is GPL-3.0: take ideas from it, never code. The diagram engine is a clean-room build from `docs/specs/diagram-engine.md`; don't open `repos/quorum` while implementing it.

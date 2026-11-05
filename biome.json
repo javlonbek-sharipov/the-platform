@@ -7,7 +7,7 @@
 	},
 	"files": {
 		"ignoreUnknown": true,
-		"includes": ["**", "!.scratch", "!**/*.diagram.svg", "!packages/diagrams/test/golden"]
+		"includes": ["**", "!docs/specs", "!**/*.diagram.svg", "!packages/diagrams/test/golden"]
 	},
 	"formatter": {
 		"enabled": true,
