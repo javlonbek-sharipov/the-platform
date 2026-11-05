@@ -3,8 +3,10 @@ import { existsSync, realpathSync } from "node:fs";
 import { readFile, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { render } from "@the-platform/diagrams";
 import type { Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import billing from "../../../packages/diagrams/docs/example-billing.diagram.ts";
 import { closeBrowser, open, reading } from "./support/browser.ts";
 import { checkoutSvg, sampleRepo } from "./support/repo.ts";
 import { buildSite, type DevelopedSite, developSite, type Site } from "./support/site.ts";
@@ -13,6 +15,10 @@ import { buildSite, type DevelopedSite, developSite, type Site } from "./support
 const lines = (...text: string[]) => `${text.join("\n")}\n`;
 
 const svg = checkoutSvg();
+const aggregateSvg = render(billing).svg;
+if (aggregateSvg === undefined) {
+	throw new Error("the sample aggregate diagram has errors");
+}
 
 /** What every file of another project says, in the sample repo's `repos/`. */
 const notOurs = "Not ours to show";
@@ -100,6 +106,12 @@ const shop = {
 		"It's written in [`checkout.diagram.ts`](./checkout.diagram.ts).",
 	),
 	"packages/shop/docs/checkout.diagram.svg": svg,
+	"packages/shop/docs/billing.md": lines(
+		"# Billing",
+		"",
+		"![Billing aggregates](./billing.diagram.svg)",
+	),
+	"packages/shop/docs/billing.diagram.svg": aggregateSvg,
 	"packages/shop/docs/logo.md": lines(
 		"# Logo",
 		"",
@@ -210,37 +222,40 @@ describe("the docs site of a sample repo", () => {
 		expect((await node.boundingBox())?.width).toBeGreaterThan(0);
 	});
 
-	test("a Diagram is drawn in the site's theme, whatever the reader's system asks for", async () => {
-		const drawn: Record<string, Buffer> = {};
-		for (const system of ["light", "dark"] as const) {
-			for (const theme of ["Light", "Dark"]) {
-				const reader = await reading(site, { scheme: system });
-				const page = await open(reader, "packages/shop/docs/checkout");
-				// The site has the switch twice, once for narrow windows: the reader uses the one that shows.
-				const themes = page.getByLabel("Select theme").filter({ visible: true });
-				await themes.selectOption({ label: theme });
-				// Zoomed out as far as it goes, the whole drawing is in view, with every color it has.
-				const diagram = page.locator("platform-diagram");
-				await diagram.click();
-				for (let press = 0; press < 8; press++) {
-					await page.keyboard.press("-");
+	test.each(["checkout", "billing"])(
+		"%s is drawn in the site's theme, whatever the reader's system asks for",
+		async (name) => {
+			const drawn: Record<string, Buffer> = {};
+			for (const system of ["light", "dark"] as const) {
+				for (const theme of ["Light", "Dark"]) {
+					const reader = await reading(site, { scheme: system });
+					const page = await open(reader, `packages/shop/docs/${name}`);
+					// The site has the switch twice, once for narrow windows: the reader uses the one that shows.
+					const themes = page.getByLabel("Select theme").filter({ visible: true });
+					await themes.selectOption({ label: theme });
+					// Zoomed out as far as it goes, the whole drawing is in view, with every color it has.
+					const diagram = page.locator("platform-diagram");
+					await diagram.click();
+					for (let press = 0; press < 8; press++) {
+						await page.keyboard.press("-");
+					}
+					drawn[`${theme} on a ${system} system`] = await diagram.screenshot();
+					await reader.close();
 				}
-				drawn[`${theme} on a ${system} system`] = await diagram.screenshot();
-				await reader.close();
 			}
-		}
 
-		// The site's switch decides how a Diagram looks, and the two themes look different.
-		expect(
-			drawn["Light on a dark system"]?.equals(drawn["Light on a light system"] ?? Buffer.of()),
-		).toBe(true);
-		expect(
-			drawn["Dark on a light system"]?.equals(drawn["Dark on a dark system"] ?? Buffer.of()),
-		).toBe(true);
-		expect(
-			drawn["Light on a light system"]?.equals(drawn["Dark on a dark system"] ?? Buffer.of()),
-		).toBe(false);
-	});
+			// The site's switch decides how a Diagram looks, and the two themes look different.
+			expect(
+				drawn["Light on a dark system"]?.equals(drawn["Light on a light system"] ?? Buffer.of()),
+			).toBe(true);
+			expect(
+				drawn["Dark on a light system"]?.equals(drawn["Dark on a dark system"] ?? Buffer.of()),
+			).toBe(true);
+			expect(
+				drawn["Light on a light system"]?.equals(drawn["Dark on a dark system"] ?? Buffer.of()),
+			).toBe(false);
+		},
+	);
 
 	test("nothing in repos/ is shown, or kept", async () => {
 		expect(existsSync(join(site.folder, "repos"))).toBe(false);
@@ -301,7 +316,9 @@ describe("the docs site of a sample repo", () => {
 					{ Specs: ["Checkout v1"] },
 				],
 			},
-			{ Shop: ["Glossary", { ADRs: ["Keep one cart per shopper"] }, "Checkout", "Logo"] },
+			{
+				Shop: ["Glossary", { ADRs: ["Keep one cart per shopper"] }, "Billing", "Checkout", "Logo"],
+			},
 		]);
 	});
 

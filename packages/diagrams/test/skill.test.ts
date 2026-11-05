@@ -23,8 +23,17 @@ const repo = new URL("../../../", import.meta.url);
  * module that it copies.
  */
 const examples = [
-	{ heading: "Example", module: "docs/example-system.diagram.ts" },
-	{ heading: "Context maps", module: "docs/example-context-map.diagram.ts" },
+	{ heading: "Example", module: "docs/example-system.diagram.ts", support: [] },
+	{
+		heading: "Context maps",
+		module: "docs/example-context-map.diagram.ts",
+		support: ["docs/shared/ordering.ts"],
+	},
+	{
+		heading: "Aggregate diagrams",
+		module: "docs/example-billing.diagram.ts",
+		support: ["docs/shared/ordering.ts", "docs/example-ordering.diagram.ts"],
+	},
 ];
 
 /** A complete example Diagram that the skill shows: the first code block under a heading of its own. */
@@ -50,9 +59,23 @@ function commandsIn(skill: string, module: string): string[][] {
 describe("the agent skill", () => {
 	test.each(examples)(
 		"its own commands render its example under `$heading`, lint it without a message, and export it as a PNG",
-		async ({ heading, module }) => {
+		async ({ heading, module, support }) => {
 			const skill = await readFile(skillFile, "utf8");
-			const atlas = await sampleAtlas({ [module]: exampleUnder(skill, heading) });
+			const files = Object.fromEntries(
+				await Promise.all(
+					support.map(async (file) => [
+						file,
+						await readFile(new URL(`../${file}`, import.meta.url), "utf8"),
+					]),
+				),
+			);
+			const atlas = await sampleAtlas({ ...files, [module]: exampleUnder(skill, heading) });
+			// The example borrows an event from an existing Diagram. Render that
+			// fixture under the sample Atlas's paths before following the skill.
+			const companions = support.filter((file) => file.endsWith(".diagram.ts"));
+			if (companions.length > 0) {
+				expect((await runCli(["render", ...companions], atlas)).code).toBe(0);
+			}
 			const name = module.slice(0, -".diagram.ts".length);
 
 			const runs: Record<string, CliRun> = {};
@@ -66,7 +89,7 @@ describe("the agent skill", () => {
 				[`export ${module} --format png`]: { code: 0, stdout: `${png}\n`, stderr: "" },
 			});
 			expect(JSON.parse(runs["lint --json"]?.stdout ?? "")).toEqual({
-				diagrams: 1,
+				diagrams: 1 + support.filter((file) => file.endsWith(".diagram.ts")).length,
 				errors: 0,
 				warnings: 0,
 				messages: [],

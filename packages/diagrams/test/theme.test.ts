@@ -232,6 +232,9 @@ describe("the theme's colors, for a page that sets them itself", () => {
 		expect(themeColors(notations)).toMatchObject({
 			ink: { light: "#1f2328", dark: "#f0f6fc" },
 			"hue-compute": { light: "#0969da", dark: "#4493f8" },
+			"hue-context": { light: "#4f55c8", dark: "#8f96f5" },
+			"hue-aggregate": { light: "#27694c", dark: "#70cda0" },
+			"hue-event": { light: "#935619", dark: "#e8ae68" },
 		});
 	});
 });

@@ -6,7 +6,6 @@ import {
 	builderOf,
 	domain,
 	domainNotation,
-	edgeKindsOf,
 	type Notation,
 	nodeKindsOf,
 	type Point,
@@ -67,7 +66,7 @@ describe("a context map", () => {
 		expect(schemaErrors(shop)).toEqual([]);
 	});
 
-	test("has no Node Kind but `context`, and four Edge Kinds", () => {
+	test("rejects Kinds that the domain Notation doesn't have", () => {
 		const service = { ...shop, nodes: [{ ...shop.nodes[0], kind: "service" }, shop.nodes[1]] };
 		const call = { ...shop, edges: [{ ...shop.edges[0], kind: "call" }] };
 
@@ -76,7 +75,7 @@ describe("a context map", () => {
 				severity: "error",
 				rule: "unknown-kind",
 				message:
-					"Node `catalog` has the Kind `service`, which the domain Notation doesn't have. Its only Node Kind is context.",
+					"Node `catalog` has the Kind `service`, which the domain Notation doesn't have. Its Node Kinds are context, aggregate and event.",
 				pointer: "/nodes/0/kind",
 			},
 		]);
@@ -85,7 +84,7 @@ describe("a context map", () => {
 				severity: "error",
 				rule: "unknown-kind",
 				message:
-					"Edge `catalog->ordering` has the Kind `call`, which the domain Notation doesn't have. Its Edge Kinds are partnership, shared-kernel, upstream-downstream and customer-supplier.",
+					"Edge `catalog->ordering` has the Kind `call`, which the domain Notation doesn't have. Its Edge Kinds are partnership, shared-kernel, upstream-downstream, customer-supplier, references, emits and reacts.",
 				pointer: "/edges/0/kind",
 			},
 		]);
@@ -93,7 +92,7 @@ describe("a context map", () => {
 		expect(schemaPointers(call)).toContain("/edges/0/kind");
 	});
 
-	test("has no Groups, since the domain Notation has no Group Kinds, and the schema agrees", () => {
+	test("rejects a Group Kind that the domain Notation doesn't have, and the schema agrees", () => {
 		const grouped = {
 			...shop,
 			members: ["sales"],
@@ -108,7 +107,7 @@ describe("a context map", () => {
 					severity: "error",
 					rule: "unknown-kind",
 					message:
-						"Group `sales` has the Kind `subdomain`, which the domain Notation doesn't have. It has no Group Kinds.",
+						"Group `sales` has the Kind `subdomain`, which the domain Notation doesn't have. Its only Group Kind is context.",
 					pointer: "/groups/0/kind",
 				},
 			],
@@ -189,7 +188,7 @@ describe("a context map's Edges", () => {
 			edges: [{ id: "joint", kind, from, to }],
 		});
 
-		for (const kind of edgeKindsOf(domainNotation)) {
+		for (const { kind } of relations.edges) {
 			expect(
 				render(joined(kind, "catalog", "platform-team"), { notations: [withTeams] }).diagnostics,
 				kind,
@@ -213,7 +212,7 @@ describe("a context map's Edges", () => {
 				},
 			]);
 		}
-		expect(edgeKindsOf(domainNotation)).toHaveLength(4);
+		expect(relations.edges).toHaveLength(4);
 	});
 
 	test("may carry a label, which the drawing and the description show, but no Technology and no rate", () => {
@@ -407,9 +406,9 @@ describe("a context", () => {
 				plain.nodes[1],
 			],
 		};
-		const fields = "`id`, `kind`, `title`, `external`, `description` and `links`";
+		const fields = "`id`, `kind`, `title`, `external`, `rows`, `description` and `links`";
 		expect(render(architectural).diagnostics).toEqual(
-			["technology", "status", "rows", "callout"].map((field) => ({
+			["technology", "status", "callout"].map((field) => ({
 				severity: "error",
 				rule: "model-shape",
 				message: `\`/nodes/0/${field}\` must be left out: a Node has no such field in the domain Notation. Its fields are ${fields}.`,

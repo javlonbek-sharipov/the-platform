@@ -289,12 +289,15 @@ export function builderOf<const N extends Notation>(
 		const unknown = unknownOptions(declared, { known: options.diagram }, "The Diagram", "");
 
 		/** A builder whose Nodes and Groups join `parent`, the members list of the Diagram or of one Group. */
-		const builderFor = (parent: string[]): Builder<N> => {
+		const builderFor = (parent: string[], namespace?: string): Builder<N> => {
+			const fullId = (id: string) =>
+				namespace === undefined || id.includes("/") ? id : `${namespace}/${id}`;
 			const builder: Builder<N> = {
 				node(node) {
 					const at = `/nodes/${nodes.length}`;
 					declare(at, builder.node);
-					const { id, kind, title, rows } = node as NodeDeclaration<Notation>;
+					const { kind, title, rows } = node as NodeDeclaration<Notation>;
+					const id = fullId(node.id);
 					unknown.push(...unknownOptions(node, known.node, "A Node", at));
 					rows?.forEach((row, index) => {
 						unknown.push(
@@ -322,7 +325,8 @@ export function builderOf<const N extends Notation>(
 				group(definition, buildGroup) {
 					const at = `/groups/${groups.length}`;
 					declare(at, builder.group);
-					const { id, kind, title } = definition;
+					const { kind, title } = definition;
+					const id = fullId(definition.id);
 					unknown.push(...unknownOptions(definition, known.group, "A Group", at));
 					const group: AnyGroup = {
 						id,
@@ -335,7 +339,10 @@ export function builderOf<const N extends Notation>(
 					};
 					groups.push(group);
 					parent.push(id);
-					buildGroup(builderFor(group.members));
+					const look = Object.hasOwn(notation.groupKinds, kind)
+						? notation.groupKinds[kind]
+						: undefined;
+					buildGroup(builderFor(group.members, look?.namespace === true ? id : namespace));
 					return Object.freeze({ id });
 				},
 				edge(from, to, declaredEdge) {
@@ -353,8 +360,8 @@ export function builderOf<const N extends Notation>(
 							),
 						);
 					}
-					const fromEnd = modelEnd(from);
-					const toEnd = modelEnd(to);
+					const fromEnd = modelEnd(from, fullId);
+					const toEnd = modelEnd(to, fullId);
 					// A default id names the two Nodes, whatever their Rows.
 					const edge: AnyEdge = {
 						id: id ?? `${endNode(fromEnd)}->${endNode(toEnd)}`,
@@ -396,11 +403,11 @@ export function builderOf<const N extends Notation>(
 }
 
 /** An Edge end as the model writes it: a Node's id, or a Row end of its own. */
-function modelEnd(end: EdgeEnd): string | RowEnd {
+function modelEnd(end: EdgeEnd, fullId: (id: string) => string): string | RowEnd {
 	if (typeof end === "string") {
-		return end;
+		return fullId(end);
 	}
-	return "node" in end ? { node: end.node, row: end.row } : end.id;
+	return "node" in end ? { node: fullId(end.node), row: end.row } : end.id;
 }
 
 /** The model's own Rows, each a name and, if it has one, a value. */

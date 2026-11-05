@@ -6,22 +6,30 @@ import {
 	builderOf,
 	type DiagramDeclaration,
 	type EdgeDeclaration,
+	type GroupDeclaration,
 	type NodeDeclaration,
+	type RowDeclaration,
 } from "./builder.ts";
 
 export type DomainOptions = DiagramDeclaration;
 
 /**
- * A Node to declare: on a context map, a bounded context. It's a plain
- * object, so a context can be defined once in a shared module, with
+ * A Node to declare: a bounded context, an aggregate or a domain event. It's
+ * a plain object, so one can be defined once in a shared module, with
  * `satisfies DomainNode`, and declared on several Diagrams.
  */
 export type DomainNode = NodeDeclaration<DomainNotation>;
 
+/** The bounded context around an aggregate diagram's Nodes. */
+export type DomainGroup = GroupDeclaration<DomainNotation>;
+
+/** An entity, value object or invariant listed on an aggregate. */
+export type DomainRow<R extends string = string> = RowDeclaration<R>;
+
 /** What an Edge is declared with, between its two ends. */
 export type DomainEdgeOptions = EdgeDeclaration<DomainNotation>;
 
-/** Declares the Nodes and Edges of a domain Diagram. */
+/** Declares the Nodes, Groups and Edges of a domain Diagram. */
 export type DomainBuilder = Builder<DomainNotation>;
 
 /**
