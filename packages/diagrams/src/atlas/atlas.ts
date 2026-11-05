@@ -66,9 +66,28 @@ export function svgFileOf(module: string): string {
 	return `${module.slice(0, -moduleSuffix.length)}${svgSuffix}`;
 }
 
-/** Loads each module, and renders its Diagram, embedding a subset of the bundled font. */
-export async function renderDiagrams(root: string, modules: string[]): Promise<RenderedDiagram[]> {
-	return (await load(modules)).map((loaded) => renderLoaded(root, loaded));
+/** One opening of the Atlas, shared by render, lint, export and the index. */
+export interface OpenAtlas {
+	root: string;
+	files: AtlasFiles;
+	diagrams: RenderedDiagram[];
+	/** Config errors apply to every command, including one that selects a single Diagram. */
+	messages: AtlasMessage[];
+	/** Even an invalid Diagram may draw an id, so Links don't duplicate its own errors. */
+	drawn: ReadonlySet<string>;
+}
+
+/** Loads the config and every module together, in a fresh module context. */
+export async function openAtlas(root: string, files?: AtlasFiles): Promise<OpenAtlas> {
+	files ??= await discover(root);
+	const [config, ...modules] = await load([join(root, configFile), ...files.modules]);
+	return {
+		root,
+		files,
+		diagrams: modules.map((loaded) => renderLoaded(root, loaded)),
+		messages: config === undefined ? [] : checkConfig(root, config),
+		drawn: new Set(modules.flatMap(idsDrawnBy)),
+	};
 }
 
 /** What lint found: how many Diagrams it checked, and its messages, file by file. */
@@ -91,23 +110,22 @@ export async function lintAtlas(
 	files?: AtlasFiles,
 	svgWords: SvgWords = workingTree,
 ): Promise<Linted> {
-	files ??= await discover(root);
-	const [config, ...modules] = await load([join(root, configFile), ...files.modules]);
-	const rendered = modules.map((loaded) => renderLoaded(root, loaded));
+	const atlas = await openAtlas(root, files);
+	const { diagrams: rendered } = atlas;
 	const valid = rendered.flatMap(({ module, model, declarations }) =>
 		model === undefined ? [] : [{ module, id: diagramIdOf(root, module), model, declarations }],
 	);
 	const messages = [
-		...(config === undefined ? [] : checkConfig(root, config)),
+		...atlas.messages,
 		...rendered.flatMap((diagram) => {
 			const stale =
 				diagram.svg === undefined ? undefined : checkSvg(diagram.svgFile, diagram.svg, svgWords);
 			return stale === undefined ? diagram.messages : [...diagram.messages, stale];
 		}),
-		...checkOrphans(files, svgWords),
+		...checkOrphans(atlas.files, svgWords),
 		...checkIds(valid),
 		...checkNamespaceHomes(valid),
-		...checkLinks(root, valid, new Set(modules.flatMap(idsDrawnBy))),
+		...checkLinks(root, valid, atlas.drawn),
 	];
 	return { diagrams: rendered.length, messages: messages.sort(byPlace) };
 }
@@ -180,11 +198,16 @@ export interface AtlasIndex {
 export async function indexAtlas(
 	root: string,
 ): Promise<{ index?: AtlasIndex; errors: AtlasMessage[] }> {
-	const rendered = await renderDiagrams(root, (await discover(root)).modules);
+	const atlas = await openAtlas(root);
+	const { diagrams: rendered } = atlas;
 	const valid = rendered.flatMap(({ module, model, declarations }) =>
 		model === undefined ? [] : [{ module, id: diagramIdOf(root, module), model, declarations }],
 	);
-	const errors = [...rendered.flatMap(({ messages }) => messages), ...checkIds(valid)]
+	const errors = [
+		...atlas.messages,
+		...rendered.flatMap(({ messages }) => messages),
+		...checkIds(valid),
+	]
 		.filter((message) => message.severity === "error")
 		.sort(byPlace);
 	if (errors.length > 0) {

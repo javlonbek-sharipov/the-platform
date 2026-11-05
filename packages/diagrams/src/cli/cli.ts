@@ -10,7 +10,7 @@ import {
 	indexAtlas,
 	lintAtlas,
 	lintStaged,
-	renderDiagrams,
+	openAtlas,
 	svgOnDisk,
 } from "../atlas/atlas.ts";
 import { AtlasError, configFile, discover, findRoot, moduleSuffix } from "../atlas/discover.ts";
@@ -77,8 +77,10 @@ async function run(args: string[], context: CliContext): Promise<number> {
 
 async function renderCommand(paths: string[], context: CliContext): Promise<number> {
 	const root = findRoot(context.cwd);
-	const atlas = { root, modules: (await discover(root)).modules };
-	const named = paths.map((path) => modulesNamed(path, atlas, context, { folders: true }));
+	const files = await discover(root);
+	const named = paths.map((path) =>
+		modulesNamed(path, { root, modules: files.modules }, context, { folders: true }),
+	);
 	const refused = named.flatMap((found) => ("error" in found ? [found.error] : []));
 	if (refused.length > 0) {
 		for (const error of refused) {
@@ -88,12 +90,16 @@ async function renderCommand(paths: string[], context: CliContext): Promise<numb
 	}
 	const modules =
 		paths.length === 0
-			? atlas.modules
+			? files.modules
 			: [...new Set(named.flatMap((found) => ("error" in found ? [] : found)))];
-	let failed = false;
-	for (const diagram of await renderDiagrams(root, modules)) {
+	const atlas = await openAtlas(root, files);
+	print(atlas.messages, context);
+	const invalidConfig = atlas.messages.some(({ severity }) => severity === "error");
+	let failed = invalidConfig;
+	const byModule = new Map(atlas.diagrams.map((diagram) => [diagram.module, diagram]));
+	for (const diagram of modules.flatMap((module) => byModule.get(module) ?? [])) {
 		print(diagram.messages, context);
-		if (diagram.svg === undefined) {
+		if (invalidConfig || diagram.svg === undefined) {
 			failed = true;
 			continue;
 		}
@@ -171,13 +177,20 @@ async function exportCommand(args: string[], context: CliContext): Promise<numbe
 		return 2;
 	}
 	const root = findRoot(context.cwd);
-	const atlas = { root, modules: (await discover(root)).modules };
-	const named = modulesNamed(request.diagram, atlas, context, { folders: false });
+	const files = await discover(root);
+	const named = modulesNamed(request.diagram, { root, modules: files.modules }, context, {
+		folders: false,
+	});
 	if ("error" in named) {
 		context.stderr.write(`${named.error}\n`);
 		return 2;
 	}
-	const [rendered] = await renderDiagrams(root, named);
+	const atlas = await openAtlas(root, files);
+	print(atlas.messages, context, context.stderr);
+	if (atlas.messages.some(({ severity }) => severity === "error")) {
+		return 1;
+	}
+	const rendered = atlas.diagrams.find(({ module }) => named.includes(module));
 	const { svg, model, messages = [] } = rendered ?? {};
 	// The path alone goes to stdout, so that a script can read it.
 	print(messages, context, context.stderr);

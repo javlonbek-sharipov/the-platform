@@ -131,6 +131,7 @@ describe("diagrams render and lint", () => {
 		expect(render).toEqual({
 			code: 1,
 			stdout:
+				"diagrams.config.ts:3:16: error: The Atlas config has no option `contexts`. It has no options yet. (model-shape)\n" +
 				"docs/shop.diagram.ts:6:4: error: An Edge has no option `lable`. Its options are `kind`, `id`, `label`, `technology` and `rate`. (model-shape)\n",
 			stderr: "",
 		});

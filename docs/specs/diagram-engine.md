@@ -2104,6 +2104,12 @@ Aggregate diagrams. This is GitHub's issue #4, not ticket 04 above.
    - The skill's `Aggregate diagrams` section teaches the form, namespaces and borrowed events, with the complete Billing example. Its command test supplies the shared module and the event's already-rendered home, then follows the skill. Every example is still held byte for byte to its source module.
 7. **Docs-site themes.** After merging issue 12, `themeColors(notations)` exports the new hues automatically. No change to the site's theme code was needed. The theme's fixture-wide property checks both hues, and the built site's real-browser theme check now draws aggregates as well as architecture, comparing each site theme under both system schemes.
 
+**Issue 5**
+
+Glossaries and term Links. This is GitHub's issue #5, not ticket 05 above.
+
+1. **Every command opens the Atlas together.** `openAtlas(root, files?)` loads the config and every discovered module in one fresh worker context. Render, lint, both exports and the index share it. This replaces ticket 05's decision that only lint loads the config. Config errors stop output files from being written; selecting a Diagram still selects which render diagnostics and SVGs to publish. Lint adds the checks of files on disk and across Diagrams. The live preview and docs integration can reuse this opening without going through the CLI.
+
 **Issue 12**
 
 The docs site. This is GitHub's issue #12, not ticket 12 above.
