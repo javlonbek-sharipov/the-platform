@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs";
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import { runCli, sampleAtlas, shopModule } from "./support/atlas.ts";
+import { git, runCli, sampleAtlas, sampleConfig, shopModule } from "./support/atlas.ts";
 import { embeddedFaces } from "./support/fonts.ts";
 import { characterMap, openFont } from "./support/truetype.ts";
 
@@ -118,6 +118,34 @@ describe("diagrams render and lint", () => {
 		});
 	});
 
+	test("an option that the builder or the config doesn't know is an error at the call it's given to, so it never vanishes", async () => {
+		const atlas = await sampleAtlas({
+			"diagrams.config.ts": sampleConfig.replace("atlas({})", "atlas({ contexts: {} })"),
+			"docs/shop.diagram.ts": shopModule().replace(
+				'{ kind: "call" }',
+				'{ kind: "call", lable: "Buys" }',
+			),
+		});
+
+		const render = await runCli(["render"], atlas);
+		expect(render).toEqual({
+			code: 1,
+			stdout:
+				"docs/shop.diagram.ts:6:4: error: An Edge has no option `lable`. Its options are `kind`, `id`, `label`, `technology` and `rate`. (model-shape)\n",
+			stderr: "",
+		});
+		expect(existsSync(join(atlas, "docs/shop.diagram.svg"))).toBe(false);
+
+		expect(await runCli(["lint"], atlas)).toEqual({
+			code: 1,
+			stdout:
+				"diagrams.config.ts:3:16: error: The Atlas config has no option `contexts`. It has no options yet. (model-shape)\n" +
+				"docs/shop.diagram.ts:6:4: error: An Edge has no option `lable`. Its options are `kind`, `id`, `label`, `technology` and `rate`. (model-shape)\n" +
+				"Checked 1 Diagram: 2 errors.\n",
+			stderr: "",
+		});
+	});
+
 	test("a module that throws, or doesn't default-export a Diagram, is an error that names its file", async () => {
 		const atlas = await sampleAtlas({
 			"docs/closed.diagram.ts":
@@ -217,6 +245,53 @@ describe("diagrams render and lint", () => {
 			"docs/billing/billing.diagram.svg: error:",
 		);
 	});
+
+	test("render refuses a path that isn't a Diagram module in the Atlas, with exit code 2, and writes nothing", async () => {
+		const folder = await sampleAtlas({
+			"site/diagrams.config.ts": sampleConfig,
+			"site/.gitignore": "drafts/\n",
+			"site/docs/shop.diagram.ts": shopModule("Shop"),
+			"site/docs/shop.ts": shopModule("Shop"),
+			"site/drafts/stock.diagram.ts": shopModule("Stock"),
+			"docs/outside.diagram.ts": shopModule("Outside"),
+		});
+		const atlas = join(folder, "site");
+		git(atlas, "init", "-q");
+		const cases: [path: string, message: string][] = [
+			[
+				"docs/shop.ts",
+				"There's no Diagram at `docs/shop.ts`. Name one by its module's path, which ends in `.diagram.ts`, or name a folder to render every Diagram in it.",
+			],
+			[
+				"docs/shops.diagram.ts",
+				"There's no Diagram at `docs/shops.diagram.ts`. Name one by its module's path, which ends in `.diagram.ts`, or name a folder to render every Diagram in it.",
+			],
+			[
+				"../docs/outside.diagram.ts",
+				"`../docs/outside.diagram.ts` isn't in the Atlas: it lies outside the folder that holds `diagrams.config.ts`.",
+			],
+			[
+				"../docs",
+				"`../docs` isn't in the Atlas: it lies outside the folder that holds `diagrams.config.ts`.",
+			],
+			[
+				"drafts/stock.diagram.ts",
+				"`drafts/stock.diagram.ts` isn't in the Atlas, which leaves out the files that git ignores.",
+			],
+		];
+		for (const [path, message] of cases) {
+			expect(await runCli(["render", "docs/shop.diagram.ts", path], atlas), path).toEqual({
+				code: 2,
+				stdout: "",
+				stderr: `${message}\n`,
+			});
+		}
+		// The sample's own files, leaving out the engine that node_modules links to.
+		const svgs = (await readdir(folder, { recursive: true })).filter(
+			(file) => file.endsWith(".diagram.svg") && !file.startsWith("node_modules"),
+		);
+		expect(svgs).toEqual([]);
+	});
 });
 
 describe("diagrams render and lint, with text", () => {
@@ -286,5 +361,94 @@ export default architecture({ title: "Sign-in" }, (d) => {
 			/^docs\/sign-in\.diagram\.ts:10:4: warning: Edge `gateway->accounts-api`'s label is too long for its run, so it's shortened to `Checks every .*…`\. .* \(text-shortened\)$/m,
 		);
 		expect(lint.stdout).toMatch(/\nChecked 1 Diagram: no errors, 2 warnings\.\n$/);
+	});
+});
+
+describe("diagrams lint --staged", () => {
+	test("judges what's staged, so an SVG rendered but left unstaged beside its staged source fails", async () => {
+		const atlas = await sampleAtlas({ "docs/shop.diagram.ts": shopModule("Shop") });
+		git(atlas, "init", "-q");
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+		git(atlas, "add", "-A");
+
+		// Render the edit, then stage only the module.
+		await writeFile(join(atlas, "docs/shop.diagram.ts"), shopModule("Store"));
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+		git(atlas, "add", "docs/shop.diagram.ts");
+
+		// The working tree agrees with itself, so plain lint can't see it.
+		expect((await runCli(["lint"], atlas)).code).toBe(0);
+		expect(await runCli(["lint", "--staged"], atlas)).toEqual({
+			code: 1,
+			stdout:
+				"docs/shop.diagram.svg: error: The staged SVG doesn't match its staged source. Run `diagrams render`, and stage the SVG with its source. (svg-out-of-date)\n" +
+				"Checked 1 Diagram: 1 error.\n",
+			stderr: "",
+		});
+
+		git(atlas, "add", "docs/shop.diagram.svg");
+		expect(await runCli(["lint", "--staged"], join(atlas, "docs"))).toEqual({
+			code: 0,
+			stdout: "Checked 1 Diagram: no errors.\n",
+			stderr: "",
+		});
+	});
+
+	test("judges staged sources and imports, not the working tree, and names files by their own paths", async () => {
+		const atlas = await sampleAtlas({
+			"docs/shop.diagram.ts": `import { architecture } from "@the-platform/diagrams";
+import { api } from "./shared/nodes.ts";
+
+export default architecture({ title: "Shop" }, (d) => {
+	d.node(api);
+});
+`,
+			"docs/shared/nodes.ts":
+				'export const api = { id: "shop-api", kind: "service", title: "Shop API" } as const;\n',
+			"docs/notes.diagram.ts": shopModule("Notes"),
+		});
+		git(atlas, "init", "-q");
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+		// The notes stay unstaged, so they aren't part of what's committed.
+		git(
+			atlas,
+			"add",
+			"diagrams.config.ts",
+			"package.json",
+			"docs/shop.diagram.ts",
+			"docs/shop.diagram.svg",
+			"docs/shared/nodes.ts",
+		);
+
+		// An edit to what the Diagram imports, rendered but not staged, isn't
+		// what's committed, and neither are the notes, which aren't staged at all.
+		await writeFile(
+			join(atlas, "docs/shared/nodes.ts"),
+			'export const api = { id: "shop-api", kind: "service", title: "Store API" } as const;\n',
+		);
+		expect((await runCli(["render"], atlas)).code).toBe(0);
+		expect(await runCli(["lint", "--staged", "--json"], atlas)).toEqual({
+			code: 0,
+			stdout: '{\n  "diagrams": 1,\n  "errors": 0,\n  "warnings": 0,\n  "messages": []\n}\n',
+			stderr: "",
+		});
+
+		// Staging the import alone leaves the staged SVG behind it.
+		git(atlas, "add", "docs/shared/nodes.ts");
+		expect((await runCli(["lint", "--staged"], atlas)).stdout).toBe(
+			"docs/shop.diagram.svg: error: The staged SVG doesn't match its staged source. Run `diagrams render`, and stage the SVG with its source. (svg-out-of-date)\nChecked 1 Diagram: 1 error.\n",
+		);
+		git(atlas, "add", "docs/shop.diagram.svg");
+		expect((await runCli(["lint", "--staged"], atlas)).code).toBe(0);
+	});
+
+	test("needs a git repo", async () => {
+		const atlas = await sampleAtlas({ "docs/shop.diagram.ts": shopModule() });
+
+		expect(await runCli(["lint", "--staged"], atlas)).toEqual({
+			code: 2,
+			stdout: "",
+			stderr: "`--staged` lints what git has staged, but the Atlas isn't in a git repo.\n",
+		});
 	});
 });

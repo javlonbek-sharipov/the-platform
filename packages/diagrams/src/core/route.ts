@@ -5,8 +5,8 @@
  * the Edge falls back to a simple route, and the router warns about it.
  */
 
-import { type Diagram, endNode, type RowEnd } from "../authoring/model.ts";
-import { type Bundling, compareText, laneGroups } from "./bundles.ts";
+import { type Diagram, endNode, parentsOf, type RowEnd } from "../authoring/model.ts";
+import { type Bundling, compareText, laneGroups, lanes } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { buildGrid, type Grid, pointOf, vertexAt } from "./grid.ts";
 import { strokesOf } from "./hops.ts";
@@ -36,7 +36,7 @@ import {
 
 export interface RouteOptions {
 	/** Which Edges share a trunk. The architecture Notation bundles by target. */
-	bundle?: Bundling;
+	bundle: Bundling;
 	/**
 	 * How many states each Edge's search may visit. An Edge whose search runs
 	 * out falls back to the simple route.
@@ -78,13 +78,6 @@ const cornerRadius = 8;
  * search, set well above what routes on Diagrams of a few hundred Nodes need.
  */
 const defaultSearchBudget = 1_000_000;
-
-/**
- * Lanes keep the preferred spacing where there's room, squeeze down to the
- * minimum in a narrow corridor, and keep the padding from the corridor's
- * sides. The narrowest corridor, a clearance wide, holds four lanes.
- */
-export const lanes = { spacing: 8, minimum: 4, padding: 8 };
 
 /**
  * Negotiation (spec: Edge routing, step 5): how many times every Edge is
@@ -134,7 +127,7 @@ export function route(
 	diagram: Diagram,
 	nodes: SceneNode[],
 	groups: SceneGroup[],
-	options: RouteOptions = {},
+	options: RouteOptions,
 ): Routing {
 	const byId = new Map(nodes.map((node) => [node.id, node]));
 	const rowNames = new Map(
@@ -154,15 +147,10 @@ export function route(
 	const grid = buildGrid(nodes, groups, clearance, lanes.spacing);
 	const search = searchOn(grid);
 	const budget = options.searchBudget ?? defaultSearchBudget;
-	const bundle = options.bundle ?? "target";
-	const groupOf = laneGroups(diagram, bundle, options.ownLanes);
+	const { bundle } = options;
+	const laneGroupOf = laneGroups(diagram, bundle, options.ownLanes);
 	// The Group that holds each Node or Group, and each Group's box.
-	const parentOf = new Map<string, string>();
-	for (const group of diagram.groups) {
-		for (const member of group.members) {
-			parentOf.set(member, group.id);
-		}
-	}
+	const parentOf = parentsOf(diagram);
 	const boxOf = new Map(groups.map((group) => [group.id, group.box]));
 	/** The box of the innermost Group that holds both Nodes, if any does. */
 	const sharedGroup = (a: string, b: string): Box | undefined => {
@@ -197,15 +185,16 @@ export function route(
 	// Edges are routed in a stable order, by bundle and then by id, so that no
 	// route depends on the order the Diagram declares its Edges in.
 	const order = [...diagram.edges].sort((a, b) => {
-		const [groupA = "", groupB = ""] = [groupOf.get(a.id), groupOf.get(b.id)];
+		const [groupA = "", groupB = ""] = [laneGroupOf.get(a.id), laneGroupOf.get(b.id)];
 		return compareText(groupA, groupB) || compareText(a.id, b.id);
 	});
 	const segments = 2 * grid.xs.length * grid.ys.length;
 	const congestion: Congestion = {
 		history: new Float64Array(segments),
-		usage: new Uint16Array(segments),
+		corridorOf: grid.corridorOf,
+		usage: new Uint16Array(grid.capacity.length),
 		capacity: grid.capacity,
-		own: new Uint32Array(segments),
+		own: new Uint32Array(grid.capacity.length),
 		stamp: 0,
 		full: fullCost,
 	};
@@ -241,17 +230,18 @@ export function route(
 					]),
 					fromPort,
 					toPort,
-					group: groupOf.get(edge.id) ?? edge.id,
+					laneGroup: laneGroupOf.get(edge.id) ?? edge.id,
 				});
 			}
 		}
 		return { ids, routes };
 	};
 	// Every Edge is routed, and its route spread into lanes. Then each segment
-	// left over capacity gains a lasting cost, as does each segment where lanes
-	// had to squeeze closer than the minimum spacing, and every Edge is routed
-	// again, until none is over or the passes run out. The pass that left the
-	// least over capacity wins.
+	// of a corridor left over capacity gains a lasting cost, as does each
+	// segment where lanes had to squeeze closer than the minimum spacing, and
+	// every Edge is routed again, until none is over or the passes run out. The
+	// pass that left the least over capacity wins. A corridor counts the lanes
+	// of all its parallel segments, which nudging spreads across its one width.
 	let best = {
 		paths: new Map<string, number[] | undefined>(),
 		ids: [] as string[],
@@ -268,14 +258,14 @@ export function route(
 			if (fromPort === undefined || toPort === undefined) {
 				continue;
 			}
-			const group = groupOf.get(edge.id) ?? edge.id;
-			const trunk = trunks.get(group) ?? new Map();
-			trunks.set(group, trunk);
-			const own = used.get(group) ?? new Set<number>();
-			used.set(group, own);
+			const laneGroup = laneGroupOf.get(edge.id) ?? edge.id;
+			const trunk = trunks.get(laneGroup) ?? new Map();
+			trunks.set(laneGroup, trunk);
+			const own = used.get(laneGroup) ?? new Set<number>();
+			used.set(laneGroup, own);
 			congestion.stamp += 1;
-			for (const segment of own) {
-				congestion.own[segment] = congestion.stamp;
+			for (const corridor of own) {
+				congestion.own[corridor] = congestion.stamp;
 			}
 			const vertices = searchRoute(grid, search, fromPort, toPort, budget, {
 				trunk,
@@ -300,19 +290,22 @@ export function route(
 					trunk.set(vertex, { path: vertices, at, crossings: crossings?.[at] ?? 0 });
 				}
 				const next = vertices[at + 1];
-				const segment = next === undefined ? undefined : segmentBetween(vertex, next);
-				if (segment !== undefined && !own.has(segment)) {
-					own.add(segment);
-					congestion.usage[segment] = (congestion.usage[segment] ?? 0) + 1;
+				const corridor =
+					next === undefined ? undefined : grid.corridorOf[segmentBetween(vertex, next)];
+				if (corridor !== undefined && !own.has(corridor)) {
+					own.add(corridor);
+					congestion.usage[corridor] = (congestion.usage[corridor] ?? 0) + 1;
 				}
 			});
 		}
 		let over = 0;
-		congestion.usage.forEach((usage, segment) => {
-			const excess = usage - (congestion.capacity[segment] ?? 0);
+		congestion.usage.forEach((usage, corridor) => {
+			const excess = usage - (congestion.capacity[corridor] ?? 0);
 			if (excess > 0) {
 				over += excess;
-				congestion.history[segment] = (congestion.history[segment] ?? 0) + historyCost;
+				for (const segment of grid.corridors[corridor] ?? []) {
+					congestion.history[segment] = (congestion.history[segment] ?? 0) + historyCost;
+				}
 			}
 		});
 		const { ids, routes } = routesOf(paths);
@@ -373,7 +366,7 @@ export function route(
 	edges.forEach((edge, index) => {
 		edge.stroke = strokes[index] ?? [edge.route];
 	});
-	const labeling = placeLabels(diagram, nodes, groups, edges, groupOf);
+	const labeling = placeLabels(diagram, nodes, groups, edges, laneGroupOf);
 	for (const edge of edges) {
 		const label = labeling.labels.get(edge.id);
 		if (label !== undefined) {

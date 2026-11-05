@@ -126,14 +126,9 @@ const brokenModels: [what: string, pointer: string, value: unknown, rule: string
 	["a rate that isn't a string", "/edges/3/rate", 1500, "model-shape"],
 
 	["a field that a Diagram doesn't have", "/legend", "Orders", "model-shape"],
-	["a Diagram description, which the engine doesn't read yet", "/description", "x", "model-shape"],
+	["a Diagram description that isn't a string", "/description", ["x"], "model-shape"],
 	["a misspelled Node field", "/nodes/4/extrenal", true, "model-shape"],
-	[
-		"a Node description, which the engine doesn't read yet",
-		"/nodes/2/description",
-		"x",
-		"model-shape",
-	],
+	["a Node description that isn't a string", "/nodes/2/description", 7, "model-shape"],
 	["a field that a Row doesn't have", "/nodes/2/rows/0/unit", "pods", "model-shape"],
 	["a field that a Link doesn't have", "/nodes/2/links/0/title", "Its database", "model-shape"],
 	["a field that a Group doesn't have", "/groups/0/color", "blue", "model-shape"],
@@ -216,7 +211,9 @@ describe("the JSON Schema", () => {
 		const texts = [
 			"/id",
 			"/title",
+			"/description",
 			"/nodes/1/title",
+			"/nodes/2/description",
 			"/nodes/2/callout",
 			"/nodes/2/rows/0/name",
 			"/nodes/2/rows/0/value",

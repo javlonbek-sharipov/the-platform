@@ -43,7 +43,7 @@
 
 **Routing**
 
-- [x] Label bands are obstacles, with grid lines around them.
+- [x] Each Group's label box, the part of its label band that its title fills, is an obstacle, with grid lines around it (decision 5).
 - [x] Crossing a Group's border adds a small cost.
 - [x] No route runs along a Group's border.
 

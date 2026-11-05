@@ -260,12 +260,12 @@ describe("validation", () => {
 				[
 					"/legend",
 					"a Diagram",
-					"`version`, `notation`, `id`, `title`, `direction`, `members`, `nodes`, `groups`, `edges` and `walkthroughs`",
+					"`version`, `notation`, `id`, `title`, `description`, `direction`, `members`, `nodes`, `groups`, `edges` and `walkthroughs`",
 				],
 				[
 					"/nodes/0/extrenal",
 					"a Node",
-					"`id`, `kind`, `title`, `technology`, `external`, `status`, `rows`, `links` and `callout`",
+					"`id`, `kind`, `title`, `technology`, `external`, `status`, `rows`, `description`, `links` and `callout`",
 				],
 				["/nodes/1/rows/0/unit", "a Row", "`name` and `value`"],
 				["/nodes/1/links/0/title", "a Link", "`id`, `doc`, `section` and `label`"],
@@ -623,6 +623,24 @@ describe("validation", () => {
 		} as never;
 
 		expect(render(diagram).diagnostics).toEqual([]);
+	});
+
+	test("accepts a Diagram's description and a Node's, and reports one that isn't text", () => {
+		const described = {
+			...shopJson(),
+			description: "How the shop takes orders.",
+			nodes: shopJson().nodes.map((node) => ({ ...node, description: `What ${node.title} does.` })),
+		};
+		expect(render(described).diagnostics).toEqual([]);
+
+		const diagram = { ...described, description: 7 } as Record<string, unknown>;
+		diagram.nodes = [{ ...described.nodes[0], description: ["Buys"] }, ...described.nodes.slice(1)];
+		expect(render(diagram).diagnostics).toEqual(
+			[
+				["/description", "`/description` must be a string."],
+				["/nodes/0/description", "`/nodes/0/description` must be a string."],
+			].map(([pointer, message]) => ({ severity: "error", rule: "model-shape", message, pointer })),
+		);
 	});
 
 	test("reports Groups that aren't shaped like Groups", () => {
@@ -1010,12 +1028,14 @@ function textJson() {
 	return {
 		...diagram,
 		id: "docs/shop",
+		description: "How the shop takes orders.",
 		nodes: [
 			{ id: "web-app", kind: "client", title: "Web app" },
 			{
 				id: "shop-api",
 				kind: "service",
 				title: "Shop API",
+				description: "Takes orders.",
 				callout: "SPOF",
 				rows: [{ name: "replicas", value: "3" }, { name: "zone" }],
 				links: [{ doc: "docs/shop.md", section: "Checkout", label: "How checkout works" }],
@@ -1087,6 +1107,8 @@ describe("text that an SVG can't hold", () => {
 		const fields: [pointer: string, text: string, where: string][] = [
 			["/id", "docs/sh\u0007op", "The Diagram's id"],
 			["/title", "Sh\u0007op", "The Diagram's title"],
+			["/description", "How\u0007", "The Diagram's description"],
+			["/nodes/1/description", "Takes\u0007", "Node `shop-api`'s description"],
 			["/nodes/1/callout", "SP\u0007OF", "Node `shop-api`'s callout"],
 			[
 				"/nodes/1/rows/0/name",

@@ -5,7 +5,7 @@ description: Drawing Diagrams with @the-platform/diagrams. Use when a doc descri
 
 # Diagrams
 
-A Diagram is a TypeScript module, `<name>.diagram.ts`, kept next to the doc it illustrates. `diagrams render` draws it into `<name>.diagram.svg` beside it, which the doc shows as an image: `![Example system](./example-system.diagram.svg)`.
+A Diagram is a TypeScript module, `<name>.diagram.ts`, kept next to the doc it illustrates, or, until a doc shows it, in the `docs/` folder of the package it draws, or of the repo when it spans packages. `diagrams render` draws it into `<name>.diagram.svg` beside it, which the doc shows as an image: `![Example system](./example-system.diagram.svg)`.
 
 ## When a Diagram helps
 
@@ -13,9 +13,9 @@ Draw one when readers need to see several systems, services or stores at once: w
 
 ## Write the module
 
-Follow the example at the end. `packages/diagrams/src/authoring/architecture.ts` documents every option.
+A request that names a Diagram, as in "draw the example system with a cache", asks you to edit that Diagram's module; write a new module when asked for a new Diagram. Follow the example at the end. Each option is the JSON model's field of the same name, which `packages/diagrams/diagram.schema.json` describes. A misspelled option is an error that lists the options there are.
 
-- Import `architecture` from `@the-platform/diagrams`, which resolves anywhere in the repo.
+- Import `architecture`, and the `ArchitectureNode` and `ArchitectureGroup` types, from `@the-platform/diagrams`, which resolves anywhere in the repo.
 - Declare a Group's Nodes and Groups with the builder its callback gets, as in `region.node(…)`. `d.node(…)` always adds to the Diagram itself.
 - An Edge joins two Nodes, each given by its handle or its id.
 
@@ -25,7 +25,9 @@ Follow the example at the end. `packages/diagrams/src/authoring/architecture.ts`
 - Groups: `region`, and `zone` inside it, for where things run; `system`, around one system's parts.
 - Edges: `call` when the sender waits for an answer, `message` when it doesn't.
 
-**Ids** are lowercase words joined by hyphens, named after the thing: `orders-api`. An id names one thing across the Atlas, every Diagram in the repo, so each Diagram that draws it gives it the same Kind and title. A new thing gets a new id. A Node drawn on several Diagrams is defined once, in a shared module imported with its `.ts` extension, as `export const ordersApi = { … } as const satisfies ArchitectureNode`. An Edge's id is `from->to`, so two Edges between the same two Nodes each need an `id` of their own.
+**Ids** are lowercase words joined by hyphens, named after the thing: `orders-api`. An id names one thing across the Atlas, every Diagram in the repo, so each Diagram that draws it gives it the same Kind and title. A new thing gets a new id. An Edge's id is `from->to`, so two Edges between the same two Nodes each need an `id` of their own.
+
+**Shared definitions.** Whatever several Diagrams draw, a Node or a Group, is defined once, in a plain `.ts` module named for what it defines, in a `shared/` folder beside those Diagrams: `docs/shared/orders.ts`. Import it with its `.ts` extension. Write a Node as `export const ordersApi = { … } as const satisfies ArchitectureNode`, and a Group with `satisfies ArchitectureGroup`. A `system` that is a Node on one Diagram and a Group on another shares one definition, holding only what both take: `id`, `kind`, `title`, `description` and `links`.
 
 **Text.** A title fits in about 16 characters, or 14 beside a logo, and a longer one is cut short. A `label` says what passes over its Edge in two or three words, such as `Places orders`.
 
@@ -35,7 +37,7 @@ Follow the example at the end. `packages/diagrams/src/authoring/architecture.ts`
 
 **Values.** `external: true` marks a Node we don't own or run. A `status` is `ok`, `degraded`, `down` or `unknown`. A `rate` is like `30/s`, `2k/min` or `1.5M/h`. A `callout` is a short tag above its Node, such as `SPOF`.
 
-**Links** point readers from a Node or Group to another id or a doc, and aren't drawn: `links: [{ id: "<id>" }, { doc: "<path from the repo root>", section: "<heading>" }]`.
+**Links** point readers from a Node or Group to another id or a doc, and aren't drawn: `links: [{ id: "<id>" }, { doc: "<path from the repo root>", section: "<heading>" }]`. Nor is a `description`, which a Diagram, Node or Group may carry to say more than its title.
 
 **Layout** is automatic. Steer it with `direction: "down"` in `architecture`'s options, the nesting of Groups, and the order of declarations, which breaks every tie.
 
@@ -44,12 +46,12 @@ Follow the example at the end. `packages/diagrams/src/authoring/architecture.ts`
 Run each command from the repo root, with the module's path for `<module>`:
 
 1. `pnpm exec diagrams render <module>` writes the SVG, or prints the errors that stop it.
-2. `pnpm typecheck` catches a misspelled option, which would otherwise vanish without a word. Then `pnpm exec diagrams lint --json` checks the whole Atlas: fix every message it lists, warnings included, and render again, until `messages` is empty. Most messages say their fix. For the others:
+2. `pnpm exec diagrams lint --json` checks the whole Atlas: fix every message it lists, warnings included, and render again, until `messages` is empty. Most messages say their fix. For the others:
    - `label-placement` with no room beside any run: shorten the labels near it, or label fewer Edges.
    - `label-placement` with no run of its own: fix the `fallback-route` warning on that Edge first.
    - `fallback-route`: reorder the declarations, or change `direction`.
 3. `pnpm exec diagrams export <module> --format png` prints the path of a PNG. Look at it: every title and label whole, each label beside its own Edge, and every Edge easy to follow. If not, steer the layout and go back to step 1.
-4. Commit the module and its SVG together. The pre-commit hook runs Biome and `diagrams lint`; `pnpm exec biome check --write <module>` formats the module.
+4. Stage the module and its SVG, and commit them together. The pre-commit hook runs Biome and `diagrams lint --staged`, which judges what's staged, so an SVG left unstaged fails it. `pnpm exec biome check --write <module>` formats the module.
 
 ## Example
 

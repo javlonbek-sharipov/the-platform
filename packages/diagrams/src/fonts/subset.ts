@@ -10,7 +10,7 @@
  * in tag order, and `head` keeps the font's own timestamps.
  */
 
-import { type TrueTypeFont, view } from "./truetype.ts";
+import { type TrueTypeFont, tableOf, view } from "./truetype.ts";
 
 /** Composite glyph flags, from the `glyf` table's specification. */
 const argumentsAreWords = 0x0001;
@@ -456,9 +456,5 @@ function checksum(bytes: Uint8Array): number {
 }
 
 function copyOf(font: TrueTypeFont, tag: string): Uint8Array {
-	const table = font.tables.get(tag);
-	if (table === undefined) {
-		throw new Error(`The font has no \`${tag}\` table.`);
-	}
-	return table.slice();
+	return tableOf(font.tables, tag).slice();
 }

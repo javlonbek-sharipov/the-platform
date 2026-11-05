@@ -4,13 +4,13 @@
  * errors, it also returns the scene and the SVG.
  */
 
-import type { Bundling } from "./bundles.ts";
+import { type Bundling, defaultBundling, lanes } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { hop } from "./hops.ts";
 import { labelSpacing } from "./labels.ts";
 import { clearance, grid, layOut, margin } from "./layout.ts";
 import { junctionsOf, markEdges } from "./marks.ts";
-import { lanes, route } from "./route.ts";
+import { route } from "./route.ts";
 import type { Box, Scene, SceneEdge } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
 import { type FontData, textDiagnostics } from "./text.ts";
@@ -61,14 +61,15 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 	// Layout leaves room for that lane too, so both run again, until no trunk
 	// crowds out another label.
 	const ownLanes = new Set<string>();
-	let { nodes, groups } = layOut(model, options.bundle, ownLanes);
-	let routing = route(model, nodes, groups, { ...options, ownLanes });
+	const bundle = options.bundle ?? defaultBundling;
+	let { nodes, groups } = layOut(model, bundle, ownLanes);
+	let routing = route(model, nodes, groups, { ...options, bundle, ownLanes });
 	for (let round = 1; round < rounds && routing.crowdedOut.length > 0; round += 1) {
 		for (const id of routing.crowdedOut) {
 			ownLanes.add(id);
 		}
-		({ nodes, groups } = layOut(model, options.bundle, ownLanes));
-		routing = route(model, nodes, groups, { ...options, ownLanes });
+		({ nodes, groups } = layOut(model, bundle, ownLanes));
+		routing = route(model, nodes, groups, { ...options, bundle, ownLanes });
 	}
 	const edges = markEdges(model, routing.edges);
 	const scene: Scene = {

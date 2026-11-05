@@ -18,11 +18,14 @@ import {
 	type Node,
 	type RowEnd,
 } from "./model.ts";
+import { optionsOf, recordUnknownOptions, unknownOptions } from "./options.ts";
 
 export interface ArchitectureOptions {
 	/** Only for Diagrams built outside the Atlas, which assigns ids from paths. */
 	id?: string;
 	title: string;
+	/** What the Diagram shows, which isn't drawn. The SVG carries it in its model. */
+	description?: string;
 	/** Which way the ranks run: `right`, the default, or `down`. */
 	direction?: Direction;
 }
@@ -51,6 +54,8 @@ export interface ArchitectureNode<R extends string = string> {
 	status?: ArchitectureStatus;
 	/** Shown below the header, each with its name on the left and its value on the right. */
 	rows?: readonly ArchitectureRow<R>[];
+	/** What the Node is, which isn't drawn. The SVG carries it in its model. */
+	description?: string;
 	links?: readonly Link[];
 	/** A short tag above the Node that draws attention to it, such as `single point of failure`. */
 	callout?: string;
@@ -72,6 +77,7 @@ export interface ArchitectureGroup {
 	id: string;
 	kind: ArchitectureGroupKind;
 	title: string;
+	/** What the Group is, which isn't drawn. The SVG carries it in its model. */
 	description?: string;
 	links?: readonly Link[];
 }
@@ -131,10 +137,42 @@ export interface ArchitectureBuilder {
 	edge(from: EdgeEnd, to: EdgeEnd, options: EdgeOptions): EdgeHandle;
 }
 
+/** The options that each function of the builder takes, for the errors about any other. */
+const known = {
+	diagram: optionsOf<ArchitectureOptions>({
+		id: true,
+		title: true,
+		description: true,
+		direction: true,
+	}),
+	node: optionsOf<ArchitectureNode>({
+		id: true,
+		kind: true,
+		title: true,
+		technology: true,
+		external: true,
+		status: true,
+		rows: true,
+		description: true,
+		links: true,
+		callout: true,
+	}),
+	row: optionsOf<ArchitectureRow>({ name: true, value: true }),
+	group: optionsOf<ArchitectureGroup>({
+		id: true,
+		kind: true,
+		title: true,
+		description: true,
+		links: true,
+	}),
+	edge: optionsOf<EdgeOptions>({ kind: true, id: true, label: true, technology: true, rate: true }),
+};
+
 /**
  * Builds an architecture Diagram. The result is the JSON model itself. Beside
- * it, under a key that JSON leaves out, it records where each declaration was
- * called from, so that the Atlas can point diagnostics at their lines.
+ * it, under keys that JSON leaves out, it records where each declaration was
+ * called from, so that the Atlas can point diagnostics at their lines, and an
+ * error for each option it doesn't know, so that validation rejects it.
  */
 export function architecture(
 	options: ArchitectureOptions,
@@ -152,12 +190,20 @@ export function architecture(
 		}
 	};
 	declare("", architecture);
+	const unknown = unknownOptions(options, known.diagram, "The Diagram", "");
 
 	/** A builder whose Nodes and Groups join `parent`, the members list of the Diagram or of one Group. */
 	const builderFor = (parent: string[]): ArchitectureBuilder => {
 		const builder: ArchitectureBuilder = {
-			node({ id, kind, title, technology, external, status, rows, links, callout }) {
-				declare(`/nodes/${nodes.length}`, builder.node);
+			node(node) {
+				const at = `/nodes/${nodes.length}`;
+				declare(at, builder.node);
+				const { id, kind, title, technology, external, status, rows, description, links, callout } =
+					node;
+				unknown.push(...unknownOptions(node, known.node, "A Node", at));
+				rows?.forEach((row, index) => {
+					unknown.push(...unknownOptions(row, known.row, "A Row", `${at}/rows/${index}`));
+				});
 				nodes.push({
 					id,
 					kind,
@@ -172,14 +218,18 @@ export function architecture(
 									value === undefined ? { name } : { name, value },
 								),
 							}),
+					...(description === undefined ? {} : { description }),
 					...copyLinks(links),
 					...(callout === undefined ? {} : { callout }),
 				});
 				parent.push(id);
 				return Object.freeze({ id, row: (name: string) => Object.freeze({ node: id, row: name }) });
 			},
-			group({ id, kind, title, description, links }, buildGroup) {
-				declare(`/groups/${groups.length}`, builder.group);
+			group(definition, buildGroup) {
+				const at = `/groups/${groups.length}`;
+				declare(at, builder.group);
+				const { id, kind, title, description, links } = definition;
+				unknown.push(...unknownOptions(definition, known.group, "A Group", at));
 				const group: Group = {
 					id,
 					kind,
@@ -193,8 +243,11 @@ export function architecture(
 				buildGroup(builderFor(group.members));
 				return Object.freeze({ id });
 			},
-			edge(from, to, { kind, id, label, technology, rate }) {
-				declare(`/edges/${edges.length}`, builder.edge);
+			edge(from, to, options) {
+				const at = `/edges/${edges.length}`;
+				declare(at, builder.edge);
+				const { kind, id, label, technology, rate } = options;
+				unknown.push(...unknownOptions(options, known.edge, "An Edge", at));
 				const fromEnd = modelEnd(from);
 				const toEnd = modelEnd(to);
 				// A default id names the two Nodes, whatever their Rows.
@@ -220,6 +273,7 @@ export function architecture(
 		notation: "architecture",
 		...(options.id === undefined ? {} : { id: options.id }),
 		title: options.title,
+		...(options.description === undefined ? {} : { description: options.description }),
 		direction: options.direction ?? "right",
 		members,
 		nodes,
@@ -227,7 +281,8 @@ export function architecture(
 		edges,
 		walkthroughs: [],
 	};
-	return Object.defineProperty(diagram, declarationsKey, { value: declarations });
+	Object.defineProperty(diagram, declarationsKey, { value: declarations });
+	return recordUnknownOptions(diagram, unknown);
 }
 
 /** An Edge end as the model writes it: a Node's id, or a Row end of its own. */

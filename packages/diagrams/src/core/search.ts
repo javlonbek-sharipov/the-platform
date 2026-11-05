@@ -43,21 +43,24 @@ export interface SearchCosts {
 	crossing: number;
 	/** The most states the search may visit before it gives up. */
 	budget: number;
-	congestion?: Congestion;
+	congestion: Congestion;
 }
 
 /**
- * How crowded each segment of the grid is, by segment: the one east of vertex
- * `v` at `2 * v`, and the one south of it at `2 * v + 1`.
+ * How crowded the grid is: each segment's history, by segment, the one east
+ * of vertex `v` at `2 * v` and the one south of it at `2 * v + 1`, and the
+ * lanes in each corridor, which its parallel segments share.
  */
 export interface Congestion {
 	/** A lasting cost on each segment, raised each time it ends a pass over capacity. */
 	history: Float64Array;
-	/** How many lanes use each segment so far. */
+	/** The corridor of each segment. */
+	corridorOf: Uint32Array;
+	/** How many lanes use each corridor so far. */
 	usage: Uint16Array;
-	/** How many lanes fit through each segment. */
+	/** How many lanes fit through each corridor. */
 	capacity: Uint16Array;
-	/** The segments that the route's own lane group uses already, marked with `stamp`: it adds no lane there. */
+	/** The corridors that the route's own lane group uses already, marked with `stamp`: it adds no lane there. */
 	own: Uint32Array;
 	stamp: number;
 	/** What stepping onto a segment that's already full costs. */
@@ -157,7 +160,7 @@ export function searchOn(grid: Grid): Search {
 					Math.abs(yOf(neighbor) - yOf(vertex)) +
 					(next === heading ? 0 : costs.bend) +
 					costs.crossing * crossingsOf(grid, vertex, next) +
-					(costs.congestion === undefined ? 0 : crowding(costs.congestion, vertex, neighbor));
+					crowding(costs.congestion, vertex, neighbor);
 				if (neighbor === goal.vertex) {
 					if (next === (goalHeading + 2) % 4) {
 						continue;
@@ -180,11 +183,12 @@ export function segmentBetween(a: number, b: number): number {
 /** What a step from one vertex to its neighbor costs for crowding. */
 function crowding(congestion: Congestion, from: number, to: number): number {
 	const segment = segmentBetween(from, to);
+	const corridor = congestion.corridorOf[segment] ?? 0;
 	const others =
-		(congestion.usage[segment] ?? 0) - (congestion.own[segment] === congestion.stamp ? 1 : 0);
+		(congestion.usage[corridor] ?? 0) - (congestion.own[corridor] === congestion.stamp ? 1 : 0);
 	return (
 		(congestion.history[segment] ?? 0) +
-		(others >= (congestion.capacity[segment] ?? 0) ? congestion.full : 0)
+		(others >= (congestion.capacity[corridor] ?? 0) ? congestion.full : 0)
 	);
 }
 

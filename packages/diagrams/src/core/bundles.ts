@@ -14,6 +14,17 @@ import type { Diagram, RowEnd } from "../authoring/model.ts";
  */
 export type Bundling = "target" | "source" | "none";
 
+/** The architecture Notation bundles Edges into one Port, and so does `render` unless told otherwise. */
+export const defaultBundling: Bundling = "target";
+
+/**
+ * Lanes keep the preferred spacing where there's room, squeeze down to the
+ * minimum in a narrow corridor, and keep the padding from the corridor's
+ * sides. The narrowest corridor, a clearance wide, holds four lanes. Layout
+ * leaves room for lanes at the preferred spacing, and the router spreads them.
+ */
+export const lanes = { spacing: 8, minimum: 4, padding: 8 };
+
 /**
  * Each Edge's lane group: the Edges that may share a lane, which is a bundle
  * (spec: Edge routing, step 4). A bundle is the Edges of one Kind that go into

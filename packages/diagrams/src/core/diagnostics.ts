@@ -8,3 +8,20 @@ export interface Diagnostic {
 	/** A JSON Pointer to the part of the model the diagnostic is about, such as `/nodes/2/kind`. */
 	pointer?: string;
 }
+
+/** Words as a message lists them: `a, b and c`. */
+export function list(words: readonly string[]): string {
+	return words.length < 2
+		? words.join("")
+		: `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
+}
+
+/** A field's name as one segment of a JSON Pointer, escaped as RFC 6901 says. */
+export function pointerSegment(field: string): string {
+	return field.replaceAll("~", "~0").replaceAll("/", "~1");
+}
+
+/** A character's code point, as messages write it: `U+0007`, `U+6771`. */
+export function codePointOf(character: string): string {
+	return `U+${(character.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}`;
+}

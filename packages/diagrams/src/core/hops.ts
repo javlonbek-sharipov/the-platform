@@ -20,6 +20,7 @@
  */
 
 import type { Direction } from "../authoring/model.ts";
+import type { LineSpan } from "./geometry.ts";
 import type { Point, RoutePoint, SceneEdge } from "./scene.ts";
 
 /** The length of the gap a hop leaves in a stroke, centered on the crossing. */
@@ -28,15 +29,13 @@ export const hop = 8;
 /** Two gaps closer than this join into one, rather than leave a sliver of stroke between them. */
 const sliver = 4;
 
-/** A run of a route, and the part of it that's straight, between the arcs that round its corners. */
-interface Run {
+/**
+ * A run of a route, and the part of it that's straight, between the arcs that
+ * round its corners, from `low` to `high` along its line.
+ */
+interface Run extends LineSpan {
 	/** Which run of the route it is: the one from its point `index` to the next. */
 	index: number;
-	horizontal: boolean;
-	/** Its line: y for a horizontal run, x for a vertical one. */
-	line: number;
-	low: number;
-	high: number;
 }
 
 /** Each Edge's stroke, in the order of the Edges given: its route, in pieces between hops. */

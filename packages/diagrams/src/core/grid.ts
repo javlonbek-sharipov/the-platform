@@ -14,10 +14,12 @@
  * routes cross Group borders but never run along them. The grid counts the
  * borders that each segment crosses, so that crossing one can cost a little.
  *
- * Each segment also has a capacity (spec: Edge routing, step 2): its free
- * width, from the nearest obstacle or Group border on one side of it to the
- * nearest on the other, divided by the lane spacing. That's how many lanes
- * fit through it side by side.
+ * Each segment also lies in a corridor, with a capacity (spec: Edge routing,
+ * step 2): its free width, from the nearest obstacle or Group border on one
+ * side of it to the nearest on the other, divided by the lane spacing. That's
+ * how many lanes fit through it side by side. Parallel segments over the same
+ * stretch, between the same two sides, lie in one corridor and share its
+ * capacity, since their lanes spread across the one width.
  */
 
 import type { Box, Point, SceneGroup, SceneNode } from "./scene.ts";
@@ -39,10 +41,14 @@ export interface Grid {
 	/** How many Group borders the segment south of each vertex crosses, by vertex. */
 	crossSouth: Uint16Array;
 	/**
-	 * How many lanes fit through each segment: the one east of vertex `v` at
+	 * The corridor that each segment lies in: the one east of vertex `v` at
 	 * `2 * v`, and the one south of it at `2 * v + 1`.
 	 */
+	corridorOf: Uint32Array;
+	/** How many lanes fit through each corridor. */
 	capacity: Uint16Array;
+	/** The segments of each corridor, by corridor. */
+	corridors: number[][];
 }
 
 /** The most lanes a segment counts as holding, which open space beyond every obstacle has. */
@@ -92,7 +98,9 @@ export function buildGrid(
 		openSouth: new Uint8Array(xs.size * ys.size),
 		crossEast: new Uint16Array(xs.size * ys.size),
 		crossSouth: new Uint16Array(xs.size * ys.size),
-		capacity: new Uint16Array(2 * xs.size * ys.size),
+		corridorOf: new Uint32Array(2 * xs.size * ys.size),
+		capacity: new Uint16Array(0),
+		corridors: [],
 	};
 	const columns = grid.xs.length;
 	grid.ys.forEach((y, j) => {
@@ -134,13 +142,17 @@ export function buildGrid(
 }
 
 /**
- * Sets each segment's capacity: its free width across it, divided by the lane
- * spacing. The free width runs from the nearest obstacle on one side to the
- * nearest on the other, among those beside the segment along its length:
- * boxes, and the sides of Group boxes that run the same way.
+ * Sets each segment's corridor, and each corridor's capacity: its free width
+ * across it, divided by the lane spacing. The free width runs from the
+ * nearest obstacle on one side to the nearest on the other, among those
+ * beside the segment along its length: boxes, and the sides of Group boxes
+ * that run the same way. Parallel segments between the same two grid lines
+ * along them, with the same nearest obstacles on both sides, share a corridor.
  */
 function measureCapacity(grid: Grid, boxes: Box[], borders: Box[], laneSpacing: number): void {
 	const columns = grid.xs.length;
+	const ids = new Map<string, number>();
+	const capacity: number[] = [];
 	for (const horizontal of [true, false]) {
 		const lines = horizontal ? grid.ys : grid.xs;
 		const stops = horizontal ? grid.xs : grid.ys;
@@ -182,14 +194,26 @@ function measureCapacity(grid: Grid, boxes: Box[], borders: Box[], laneSpacing: 
 				}
 			}
 			for (let i = 0; i + 1 < stops.length; i += 1) {
-				const width = (high[i] ?? 0) - (low[i] ?? 0);
+				const [from = 0, to = 0] = [low[i], high[i]];
 				const vertex = horizontal ? j * columns + i : i * columns + j;
-				grid.capacity[2 * vertex + (horizontal ? 0 : 1)] = Number.isFinite(width)
-					? Math.min(roomy, Math.floor(width / laneSpacing))
-					: roomy;
+				const segment = 2 * vertex + (horizontal ? 0 : 1);
+				const key = `${horizontal ? "h" : "v"} ${i} ${from} ${to}`;
+				let id = ids.get(key);
+				if (id === undefined) {
+					id = capacity.length;
+					ids.set(key, id);
+					const width = to - from;
+					capacity.push(
+						Number.isFinite(width) ? Math.min(roomy, Math.floor(width / laneSpacing)) : roomy,
+					);
+					grid.corridors.push([]);
+				}
+				grid.corridorOf[segment] = id;
+				grid.corridors[id]?.push(segment);
 			}
 		});
 	}
+	grid.capacity = Uint16Array.from(capacity);
 }
 
 /** The index of the first gap between neighboring stops that ends after `position`. */

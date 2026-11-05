@@ -9,7 +9,8 @@
  * corner point, ignoring the arcs that round the corners.
  */
 
-import type { Diagram } from "../authoring/model.ts";
+import { type Diagram, parentsOf } from "../authoring/model.ts";
+import { headingOf } from "./geometry.ts";
 import type { Box, Point, RoutePoint, SceneChevron, SceneEdge, SceneJunction } from "./scene.ts";
 
 /**
@@ -24,12 +25,25 @@ const firstChevron = 48;
  */
 const chevronRoom = 2 + 4;
 /**
- * How far a chevron's drawing, and a badge's, reach from their points in any
- * direction, casing included, so that neither is placed under a label, which
- * is drawn over the Edges. The SVG writer draws them within these.
+ * How big the marks along an Edge are drawn, as the SVG writer draws them: the
+ * casing that each mark has, as the Edge's line does; a chevron's length
+ * along its run, its tip half of that ahead of its point, and how far its
+ * arms reach to each side; and a badge's radius, and its outline.
  */
-export const chevronReach = 6;
-export const badgeReach = 8;
+export const markSizes = {
+	casing: 3.5,
+	chevron: { length: 4, halfWidth: 3.5 },
+	badge: { radius: 7, outline: 1 },
+} as const;
+
+/**
+ * How far a chevron's drawing, and a badge's, reach from their points along
+ * either axis, casing included, to the next whole pixel, so that neither is
+ * placed under a label, which is drawn over the Edges.
+ */
+const { casing, chevron, badge } = markSizes;
+const chevronReach = Math.ceil(Math.max(chevron.halfWidth, chevron.length / 2) + casing / 2);
+const badgeReach = Math.ceil(badge.radius + badge.outline / 2);
 /**
  * How far an Edge's chevrons keep from the stretches it shares with other
  * Edges: out of its source's Port, as far as it leaves them, and into its
@@ -102,12 +116,7 @@ export function markEdges(diagram: Diagram, edges: SceneEdge[]): SceneEdge[] {
  * around it, and an end in no Group of a Kind crosses nothing of that Kind.
  */
 function crossingOf(diagram: Diagram): (from: string, to: string) => "region" | "zone" | undefined {
-	const parentOf = new Map<string, string>();
-	for (const group of diagram.groups) {
-		for (const member of group.members) {
-			parentOf.set(member, group.id);
-		}
-	}
+	const parentOf = parentsOf(diagram);
 	const kindOf = new Map(diagram.groups.map((group) => [group.id, group.kind]));
 	/** The innermost Group of a Kind around a Node, if any. */
 	const around = (node: string, kind: "region" | "zone") => {
@@ -368,11 +377,6 @@ function lengthOf(points: Point[]): number {
 		}
 	}
 	return length;
-}
-
-/** The unit vector along a horizontal or vertical run. */
-function headingOf(from: Point, to: Point): Point {
-	return { x: Math.sign(to.x - from.x), y: Math.sign(to.y - from.y) };
 }
 
 function pointKey({ x, y }: Point): string {

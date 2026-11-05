@@ -24,7 +24,7 @@
 
 - [x] The PNG is drawn from the same SVG, with:
   - the theme properties resolved to the chosen theme's colors;
-  - the bundled font handed straight to the rasterizer;
+  - the font faces that the SVG embeds, its subset of the bundled font, handed to the rasterizer (decision 6);
   - no animation.
 
 **Options**

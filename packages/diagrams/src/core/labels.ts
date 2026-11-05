@@ -27,6 +27,7 @@ import type { Direction, Edge } from "../authoring/model.ts";
 import { technologyOf } from "../notations/architecture.ts";
 import { compareText } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
+import type { LineSpan } from "./geometry.ts";
 import type {
 	Box,
 	Point,
@@ -92,13 +93,7 @@ export function labelSize(edge: Edge): { width: number; height: number } | undef
 }
 
 /** A straight stretch of a route, along one line. */
-interface Stretch {
-	horizontal: boolean;
-	/** Its line: y for a horizontal stretch, x for a vertical one. */
-	line: number;
-	low: number;
-	high: number;
-}
+type Stretch = LineSpan;
 
 /** A horizontal or vertical segment. */
 type Segment = [Point, Point];

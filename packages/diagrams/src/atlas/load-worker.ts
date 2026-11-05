@@ -7,6 +7,7 @@
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parentPort, workerData } from "node:worker_threads";
 import { type Declarations, declarationsKey, framePosition } from "../authoring/declarations.ts";
+import { unknownOptionsOf } from "../authoring/options.ts";
 import type { LoadResult, Place } from "./load.ts";
 
 for (const module of workerData as string[]) {
@@ -23,7 +24,12 @@ async function loadModule(module: string): Promise<LoadResult> {
 	}
 	try {
 		const json = JSON.stringify(exports.default);
-		return { module, json, declarations: declarationsOf(exports.default) };
+		return {
+			module,
+			json,
+			declarations: declarationsOf(exports.default),
+			unknownOptions: unknownOptionsOf(exports.default),
+		};
 	} catch (error) {
 		return { module, failed: "json", reason: messageOf(error) };
 	}

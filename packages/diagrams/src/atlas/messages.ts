@@ -4,15 +4,16 @@ import type { Declarations, SourcePosition } from "../authoring/declarations.ts"
 import type { Diagnostic } from "../core/diagnostics.ts";
 
 /**
+ * A place in a file: the file's path, and the line and column there, where
+ * they're known. A declaration's position, from the builder, knows both.
+ */
+export type FilePlace = Pick<SourcePosition, "file"> & Partial<Omit<SourcePosition, "file">>;
+
+/**
  * A diagnostic, with the file it's about, and the line and column that
  * declared the thing where that's known.
  */
-export interface AtlasMessage extends Diagnostic {
-	/** A path. */
-	file: string;
-	line?: number;
-	column?: number;
-}
+export interface AtlasMessage extends Diagnostic, FilePlace {}
 
 /**
  * A diagnostic about a Diagram, placed at the declaration of the part of the
@@ -43,13 +44,6 @@ function declaredAt(
 }
 
 /** `file:line:column`, leaving out what isn't known. */
-export function placeText(place: { file: string; line?: number; column?: number }): string {
+export function placeText(place: FilePlace): string {
 	return [place.file, place.line, place.column].filter((part) => part !== undefined).join(":");
-}
-
-/** `a, b and c` */
-export function list(words: readonly string[]): string {
-	return words.length < 2
-		? words.join("")
-		: `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
 }

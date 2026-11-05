@@ -42,6 +42,7 @@ export type {
 	SceneGroup,
 	SceneJunction,
 	SceneLabel,
+	SceneLogo,
 	SceneNode,
 	ScenePort,
 	SceneRow,
@@ -55,9 +56,11 @@ export type {
 	ArchitectureEdgeLook,
 	ArchitectureFamily,
 	ArchitectureGroupKind,
+	ArchitectureGroupLook,
 	ArchitectureNodeKind,
 	ArchitectureNodeLook,
 	ArchitectureStatus,
+	ArchitectureStatusLook,
 	KnownTechnology,
 	Technology,
 } from "./notations/architecture.ts";
@@ -66,8 +69,10 @@ export {
 	architectureEdgeLooks,
 	architectureFamilies,
 	architectureGroupKinds,
+	architectureGroupLooks,
 	architectureNodeKinds,
 	architectureNodeLooks,
 	architectureStatuses,
+	architectureStatusLooks,
 } from "./notations/architecture.ts";
 export { technologies } from "./notations/technologies.ts";

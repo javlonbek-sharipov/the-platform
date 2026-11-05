@@ -4,6 +4,7 @@
  */
 
 import type { Outline } from "../core/outlines.ts";
+import type { ColorName } from "../core/theme.ts";
 import { technologies } from "./technologies.ts";
 
 /** The slug of a Technology that has a logo, which editors offer for `technology`. */
@@ -74,10 +75,48 @@ export const architectureGroupKinds = ["system", "region", "zone"] as const;
 
 export type ArchitectureGroupKind = (typeof architectureGroupKinds)[number];
 
+/** How a Group of one Kind draws its box. A Kind alone decides it. */
+export interface ArchitectureGroupLook {
+	/** How wide its box's stroke is, in px: a `system` heavier than a `region`. */
+	stroke: number;
+	/** Its box's line: solid, or dashed for a `zone`. */
+	line: "solid" | "dashed";
+}
+
+export const architectureGroupLooks: Record<ArchitectureGroupKind, ArchitectureGroupLook> = {
+	system: { stroke: 2, line: "solid" },
+	region: { stroke: 1.5, line: "solid" },
+	zone: { stroke: 1.5, line: "dashed" },
+};
+
 /** How a Node is doing. Each status shows as a mark with a shape and a color of its own. */
 export const architectureStatuses = ["ok", "degraded", "down", "unknown"] as const;
 
 export type ArchitectureStatus = (typeof architectureStatuses)[number];
+
+/**
+ * How a status shows: a mark of its own shape and its own color, at the end
+ * of its Node's header, so that color is never the only signal.
+ */
+export interface ArchitectureStatusLook {
+	/** The mark, as path data in a box 12 px square. */
+	mark: string;
+	/** Whether the mark is stroked as lines, rather than filled. */
+	line: boolean;
+	/** The theme's color for it. */
+	color: ColorName;
+}
+
+export const architectureStatusLooks: Record<ArchitectureStatus, ArchitectureStatusLook> = {
+	// A dot.
+	ok: { mark: "M 1 6 A 5 5 0 1 0 11 6 A 5 5 0 1 0 1 6 Z", line: false, color: "ok" },
+	// A warning triangle.
+	degraded: { mark: "M 6 1.5 L 11 10.5 H 1 Z", line: false, color: "warn" },
+	// A cross.
+	down: { mark: "M 2.5 2.5 L 9.5 9.5 M 9.5 2.5 L 2.5 9.5", line: true, color: "danger" },
+	// A square.
+	unknown: { mark: "M 1.75 1.75 H 10.25 V 10.25 H 1.75 Z", line: false, color: "muted" },
+};
 
 /**
  * The families of Node Kinds. The Kinds of one family share a hue: the people

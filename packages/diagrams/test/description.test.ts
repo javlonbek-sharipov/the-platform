@@ -166,6 +166,23 @@ describe("an SVG's metadata", () => {
 		expect(svg).not.toContain("<tax>");
 	});
 
+	test("carries a Diagram's description and its Nodes', which nothing else in the SVG draws", () => {
+		const described = {
+			...checkout,
+			description: "How a payment goes through.",
+			nodes: checkout.nodes.map((node) => ({ ...node, description: `What ${node.title} does.` })),
+		};
+		const plain = (render(checkout).svg ?? "").split("\n");
+		const lines = (render(described).svg ?? "").split("\n");
+
+		expect(lines.length).toBe(plain.length);
+		const changed = lines.filter((line, index) => line !== plain[index]);
+		expect(changed).toHaveLength(1);
+		const metadata = parseSvg(lines.join("\n")).children.find((child) => child.name === "metadata");
+		expect(changed[0]?.trim().startsWith("<metadata>")).toBe(true);
+		expect(JSON.parse(metadata?.text ?? "")).toEqual(described);
+	});
+
 	test("is the same, byte for byte, whatever order the model's fields are written in", () => {
 		const reordered = reversedFields(JSON.parse(JSON.stringify(checkout)));
 		expect(Object.keys(reordered as object)[0]).toBe("walkthroughs");

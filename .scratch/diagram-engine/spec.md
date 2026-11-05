@@ -267,7 +267,7 @@ v1 is built in five slices, and each one ends with something people can use.
 - TypeScript, as ES modules only, on Node 24.
 - Vitest for tests.
 - Biome for formatting and linting.
-- A lefthook pre-commit hook runs Biome and then `diagrams lint`.
+- A lefthook pre-commit hook runs Biome and then `diagrams lint --staged`, which lints what the commit would hold.
 - No CI until the repo has a remote.
 
 **No build step, where possible**
@@ -631,7 +631,7 @@ The method comes from Wybrow, Marriott and Stuckey (2009), Marriott, Stuckey and
 
 1. **Grid.** Build a sparse orthogonal grid.
    - Place lines parallel to each side of each Node, half a clearance outside it, and at the end of each Port's stub.
-   - Do the same around each Group label band.
+   - Do the same around each Group's label box: the part of its label band that its title fills.
    - Add one more line on each side, outside the whole drawing, so a route can go around everything.
 
    Each line sits half a clearance from a Node, so a line runs down the middle of even the narrowest corridor.
@@ -640,6 +640,7 @@ The method comes from Wybrow, Marriott and Stuckey (2009), Marriott, Stuckey and
 2. **Capacity.**
    - For each open segment, measure the free width across it: the distance to the nearest obstacle on each side.
    - That width divided by the lane spacing is the number of lanes that fit.
+   - Parallel segments between the same two obstacles lie in one corridor, and share its lanes.
 3. **Search.** Route each Edge with A\* over states of (vertex, direction of travel).
    - A route runs from the end of its source Port's stub to the end of its target Port's stub.
    - A step costs its length, plus:
@@ -755,6 +756,7 @@ The SVG writer turns a scene into one self-contained SVG, committed next to its 
 - Colors come from semantic CSS custom properties prefixed `--diagram-`:
   - `background`, `surface`, `border`, `ink` and `muted`;
   - `accent`, `ok`, `warn` and `danger`;
+  - `edge` and `edge-casing`, an Edge's body and the casing around it, and `warn-casing`, the casing of an Edge in the warning color;
   - one hue for each family of Kinds.
 - Every use of a property has a fallback value.
 - A `prefers-color-scheme: dark` rule repeats those uses with dark fallbacks.
@@ -777,7 +779,7 @@ The SVG writer turns a scene into one self-contained SVG, committed next to its 
 
 The same model gives a byte-identical file on every machine, because:
 
-- elements are written in model order, and attributes in a fixed order;
+- elements are written in model order, except that Edges which cross between regions or zones come first, beneath the others, and attributes in a fixed order;
 - numbers are rounded to at most two decimals, with no negative zero;
 - ids derive only from model ids;
 - lines end with LF, and the file ends with a newline;
@@ -819,11 +821,13 @@ On top of the model's own rules, these are errors:
 
 - Writes each `<name>.diagram.svg` next to its source.
 - With no paths, it renders the whole Atlas.
+- Each path names a Diagram's module in the Atlas, or a folder of the Atlas, for every module in it. Anything else exits with 2, and nothing is rendered.
 - A Diagram with errors gets no new SVG: its errors are printed, and the exit code is 1.
 
-**`diagrams lint [--json]`**
+**`diagrams lint [--json] [--staged]`**
 
 - Exits with 1 if there's any error, and with 0 otherwise.
+- With `--staged`, it lints what git has staged, which a commit would hold, rather than the working tree.
 
 **`diagrams export <diagram> --format png|json [--theme light|dark] [--scale n] [--out path]`**
 
@@ -831,7 +835,7 @@ On top of the model's own rules, these are errors:
 - By default, the file goes into a cache folder that git ignores. PNGs are for looking at, and are never committed.
 - The PNG is drawn from the same SVG:
   - with the theme properties resolved to the chosen theme's colors;
-  - with the bundled font handed straight to the rasterizer;
+  - with the font faces that the SVG embeds, its subset of the bundled font, handed to the rasterizer;
   - without animation.
 - `diagrams export --index` writes the Atlas index.
 
@@ -1467,7 +1471,7 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
 
 1. **Looks live in the Notation.**
    - `architectureNodeLooks` gives each Kind its size, its outline, its badge and its family. A badge is path data for a glyph 16 px square, drawn stroked.
-   - `src/core/outlines.ts` draws each outline as path data, from addition, subtraction, multiplication and division only, so another renderer could use it.
+   - `src/core/outlines.ts` draws each outline as path data, with only the arithmetic that the spec's Arithmetic allows, rounding included, so another renderer could use it. A chip's pins round down to whole steps. (Review 1 widened this from addition, subtraction, multiplication and division.)
    - Every stroke stays inside the Node's rectangle, and the outline meets the Node's sides wherever the Node has a Port.
 2. **Sizes.** Every Kind is 176 by 48 px, except:
    - a queue, 192 px wide, since the pipe's open end takes 18 px;
@@ -1758,7 +1762,7 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
    - The schema closes every object, and validation rejects such a field as `model-shape`, at the field, and lists the fields its object has: "`/edges/1/lable` must be left out: an Edge has no such field. Its fields are `id`, `kind`, `from`, `to`, `label`, `technology` and `rate`." The types forbid such a field, so validation does too, and a misspelled field is never silently ignored.
    - Each object's fields are listed in `validate.ts` with `fieldsOf<T>`, which takes an object with one `true` per field, so that the type checker holds the list to the model's type.
    - A pointer escapes `~` and `/` in a field's name, as RFC 6901 says.
-   - Fields of the spec's model that the engine doesn't read yet are rejected too: a Diagram's or a Node's `description`, and Walkthroughs, whose list must be empty ("`/walkthroughs` must be an empty list: this engine doesn't play Walkthroughs yet."). The slice that reads each one adds it to the model, validation and the schema. Term Links stay rejected as ticket 05 decided, with its message.
+   - Fields of the spec's model that the engine doesn't read yet are rejected too: Walkthroughs, whose list must be empty ("`/walkthroughs` must be an empty list: this engine doesn't play Walkthroughs yet."). The slice that reads each one adds it to the model, validation and the schema. Term Links stay rejected as ticket 05 decided, with its message. A Diagram's and a Node's `description` were rejected too, until Review 1 accepted them (its decision 2).
 3. **A Node's Technology.** The model's Node has `technology`, a slug, which validation checks as it checks an Edge's (`technology-format`). Ticket 12 adds it to the authoring API, and draws it.
 4. **Text that an SVG can hold.**
    - XML can't hold some characters even as character references, so no escaping writes them: U+0000 to U+001F other than tab, line feed and carriage return, a half of a surrogate pair on its own, and U+FFFE and U+FFFF. Every field that holds text must leave them out: the Diagram's id and title, a Node's title and callout, a Row's name and value, a Group's title and description, a Link's `doc`, `section` and `label`, an Edge's label, and the Row that an Edge end names. Other fields have formats that leave them out already.
@@ -1804,7 +1808,7 @@ Implementers add decisions here as they make them. Change any that prove wrong, 
    - One writes the skill's example into a sample Atlas, and runs each `pnpm exec diagrams …` command the skill gives, in its order, with `<module>` standing for the module's path. Render must write the SVG, `lint --json` must list no messages, and export must print the path of a PNG.
    - Another checks that the skill names, in backticks, every Kind, Group Kind, Edge Kind and status of the architecture Notation, and every Technology in the logo table. A later ticket that adds one must teach it.
    - A third checks that both links reach the skill, that its `name` is their folder's, and that AGENTS.md gives its path.
-4. **The finishing steps add a type check.** The builder copies only the options it knows. So a misspelled option, such as `lable`, vanishes: render and lint pass, and the label just isn't drawn. Only `pnpm typecheck` catches it, so the skill runs it before lint. That breaks the rule that validation checks at run time everything the types prevent, since validation never sees the misspelled option. Validation has rejected unknown fields in generated JSON since ticket 14.
+4. **The finishing steps added a type check.** The builder copied only the options it knew. So a misspelled option, such as `lable`, vanished: render and lint passed, and the label just wasn't drawn. Only `pnpm typecheck` caught it, so the skill ran it before lint. Review 1 makes every authoring function reject an option it doesn't know (its decision 5), so the skill's finishing steps no longer type-check.
 5. **Numbers it gives.** Measured over 21 titles on five Kinds, a title fits in about 16 characters, or 14 beside a logo: "Inventory service" fits, "Customer accounts" doesn't, and beside a logo "Product search" fits and "Orders database" doesn't. Export keeps its defaults: at scale 1 the example's PNG is 2664 px wide, and its text stays legible when an image viewer shrinks it to 2000.
 6. **It teaches only what's built.** Term Links, namespaces, Walkthroughs and the domain Notation wait for slices 2 and 4, which add them to the skill, and their Kinds to the naming test.
 7. **Biome reads frontmatter.** Biome 2.6 formats Markdown, and without `markdown.parser.frontmatter` it reads a skill's frontmatter as a rule and a heading, and puts a blank line after the first `---`. `biome.json` turns the option on, and the frontmatter stays as written.
@@ -1818,6 +1822,44 @@ Scope moved or added while the tickets ran. Each ticket's Comments say why.
 3. Ticket 14 gained the rejection of control characters in text.
 4. Ticket 06's Group-containment check now names the property that can be tested.
 5. A labeled Edge stays out of a trunk that would leave it no run of its own for its label (Edge routing, step 8). Ticket 16 builds it.
+
+**Review 1**
+
+The fix of code review 1 (`../review-1.md`) settled these. Where one amends the spec, the main text says so now.
+
+1. **The Atlas index.**
+   - `diagrams export --index [--out path]` writes it as JSON indented by two spaces, by default to `.diagrams-cache/index.json`, and prints its absolute path. It sits outside `export/`, so that no Diagram's JSON export can take its name.
+   - It's `{ diagrams, ids, terms }`. Each Diagram has its `id`, `title`, `notation` and `svg`, a repo path, in path order. `ids` is keyed by id, in code unit order, and each holds its `kind`, its `title`, and the ids of the Diagrams that draw it, `asNode` and `asGroup`. `terms` stays empty until slice 2 brings glossaries.
+   - The index holds only what's true across the Atlas, so a Diagram with errors, or an id with two Kinds or two titles, leaves none: the errors go to stderr in lint's format, and the exit code is 1. Warnings are lint's to print.
+   - With `--index`, export takes no Diagram and no option but `--out`. Anything else exits with 2.
+2. **Descriptions.** A Diagram, a Node and a Group each take a `description`, as the version 1 fields have them: in the builder, validation and the schema. Nothing draws it. The SVG's `<metadata>` carries it, and a test checks that a description changes no other line. Its text must be one an SVG can hold (`invalid-character`). This replaces the point of ticket 14's decision 2 that rejected them. Walkthroughs stay rejected until slice 4.
+3. **Theme properties.** The Theme's list gains `edge`, `edge-casing` and `warn-casing`, which ticket 11 added (its decisions 2 and 6). A host page that themes Diagrams defines them too.
+4. **Paths for `render`.**
+   - Each path names a Diagram's module in the Atlas, or a folder of it, for every module inside. Anything else exits with 2, renders nothing, and says why: a file that isn't a `*.diagram.ts` module or isn't there, a path outside the root, or a module that git ignores.
+   - `export` shares the check, so it now refuses a module that git ignores too. The Atlas leaves such a module out, so ticket 13's decision 1 already counted it as outside.
+   - The SVG's path is made only from a path that ends in `.diagram.ts`.
+5. **Options the authoring API doesn't know.**
+   - Every authoring function records each option it doesn't know as a `model-shape` error, beside the model, as it records declarations: under `Symbol.for("@the-platform/diagrams/unknown-options")`, where JSON leaves it out. The module loader carries the errors across, as it carries declarations.
+   - Validation reports them first among the shape errors, each at the pointer where the option would go, as in `/edges/1/lable`, so the Atlas places it at the call. Each message lists the function's options: "An Edge has no option `lable`. Its options are `kind`, `id`, `label`, `technology` and `rate`."
+   - An option set to `undefined` is no option, as for the options a function knows.
+   - `atlas()` records its call too. The config has no options yet, so any is an error: "The Atlas config has no option `contexts`. It has no options yet."
+   - The builder could have passed an unknown option on to the model, where validation rejects a field the model lacks. But some names would collide with fields the builder writes itself, such as a Group's `members` or an Edge's `from`, and the message would list model fields that aren't options.
+6. **The pre-commit hook judges what's staged.**
+   - `diagrams lint --staged` copies every file that git has staged under the root into a temporary folder, with `git checkout-index`, links the repo's `node_modules` folders into it from the root up, lints the copy, and names each file by its own path. Its SVG messages say to stage the SVG: "The staged SVG doesn't match its staged source. Run `diagrams render`, and stage the SVG with its source."
+   - Inside a hook, git names the index it commits in `GIT_INDEX_FILE`, which differs from the usual index for `git commit -a` and `git commit <paths>`. The copy follows it when it lies inside the Atlas's own git folder, a relative path being relative to the working directory.
+   - lefthook runs it. lefthook 2.2.2 has no option that hides unstaged changes from a command.
+   - Outside a git repo, `--staged` exits with 2.
+7. **Decisions that the main text now follows.** Ticket 13's decision 6 hands the rasterizer the SVG's own font faces, ticket 11's decision 6 writes Edges that cross between regions or zones first, and ticket 06's decision 5 makes only each Group's label box an obstacle. All three stand. Tickets 13 and 06 say the same in their checkboxes.
+8. **Looks live in the Notation, for Groups and statuses too.** `architectureGroupLooks` gives each Group Kind its stroke's width and its line, and `architectureStatusLooks` gives each status its mark and its color. The scene types each Kind and status as the model does, so the SVG writer looks each one up without a cast.
+9. **Corridors share capacity.** This changes ticket 09's decisions 4 and 5.
+   - The grid's parallel segments over one stretch, with the same nearest obstacle or Group border on each side, lie in one corridor. Its capacity is its width divided by the lane spacing, and it counts the lane groups on all its segments, since nudging spreads their lanes across its one width. A corridor over capacity adds history to each of its segments.
+   - Before, the grid measured each line's segments alone. Drawn `down` with every Edge labeled, the crowded fixture put five lanes 4 px apart through each of two corridors a clearance wide, from two grid lines each, and its second round of routing never cleared. Now that round clears in two passes. A routing property checks every corridor on labeled copies of every routing fixture.
+   - No golden file and no committed SVG changed. `pnpm bench` reports 83 ms median drawn `right`, 111 ms drawn `down`, and 362 and 143 ms with every Edge labeled, from 80, 105, 346 and 144 ms.
+10. **Where code lives now.** The refactors changed no golden file and no committed SVG.
+    - The SVG writer is split: `src/core/xml.ts` writes the XML, `encoding.ts` the hash and base64, `style.ts` the font faces and the theme's rules, and `edge-paths.ts` the path data along Edges. The theme writes a rule for each class or attribute that the drawing holds, so a new class needs only its rule.
+    - `src/core/texts.ts` walks every text of the model, for validation's `invalid-character` check and for the drawing's text warnings alike. The `invalid-character` errors of one Node or Edge now come in model order: a Node's callout after its Rows and Links, and the Rows an Edge's ends name before its label.
+    - `geometry.ts` holds the heading of a run, rounding up to a step, and a stretch of a line. `bundles.ts` holds the lane spacing and the default bundling, which `render` sets once.
+11. **Arithmetic.** Ticket 07's decision 1 now allows the arithmetic that the spec's Arithmetic allows, rounding included, so a chip's pins may round down.
 
 ### References
 

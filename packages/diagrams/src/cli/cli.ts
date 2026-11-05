@@ -3,9 +3,16 @@
  * output streams. The binary only calls it, so tests can run it in-process.
  */
 
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { cacheFolderOf, lintAtlas, renderDiagrams } from "../atlas/atlas.ts";
+import {
+	cacheFolderOf,
+	indexAtlas,
+	lintAtlas,
+	lintStaged,
+	renderDiagrams,
+	svgOnDisk,
+} from "../atlas/atlas.ts";
 import { AtlasError, configFile, discover, findRoot, moduleSuffix } from "../atlas/discover.ts";
 import { type AtlasMessage, placeText } from "../atlas/messages.ts";
 import type { Diagram } from "../authoring/model.ts";
@@ -25,10 +32,14 @@ const usage = `Usage: diagrams <command>
 
 Commands:
   render [paths...]  Write each Diagram's SVG next to its source
-  lint [--json]      Check the whole Atlas: every Diagram, Link and SVG
+  lint [--json] [--staged]
+                     Check the whole Atlas: every Diagram, Link and SVG, as
+                     the working tree has them, or as git has them staged
   export <diagram> --format png|json [--theme light|dark] [--scale n] [--out path]
                      Write a Diagram, named by its module's path, as a PNG or
                      as its JSON model, and print the file's path
+  export --index [--out path]
+                     Write the Atlas index, and print the file's path
 `;
 
 /** Runs one command, and returns its exit code. */
@@ -66,16 +77,19 @@ async function run(args: string[], context: CliContext): Promise<number> {
 
 async function renderCommand(paths: string[], context: CliContext): Promise<number> {
 	const root = findRoot(context.cwd);
-	const atlas = (await discover(root)).modules;
+	const atlas = { root, modules: (await discover(root)).modules };
+	const named = paths.map((path) => modulesNamed(path, atlas, context, { folders: true }));
+	const refused = named.flatMap((found) => ("error" in found ? [found.error] : []));
+	if (refused.length > 0) {
+		for (const error of refused) {
+			context.stderr.write(`${error}\n`);
+		}
+		return 2;
+	}
 	const modules =
 		paths.length === 0
-			? atlas
-			: paths.flatMap((path) => {
-					const target = resolve(context.cwd, path);
-					return existsSync(target) && statSync(target).isDirectory()
-						? atlas.filter((module) => module.startsWith(`${target}${sep}`))
-						: [target];
-				});
+			? atlas.modules
+			: [...new Set(named.flatMap((found) => ("error" in found ? [] : found)))];
 	let failed = false;
 	for (const diagram of await renderDiagrams(root, modules)) {
 		print(diagram.messages, context);
@@ -83,7 +97,7 @@ async function renderCommand(paths: string[], context: CliContext): Promise<numb
 			failed = true;
 			continue;
 		}
-		if (!existsSync(diagram.svgFile) || readFileSync(diagram.svgFile, "utf8") !== diagram.svg) {
+		if (svgOnDisk(diagram.svgFile, diagram.svg) !== "current") {
 			writeFileSync(diagram.svgFile, diagram.svg);
 			context.stdout.write(`Wrote ${shown(diagram.svgFile, context)}\n`);
 		}
@@ -92,12 +106,15 @@ async function renderCommand(paths: string[], context: CliContext): Promise<numb
 }
 
 async function lintCommand(options: string[], context: CliContext): Promise<number> {
-	const unknown = options.find((option) => option !== "--json");
+	const unknown = options.find((option) => option !== "--json" && option !== "--staged");
 	if (unknown !== undefined) {
 		context.stderr.write(`Unknown option \`${unknown}\`.\n\n${usage}`);
 		return 2;
 	}
-	const { diagrams, messages } = await lintAtlas(findRoot(context.cwd));
+	const root = findRoot(context.cwd);
+	const { diagrams, messages } = options.includes("--staged")
+		? await lintStaged(root, context.cwd)
+		: await lintAtlas(root);
 	const errors = messages.filter((message) => message.severity === "error").length;
 	const warnings = messages.length - errors;
 	if (options.includes("--json")) {
@@ -142,27 +159,25 @@ interface ExportRequest {
 }
 
 async function exportCommand(args: string[], context: CliContext): Promise<number> {
+	if (args.includes("--index")) {
+		return exportIndex(
+			args.filter((arg) => arg !== "--index"),
+			context,
+		);
+	}
 	const request = exportRequest(args);
 	if ("error" in request) {
 		context.stderr.write(`${request.error}\n\n${usage}`);
 		return 2;
 	}
 	const root = findRoot(context.cwd);
-	const module = resolve(context.cwd, request.diagram);
-	if (!module.endsWith(moduleSuffix) || !existsSync(module) || !statSync(module).isFile()) {
-		context.stderr.write(
-			`There's no Diagram at \`${shown(module, context)}\`. Name one by its module's path, which ends in \`${moduleSuffix}\`.\n`,
-		);
+	const atlas = { root, modules: (await discover(root)).modules };
+	const named = modulesNamed(request.diagram, atlas, context, { folders: false });
+	if ("error" in named) {
+		context.stderr.write(`${named.error}\n`);
 		return 2;
 	}
-	const inAtlas = relative(root, module);
-	if (inAtlas.split(sep)[0] === ".." || isAbsolute(inAtlas)) {
-		context.stderr.write(
-			`\`${shown(module, context)}\` isn't in the Atlas: it lies outside the folder that holds \`${configFile}\`.\n`,
-		);
-		return 2;
-	}
-	const [rendered] = await renderDiagrams(root, [module]);
+	const [rendered] = await renderDiagrams(root, named);
 	const { svg, model, messages = [] } = rendered ?? {};
 	// The path alone goes to stdout, so that a script can read it.
 	print(messages, context, context.stderr);
@@ -173,7 +188,42 @@ async function exportCommand(args: string[], context: CliContext): Promise<numbe
 		request.out === undefined
 			? join(cacheFolderOf(root), "export", exportName(model.id, request))
 			: resolve(context.cwd, request.out);
-	const contents = request.format === "json" ? modelJson(model) : drawPng(svg, request);
+	return writeOut(
+		file,
+		request.format === "json" ? modelJson(model) : drawPng(svg, request),
+		context,
+	);
+}
+
+/**
+ * Writes the Atlas index, as JSON indented by two spaces, into the cache
+ * folder or where `--out` says, and prints its path. An Atlas with errors gets
+ * no index: its errors are printed, and the exit code is 1.
+ */
+async function exportIndex(args: string[], context: CliContext): Promise<number> {
+	const parsed = parseOptions(args, ["--out"]);
+	if ("error" in parsed || parsed.positionals.length > 0) {
+		const error =
+			"error" in parsed
+				? parsed.error
+				: "`--index` writes the Atlas index, so name no Diagram with it.";
+		context.stderr.write(`${error}\n\n${usage}`);
+		return 2;
+	}
+	const root = findRoot(context.cwd);
+	const { index, errors } = await indexAtlas(root);
+	print(errors, context, context.stderr);
+	if (index === undefined) {
+		return 1;
+	}
+	const out = parsed.values.get("--out");
+	const file =
+		out === undefined ? join(cacheFolderOf(root), "index.json") : resolve(context.cwd, out);
+	return writeOut(file, `${JSON.stringify(index, null, 2)}\n`, context);
+}
+
+/** Writes a file that export made, its folders too, and prints its absolute path, which alone goes to stdout. */
+function writeOut(file: string, contents: string | Uint8Array, context: CliContext): number {
 	try {
 		mkdirSync(dirname(file), { recursive: true });
 		writeFileSync(file, contents);
@@ -184,6 +234,48 @@ async function exportCommand(args: string[], context: CliContext): Promise<numbe
 	}
 	context.stdout.write(`${file}\n`);
 	return 0;
+}
+
+/**
+ * The modules of the Atlas that a path names, from the working directory: a
+ * Diagram's module, or, where `folders` allows it, a folder of the Atlas and
+ * every module in it. A path that names anything else gets a message instead:
+ * a file that isn't a `*.diagram.ts` module, or one outside the Atlas, which
+ * leaves out what lies outside its root and what git ignores.
+ */
+function modulesNamed(
+	path: string,
+	atlas: { root: string; modules: string[] },
+	context: CliContext,
+	{ folders }: { folders: boolean },
+): string[] | { error: string } {
+	const target = resolve(context.cwd, path);
+	const named = shown(target, context);
+	const found = statSync(target, { throwIfNoEntry: false });
+	const folder = folders && found?.isDirectory() === true;
+	if (!folder && (!target.endsWith(moduleSuffix) || found?.isFile() !== true)) {
+		const orFolder = folders ? ", or name a folder to render every Diagram in it" : "";
+		return {
+			error: `There's no Diagram at \`${named}\`. Name one by its module's path, which ends in \`${moduleSuffix}\`${orFolder}.`,
+		};
+	}
+	if (!contains(atlas.root, target)) {
+		return {
+			error: `\`${named}\` isn't in the Atlas: it lies outside the folder that holds \`${configFile}\`.`,
+		};
+	}
+	if (folder) {
+		return atlas.modules.filter((module) => contains(target, module));
+	}
+	return atlas.modules.includes(target)
+		? [target]
+		: { error: `\`${named}\` isn't in the Atlas, which leaves out the files that git ignores.` };
+}
+
+/** Whether a path is a folder's own path or lies inside the folder. */
+function contains(folder: string, path: string): boolean {
+	const inside = relative(folder, path);
+	return inside === "" || (inside.split(sep)[0] !== ".." && !isAbsolute(inside));
 }
 
 /** Reads the export's arguments, or says what's wrong with them. */

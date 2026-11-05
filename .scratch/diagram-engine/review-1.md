@@ -102,4 +102,59 @@ The orchestrator made these calls. Where a call amends the spec, change the spec
 
 ## Fix report
 
-The fixer fills this in.
+Fixed on `t3/fix-diagram-review-findings`. "Decision n" is the spec's Review 1 entry n, under "Decisions made during implementation". No golden file and no committed SVG changed.
+
+**Standards: hard violations**
+
+1. Group looks in the SVG writer: fixed. `architectureGroupLooks` in the Notation, which `writeGroup` reads (decision 8).
+2. `SceneLogo` not exported: fixed. Exported, with a type test.
+3. `Math.floor` in `outlines.ts`: fixed in the spec. Ticket 07's decision 1 allows rounding, and the floor stays (decision 11).
+
+**Standards: smells**
+
+- `heading`/`headingOf`/`unit`: fixed. One `headingOf`, in `src/core/geometry.ts`.
+- `list`: fixed. One, in `src/core/diagnostics.ts`.
+- `codePointOf`: fixed. One, in `src/core/diagnostics.ts`.
+- `snap`/`roundUp`: fixed. One `roundUp`, in `geometry.ts`.
+- The union-find, twice: fixed. One `disjointSets`, in `nudge.ts`.
+- `parentOf` maps: fixed. `parentsOf`, beside `endNode` in `src/authoring/model.ts`.
+- "font has no `tag` table": fixed. One `tableOf`, in `src/fonts/truetype.ts`.
+- The slug regex: fixed. The script imports validation's `slugPattern`.
+- The SVG-on-disk check: fixed. One `svgOnDisk`, comparing bytes, for `render` and lint.
+- `laneSpacing` vs `lanes.spacing`: fixed. `lanes` lives in `bundles.ts`, for layout and the router.
+- `chevronReach`/`badgeReach`: fixed. `markSizes` in `marks.ts` holds the sizes the writer draws, and the reaches derive from them.
+- The `"target"` default set twice: fixed. `render` applies `defaultBundling` once.
+- Shotgun Surgery: fixed. `src/core/texts.ts` walks the model's texts for both checks, and the theme writes a rule for each class the drawing holds (decision 10).
+- `{ horizontal, line, low, high }`: fixed. `LineSpan`, in `geometry.ts`.
+- `{ file, line, column }`: fixed. `FilePlace`, from the builder's `SourcePosition`, which `AtlasMessage` and `Place` refine.
+- `kind: string`: fixed. The scene types Kinds and statuses as the model does, and the casts are gone.
+- `pinned = 3`: not a bug, since 3 ranks a Port's junction above a stub-to-stub route, as `spread` intends: at 2 every fixture draws the same, and at 1 or 0 the crowded golden changes. Fixed the smell: `keepsLine` names all four levels.
+- The stand-in `service` Node: fixed. An `emptyGroup` size, 176 by 48 px.
+- `group` for a lane group: fixed. `laneGroup`, in the router and nudging.
+- `labelPadding`: fixed. `groupLabelPadding`.
+- Nine `down ?` swaps: fixed. `axesOf` picks the axes, the Ports' sides and their line once per direction.
+- `svg.ts`'s Divergent Change: fixed. Split into `xml.ts`, `encoding.ts`, `style.ts` and `edge-paths.ts` (decision 10).
+- `congestion?:`: fixed. Required.
+
+**Spec**
+
+- (a)1 No Atlas index: fixed. `diagrams export --index` writes it, with Seam 2 tests (decision 1).
+- (a)2 No `description`: fixed. Diagrams, Nodes and Groups take one, carried only in the SVG's model (decision 2).
+- (a)3 Ticket 15's manual check: no change needed. It ran and passed in 8e37e50, before this fix.
+- (b)1 Extra theme properties: fixed in the spec. Its Theme list has them (decision 3).
+- (b)2 The skill's `pnpm typecheck` step: fixed. Removed, since the builder rejects unknown options.
+- (c)1 `render` accepts any path: fixed. Only Diagram modules or folders in the Atlas, else exit 2, and `export` shares the check (decision 4).
+- (c)2 Misspelled options vanish: fixed. Every authoring function, `atlas()` included, records a `model-shape` error at the call (decision 5).
+- (c)3 The hook can commit a stale SVG: fixed. lefthook runs `diagrams lint --staged`, tested in temporary repos, once through a real hook (decision 6).
+- (c)4 Conflicting decisions: fixed in the spec. Its main text and tickets 13 and 06 follow 13.6, 11.6 and 06.5 (decision 7).
+
+**Loose ends**
+
+1. Capacity and nudging disagree: fixed. Parallel segments between the same sides share one corridor's capacity (decision 9).
+2. No PNG test with Groups: fixed. Two Seam 2 tests check each Group's border in both themes, and each title on its point.
+3. The skill's wording:
+   - "Draw X with Y": fixed. It means editing Diagram X.
+   - `ArchitectureNode`'s import, and shared modules: fixed. Both types come from `@the-platform/diagrams`, and shared modules go in `shared/` beside their Diagrams.
+   - Groups drawn twice: fixed. The sharing rule covers Groups, and a `system` drawn both ways shares only what both take.
+   - A Diagram with no doc: fixed. It goes in the `docs/` folder of the package it draws, or of the repo.
+   - The options reference: fixed. The skill points at `diagram.schema.json`.

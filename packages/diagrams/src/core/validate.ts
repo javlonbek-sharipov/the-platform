@@ -13,13 +13,15 @@ import {
 	type Row,
 	type RowEnd,
 } from "../authoring/model.ts";
+import { unknownOptionsOf } from "../authoring/options.ts";
 import {
 	architectureEdgeKinds,
 	architectureGroupKinds,
 	architectureNodeKinds,
 	architectureStatuses,
 } from "../notations/architecture.ts";
-import type { Diagnostic } from "./diagnostics.ts";
+import { codePointOf, type Diagnostic, list, pointerSegment } from "./diagnostics.ts";
+import { type TextField, type TextOwner, textsOf } from "./texts.ts";
 
 export interface Validation {
 	diagnostics: Diagnostic[];
@@ -39,7 +41,7 @@ const idPattern = new RegExp(`^${id}$`);
 /** An id, or an Edge's default name: its two ends' ids joined by `->`. */
 const edgeIdPattern = new RegExp(`^${id}(?:->${id})?$`);
 /** A Technology's slug: lowercase words joined by hyphens, as in `postgres` or `aws-lambda`. */
-const slugPattern = new RegExp(`^${kebabCase}$`);
+export const slugPattern = new RegExp(`^${kebabCase}$`);
 /** A number, an optional `k` or `M`, a slash, and `s`, `min` or `h`, as in `2k/s` or `30/min`. */
 const ratePattern = /^[0-9]+(?:\.[0-9]+)?[kM]?\/(?:s|min|h)$/;
 
@@ -64,6 +66,7 @@ const fields = {
 		notation: true,
 		id: true,
 		title: true,
+		description: true,
 		direction: true,
 		members: true,
 		nodes: true,
@@ -79,6 +82,7 @@ const fields = {
 		external: true,
 		status: true,
 		rows: true,
+		description: true,
 		links: true,
 		callout: true,
 	}),
@@ -348,80 +352,24 @@ function checkTechnology(
 			];
 }
 
-/** A piece of text in the model: how a message names it, the text, and where it is. */
-type PlacedText = [where: string, text: string | undefined, pointer: string];
-
 /**
  * Every text in the model must be one that an SVG can hold. XML forbids some
  * characters even written as character references, so no escaping could
  * write them: control characters other than tabs and line breaks, halves of
- * surrogate pairs on their own, and U+FFFE and U+FFFF. Ids, Kinds and the
- * other fields that have formats of their own can't hold them anyway.
+ * surrogate pairs on their own, and U+FFFE and U+FFFF. A Technology and a
+ * rate have formats that leave them out already, as ids and Kinds do.
  */
 function checkCharacters(diagram: Diagram): Diagnostic[] {
-	const linkTexts = (owner: string, links: Link[] | undefined, pointer: string) =>
-		(links ?? []).flatMap((link, index): PlacedText[] => {
-			const named = `${owner}'s Link to \`${shown(link.id ?? link.doc ?? "")}\``;
-			const at = `${pointer}/links/${index}`;
-			return [
-				[`the document of ${named}`, link.doc, `${at}/doc`],
-				[`the section of ${named}`, link.section, `${at}/section`],
-				[`the label of ${named}`, link.label, `${at}/label`],
-			];
-		});
-	const texts: PlacedText[] = [
-		["the Diagram's id", diagram.id, "/id"],
-		["the Diagram's title", diagram.title, "/title"],
-		...diagram.nodes.flatMap((node, index): PlacedText[] => {
-			const named = `Node \`${shown(node.id)}\``;
-			const at = `/nodes/${index}`;
-			return [
-				[`${named}'s title`, node.title, `${at}/title`],
-				[`${named}'s callout`, node.callout, `${at}/callout`],
-				...(node.rows ?? []).flatMap((row, rowIndex) =>
-					(["name", "value"] as const).map(
-						(field): PlacedText => [
-							`the ${field} of ${named}'s Row \`${shown(row.name)}\``,
-							row[field],
-							`${at}/rows/${rowIndex}/${field}`,
-						],
-					),
-				),
-				...linkTexts(named, node.links, at),
-			];
-		}),
-		...diagram.groups.flatMap((group, index): PlacedText[] => {
-			const named = `Group \`${shown(group.id)}\``;
-			const at = `/groups/${index}`;
-			return [
-				[`${named}'s title`, group.title, `${at}/title`],
-				[`${named}'s description`, group.description, `${at}/description`],
-				...linkTexts(named, group.links, at),
-			];
-		}),
-		...diagram.edges.flatMap((edge, index): PlacedText[] => {
-			const named = `Edge \`${shown(edge.id)}\``;
-			const at = `/edges/${index}`;
-			const rows = (
-				[
-					["from", "starts"],
-					["to", "ends"],
-				] as const
-			).flatMap(([field, verb]): PlacedText[] => {
-				const end = edge[field];
-				return typeof end === "string"
-					? []
-					: [[`the Row that ${named} ${verb} at`, end.row, `${at}/${field}/row`]];
-			});
-			return [[`${named}'s label`, edge.label, `${at}/label`], ...rows];
-		}),
-	];
-	return texts.flatMap(([where, text, pointer]) => {
-		const found = [...new Set(text ?? "")].filter((character) => !writable(character));
+	return textsOf(diagram).flatMap(({ owner, field, text, pointer }) => {
+		if (field.name === "technology" || field.name === "rate") {
+			return [];
+		}
+		const found = [...new Set(text)].filter((character) => !writable(character));
 		const [first] = found;
 		if (first === undefined) {
 			return [];
 		}
+		const where = textNamed(owner, field);
 		const subject = `${where.charAt(0).toUpperCase()}${where.slice(1)}`;
 		return [
 			error(
@@ -433,6 +381,29 @@ function checkCharacters(diagram: Diagram): Diagnostic[] {
 			),
 		];
 	});
+}
+
+/**
+ * How a message names a text of the model, by its field and what holds it,
+ * with each character that an SVG can't hold written as an escape.
+ */
+function textNamed(owner: TextOwner, field: TextField): string {
+	const named = owner.thing === "Diagram" ? "the Diagram" : `${owner.thing} \`${shown(owner.id)}\``;
+	switch (field.name) {
+		case "row name":
+		case "row value":
+			return `the ${field.name === "row name" ? "name" : "value"} of ${named}'s Row \`${shown(field.row)}\``;
+		case "link doc":
+		case "link section":
+		case "link label": {
+			const part = { "link doc": "document", "link section": "section", "link label": "label" };
+			return `the ${part[field.name]} of ${named}'s Link to \`${shown(field.target)}\``;
+		}
+		case "end row":
+			return `the Row that ${named} ${field.end === "from" ? "starts" : "ends"} at`;
+		default:
+			return `${named}'s ${field.name}`;
+	}
 }
 
 /**
@@ -464,19 +435,9 @@ function unwritableKind(character: string): string {
 function shown(text: string): string {
 	return [...text]
 		.map((character) =>
-			writable(character) ? character : `\\u${hexOf(character.codePointAt(0) ?? 0)}`,
+			writable(character) ? character : codePointOf(character).replace("U+", "\\u"),
 		)
 		.join("");
-}
-
-/** `U+0007` */
-function codePointOf(character: string): string {
-	return `U+${hexOf(character.codePointAt(0) ?? 0)}`;
-}
-
-/** A code point as at least four uppercase hex digits. */
-function hexOf(code: number): string {
-	return code.toString(16).toUpperCase().padStart(4, "0");
 }
 
 /** A Link to an id must name it as the model writes ids. `owner` is the Node or Group that has the Links. */
@@ -643,7 +604,10 @@ function checkShape(input: unknown): Diagnostic[] {
 		];
 	}
 
-	const diagnostics: Diagnostic[] = [];
+	// The authoring API's functions record each option they don't know, rather
+	// than leave it behind, so that it's rejected as a field the model doesn't
+	// have would be.
+	const diagnostics: Diagnostic[] = [...unknownOptionsOf(input)];
 	const check = (valid: boolean, pointer: string, what: string) => {
 		if (!valid) {
 			diagnostics.push(error("model-shape", `\`${pointer}\` must be ${what}.`, pointer));
@@ -700,6 +664,11 @@ function checkShape(input: unknown): Diagnostic[] {
 	checkFields(input, "", "a Diagram", fields.diagram);
 	check(input.id === undefined || typeof input.id === "string", "/id", "a string");
 	check(typeof input.title === "string", "/title", "a string");
+	check(
+		input.description === undefined || typeof input.description === "string",
+		"/description",
+		"a string",
+	);
 	check(directions.includes(input.direction), "/direction", "`right` or `down`");
 	checkList(input.members, "/members", (member, at) => {
 		check(typeof member === "string", at, "an id");
@@ -768,7 +737,7 @@ function checkShape(input: unknown): Diagnostic[] {
 		}
 		checkStrings(node, at, ["id", "kind", "title"]);
 		if (isObject(node)) {
-			const { technology, external, status, callout } = node;
+			const { technology, external, status, description, callout } = node;
 			check(
 				technology === undefined || typeof technology === "string",
 				`${at}/technology`,
@@ -780,6 +749,11 @@ function checkShape(input: unknown): Diagnostic[] {
 				"`true` or `false`",
 			);
 			check(status === undefined || typeof status === "string", `${at}/status`, "a string");
+			check(
+				description === undefined || typeof description === "string",
+				`${at}/description`,
+				"a string",
+			);
 			check(
 				callout === undefined || (typeof callout === "string" && /[^ \t\n\r]/.test(callout)),
 				`${at}/callout`,
@@ -847,22 +821,10 @@ function checkShape(input: unknown): Diagnostic[] {
 	return diagnostics;
 }
 
-/** A field's name as one segment of a JSON Pointer, escaped as RFC 6901 says. */
-function pointerSegment(field: string): string {
-	return field.replaceAll("~", "~0").replaceAll("/", "~1");
-}
-
 function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function error(rule: string, message: string, pointer: string): Diagnostic {
 	return { severity: "error", rule, message, pointer };
-}
-
-/** `a, b and c` */
-function list(words: readonly string[]): string {
-	return words.length < 2
-		? words.join("")
-		: `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
 }

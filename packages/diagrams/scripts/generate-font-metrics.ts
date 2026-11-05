@@ -11,7 +11,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { bundledFontFiles } from "../src/fonts/bundled.ts";
-import { readTrueType, type TrueTypeFont, view } from "../src/fonts/truetype.ts";
+import { readTrueType, type TrueTypeFont, tableOf, view } from "../src/fonts/truetype.ts";
 
 const output =
 	process.argv[2] ?? fileURLToPath(new URL("../src/core/font-metrics.ts", import.meta.url));
@@ -33,7 +33,7 @@ const weights = Object.entries(bundledFontFiles).map(([weight, file]) => {
 	return [
 		`\t${weight}: {`,
 		`\t\tunitsPerEm: ${font.unitsPerEm},`,
-		`\t\taverageWidth: ${view(tableOf(font, "OS/2")).getInt16(2)},`,
+		`\t\taverageWidth: ${view(tableOf(font.tables, "OS/2")).getInt16(2)},`,
 		"\t\twidths: [",
 		...rowsOf(font).map((row) => `\t\t\t"${row}",`),
 		"\t\t],",
@@ -56,12 +56,4 @@ function rowsOf(font: TrueTypeFont): string[] {
 			}
 			return fields.join(" ");
 		});
-}
-
-function tableOf(font: TrueTypeFont, tag: string): Uint8Array {
-	const table = font.tables.get(tag);
-	if (table === undefined) {
-		throw new Error(`The font has no \`${tag}\` table.`);
-	}
-	return table;
 }

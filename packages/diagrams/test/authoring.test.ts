@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { type ArchitectureBuilder, architecture } from "../src/index.ts";
+import { type ArchitectureBuilder, architecture, render } from "../src/index.ts";
 
 describe("the architecture builder", () => {
 	test("produces a version-1 JSON model", () => {
@@ -161,6 +161,46 @@ describe("the architecture builder", () => {
 		]);
 	});
 
+	test("keeps a Diagram's description and a Node's, beside their titles", () => {
+		const diagram = architecture(
+			{ title: "Shop", description: "How the shop takes orders." },
+			(d) => {
+				d.node({
+					id: "shop-api",
+					kind: "service",
+					title: "Shop API",
+					rows: [{ name: "replicas", value: "3" }],
+					description: "Takes orders, and keeps them until they ship.",
+					links: [{ id: "shop-db" }],
+				});
+			},
+		);
+
+		expect(JSON.stringify(diagram)).toBe(
+			JSON.stringify({
+				version: 1,
+				notation: "architecture",
+				title: "Shop",
+				description: "How the shop takes orders.",
+				direction: "right",
+				members: ["shop-api"],
+				nodes: [
+					{
+						id: "shop-api",
+						kind: "service",
+						title: "Shop API",
+						rows: [{ name: "replicas", value: "3" }],
+						description: "Takes orders, and keeps them until they ship.",
+						links: [{ id: "shop-db" }],
+					},
+				],
+				groups: [],
+				edges: [],
+				walkthroughs: [],
+			}),
+		);
+	});
+
 	test("keeps a Node's Rows in order, each a name and an optional value", () => {
 		const diagram = architecture({ title: "Shop" }, (d) => {
 			d.node({
@@ -245,5 +285,78 @@ describe("the architecture builder", () => {
 		expect(diagram.edges).toEqual([
 			{ id: "shop-api->shop-db", kind: "call", from: "shop-api", to: "shop-db" },
 		]);
+	});
+});
+
+/**
+ * Builds a Diagram whose every authoring call is given an option it doesn't
+ * know, as a misspelling would. The types reject each one, so each is cast,
+ * as an untyped module or a wider type would let it through.
+ */
+function misspelled() {
+	return architecture({ title: "Shop", directon: "down" } as never, (d) => {
+		const web = d.node({ id: "web-app", kind: "client", title: "Web app", lable: "x" } as never);
+		d.group({ id: "eu-west", kind: "region", title: "EU West", member: [] } as never, (eu) => {
+			eu.node({
+				id: "shop-api",
+				kind: "service",
+				title: "Shop API",
+				rows: [{ name: "replicas", valeu: "3" }],
+			} as never);
+		});
+		d.edge(web, "shop-api", { kind: "call", lable: "Places orders" } as never);
+	});
+}
+
+describe("an option that an authoring function doesn't know", () => {
+	test("is an error where it would go in the model, naming the options there are, so it never vanishes", () => {
+		const shape = (message: string, pointer: string) => ({
+			severity: "error",
+			rule: "model-shape",
+			message,
+			pointer,
+		});
+
+		expect(render(misspelled())).toEqual({
+			diagnostics: [
+				shape(
+					"The Diagram has no option `directon`. Its options are `id`, `title`, `description` and `direction`.",
+					"/directon",
+				),
+				shape(
+					"A Node has no option `lable`. Its options are `id`, `kind`, `title`, `technology`, `external`, `status`, `rows`, `description`, `links` and `callout`.",
+					"/nodes/0/lable",
+				),
+				shape(
+					"A Group has no option `member`. Its options are `id`, `kind`, `title`, `description` and `links`.",
+					"/groups/0/member",
+				),
+				shape(
+					"A Row has no option `valeu`. Its options are `name` and `value`.",
+					"/nodes/1/rows/0/valeu",
+				),
+				shape(
+					"An Edge has no option `lable`. Its options are `kind`, `id`, `label`, `technology` and `rate`.",
+					"/edges/0/lable",
+				),
+			],
+		});
+	});
+
+	test("stays out of the model itself, which JSON and every comparison see", () => {
+		expect(JSON.parse(JSON.stringify(misspelled()))).toEqual({
+			version: 1,
+			notation: "architecture",
+			title: "Shop",
+			direction: "right",
+			members: ["web-app", "eu-west"],
+			nodes: [
+				{ id: "web-app", kind: "client", title: "Web app" },
+				{ id: "shop-api", kind: "service", title: "Shop API", rows: [{ name: "replicas" }] },
+			],
+			groups: [{ id: "eu-west", kind: "region", title: "EU West", members: ["shop-api"] }],
+			edges: [{ id: "web-app->shop-api", kind: "call", from: "web-app", to: "shop-api" }],
+			walkthroughs: [],
+		});
 	});
 });
