@@ -2085,6 +2085,14 @@ Focus, keyboard selection and the screen-reader lists. This is GitHub's issue #7
    - The walks keep the Nodes and Edges they reach. They don't change direction at an ancestor or a descendant, so another branch off an ancestor, or another caller of a descendant, stays faded unless a path of its own reaches the selected Node.
 2. **Strength.** Unrelated drawing parts show at opacity 0.2; the kept parts stay at 1. An Edge's path, label and role tags share the same strength, using the SVG's hooks. No static SVG or golden file changes.
 3. **Hover.** Leaving a Node clears its temporary focus. Escape clears focus even while the pointer stays over the Node; it takes a new hover to focus it again. Listeners leave with the SVG they belong to.
+4. **Persistent selection and the host.**
+   - A click selects a Node. Hover temporarily takes precedence; leaving it restores the selection. Escape clears both.
+   - `PlatformDiagram.selection` is `{ kind: "node" | "edge", id }` or `undefined`. `selectedNode` returns the Node's id, or `undefined`. `selectNode(id)` selects without moving keyboard focus; `selectNode(undefined)` clears. It returns false for an unknown id and leaves the selection alone.
+   - A change raises `diagram-select`, which bubbles and is composed, with that target as its `detail`, or `null` when cleared. Re-selecting the same target raises no duplicate event. The component's parts share the same selection and may watch its changes, which details and Walkthroughs can extend.
+5. **Edge hover.**
+   - The hovered Edge, its label and its role tags stay at full strength, as do its two Nodes; the rest fades. Its label and tags count as hovering the Edge too.
+   - An HTML tooltip shows the whole label, the Technology's display name (its slug when unknown) and the rate. It uses text content, wraps inside the stage, and follows the pointer without taking its events. Leaving the Edge or pressing Escape hides it.
+   - Each Edge gets a transparent hit path 12 screen pixels wide, made from its existing stroke. It leaves with the SVG, so it never changes the committed drawing or its routing.
 
 ### References
 

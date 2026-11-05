@@ -3,7 +3,9 @@
 import { type AnyDiagram, endNode } from "../authoring/model.ts";
 import { definitionOf, type Notation } from "../notations/notation.ts";
 import { notations } from "../notations/notations.ts";
+import type { SelectionTarget } from "./selection.ts";
 import type { Part } from "./stage.ts";
+import { modelOf } from "./svg.ts";
 
 export const focus: Part = {
 	css: `
@@ -11,23 +13,34 @@ export const focus: Part = {
 	opacity: var(--focus-opacity, 1);
 }
 `,
-	setUp({ element, onShow }) {
+	setUp({ element, selection, onShow }) {
 		onShow((svg) => {
-			const text = svg.querySelector(":scope > metadata")?.textContent;
-			if (!text) {
+			const diagram = modelOf(svg);
+			if (diagram === undefined) {
 				return undefined;
 			}
-			const diagram: AnyDiagram = JSON.parse(text);
 			const notation = notations.find(({ name }) => name === diagram.notation);
 			if (notation === undefined) {
 				return undefined;
 			}
+			selection.show(diagram);
 			const nodes = [...svg.querySelectorAll<SVGGElement>("[data-node]")];
 			const edges = [
 				...svg.querySelectorAll<SVGGElement>("[data-edge], [data-edge-label], [data-edge-role]"),
 			];
-			const show = (id: string | undefined) => {
-				const kept = id === undefined ? undefined : dependenciesOf(diagram, notation, id);
+			let hovered: SelectionTarget | undefined;
+			const show = () => {
+				const target = hovered ?? selection.current;
+				const edge = diagram.edges.find(({ id }) => target?.kind === "edge" && id === target.id);
+				const kept =
+					target === undefined
+						? undefined
+						: edge === undefined
+							? dependenciesOf(diagram, notation, target.id)
+							: {
+									nodes: new Set([endNode(edge.from), endNode(edge.to)]),
+									edges: new Set([edge.id]),
+								};
 				for (const node of nodes) {
 					node.style.setProperty(
 						"--focus-opacity",
@@ -47,15 +60,79 @@ export const focus: Part = {
 			};
 			const events = new AbortController();
 			const { signal } = events;
+			const hits: SVGPathElement[] = [];
 			for (const node of nodes) {
-				node.addEventListener("pointerenter", () => show(node.dataset.node), { signal });
-				node.addEventListener("pointerleave", () => show(undefined), { signal });
+				const target: SelectionTarget = { kind: "node", id: node.dataset.node ?? "" };
+				node.addEventListener(
+					"pointerenter",
+					() => {
+						hovered = target;
+						show();
+					},
+					{ signal },
+				);
+				node.addEventListener(
+					"pointerleave",
+					() => {
+						hovered = undefined;
+						show();
+					},
+					{ signal },
+				);
+				node.addEventListener(
+					"click",
+					() => {
+						element.focus({ preventScroll: true });
+						selection.select(target);
+					},
+					{ signal },
+				);
 			}
+			for (const part of edges) {
+				if (part.dataset.edge !== undefined) {
+					const path = part.querySelector("path");
+					if (path !== null) {
+						const hit = path.cloneNode(false) as SVGPathElement;
+						hit.removeAttribute("class");
+						hit.setAttribute("stroke", "transparent");
+						hit.setAttribute("stroke-width", "12");
+						hit.setAttribute("fill", "none");
+						hit.setAttribute("pointer-events", "stroke");
+						hit.setAttribute("vector-effect", "non-scaling-stroke");
+						part.append(hit);
+						hits.push(hit);
+					}
+				}
+				const id = part.dataset.edge ?? part.dataset.edgeLabel ?? part.dataset.edgeRole ?? "";
+				part.addEventListener(
+					"pointerenter",
+					() => {
+						hovered = { kind: "edge", id };
+						show();
+					},
+					{ signal },
+				);
+				part.addEventListener(
+					"pointerleave",
+					() => {
+						hovered = undefined;
+						show();
+					},
+					{ signal },
+				);
+			}
+			const unwatch = selection.watch(() => {
+				hovered = undefined;
+				show();
+			});
+			show();
 			element.addEventListener(
 				"keydown",
 				(event) => {
 					if (event.key === "Escape" && !event.defaultPrevented) {
-						show(undefined);
+						hovered = undefined;
+						selection.select(undefined);
+						show();
 						event.preventDefault();
 					}
 				},
@@ -63,7 +140,13 @@ export const focus: Part = {
 			);
 			return () => {
 				events.abort();
-				show(undefined);
+				unwatch();
+				for (const hit of hits) {
+					hit.remove();
+				}
+				for (const part of [...nodes, ...edges]) {
+					part.style.removeProperty("--focus-opacity");
+				}
 			};
 		});
 	},

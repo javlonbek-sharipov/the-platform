@@ -3,7 +3,14 @@
  * one from a URL, and finding the drawing's bounds in one.
  */
 
+import type { AnyDiagram } from "../authoring/model.ts";
 import type { Box } from "../core/scene.ts";
+
+/** The whole model carried by an engine-made SVG; it never needs laying out in the component. */
+export function modelOf(svg: SVGSVGElement): AnyDiagram | undefined {
+	const text = svg.querySelector(":scope > metadata")?.textContent;
+	return text ? JSON.parse(text) : undefined;
+}
 
 /**
  * Fetches the SVG at a URL. The SVG goes into the page as it is, so the URL

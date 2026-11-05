@@ -6,6 +6,7 @@
  */
 
 import type { Camera } from "./camera.ts";
+import type { Selection } from "./selection.ts";
 
 /** What the component gives each of its parts to work with. */
 export interface Stage {
@@ -17,6 +18,8 @@ export interface Stage {
 	readonly element: HTMLElement;
 	/** Which part of the drawing the stage shows, and how large. */
 	readonly camera: Camera;
+	/** The Node or Edge selected by the reader or the host. Hover never changes it. */
+	readonly selection: Selection;
 	/**
 	 * Calls back with each Diagram's SVG when it's shown: put on the stage of a
 	 * component that's in a page, or already on the stage when the component
