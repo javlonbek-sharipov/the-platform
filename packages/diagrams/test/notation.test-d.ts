@@ -158,7 +158,9 @@ test("a Diagram is one of the engine's own Notations, with that Notation's Kinds
 	>();
 	// A Node, a Group and an Edge are those of any of them.
 	expectTypeOf<Node>().toEqualTypeOf<Diagram["nodes"][number]>();
-	expectTypeOf<Node["kind"]>().toEqualTypeOf<ArchitectureNodeKind | "context">();
+	expectTypeOf<Node["kind"]>().toEqualTypeOf<
+		ArchitectureNodeKind | "context" | "aggregate" | "event"
+	>();
 	expectTypeOf<Group>().toEqualTypeOf<Diagram["groups"][number]>();
 	expectTypeOf<Edge>().toEqualTypeOf<Diagram["edges"][number]>();
 	// A plumbing Diagram isn't one, and nor is a Diagram with another Notation's Kind.

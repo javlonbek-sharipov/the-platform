@@ -12,7 +12,9 @@
 		"golden:update": "DIAGRAMS_UPDATE_GOLDEN=1 vitest run",
 		"bench": "node packages/diagrams/scripts/benchmark.ts",
 		"check": "biome check",
-		"typecheck": "tsc -p . && tsc -p tsconfig.browser.json",
+		"docs:dev": "pnpm --filter @the-platform/docs run dev",
+		"docs:build": "pnpm --filter @the-platform/docs run build",
+		"typecheck": "tsc -p . && tsc -p tsconfig.browser.json && pnpm --filter @the-platform/docs run sync && tsc -p apps/docs",
 		"generate:font-metrics": "node packages/diagrams/scripts/generate-font-metrics.ts",
 		"generate:schema": "node packages/diagrams/scripts/generate-schema.ts",
 		"generate:technologies": "node packages/diagrams/scripts/generate-technologies.ts"

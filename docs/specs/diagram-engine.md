@@ -536,7 +536,7 @@ A domain Diagram is either a context map or an aggregate diagram, never both. A 
   - Its Rows list the aggregate's entities, value objects and invariants, such as `OrderLine: entity`.
 - **Edge Kinds.**
   - `references` runs from aggregate to aggregate.
-  - `emits` runs from aggregate to event.
+  - `emits` runs from aggregate to an event inside its own context.
   - `reacts` runs from event to aggregate.
 - **Events from other contexts.**
   - An event from another context is drawn outside the Group, under its full id, such as `ordering/order-placed`.
@@ -2112,6 +2112,114 @@ Focus, keyboard selection and the screen-reader lists. This is GitHub's issue #7
 11. **Replacement and activation seams.**
     - Selection survives a new SVG that still draws its target id. Removing that id clears selection and raises the clearing event. The lists are rebuilt in the new layout order, and old listeners, hit paths, tooltips and selection marks are removed. Keyboard focus on a list item returns to its selected id after a redraw; if that item is gone it returns to the stage. Disconnecting doesn't restore focus on reconnect.
     - List buttons carry `data-node-item` or `data-edge-item`, each with its target id. A later details part can handle their ordinary click or Enter activation separately from selection changes, just as it can handle the drawing's `data-node` clicks and Enter on the stage.
+
+**Issue 4**
+
+Aggregate diagrams. This is GitHub's issue #4, not ticket 04 above.
+
+1. **The new Kinds.**
+   - An aggregate is a Node, as ADR-0005 requires: 256 by 64 px before its Rows, with a heavy framed outline and a badge showing a root and its members. Its hue is `aggregate`, #27694c light and #70cda0 dark.
+   - An event is 224 by 48 px, with cut corners, a lightning badge, and the hue `event`, #935619 light and #e8ae68 dark. The sizes leave room for the Rows' entity, value object and invariant names, and for event titles.
+   - `references` is dashed, `emits` solid, and `reacts` dotted (`1 4`). All three are directed and take no roles. Their sentences are "{from} references {to}", "{from} emits {to}" and "{from} triggers {to}". Domain bundling stays `none`, so each Edge keeps its own line.
+   - The domain Notation now has the `context` Group Kind, a solid border 2 px wide. Its Groups take descriptions and Links. Nodes gain Rows, as issue 3's decision 15 foresaw; fields remain a matter of the Notation, not of each Kind.
+2. **Local and full ids.**
+   - A Group Kind's `namespace: true` makes its builder prefix local Node and Group ids, and string or Row-object Edge endpoints, with its full id and `/`. Node handles and their Row handles carry full ids already. Full ids are preserved, so validation can report a member from the wrong namespace instead of silently moving it.
+   - A builder keeps its own parent and namespace whenever it is called. In particular, `d.node` inside a context callback still declares on the Diagram itself; only the callback's builder declares context members. Local Edge endpoints work before their Nodes are declared. An Edge's default id uses its full endpoints, and an explicit Edge id stays local to the Diagram. Links to ids name full Atlas ids.
+   - JSON always holds full ids, including Group membership and Row endpoints. Validation never expands generated JSON. The rule `namespace` rejects a member without its Group's prefix, or with more than one local segment after it.
+   - A context's own id has one segment, on either form: `billing`. Its members have two: `billing/order`. Contexts don't nest.
+3. **Legal domain forms.**
+   - An empty domain Diagram is an empty context map. Otherwise, a context map has only context Nodes and no Groups; an aggregate diagram has exactly one top-level context Group, with its aggregates and events inside it. Only events from other contexts may sit outside, under their two-segment full ids. An aggregate emits events inside its own Group; another context's event may react into it.
+   - `domain-form` reports a mix of the two forms, a missing or extra context Group, a local aggregate or event outside it, or emission of another context's event. Endpoint Kinds and roles keep their existing validation rules.
+   - A Notation may provide `validation: { rules, check }` for whole-Diagram rules: a pure check after the model, nesting and namespace rules pass, and each rule's meaning for its schema's description. Domain-specific rules and Kind names stay in the domain definition. The schema lists the Kinds and fields and describes the further semantic checks, as it does for endpoint and nesting rules.
+4. **Types.** The package exports `DomainGroup`, `DomainGroupKind` and `DomainRow`, alongside the domain types that issue 3 added. An aggregate's handle carries its Rows' literal names, as an architecture Node's does.
+5. **The Atlas.**
+   - `namespace-home-missing` warns at each borrowed Node's declaration when no valid Diagram draws that full id as a member of its own namespace Group. Merely drawing the context Node, or an empty context Group, doesn't supply the Node's home. The check reads the Group Kind's namespace flag, so no domain Kind is named in the Atlas code. It runs in lint, including staged lint; warnings still exit with 0.
+   - The existing index format suffices: a context id's `asNode` lists its context maps, and `asGroup` its aggregate diagrams. An event's `asNode` includes both its own context's Diagram and Diagrams that borrow it. Each id still has one Kind and title across both forms; local ids in different contexts remain distinct full ids. Exporting the index doesn't require a borrowed Node's home, as that is a lint warning.
+6. **Fixtures and the skill.**
+   - `docs/example-billing.diagram.ts` draws aggregate Rows, each new Edge Kind and Ordering's event outside Billing. `docs/example-ordering.diagram.ts` supplies that event's home. Both have committed SVGs, shown in `docs/example-aggregates.md`. `docs/shared/ordering.ts` defines the context and the event once, for the context map and the aggregate diagrams.
+   - `test/fixtures/aggregate.ts` draws the Billing example in either direction, so it joins every fixture-wide property. Its golden is `aggregates.svg`, updated with `pnpm golden:update --project node packages/diagrams/test/golden.test.ts`.
+   - The skill's `Aggregate diagrams` section teaches the form, namespaces and borrowed events, with the complete Billing example. Its command test supplies the shared module and the event's already-rendered home, then follows the skill. Every example is still held byte for byte to its source module.
+7. **Docs-site themes.** After merging issue 12, `themeColors(notations)` exports the new hues automatically. No change to the site's theme code was needed. The theme's fixture-wide property checks both hues, and the built site's real-browser theme check now draws aggregates as well as architecture, comparing each site theme under both system schemes.
+
+**Issue 12**
+
+The docs site. This is GitHub's issue #12, not ticket 12 above.
+
+1. **The app.**
+   - `apps/docs` is the package `@the-platform/docs`, private and unlicensed as the engine is: Astro 7.4.5 with Starlight 0.42.9. From the root, `pnpm docs:dev` serves it, and `pnpm docs:build` builds it into `apps/docs/dist`, as static files. Nothing deploys it yet, so it sets no `site`, and Starlight skips its sitemap with a warning.
+   - Its versions are pinned exactly. Starlight is 0.x, where a minor release may break a site. `@astrojs/markdown-satteri` is the version that Astro itself pins, since the site hands Astro a processor made by it. `satteri` is a dev dependency, for the types of its plugins.
+   - Astro 7 renders Markdown with Sätteri, not with remark. So the site's Markdown plugins are Sätteri's.
+   - Its scripts and its tests turn Astro's telemetry off, so a build sends nothing anywhere.
+   - `pnpm typecheck` runs a third program for it, `apps/docs/tsconfig.json`, after `astro sync` has written the types of `astro:content` into `apps/docs/.astro/`, which git ignores. That program has the DOM's types, for the script that the site's pages run and for the tests that look into a browser. The app has no `.astro` files, which `tsc` couldn't check.
+2. **Which files are docs.**
+   - A doc is `GLOSSARY-MAP.md`, a `GLOSSARY.md`, or a Markdown file anywhere in a `docs` folder: of the repo itself, or of a folder of `apps/` or of `packages/`. A hidden folder holds none, and neither does `node_modules`.
+   - So the site shows the glossaries, the ADRs, the specs, the docs in `docs/agents/`, and each package's docs, such as the example system. It doesn't show `AGENTS.md` or the agent skill, which are written for agents.
+   - The rule goes by a file's path alone: `isDoc`, in `apps/docs/src/repo.ts`. The site reads only those places, and asks git nothing, unlike the Atlas. A list of places can't reach `repos/`, whatever `.gitignore` says, and a build needs no git.
+   - A link, as the file system has them, is never followed: a linked file is no doc, and a linked folder holds none.
+   - The app's own pages are in `apps/docs/src/content/docs/`. There's one, the front page, which says what the site is and how to explore a Diagram. Every other page is a file of the repo.
+3. **A loader of its own.** `apps/docs/src/repo-docs.ts` loads the pages, in place of Starlight's `docsLoader()` and of Astro's `glob()`.
+   - `docsLoader()` reads only `src/content/docs`.
+   - `glob()` takes one base folder, which would be the repo's root, and watches all of it. It checks a page's data before it renders the page, so a title can't come from the doc's heading. And it keeps a page's HTML until the doc's own text changes, so a Diagram drawn again wouldn't show.
+   - The loader renders every doc each time it runs, which takes a few milliseconds for all of the repo's. It counts a page as changed when its HTML or its data is, so a new title alone counts too.
+4. **Ids and URLs.**
+   - A doc's id, and so the path of its page, is its path from the root, without `.md`, in lowercase: `packages/diagrams/GLOSSARY.md` is at `/packages/diagrams/glossary/`. Each run of characters other than letters, digits, `.`, `_` and `-` becomes a hyphen, and an `index.md` is its folder's page.
+   - Two docs that would be one page stop the build, with a message that names both.
+   - `pageOf`, in `repo.ts`, gives a doc's page, for issue #13's Links.
+5. **Titles.**
+   - A page's title is its doc's first `# Heading`. A Sätteri plugin takes that heading out of the body, since Starlight prints the title itself. A `title` in the doc's frontmatter wins, and a doc with neither is titled by its file's name.
+   - The plugin runs after the headings have their ids. So the headings that stay keep the anchors GitHub gives them: the Diagrams glossary's `### Diagrams` is still `#diagrams-1`. The title's own anchor is gone, since Starlight's title is `#_top`.
+6. **A doc reads as it does on GitHub.**
+   - Smart punctuation is off, so `--` stays two hyphens and quotes stay straight.
+   - A relative link to another doc goes to that doc's page, with its fragment. A relative link to any other file of the repo goes to that file on GitHub, on `main`. A link written as a reference, `[text][name]`, is rewritten too, and any other link stays as written. No link is checked.
+   - Starlight's own touches are for the repo's docs too (`markdown.processedDirs`), so each heading has a link to itself.
+   - Each page's "Edit page" link opens its file on GitHub, and the header links to the repo. The repo's URL and its branch are constants in `repo.ts`.
+7. **Diagram images.**
+   - A Sätteri plugin, `apps/docs/src/diagrams/images.ts`, replaces each image whose URL is relative and names a `*.diagram.svg` with `<platform-diagram>` around the file's text, byte for byte. An image alone in its paragraph replaces the paragraph, so its Diagram is a block of the page. One within a sentence is replaced where it stands. An image written as a reference, `![Checkout][drawing]`, counts as the image that its definition names.
+   - The image's alt text and its title are dropped: the SVG has its own `<title>` and `<desc>`.
+   - An SVG that isn't there stops the build, with a message that says to run `diagrams render`.
+   - An image with an absolute URL stays an image, since a build fetches nothing.
+   - Without JavaScript, Starlight's own CSS fits the inline SVG to the page's width, so the whole drawing shows, small.
+8. **The component's script.**
+   - An Astro integration, `apps/docs/src/diagrams/integration.ts`, adds a page script, which Vite bundles from the package's `.ts` sources into one file that every page shares: 11 KB, or 5 KB compressed. Every page loads it, with or without a Diagram.
+   - The script is `apps/docs/src/diagrams/client.ts`, which imports `@the-platform/diagrams/web-component`. That's where issue #13 gives the component the Atlas index and its Links' URLs, and the integration is where it makes the index.
+9. **The theme.**
+   - The engine exports `themeColors(notations)`: every color of the theme under the name of its property after `--diagram-`, the shared ones and each Notation's hues, each with both fallbacks. A test checks, over every fixture, that it holds each property that an SVG reads, with the fallbacks the SVG has there.
+   - The site writes them all into a `<style>` in every page's head: the dark fallbacks for `:root`, and the light ones for `:root[data-theme="light"]`, which is how Starlight's switch marks its themes. So a Notation that adds a hue is themed without a change to the site.
+   - The colors are the engine's own, so a Diagram looks on the site as it does on GitHub in the same theme. In the dark theme its background is a little darker than Starlight's page.
+   - Without JavaScript, Starlight's pages stay dark whatever the system asks for, and so do their Diagrams.
+   - Each Diagram stands in a frame, a line in `--diagram-border` with rounded corners. In the light theme the drawing's background is the page's, and the frame shows where a drawing wider than the page is cut off, with more to drag into view.
+10. **`repos/`.** The site never reads, watches or shows anything in the `repos/` folder at the repo's root.
+    - No doc is there (decision 2).
+    - A file that a doc embeds, a Diagram or any other picture, must be the repo's own: inside the root and outside `repos/`, both by its path and by where it really is, when a link leads elsewhere. Anything else stops the build, with a message that names the doc and the file. Left alone, Astro would copy such a picture into the site.
+    - The dev server watches the docs' own files, each by itself, and never a folder (decision 13). A watched folder would be followed through any link in it.
+    - Tests check each of the three, on a sample repo that keeps another project's files in `repos/`, in every place where a doc of ours could be, with links that lead there from among our docs.
+    - A link to a file in `repos/` isn't refused. It goes to GitHub, where the file isn't.
+11. **Licenses.**
+    - `ignoredOptionalDependencies`, in `pnpm-workspace.yaml`, leaves out sharp, Astro's optional image service, and with it libvips, which is LGPL-3.0-or-later. The site uses Astro's pass-through image service instead, which shows a doc's picture as the file it is. A test fails when `sharp` or an `@img/` package is back in the lockfile.
+    - Three more licenses count as permissive: BlueOak-1.0.0, 0BSD and CC0-1.0. None asks for more than MIT does. They come with tools that run only in a build: `common-ancestor-path`, `lru-cache` and `sax` (BlueOak-1.0.0), `mdn-data` (CC0-1.0, as Simple Icons is), and `tslib` (0BSD), which only the WebAssembly builds of native packages bring.
+    - `lightningcss` is still the one MPL-2.0 package beside the CLI's rasterizer (ticket 01, decision 13). The site's build runs it too, unmodified, through Vite.
+    - A test reads the license of every package that pnpm installed, and fails on any other license. It can't read the packages built for other platforms, which aren't installed.
+    - Shiki stays. Its MIT package carries a grammar for each language, under that grammar's own license: five are GPL-3.0, among them nginx's, three are MPL-2.0, and some name no license, among them YAML's and TOML's. The site colors code only in the languages that `apps/docs/src/markdown/code-languages.ts` lists: TypeScript, JavaScript, TSX, JSX, JSON, shell, CSS, HTML, XML, diff, SQL and Go. Their grammars, and every grammar those embed, are MIT. Code in any other language shows as plain text, and its grammar is never loaded. The GPL grammars' files are still in `node_modules`, with the rest of the package.
+    - The code themes are Starlight's own two, Night Owl's dark and light, which ship in Starlight under MIT. The site names no theme of Shiki's bundle, where `aurora-x` is GPL-3.0.
+    - pnpm holds back a release that is less than a day old. Starlight 0.42.9 was 14 hours old when the app was set up, so pnpm wrote it into `minimumReleaseAgeExclude`. The entry can go once the lockfile has moved past that version.
+12. **The sidebar.**
+    - It groups the docs by where they live. The repo's own come first, under the site's title. Then come each package's and each app's, under its folder's name with a capital, which for a context is the context's name: `Diagrams`.
+    - A glossary comes first in its group, as "Glossary", and its docs follow. A `docs` folder is no level of its own, each folder inside it is a group, `adr` is labeled "ADRs", and entries come in path order.
+    - It's made from the files when the config is read, and each entry's label is its page's title.
+13. **While the site is developed.** Under `astro dev`, the site shows a doc as it's edited, and a Diagram as it's drawn again. It watches each doc, and each Diagram's SVG in the docs' folders.
+    - The pages and the sidebar are as they were when the server started. A doc that's added shows at the next start. One that's removed keeps its page until then, since Starlight fails every page over a sidebar entry that has none.
+    - A doc that breaks, such as one that embeds a Diagram not yet drawn, logs its error and keeps its last page.
+14. **Tests.** On top of the one check that Testing Decisions asks for, the site has a seam of its own: the site as built, or as its dev server sends it, for a sample repo.
+    - `DOCS_REPO` names the repo that the site shows. Without it, that's the repo the app is in. A test writes a small repo into a temporary folder, a shop with one context, as seam 2 writes an Atlas, and builds the site for it with Astro's `build()`.
+    - The tests read the pages' HTML, and open the pages in Playwright's Chromium, driven from Node, which gets every file from the folder the site was built into. There they follow links, read the sidebar and switch the theme, as a reader does.
+    - The theme's check compares pictures. A Diagram zoomed out to its whole drawing must look the same under each of the site's themes, whichever scheme the system asks for, and the two themes must differ. The Diagram draws in every color of the architecture Notation's theme, and the check fails when the site leaves any one of them out.
+    - One more build is of the-platform itself. Every doc that git tracks must have its page, under its own title, and the example system's page must hold the committed SVG.
+    - The sites are built into `apps/docs/node_modules/.cache/`. Astro writes the module that copies a site's pictures beside the site, and that module must find Astro from there.
+    - Every test that builds is in one file, `apps/docs/test/site.test.ts`: two builds of the app at once would share its `.astro/` folder.
+    - Astro's dev server answers no request once it finds that Vitest started it, so the tests hide Vitest from it while it starts.
+    - `apps/docs/test/licenses.test.ts` holds decision 11's two checks.
+    - Together they take about thirteen seconds.
+15. **Left for issue #13:** the Atlas index, the Links' URLs, Node URLs and drill-down. Nothing on the site reads the Atlas yet, and a page doesn't say which Diagrams it embeds.
 
 ### References
 

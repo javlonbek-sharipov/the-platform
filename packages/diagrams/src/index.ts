@@ -28,8 +28,10 @@ export { builderOf } from "./authoring/builder.ts";
 export type {
 	DomainBuilder,
 	DomainEdgeOptions,
+	DomainGroup,
 	DomainNode,
 	DomainOptions,
+	DomainRow,
 } from "./authoring/domain.ts";
 export { domain } from "./authoring/domain.ts";
 export type {
@@ -77,6 +79,8 @@ export type { DiagramSchema, NotationSchema } from "./core/schema.ts";
 export { schemaOf } from "./core/schema.ts";
 export type { KnownTechnology, Technology } from "./core/technology.ts";
 export type { FontData, FontRequest, FontWeight } from "./core/text.ts";
+export type { ThemeColor } from "./core/theme.ts";
+export { themeColors } from "./core/theme.ts";
 export type {
 	ArchitectureEdgeKind,
 	ArchitectureGroupKind,
@@ -87,6 +91,7 @@ export type {
 export { architectureNotation } from "./notations/architecture.ts";
 export type {
 	DomainEdgeKind,
+	DomainGroupKind,
 	DomainNodeKind,
 	DomainNotation,
 	DomainRole,

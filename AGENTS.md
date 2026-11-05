@@ -16,6 +16,10 @@ Multi-context: `GLOSSARY-MAP.md` at the root lists each context's `GLOSSARY.md`.
 
 Read the `diagrams` skill (`packages/diagrams/skills/diagrams/SKILL.md`) before drawing or editing a Diagram (`*.diagram.ts`), writing a doc that describes how systems talk or how bounded contexts relate, or fixing `diagrams lint`.
 
+## Docs site
+
+`apps/docs` is a Starlight site that shows the repo's own Markdown from where it lives: `GLOSSARY-MAP.md`, each `GLOSSARY.md`, and every `docs/` folder, of the repo and of each package and app. `pnpm docs:dev` serves it, and `pnpm docs:build` builds it into `apps/docs/dist`. An image of a `*.diagram.svg` becomes an explorable `<platform-diagram>` there.
+
 ## Reference clones
 
 `repos/` holds gitignored clones of other projects, for reading only. `repos/quorum` is GPL-3.0: take ideas from it, never code. The diagram engine is a clean-room build from `docs/specs/diagram-engine.md`; don't open `repos/quorum` while implementing it.

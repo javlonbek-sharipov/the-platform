@@ -9,8 +9,9 @@ node_modules/
 .diagrams-cache/
 
 # Build, test and tool output. Vitest keeps a failed browser test's screenshot
-# under .vitest/.
+# under .vitest/. Astro keeps the docs site's generated types under .astro/.
 dist/
+.astro/
 coverage/
 .vitest/
 *.tsbuildinfo

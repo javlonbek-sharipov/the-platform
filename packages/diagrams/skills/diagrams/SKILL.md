@@ -12,7 +12,7 @@ A Diagram is a TypeScript module, `<name>.diagram.ts`, kept next to the doc it i
 Draw one when readers need to see several things at once, and how they relate. Prose suits one thing's insides, and the order in which things happen. Pick the Notation by what the things are:
 
 - `architecture` draws systems, services and stores: which exist, how they talk, where they run, and which we don't run.
-- `domain` draws a context map: which bounded contexts there are, which depend on which, and how each side integrates. See [Context maps](#context-maps).
+- `domain` draws either a [context map](#context-maps), of bounded contexts and how each side integrates, or an [aggregate diagram](#aggregate-diagrams), of one context's aggregates and domain events. The two forms never mix on one Diagram.
 
 ## Write the module
 
@@ -48,7 +48,7 @@ A request that names a Diagram, as in "draw the example system with a cache", as
 
 A context map is written like any other module, with `domain` in place of `architecture`, and `DomainNode` for a context that several Diagrams share. What differs:
 
-- **Nodes.** Each is a `context`, with `external: true` for one we don't own, such as a payment provider's. A context takes a `description` and `links`, and no other option. Its title fits in about 17 characters. A context map has no Groups.
+- **Nodes.** Each is a `context`, with `external: true` for one we don't own, such as a payment provider's. Use `description` and `links` to explain it. Its title fits in about 17 characters. A context map has no Groups.
 - **Edges.** `upstream-downstream` and `customer-supplier` run from the upstream context to the downstream one, so the upstream context, or the supplier, is the Edge's first end. `partnership` and `shared-kernel` run both ways alike, and are drawn without an arrowhead. Two contexts that go separate ways get no Edge. An Edge takes a `label`, and no Technology or rate.
 - **Roles.** `roles: { from: […], to: […] }` tags each end of an `upstream-downstream` or `customer-supplier` Edge with how its context integrates. The upstream end, `from`, takes `OHS`, open host service, and `PL`, published language, one or both. The downstream end, `to`, takes `CF`, conformist, or `ACL`, anticorruption layer, one of the two.
 
@@ -56,6 +56,7 @@ The example context map, from `packages/diagrams/docs/example-context-map.diagra
 
 ```ts
 import { domain } from "@the-platform/diagrams";
+import { ordering as orderingContext } from "./shared/ordering.ts";
 
 /**
  * A small example context map: the shop's Catalog, Ordering and Shipping
@@ -73,7 +74,7 @@ export default domain({ title: "Example context map" }, (d) => {
 		title: "Card payments",
 		external: true,
 	});
-	const ordering = d.node({ id: "ordering", kind: "context", title: "Ordering" });
+	const ordering = d.node(orderingContext);
 	const shipping = d.node({ id: "shipping", kind: "context", title: "Shipping" });
 
 	d.edge(catalog, ordering, {
@@ -83,6 +84,45 @@ export default domain({ title: "Example context map" }, (d) => {
 	});
 	d.edge(cards, ordering, { kind: "upstream-downstream", roles: { to: ["ACL"] } });
 	d.edge(ordering, shipping, { kind: "partnership" });
+});
+```
+
+## Aggregate diagrams
+
+Use `domain` for this form too:
+
+- **Group.** Draw exactly one bounded context as a top-level Group of Kind `context`. Contexts don't nest. A context's id is one kebab-case name, such as `billing`; it can be a Node on a context map and a Group here, sharing its Kind and title.
+- **Nodes.** An `aggregate` is one Node standing for its root. Its Rows list entities, value objects and invariants, such as `{ name: "InvoiceLine", value: "entity" }`. A domain event is an `event` Node. Declare all of this context's aggregates and events with the callback's builder.
+- **Ids.** Inside that builder, write local ids: `invoice` becomes `billing/invoice` in the JSON model and in handles. Local strings on Edges work there too, even before their Nodes are declared. Outside the callback, name a Node by its full id or handle. Explicit Edge ids stay local to the Diagram, and Links to ids use full Atlas ids. Generated JSON must already hold full ids.
+- **Edges.** `references` goes from aggregate to aggregate, dashed; `emits` from aggregate to an event inside its own context, solid; `reacts` from event to aggregate, dotted. Each has an arrowhead and takes a label, with no roles, Technology or rate. An Edge always ends at a Node, never at the context Group.
+- **Other contexts' events.** Draw one outside the Group, using its full id, such as `ordering/order-placed`, and react from it into a local aggregate. A member with another context's id inside the Group is an error. Lint warns if no Diagram draws the event inside its own context Group; add that drawing instead of inventing another id.
+
+The example below is `packages/diagrams/docs/example-billing.diagram.ts`. Its shared definition in `docs/shared/ordering.ts`, beside the examples, gives `orderPlaced` the full id `ordering/order-placed`, Kind `event` and title `Order placed`. `docs/example-ordering.diagram.ts` draws it inside Ordering, so both modules belong in the Atlas. Use `DomainNode` for shared Nodes and `DomainGroup` for shared Groups, as the architecture types above are used; a definition shared between a context Node and Group holds their common fields only.
+
+```ts
+import { domain } from "@the-platform/diagrams";
+import { orderPlaced } from "./shared/ordering.ts";
+
+/** Billing reacts to Ordering's event, references an account and emits its own event. */
+export default domain({ title: "Billing aggregates" }, (d) => {
+	d.node(orderPlaced);
+	d.group({ id: "billing", kind: "context", title: "Billing" }, (billing) => {
+		const invoice = billing.node({
+			id: "invoice",
+			kind: "aggregate",
+			title: "Invoice",
+			rows: [
+				{ name: "InvoiceLine", value: "entity" },
+				{ name: "Money", value: "value object" },
+				{ name: "Total >= 0", value: "invariant" },
+			],
+		});
+		const account = billing.node({ id: "account", kind: "aggregate", title: "Account" });
+		const issued = billing.node({ id: "invoice-issued", kind: "event", title: "Invoice issued" });
+		billing.edge(invoice, account, { kind: "references" });
+		billing.edge(invoice, issued, { kind: "emits" });
+		billing.edge("ordering/order-placed", invoice, { kind: "reacts" });
+	});
 });
 ```
 
@@ -96,6 +136,7 @@ Run each command from the repo root, with the module's path for `<module>`:
    - `label-placement` with no run of its own: fix the `fallback-route` warning on that Edge first.
    - `fallback-route`: reorder the declarations, or change `direction`.
    - `role-placement`: fix a `fallback-route` warning on that Edge first, or else change `direction`.
+   - `namespace-home-missing`: draw the event inside its own context Group on another Diagram of the Atlas, using the same full id, Kind and title.
 3. `pnpm exec diagrams export <module> --format png` prints the path of a PNG. Look at it: every title and label whole, each label beside its own Edge, and every Edge easy to follow. If not, steer the layout and go back to step 1.
 4. Stage the module and its SVG, and commit them together. The pre-commit hook runs Biome and `diagrams lint --staged`, which judges what's staged, so an SVG left unstaged fails it. `pnpm exec biome check --write <module>` formats the module.
 

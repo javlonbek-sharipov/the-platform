@@ -68,7 +68,10 @@ A model that fails this schema fails the engine's validation too. But passing th
 - \`edge-end-kind\`: each Edge starts and ends at Nodes of Kinds that its own Kind may join.
 - \`edge-end-role\`: each end of an Edge carries only the roles that the Edge's Kind lets that end carry.
 - \`nesting\`: each member names a Node or a Group on the Diagram, every Node and Group is a member of exactly one parent, the Diagram or one Group, and so Groups nest as a tree.
+- \`namespace\`: each member of a namespaced Group has that Group's id as its prefix and one local id after it. JSON always holds full ids.
 - \`default-edge-id\`: an Edge whose id is its default name, its two Nodes' ids joined by \`->\`, keeps it only while no other Edge joins the same two Nodes.
+
+Each Notation may have further rules about a whole Diagram, described under its own schema definition.
 
 \`diagrams lint\` checks the Atlas as a whole too:
 
@@ -318,7 +321,12 @@ function notationSchema(notation: Notation): NotationSchema {
 		additionalProperties: false,
 	});
 	return {
-		description: `What a Diagram of the ${name} Notation holds: Nodes, Groups and Edges of the Kinds that the Notation has, each with the fields that its Diagrams may have.`,
+		description: [
+			`What a Diagram of the ${name} Notation holds: Nodes, Groups and Edges of the Kinds that the Notation has, each with the fields that its Diagrams may have.`,
+			...Object.entries(notation.validation?.rules ?? {}).map(
+				([rule, meaning]) => `\`${rule}\`: ${meaning}`,
+			),
+		].join("\n\n"),
 		type: "object",
 		properties: {
 			nodes: { type: "array", items: of("node") },
