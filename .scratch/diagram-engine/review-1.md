@@ -76,6 +76,13 @@ Paths are under `packages/diagrams/` unless they say otherwise.
 1. **Capacity and nudging disagree.** Drawn `down` with every Edge labeled, one 32 px corridor holds five lanes at the 4 px minimum. That's one more than the capacity rule (free width ÷ 8 px) allows, yet the router sees no overflow. See ticket 16's Comments.
 2. **No test exports a PNG of a Diagram with Groups.** Ticket 13's merge checked it by hand only.
 
+3. **The skill's wording, from ticket 15's trial.** A fresh agent got only the skill, and passed on the first try. It still met these gaps; close each one in the skill:
+   - It doesn't say whether "draw X with Y" means editing Diagram X or drawing a new one. Drawing a new one triggered the shared-module rule, which rewrote the example module, so SKILL.md's Example no longer matched its source file.
+   - It names `ArchitectureNode` but not where to import it from (`@the-platform/diagrams` worked). It doesn't say what to name a shared module or where to put it.
+   - Ids name one thing across the Atlas, but only Nodes get a sharing rule. Groups that two Diagrams draw were written out twice.
+   - "Kept next to the doc it illustrates" doesn't cover a Diagram that has no doc.
+   - Its options reference is source code (`src/authoring/architecture.ts`). Point agents at something meant for readers, if the package has or should have it.
+
 ## Decisions for the fix
 
 The orchestrator made these calls. Where a call amends the spec, change the spec's main text, record it under "Decisions made during implementation" (a **Review 1** entry), and correct any ticket checkbox wording that says otherwise.

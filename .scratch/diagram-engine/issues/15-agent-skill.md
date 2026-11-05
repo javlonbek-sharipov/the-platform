@@ -22,7 +22,7 @@ AGENTS.md points agents to the skill.
 - 14 JSON Schema for generated Diagrams
 - 16 Every label has a run of its own
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Spec:**
 
@@ -44,7 +44,7 @@ AGENTS.md points agents to the skill.
 
 **Manual check**
 
-- [ ] Once, by hand: give a fresh agent session only the skill and the one-line request "draw the example system with a cache in front of the database".
+- [x] Once, by hand: give a fresh agent session only the skill and the one-line request "draw the example system with a cache in front of the database".
   - Success means it produces a Diagram that renders and passes lint on its first or second try.
   - Note the result in this ticket's comments.
 
@@ -59,3 +59,4 @@ AGENTS.md points agents to the skill.
 - **For slices 2 and 4.** The skill says the architecture Notation is the only one, and teaches no term Links, namespaces or Walkthroughs. Each slice adds its part to the skill, with an example the tests render and lint, and adds its Notation's Kinds to the naming test in `test/skill.test.ts`.
 
 Merged into diagram-engine in 1b22e93.
+- Orchestrator, manual check: done, and it passed on the first try. A fresh agent got only the skill and the request. It wrote `docs/example-system-with-cache.diagram.ts`, and `render`, `lint --json` and the pre-commit hook all passed with no errors or warnings. Its PNG shows the cache between the Orders API and the Orders database, with every title and label whole. The trial worked in a branch that is thrown away. The gaps it found in the skill's wording are listed in `../review-1.md`, under "Also to fix".
