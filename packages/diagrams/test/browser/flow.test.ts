@@ -240,7 +240,7 @@ describe("rendered flow", () => {
 		const svg = svgOf(host);
 		const [mark] = marksOf(svg);
 		expect(animationsOf(svg)).toHaveLength(1);
-		await userEvent.click(host);
+		await userEvent.tab();
 		await userEvent.keyboard("++++++++");
 		await frame();
 		// The reader is looking closely at the Node, inside its self-loop.

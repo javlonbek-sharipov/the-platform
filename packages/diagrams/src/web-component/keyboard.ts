@@ -24,7 +24,7 @@ export const keyboard: Part = {
 	setUp({ element, camera, selection, onShow }) {
 		element.setAttribute(
 			"aria-description",
-			"Use arrow keys to select a Node. Press Tab to read Nodes and Edges.",
+			"Use arrow keys to select a Node, Enter for details, and Escape to close them. Press Tab to read Nodes and Edges.",
 		);
 		onShow((svg) => {
 			const model = modelOf(svg);

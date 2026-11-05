@@ -115,6 +115,20 @@ export const readerLists: Part = {
 				edgeList.append(item);
 			}
 			holder.append(edgeList);
+			if (model.groups.length > 0) {
+				const groupList = document.createElement("ol");
+				groupList.setAttribute("aria-label", "Groups");
+				for (const group of model.groups) {
+					const item = document.createElement("li");
+					const button = document.createElement("button");
+					button.type = "button";
+					button.dataset.groupItem = group.id;
+					button.textContent = `${collapseSpaces(group.title)} (${group.kind}).`;
+					item.append(button);
+					groupList.append(item);
+				}
+				holder.append(groupList);
+			}
 			element.append(holder);
 			const status = document.createElement("p");
 			status.className = "reader-status";
