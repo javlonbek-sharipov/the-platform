@@ -94,15 +94,29 @@ export class Camera {
 	 * limits allow: at the stage's middle, unless another is given.
 	 */
 	zoom(factor: number, about?: Point): void {
-		const view = this.#view;
+		const point = about ?? { x: this.#size.width / 2, y: this.#size.height / 2 };
+		this.move(point, point, factor);
+	}
+
+	/**
+	 * Moves the drawing: its point that a view showed at one point of the stage
+	 * goes to another, and it gets a factor larger than the view showed it, all
+	 * within the limits. The view is the one now, unless an earlier one is
+	 * given: a gesture counts from the view it started with, so that its moves
+	 * add up to no more than its fingers did.
+	 */
+	move(from: Point, to: Point, factor = 1, since: View | undefined = this.#view): void {
 		const whole = this.#whole();
-		if (view === undefined || whole === undefined) {
+		if (since === undefined || whole === undefined) {
 			return;
 		}
-		const { x, y } = about ?? { x: this.#size.width / 2, y: this.#size.height / 2 };
 		const furthest = Math.min(whole, readable);
-		const scale = Math.min(Math.max(view.scale * factor, furthest), closest);
-		this.#show(view.x + x / view.scale - x / scale, view.y + y / view.scale - y / scale, scale);
+		const scale = Math.min(Math.max(since.scale * factor, furthest), closest);
+		this.#show(
+			since.x + from.x / since.scale - to.x / scale,
+			since.y + from.y / since.scale - to.y / scale,
+			scale,
+		);
 		this.#fitted = false;
 	}
 

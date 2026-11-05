@@ -17,6 +17,9 @@ const css = `
 	overflow: hidden;
 	/* The SVG's own height is worked out from the stage's width. */
 	container-type: inline-size;
+	/* A finger on the stage moves the drawing, not the page. */
+	touch-action: none;
+	cursor: grab;
 }
 /*
  * The SVG fills the stage. Where the page gives the component a height, that

@@ -1,10 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { userEvent } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import example from "../../docs/example-system.diagram.ts";
-import { architecture, type Diagram, type Direction } from "../../src/index.ts";
+import { architecture, type Diagram, type Direction, type Point } from "../../src/index.ts";
 import { draw } from "./support/drawing.ts";
+import { drag, letGo, moveTo, press, touch, wheel } from "./support/input.ts";
 import { gapsOf, middleOf, textOf, viewOf } from "./support/looking.ts";
-import { frame, mount } from "./support/page.ts";
+import { frame, mount, show } from "./support/page.ts";
 
 /**
  * Three Nodes in a line. Drawn `right`, its drawing is 768 px wide and 96 px
@@ -269,6 +270,292 @@ describe("the keyboard", () => {
 			expect(after.bounds.left).toBeCloseTo(before.bounds.left, 1);
 		},
 	);
+});
+
+/** How far each of a Diagram's texts moved on the screen since `before` was taken. */
+function shiftOf(before: Map<Element, DOMRect>): Point[] {
+	return [...before].map(([element, was]) => {
+		const now = element.getBoundingClientRect();
+		return { x: now.left - was.left, y: now.top - was.top };
+	});
+}
+
+/** Where each of the texts given is on the screen now. */
+function placesOf(texts: Element[]): Map<Element, DOMRect> {
+	return new Map(texts.map((text) => [text, text.getBoundingClientRect()]));
+}
+
+describe("dragging", () => {
+	test("pans the drawing with the pointer", async () => {
+		const diagram = await mount(draw(example).svg, "width: 800px; height: 420px");
+		// Closer, the drawing is larger than its frame both ways, so it can move both ways.
+		await userEvent.tab();
+		await userEvent.keyboard("++");
+		const before = placesOf([textOf(diagram, "Shop gateway"), textOf(diagram, "Fraud check")]);
+
+		await drag(diagram, { x: 600, y: 300 }, { x: 480, y: 240 });
+
+		for (const shift of shiftOf(before)) {
+			expect(shift.x).toBeCloseTo(-120, 0);
+			expect(shift.y).toBeCloseTo(-60, 0);
+		}
+	});
+
+	test("goes on when the pointer leaves the frame", async () => {
+		const diagram = await mount(draw(example).svg, "width: 800px; height: 420px; margin: 40px");
+		const before = placesOf([textOf(diagram, "Shop gateway")]);
+
+		await drag(diagram, { x: 600, y: 200 }, { x: 300, y: 200 }, { x: -20, y: 200 });
+
+		expect(shiftOf(before)[0]?.x).toBeCloseTo(-620, 0);
+	});
+
+	test("keeps what the wheel zoomed while the button was down", async () => {
+		const diagram = await mount(draw(example).svg, "width: 800px; height: 420px");
+		const gateway = textOf(diagram, "Shop gateway");
+		const before = gateway.getBoundingClientRect().width;
+
+		await press(diagram, { x: 600, y: 200 }, { x: 560, y: 200 });
+		await wheel(diagram, { x: 560, y: 200 }, -100, "Control");
+		const zoomed = gateway.getBoundingClientRect();
+		await moveTo(diagram, { x: 500, y: 200 });
+		await letGo();
+
+		const after = gateway.getBoundingClientRect();
+		expect(zoomed.width).toBeGreaterThan(before * 1.1);
+		expect(after.width).toBeCloseTo(zoomed.width, 3);
+		expect(after.left - zoomed.left).toBeCloseTo(-60, 0);
+	});
+
+	test("takes the main mouse button, and no other", async () => {
+		const diagram = await mount(draw(example).svg, "width: 800px; height: 420px");
+		const before = placesOf([textOf(diagram, "Shop gateway")]);
+
+		await userEvent.pointer([
+			{ target: diagram, coords: { x: 600, y: 200 }, keys: "[MouseRight>]" },
+			{ target: diagram, coords: { x: 480, y: 200 } },
+			{ keys: "[/MouseRight]" },
+		]);
+
+		expect(shiftOf(before)).toEqual([{ x: 0, y: 0 }]);
+	});
+
+	test("shows a hand over the drawing, which closes while it drags", async () => {
+		const diagram = await mount(draw(example).svg, "width: 800px; height: 420px");
+		const gateway = textOf(diagram, "Shop gateway");
+
+		expect(getComputedStyle(gateway).cursor).toBe("grab");
+		await press(diagram, { x: 600, y: 200 }, { x: 560, y: 200 });
+		expect(getComputedStyle(gateway).cursor).toBe("grabbing");
+		await letGo();
+		expect(getComputedStyle(gateway).cursor).toBe("grab");
+	});
+
+	test("isn't a click", async () => {
+		const diagram = await mount(draw(example).svg, "width: 800px; height: 420px");
+		const clicks: Event[] = [];
+		const heard = (event: Event) => clicks.push(event);
+		// As a page hears clicks: on the element, and on the document, for every element at once.
+		document.addEventListener("click", heard, { capture: true });
+		diagram.addEventListener("click", heard);
+
+		await drag(diagram, { x: 600, y: 200 }, { x: 480, y: 200 });
+
+		expect(clicks).toEqual([]);
+		// The next click is one again.
+		await userEvent.click(textOf(diagram, "Shop gateway"));
+		expect(clicks).toHaveLength(2);
+		document.removeEventListener("click", heard, { capture: true });
+	});
+
+	test("selects no text", async () => {
+		const diagram = await mount(draw(example).svg, "width: 800px; height: 420px");
+		const title = textOf(diagram, "Shop web app").getBoundingClientRect();
+		const frame = diagram.getBoundingClientRect();
+		const start = { x: title.left - frame.left + 4, y: title.top - frame.top + 8 };
+
+		await drag(diagram, start, { x: start.x + 300, y: start.y + 40 });
+
+		expect(String(getSelection())).toBe("");
+	});
+});
+
+describe("a click", () => {
+	test("stays a click on what was pressed, though the pointer moved a few pixels, and pans nothing", async () => {
+		const diagram = await mount(draw(example).svg, "width: 800px; height: 420px");
+		const title = textOf(diagram, "Shop web app");
+		const before = placesOf([title]);
+		const pressed: EventTarget[] = [];
+		diagram.addEventListener("click", (event) => pressed.push(event.composedPath()[0] ?? diagram));
+		const box = title.getBoundingClientRect();
+		const frame = diagram.getBoundingClientRect();
+		const start = { x: box.left - frame.left + 10, y: box.top - frame.top + 8 };
+
+		await drag(diagram, start, { x: start.x + 2, y: start.y + 2 });
+
+		expect(pressed).toEqual([title]);
+		expect(shiftOf(before)).toEqual([{ x: 0, y: 0 }]);
+	});
+});
+
+/** A page long enough to scroll, with the example in a Diagram at its top. */
+function longPage(): Promise<HTMLElement> {
+	return show(
+		`<div style="height: 3000px">
+			<platform-diagram style="width: 800px; height: 420px">${draw(example).svg}</platform-diagram>
+			<button type="button">Elsewhere</button>
+		</div>`,
+	);
+}
+
+/** Where a text's middle is, counted from its Diagram's top left corner. */
+function placeIn(diagram: Element, text: Element): Point {
+	const frame = diagram.getBoundingClientRect();
+	const middle = middleOf(text);
+	return { x: middle.x - frame.left, y: middle.y - frame.top };
+}
+
+describe("the mouse wheel", () => {
+	test("scrolls the page, and leaves the view alone, while the Diagram hasn't the focus", async () => {
+		const diagram = await longPage();
+		const gateway = textOf(diagram, "Shop gateway");
+		const before = gateway.getBoundingClientRect().width;
+
+		await wheel(diagram, placeIn(diagram, gateway), 200);
+
+		await expect.poll(() => window.scrollY).toBe(200);
+		expect(gateway.getBoundingClientRect().width).toBeCloseTo(before, 5);
+	});
+
+	test("zooms around the pointer once the Diagram has the focus, and the page stays where it is", async () => {
+		const diagram = await longPage();
+		const gateway = textOf(diagram, "Shop gateway");
+		const before = gateway.getBoundingClientRect();
+		const pointer = placeIn(diagram, gateway);
+
+		await userEvent.click(diagram);
+		await wheel(diagram, pointer, -100);
+		await frame();
+
+		// The text under the pointer is larger, and still under the pointer.
+		const closer = gateway.getBoundingClientRect();
+		expect(closer.width).toBeGreaterThan(before.width * 1.1);
+		expect(placeIn(diagram, gateway).x).toBeCloseTo(pointer.x, 0);
+		expect(placeIn(diagram, gateway).y).toBeCloseTo(pointer.y, 0);
+
+		await wheel(diagram, pointer, 100);
+		await frame();
+
+		// The wheel turned back takes the drawing as far off again.
+		const back = gateway.getBoundingClientRect();
+		expect(back.width).toBeCloseTo(before.width, 1);
+		expect(placeIn(diagram, gateway).x).toBeCloseTo(pointer.x, 0);
+		expect(window.scrollY).toBe(0);
+	});
+
+	test("scrolls the page again once the focus has left the Diagram", async () => {
+		const diagram = await longPage();
+		const gateway = textOf(diagram, "Shop gateway");
+		await userEvent.click(diagram);
+		await userEvent.click(page.getByRole("button", { name: "Elsewhere" }));
+		const before = gateway.getBoundingClientRect().width;
+
+		await wheel(diagram, placeIn(diagram, gateway), 200);
+
+		await expect.poll(() => window.scrollY).toBe(200);
+		expect(gateway.getBoundingClientRect().width).toBeCloseTo(before, 5);
+	});
+
+	test.for(["Control", "Meta"] as const)(
+		"zooms while %s is held, though the Diagram hasn't the focus",
+		async (key) => {
+			const diagram = await longPage();
+			const gateway = textOf(diagram, "Shop gateway");
+			const before = gateway.getBoundingClientRect().width;
+			const pointer = placeIn(diagram, gateway);
+
+			await wheel(diagram, pointer, -100, key);
+			await frame();
+
+			expect(gateway.getBoundingClientRect().width).toBeGreaterThan(before * 1.1);
+			expect(placeIn(diagram, gateway).x).toBeCloseTo(pointer.x, 0);
+			expect(window.scrollY).toBe(0);
+		},
+	);
+});
+
+describe("touch", () => {
+	test("zooms where two fingers spread, and pans as they move together", async () => {
+		const diagram = await mount(draw(example).svg, "width: 800px; height: 420px");
+		const gateway = textOf(diagram, "Shop gateway");
+		const before = gateway.getBoundingClientRect().width;
+		// The fingers land either side of the text, and spread to twice as far apart.
+		const { x, y } = placeIn(diagram, gateway);
+
+		await touch(
+			diagram,
+			[
+				{ x: x - 100, y },
+				{ x: x + 100, y },
+			],
+			[
+				{ x: x - 150, y },
+				{ x: x + 150, y },
+			],
+			[
+				{ x: x - 200, y },
+				{ x: x + 200, y },
+			],
+		);
+		await frame();
+
+		// The text between them is twice as large, and still between them.
+		expect(gateway.getBoundingClientRect().width).toBeCloseTo(before * 2, 0);
+		expect(placeIn(diagram, gateway).x).toBeCloseTo(x, 0);
+		expect(placeIn(diagram, gateway).y).toBeCloseTo(y, 0);
+
+		await touch(
+			diagram,
+			[
+				{ x: x - 100, y },
+				{ x: x + 100, y },
+			],
+			[
+				{ x: x - 150, y: y + 30 },
+				{ x: x + 50, y: y + 30 },
+			],
+		);
+		await frame();
+
+		// Fingers that keep their distance move the drawing with them, no larger.
+		expect(gateway.getBoundingClientRect().width).toBeCloseTo(before * 2, 0);
+		expect(placeIn(diagram, gateway).x).toBeCloseTo(x - 50, 0);
+		expect(placeIn(diagram, gateway).y).toBeCloseTo(y + 30, 0);
+	});
+
+	test("pans with one finger", async () => {
+		const diagram = await mount(draw(example).svg, "width: 800px; height: 420px");
+		const before = placesOf([textOf(diagram, "Shop gateway")]);
+
+		await touch(diagram, [{ x: 600, y: 200 }], [{ x: 520, y: 200 }], [{ x: 400, y: 200 }]);
+		await frame();
+
+		expect(shiftOf(before)[0]?.x).toBeCloseTo(-200, 0);
+	});
+
+	test("takes a tap for a click, though the finger moved more than a mouse would", async () => {
+		const diagram = await mount(draw(example).svg, "width: 800px; height: 420px");
+		const title = textOf(diagram, "Shop web app");
+		const before = placesOf([title]);
+		const pressed: EventTarget[] = [];
+		diagram.addEventListener("click", (event) => pressed.push(event.composedPath()[0] ?? diagram));
+		const { x, y } = placeIn(diagram, title);
+
+		await touch(diagram, [{ x, y }], [{ x: x + 5, y: y + 3 }]);
+		await expect.poll(() => pressed).toEqual([title]);
+
+		expect(shiftOf(before)).toEqual([{ x: 0, y: 0 }]);
+	});
 });
 
 describe("a view the reader chose", () => {
