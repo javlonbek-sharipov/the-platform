@@ -1,5 +1,6 @@
 /** The public surface of @the-platform/diagrams: the authoring API and the core. */
 
+export { anchorOf } from "./atlas/markdown.ts";
 export { termOf } from "./atlas/terms.ts";
 export type { AtlasIndex, GlossaryTerm } from "./atlas/types.ts";
 export type {

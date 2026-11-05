@@ -1,16 +1,21 @@
 import { satteri, satteriHeadingIdsPlugin } from "@astrojs/markdown-satteri";
 import starlight from "@astrojs/starlight";
 import { defineConfig, passthroughImageService } from "astro/config";
+import { buildAtlas } from "./src/diagrams/atlas.ts";
 import { diagramImages } from "./src/diagrams/images.ts";
 import { diagrams } from "./src/diagrams/integration.ts";
+import { pagesOf } from "./src/diagrams/pages.ts";
 import { themeStyle } from "./src/diagrams/theme.ts";
 import { codeLanguages } from "./src/markdown/code-languages.ts";
+import { glossaryAnchors } from "./src/markdown/glossary-anchors.ts";
 import { pageTitle } from "./src/markdown/page-title.ts";
 import { repoLinks } from "./src/markdown/repo-links.ts";
 import { docsOf, github, repoRoot } from "./src/repo.ts";
 import { sidebarOf } from "./src/sidebar.ts";
 
 const title = "the-platform";
+const atlas = await buildAtlas(repoRoot);
+const pages = await pagesOf(repoRoot);
 
 /** The docs site: the repo's glossaries, ADRs, specs and docs, with their Diagrams. */
 export default defineConfig({
@@ -21,7 +26,7 @@ export default defineConfig({
 		processor: satteri({
 			mdastPlugins: [diagramImages(repoRoot), repoLinks(repoRoot), codeLanguages],
 			// The headings get their ids first, the title's among them, as on GitHub.
-			hastPlugins: [satteriHeadingIdsPlugin(), pageTitle],
+			hastPlugins: [satteriHeadingIdsPlugin(), glossaryAnchors(repoRoot, atlas.terms), pageTitle],
 			// A doc reads as it's written, and as GitHub shows it: `--` stays two hyphens.
 			features: { smartPunctuation: false },
 		}),
@@ -36,6 +41,6 @@ export default defineConfig({
 			// Starlight's own touches, such as each heading's link to itself, are for the repo's docs too.
 			markdown: { processedDirs: [repoRoot] },
 		}),
-		diagrams(),
+		diagrams(atlas, pages),
 	],
 });

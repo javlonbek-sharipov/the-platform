@@ -3,7 +3,7 @@ import { existsSync, realpathSync } from "node:fs";
 import { readFile, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { render } from "@the-platform/diagrams";
+import { domain, render } from "@the-platform/diagrams";
 import type { Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import billing from "../../../packages/diagrams/docs/example-billing.diagram.ts";
@@ -180,9 +180,11 @@ describe("the docs site of a sample repo", () => {
 	test("a page's Diagram image becomes the web component, with the SVG inline", async () => {
 		const page = await site.page("packages/shop/docs/checkout");
 
-		expect(page).toContain(`<platform-diagram>${svg}</platform-diagram>`);
+		expect(page).toContain(
+			`<platform-diagram data-diagram="packages/shop/docs/checkout">${svg}</platform-diagram>`,
+		);
 		// It stands on a line of its own in the doc, so it's a block of the page, not part of a paragraph.
-		expect(page).not.toContain("<p><platform-diagram>");
+		expect(page).not.toContain("<p><platform-diagram ");
 		expect(page).not.toMatch(/<img[^>]*checkout\.diagram/);
 	});
 
@@ -190,14 +192,16 @@ describe("the docs site of a sample repo", () => {
 		const page = await site.page("docs/specs/checkout");
 
 		expect(page).toContain(
-			`The call, within a sentence: <platform-diagram>${svg}</platform-diagram>`,
+			`The call, within a sentence: <platform-diagram data-diagram="packages/shop/docs/checkout">${svg}</platform-diagram>`,
 		);
 	});
 
 	test("a Diagram image written as a reference becomes the web component too", async () => {
 		const page = await site.page("packages/shop/docs/logo");
 
-		expect(page).toContain(`<platform-diagram>${svg}</platform-diagram>`);
+		expect(page).toContain(
+			`<platform-diagram data-diagram="packages/shop/docs/checkout">${svg}</platform-diagram>`,
+		);
 	});
 
 	test("a reader explores the Diagram where it's embedded", async () => {
@@ -633,6 +637,8 @@ describe("the docs site of the-platform", () => {
 		site = await buildSite();
 	}, 120_000);
 
+	afterAll(closeBrowser);
+
 	test("has a page for every glossary, ADR, spec and doc that git tracks", async () => {
 		// The places where the repo keeps its docs: its own, and each package's and app's.
 		const tracked = execFileSync(
@@ -670,6 +676,605 @@ describe("the docs site of the-platform", () => {
 
 		const page = await site.page("packages/diagrams/docs/example-system");
 
-		expect(page).toContain(`<platform-diagram>${drawing}</platform-diagram>`);
+		expect(page).toContain(
+			`<platform-diagram data-diagram="packages/diagrams/docs/example-system">${drawing}</platform-diagram>`,
+		);
 	});
+
+	test("the committed glossary example leads to its real glossary entry", async () => {
+		const reader = await reading(site);
+		try {
+			const page = await open(reader, "packages/diagrams/docs/example-glossary-links");
+			await page.locator("platform-diagram").getByText("Diagrams", { exact: true }).click();
+			await page
+				.getByRole("dialog", { name: "Diagrams details" })
+				.getByRole("button", { name: "Diagram", exact: true })
+				.click();
+
+			await page.waitForURL("**/packages/diagrams/glossary/#diagram");
+			expect(await page.locator(":target").textContent()).toContain(
+				"One drawing, written in one Notation.",
+			);
+		} finally {
+			await reader.close();
+		}
+	});
+
+	test("a Node URL into the committed aggregate examples selects only Ordering's event", async () => {
+		const reader = await reading(site);
+		try {
+			const page = await reader.newPage();
+			await page.goto(
+				"/packages/diagrams/docs/example-aggregates/#diagram=packages%2Fdiagrams%2Fdocs%2Fexample-ordering&node=ordering%2Forder-placed",
+			);
+			const ordering = page.locator(
+				'platform-diagram[data-diagram="packages/diagrams/docs/example-ordering"]',
+			);
+			const billing = page.locator(
+				'platform-diagram[data-diagram="packages/diagrams/docs/example-billing"]',
+			);
+
+			await expect
+				.poll(() =>
+					ordering
+						.getByRole("button", { name: "Order placed (event).", exact: true })
+						.getAttribute("aria-current"),
+				)
+				.toBe("true");
+			expect(
+				await billing
+					.getByRole("button", { name: "Order placed (event).", exact: true })
+					.getAttribute("aria-current"),
+			).toBe(null);
+		} finally {
+			await reader.close();
+		}
+	});
+});
+
+describe("Atlas inputs excluded from the docs site", () => {
+	test.each(["repos/reference/GLOSSARY.md", "docs/foreign.md"])(
+		"refuses the configured glossary %s before reading it",
+		async (glossary) => {
+			const repo = await sampleRepo({
+				"diagrams.config.ts": `export default { contexts: { foreign: { glossary: ${JSON.stringify(glossary)} } } };`,
+				"docs/index.md": lines("# Shop"),
+				"repos/reference/GLOSSARY.md": lines(
+					"# Foreign",
+					"",
+					"**Foreign**:",
+					"A definition the site must never read.",
+				),
+			});
+			await symlink("../repos/reference/GLOSSARY.md", join(repo, "docs/foreign.md"));
+
+			await expect(buildSite(repo)).rejects.toThrow(/excluded/);
+		},
+	);
+
+	test.each(["../repos/reference/model.ts", "./foreign.ts"])(
+		"refuses a Diagram import from %s before running it",
+		async (imported) => {
+			const repo = await sampleRepo({
+				"diagrams.config.ts": "export default {};",
+				"docs/index.md": lines("# Shop"),
+				"docs/shop.diagram.ts": `export { default } from ${JSON.stringify(imported)};`,
+				"repos/reference/model.ts": 'throw new Error("The excluded source was executed");',
+			});
+			await symlink("../repos/reference/model.ts", join(repo, "docs/foreign.ts"));
+
+			await expect(buildSite(repo)).rejects.toThrow(/excluded by this Atlas host/);
+		},
+	);
+
+	test("Atlas discovery respects git ignores and never loads reference modules or links to them", async () => {
+		const repo = await sampleRepo({
+			"diagrams.config.ts": "export default {};",
+			"docs/index.md": lines("# Shop"),
+			".gitignore": "ignored/\n",
+			"ignored/hidden.diagram.ts": 'throw new Error("An ignored module was loaded");',
+			"repos/reference/hidden.diagram.ts": 'throw new Error("A reference module was loaded");',
+		});
+		await symlink("../repos/reference/hidden.diagram.ts", join(repo, "docs/foreign.diagram.ts"));
+		execFileSync("git", ["-c", "init.defaultBranch=main", "init", repo]);
+
+		const site = await buildSite(repo);
+		expect(headingsOf(await site.page("docs"))).toEqual(["Shop"]);
+	});
+
+	test.each(["repos/reference/notes.md", "docs/foreign.md"])(
+		"refuses the indexed document Link %s before reading its headings",
+		async (doc) => {
+			const model = domain({ title: "Shop" }, (d) => {
+				d.node({
+					id: "shop",
+					kind: "context",
+					title: "Shop",
+					links: [{ doc, section: "Foreign" }],
+				});
+			});
+			const repo = await sampleRepo({
+				"diagrams.config.ts": "export default {};",
+				"docs/index.md": lines("# Shop"),
+				"docs/shop.diagram.ts": `export default ${JSON.stringify(model)};`,
+				"repos/reference/notes.md": lines(
+					"# Foreign",
+					"",
+					"The site must never read these headings.",
+				),
+			});
+			await symlink("../repos/reference/notes.md", join(repo, "docs/foreign.md"));
+
+			await expect(buildSite(repo)).rejects.toThrow(/excluded by this Atlas host/);
+		},
+	);
+});
+
+describe("Atlas navigation on the built site", () => {
+	let site: Site;
+
+	beforeAll(async () => {
+		const overview = domain({ id: "packages/shop/docs/overview", title: "Shop overview" }, (d) => {
+			d.node({
+				id: "shop",
+				kind: "context",
+				title: "Shop",
+				links: [
+					{ term: "Cart" },
+					{ id: "shop/order", label: "Order details" },
+					{ id: "billing", label: "Billing Group" },
+					{ id: "unpublished", label: "Unpublished Diagram" },
+					{ doc: "packages/shop/INTERNAL.md", label: "Internal notes" },
+					{ doc: "docs/adr/0001-payments.md", label: "Payments decision" },
+					{ doc: "docs/specs/payments.md", section: "Problem Statement", label: "Payment problem" },
+					{
+						doc: "docs/specs/payments.md",
+						section: "problem-statement-1",
+						label: "Second problem",
+					},
+					{ doc: "docs/specs/payments.md", section: "Payments v1", label: "Payment title" },
+					{ doc: "./docs/specs/../adr/0001-payments.md", label: "Normalized document path" },
+				],
+			});
+		});
+		const drawing = render(overview).svg;
+		if (drawing === undefined) throw new Error("the navigation Diagram has errors");
+		const details = domain({ id: "packages/shop/docs/details", title: "Shop details" }, (d) => {
+			d.group({ id: "shop", kind: "context", title: "Shop" }, (shop) => {
+				shop.node({ id: "order", kind: "aggregate", title: "Order" });
+				shop.node({ id: "paid", kind: "event", title: "Order paid", links: [{ term: "Cart" }] });
+			});
+		});
+		const borrowed = domain(
+			{ id: "packages/shop/docs/borrowed", title: "Billing details" },
+			(d) => {
+				d.node({ id: "shop/paid", kind: "event", title: "Order paid", links: [{ term: "Cart" }] });
+				d.group({ id: "billing", kind: "context", title: "Billing" }, (billing) => {
+					billing.node({ id: "invoice", kind: "aggregate", title: "Invoice" });
+				});
+			},
+		);
+		const detailFiles = Object.fromEntries(
+			[
+				details,
+				borrowed,
+				domain({ id: "packages/shop/docs/unpublished", title: "Unpublished" }, (d) => {
+					d.node({ id: "unpublished", kind: "context", title: "Unpublished" });
+				}),
+			].flatMap((diagram) => [
+				[`${diagram.id}.diagram.ts`, `export default ${JSON.stringify(diagram)};`],
+				[`${diagram.id}.diagram.svg`, render(diagram).svg ?? ""],
+			]),
+		);
+		const repo = await sampleRepo({
+			...detailFiles,
+			"packages/shop/INTERNAL.md": lines("# Internal notes", "", "This is not a published doc."),
+			"docs/also.md": lines(
+				"# Other explanations",
+				"",
+				"![Orders][orders]",
+				"",
+				"![Billing][billing]",
+				"",
+				"[orders]: ../packages/shop/docs/details.diagram.svg",
+				"[billing]: ../packages/shop/docs/borrowed.diagram.svg",
+			),
+			"docs/adr/0001-payments.md": lines(
+				"# Payments decision",
+				"",
+				"Keep the reason for accepting cash.",
+			),
+			"docs/specs/payments.md": lines(
+				"# Payments v1",
+				"",
+				"## Problem Statement",
+				"",
+				"The first problem.",
+				"",
+				"## Problem Statement",
+				"",
+				"The second problem.",
+			),
+			"diagrams.config.ts":
+				'export default { contexts: { shop: { glossary: "packages/shop/GLOSSARY.md" } } };',
+			"packages/shop/GLOSSARY.md": lines(
+				"# Shop",
+				"",
+				"## Cart",
+				"",
+				"A heading that already owns the cart anchor.",
+				"",
+				"**Cart**:",
+				"What a shopper has **picked**, before placing an order.",
+			),
+			"packages/shop/docs/overview.diagram.ts": `export default ${JSON.stringify(overview)};`,
+			"packages/shop/docs/overview.diagram.svg": drawing,
+			"packages/shop/docs/overview.md": lines(
+				"# Shop overview",
+				"",
+				"![Shop](./overview.diagram.svg)",
+			),
+			"packages/shop/docs/details.md": lines(
+				"# Order details",
+				"",
+				"[Select the borrowed event](#diagram=packages%2Fshop%2Fdocs%2Fborrowed&node=shop%2Fpaid)",
+				"",
+				"## Billing",
+				"",
+				"![Billing](./borrowed.diagram.svg)",
+				"",
+				"## Shop",
+				"",
+				"![Orders](./details.diagram.svg)",
+			),
+		});
+		site = await buildSite(repo);
+	}, 120_000);
+
+	afterAll(closeBrowser);
+
+	test("a Node's term hover uses the glossary definition indexed at build time", async () => {
+		const reader = await reading(site);
+		try {
+			const page = await open(reader, "packages/shop/docs/overview");
+			const diagram = page.locator("platform-diagram");
+			await diagram.getByText("Shop", { exact: true }).hover();
+
+			const definition = diagram.getByRole("tooltip").filter({ visible: true });
+			await definition.waitFor();
+			expect(await definition.textContent()).toContain(
+				"What a shopper has **picked**, before placing an order.",
+			);
+		} finally {
+			await reader.close();
+		}
+	});
+
+	test("a term Link opens its glossary entry without taking a heading's anchor", async () => {
+		const reader = await reading(site);
+		try {
+			const page = await open(reader, "packages/shop/docs/overview");
+			await page.locator("platform-diagram").getByText("Shop", { exact: true }).click();
+			await page
+				.getByRole("dialog", { name: "Shop details" })
+				.getByRole("button", { name: "Cart", exact: true })
+				.click();
+
+			await page.waitForURL("**/packages/shop/glossary/#cart-1");
+			expect(await page.locator(":target").textContent()).toContain("Cart");
+			expect(
+				await page.getByRole("heading", { name: "Cart", exact: true }).getAttribute("id"),
+			).toBe("cart");
+		} finally {
+			await reader.close();
+		}
+	});
+
+	test.each([
+		["Payments decision", "/docs/adr/0001-payments/", undefined],
+		["Normalized document path", "/docs/adr/0001-payments/", undefined],
+		["Payment problem", "/docs/specs/payments/#problem-statement", "problem-statement"],
+		["Second problem", "/docs/specs/payments/#problem-statement-1", "problem-statement-1"],
+		["Payment title", "/docs/specs/payments/#_top", "_top"],
+	])("a document Link to %s opens its page and heading", async (label, url, anchor) => {
+		const reader = await reading(site);
+		try {
+			const page = await open(reader, "packages/shop/docs/overview");
+			await page.locator("platform-diagram").getByText("Shop", { exact: true }).click();
+			await page
+				.getByRole("dialog", { name: "Shop details" })
+				.getByRole("button", { name: label, exact: true })
+				.click();
+
+			await page.waitForURL(`**${url}`);
+			if (anchor !== undefined)
+				expect(await page.locator(":target").getAttribute("id")).toBe(anchor);
+			expect(await page.getByRole("heading", { level: 1 }).textContent()).toBe(
+				url.startsWith("/docs/adr/") ? "Payments decision" : "Payments v1",
+			);
+		} finally {
+			await reader.close();
+		}
+	});
+
+	test("drill-down opens the page and drawing that show a context as a Group", async () => {
+		const reader = await reading(site);
+		try {
+			const page = await open(reader, "packages/shop/docs/overview");
+			await page.locator("platform-diagram").getByText("Shop", { exact: true }).click();
+			await page
+				.getByRole("dialog", { name: "Shop details" })
+				.getByRole("list", { name: "Drill down" })
+				.getByRole("button", { name: "Shop details" })
+				.click();
+
+			await page.waitForURL(
+				"**/packages/shop/docs/details/#diagram=packages%2Fshop%2Fdocs%2Fdetails",
+			);
+			const drawing = page.getByRole("group", { name: "Shop details", exact: true });
+			await drawing.waitFor();
+			expect((await drawing.boundingBox())?.y).toBeGreaterThanOrEqual(0);
+			expect((await drawing.boundingBox())?.y).toBeLessThan(720);
+		} finally {
+			await reader.close();
+		}
+	});
+
+	test("a direct Node URL selects the namespaced Node in its named Diagram", async () => {
+		const reader = await reading(site);
+		try {
+			const page = await reader.newPage();
+			await page.goto(
+				"/packages/shop/docs/details/#diagram=packages%2Fshop%2Fdocs%2Fdetails&node=shop%2Fpaid",
+			);
+			const home = page.locator('platform-diagram[data-diagram="packages/shop/docs/details"]');
+			const borrowed = page.locator('platform-diagram[data-diagram="packages/shop/docs/borrowed"]');
+			const paid = (drawing: ReturnType<Page["locator"]>) =>
+				drawing
+					.getByRole("list", { name: "Nodes", exact: true })
+					.getByRole("button", { name: "Order paid (event).", exact: true });
+
+			await expect.poll(() => paid(home).getAttribute("aria-current")).toBe("true");
+			expect(await paid(borrowed).getAttribute("aria-current")).toBe(null);
+			expect(await page.getByRole("dialog").count()).toBe(0);
+			expect((await home.boundingBox())?.y).toBeLessThan(720);
+		} finally {
+			await reader.close();
+		}
+	});
+
+	test("an id Link opens a Diagram that draws the id and selects its Node", async () => {
+		const reader = await reading(site);
+		try {
+			const page = await open(reader, "packages/shop/docs/overview");
+			await page.locator("platform-diagram").getByText("Shop", { exact: true }).click();
+			await page
+				.getByRole("dialog", { name: "Shop details" })
+				.getByRole("button", { name: "Order details", exact: true })
+				.click();
+
+			await page.waitForURL(
+				"**/packages/shop/docs/details/#diagram=packages%2Fshop%2Fdocs%2Fdetails&node=shop%2Forder",
+			);
+			const drawing = page.locator('platform-diagram[data-diagram="packages/shop/docs/details"]');
+			await expect
+				.poll(() =>
+					drawing
+						.getByRole("button", { name: "Order (aggregate).", exact: true })
+						.getAttribute("aria-current"),
+				)
+				.toBe("true");
+		} finally {
+			await reader.close();
+		}
+	});
+
+	test("selecting a Node produces a shareable URL that restores selection after reload", async () => {
+		const reader = await reading(site);
+		try {
+			const page = await open(reader, "packages/shop/docs/details");
+			const drawing = page.locator('platform-diagram[data-diagram="packages/shop/docs/details"]');
+			await drawing.getByText("Order", { exact: true }).click();
+
+			expect(new URL(page.url()).hash).toBe(
+				"#diagram=packages%2Fshop%2Fdocs%2Fdetails&node=shop%2Forder",
+			);
+			await page.reload();
+			await expect
+				.poll(() =>
+					drawing
+						.getByRole("button", { name: "Order (aggregate).", exact: true })
+						.getAttribute("aria-current"),
+				)
+				.toBe("true");
+			expect(await page.getByRole("dialog").count()).toBe(0);
+		} finally {
+			await reader.close();
+		}
+	});
+
+	test("following a Node URL on the same page selects only its named Diagram", async () => {
+		const reader = await reading(site);
+		try {
+			const page = await reader.newPage();
+			await page.goto(
+				"/packages/shop/docs/details/#diagram=packages%2Fshop%2Fdocs%2Fdetails&node=shop%2Fpaid",
+			);
+			const home = page.locator('platform-diagram[data-diagram="packages/shop/docs/details"]');
+			const borrowed = page.locator('platform-diagram[data-diagram="packages/shop/docs/borrowed"]');
+			await expect
+				.poll(() =>
+					home
+						.getByRole("button", { name: "Order paid (event).", exact: true })
+						.getAttribute("aria-current"),
+				)
+				.toBe("true");
+
+			await page.getByRole("link", { name: "Select the borrowed event" }).click();
+
+			await expect
+				.poll(() =>
+					borrowed
+						.getByRole("button", { name: "Order paid (event).", exact: true })
+						.getAttribute("aria-current"),
+				)
+				.toBe("true");
+			expect(
+				await home
+					.getByRole("button", { name: "Order paid (event).", exact: true })
+					.getAttribute("aria-current"),
+			).toBe(null);
+		} finally {
+			await reader.close();
+		}
+	});
+
+	test("clearing selection removes the Node from the shareable URL", async () => {
+		const reader = await reading(site);
+		try {
+			const page = await reader.newPage();
+			await page.goto(
+				"/packages/shop/docs/details/#diagram=packages%2Fshop%2Fdocs%2Fdetails&node=shop%2Forder",
+			);
+			const drawing = page.locator('platform-diagram[data-diagram="packages/shop/docs/details"]');
+			await expect
+				.poll(() =>
+					drawing
+						.getByRole("button", { name: "Order (aggregate).", exact: true })
+						.getAttribute("aria-current"),
+				)
+				.toBe("true");
+			await drawing
+				.getByRole("group", { name: "Shop details", exact: true })
+				.click({ position: { x: 3, y: 3 } });
+
+			await page.keyboard.press("Escape");
+
+			expect(new URL(page.url()).hash).toBe("#diagram=packages%2Fshop%2Fdocs%2Fdetails");
+		} finally {
+			await reader.close();
+		}
+	});
+
+	test("a Group-only id uses the first published embedding when it has no sibling doc", async () => {
+		const reader = await reading(site);
+		try {
+			const page = await open(reader, "packages/shop/docs/overview");
+			await page.locator("platform-diagram").getByText("Shop", { exact: true }).click();
+			await page
+				.getByRole("dialog", { name: "Shop details" })
+				.getByRole("button", { name: "Billing Group", exact: true })
+				.click();
+
+			await page.waitForURL("**/docs/also/#diagram=packages%2Fshop%2Fdocs%2Fborrowed");
+			expect(await page.getByRole("heading", { level: 1 }).textContent()).toBe(
+				"Other explanations",
+			);
+			expect(
+				(await page.getByRole("group", { name: "Billing details", exact: true }).boundingBox())?.y,
+			).toBeLessThan(720);
+		} finally {
+			await reader.close();
+		}
+	});
+
+	test("a borrowed event drills down to its home using the component's destination", async () => {
+		const reader = await reading(site);
+		try {
+			const page = await open(reader, "packages/shop/docs/details");
+			await page
+				.locator('platform-diagram[data-diagram="packages/shop/docs/borrowed"]')
+				.getByText("Order paid", { exact: true })
+				.click();
+			await page
+				.getByRole("dialog", { name: "Order paid details" })
+				.getByRole("list", { name: "Drill down" })
+				.getByRole("button", { name: "Shop details", exact: true })
+				.click();
+
+			await page.waitForURL(
+				"**/packages/shop/docs/details/#diagram=packages%2Fshop%2Fdocs%2Fdetails",
+			);
+			await expect
+				.poll(
+					async () =>
+						(await page.getByRole("group", { name: "Shop details", exact: true }).boundingBox())?.y,
+				)
+				.toBeLessThan(720);
+		} finally {
+			await reader.close();
+		}
+	});
+
+	test.each(["Unpublished Diagram", "Internal notes"])(
+		"a Link to %s has no invented site destination",
+		async (label) => {
+			const reader = await reading(site);
+			try {
+				const page = await open(reader, "packages/shop/docs/overview");
+				const errors: string[] = [];
+				page.on("pageerror", (error) => errors.push(error.message));
+				await page.locator("platform-diagram").getByText("Shop", { exact: true }).click();
+				const before = page.url();
+
+				await page
+					.getByRole("dialog", { name: "Shop details" })
+					.getByRole("button", { name: label, exact: true })
+					.click();
+
+				expect(page.url()).toBe(before);
+				expect(await page.getByRole("dialog", { name: "Shop details" }).isVisible()).toBe(true);
+				expect(errors).toEqual([]);
+			} finally {
+				await reader.close();
+			}
+		},
+	);
+
+	test.each([
+		["a Node without a Diagram", "node=shop%2Fpaid"],
+		["an absent Node", "diagram=packages%2Fshop%2Fdocs%2Fdetails&node=absent"],
+		["an inherited object name", "diagram=packages%2Fshop%2Fdocs%2Fdetails&node=constructor"],
+		["an object prototype name", "diagram=packages%2Fshop%2Fdocs%2Fdetails&node=__proto__"],
+		["a Group id instead of a Node", "diagram=packages%2Fshop%2Fdocs%2Fdetails&node=shop"],
+		["a Node on another Diagram", "diagram=packages%2Fshop%2Fdocs%2Fborrowed&node=shop%2Forder"],
+		["an absent Diagram", "diagram=absent&node=shop%2Fpaid"],
+		[
+			"duplicate Diagram parameters",
+			"diagram=packages%2Fshop%2Fdocs%2Fdetails&diagram=packages%2Fshop%2Fdocs%2Fborrowed&node=shop%2Fpaid",
+		],
+		[
+			"duplicate Node parameters",
+			"diagram=packages%2Fshop%2Fdocs%2Fdetails&node=shop%2Fpaid&node=shop%2Forder",
+		],
+		["an invalid escape", "diagram=%E0%A4%A&node=shop%2Fpaid"],
+	])(
+		"a Node URL with %s leaves the drawings usable without selecting a different Node",
+		async (_what, fragment) => {
+			const reader = await reading(site);
+			try {
+				const page = await reader.newPage();
+				const errors: string[] = [];
+				page.on("pageerror", (error) => errors.push(error.message));
+				await page.goto(`/packages/shop/docs/details/#${fragment}`);
+				await page.getByRole("group", { name: "Shop details", exact: true }).waitFor();
+				await page.evaluate(
+					() =>
+						new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+				);
+
+				expect(
+					await page.locator("platform-diagram").locator('[aria-current="true"]').count(),
+				).toBe(0);
+				expect(errors).toEqual([]);
+				await page
+					.locator('platform-diagram[data-diagram="packages/shop/docs/details"]')
+					.getByText("Order", { exact: true })
+					.click();
+				expect(await page.getByRole("dialog", { name: "Order details" }).isVisible()).toBe(true);
+			} finally {
+				await reader.close();
+			}
+		},
+	);
 });

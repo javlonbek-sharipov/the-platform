@@ -8,7 +8,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import type { MdastPluginDefinition, MdastPluginEntry } from "satteri";
-import { diagramSuffix, embeddedFile, embedError } from "../repo.ts";
+import { diagramSuffix, embeddedFile, embedError, pathIn } from "../repo.ts";
 
 type Visitor<Kind extends keyof MdastPluginDefinition> = NonNullable<MdastPluginDefinition[Kind]>;
 type Context = Parameters<Visitor<"image">>[1];
@@ -22,7 +22,7 @@ type Tree = Parameters<NonNullable<MdastPluginDefinition["before"]>>[0];
  * into the web component. Any other picture stays an image, and must be one
  * of the repo's own files too.
  */
-export function diagramImages(root: string): MdastPluginEntry {
+export function diagramImages(root: string, onEmbed?: (file: string) => void): MdastPluginEntry {
 	/**
 	 * Puts the web component in an image's place, if the image is a Diagram's,
 	 * and says whether it was.
@@ -40,9 +40,12 @@ export function diagramImages(root: string): MdastPluginEntry {
 				"which doesn't exist. Run `pnpm exec diagrams render` to draw it.",
 			);
 		}
+		onEmbed?.(file);
+		const id = pathIn(root, file).slice(0, -diagramSuffix.length);
+		const attribute = id.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
 		const component = {
 			type: "html",
-			value: `<platform-diagram>${readFileSync(file, "utf8")}</platform-diagram>`,
+			value: `<platform-diagram data-diagram="${attribute}">${readFileSync(file, "utf8")}</platform-diagram>`,
 		} as const;
 		// A Diagram on a line of its own is a block of the page, not a part of a paragraph.
 		const parent = ctx.parent(node);

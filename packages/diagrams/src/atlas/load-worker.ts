@@ -9,7 +9,16 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parentPort, workerData } from "node:worker_threads";
 import { type Declarations, declarationsKey, framePosition } from "../authoring/declarations.ts";
 import { unknownOptionsOf } from "../authoring/options.ts";
-import type { LoadMessage, LoadResult, Place } from "./load.ts";
+import { isExcluded } from "./excluded.ts";
+import type { LoadInput, LoadMessage, LoadResult, Place } from "./load.ts";
+
+const { modules, excluded } = workerData as LoadInput;
+
+function permitted(url: string): void {
+	if (url.startsWith("file:") && isExcluded(fileURLToPath(url), excluded)) {
+		throw new Error(`${fileURLToPath(url)} is excluded by this Atlas host.`);
+	}
+}
 
 const imports = new Map<string, Set<string>>();
 const reported = new Set<string>();
@@ -30,7 +39,10 @@ function dependency(parent: string | undefined, url: string): void {
 const hooks = registerHooks({
 	resolve(specifier, context, nextResolve) {
 		try {
+			if (/^(file:|\.{1,2}\/|\/)/.test(specifier))
+				permitted(new URL(specifier, context.parentURL).href);
 			const result = nextResolve(specifier, context);
+			permitted(result.url);
 			dependency(context.parentURL, result.url);
 			return result;
 		} catch (error) {
@@ -38,6 +50,10 @@ const hooks = registerHooks({
 			if (url !== undefined) dependency(context.parentURL, url);
 			throw error;
 		}
+	},
+	load(url, context, nextLoad) {
+		permitted(url);
+		return nextLoad(url, context);
 	},
 });
 
@@ -51,7 +67,7 @@ function post(message: LoadMessage): void {
 	parentPort?.postMessage(message);
 }
 
-for (const module of workerData as string[]) {
+for (const module of modules) {
 	const result = await loadModule(module);
 	post({ type: "result", result: { ...result, dependencies: dependenciesOf(module) } });
 }

@@ -84,20 +84,24 @@ export interface OpenAtlas {
 	messages: AtlasMessage[];
 	/** Even an invalid Diagram may draw an id, so Links don't duplicate its own errors. */
 	drawn: ReadonlySet<string>;
+	/** Host-excluded folders, retained for checks after opening the Atlas. */
+	excluded?: readonly string[];
 }
+
+export type OpenAtlasOptions = LoadOptions;
 
 /** Loads the config and every module together, in a fresh module context. */
 export async function openAtlas(
 	root: string,
 	files?: AtlasFiles,
-	options?: LoadOptions,
+	options?: OpenAtlasOptions,
 ): Promise<OpenAtlas> {
-	files ??= await discover(root);
+	files ??= await discover(root, options?.exclude);
 	const [config, ...modules] = await load([join(root, configFile), ...files.modules], options);
 	const messages = config === undefined ? [] : checkConfig(root, config);
 	const glossaries =
 		config !== undefined && !("failed" in config) && messages.length === 0
-			? readGlossaries(root, config.module, config.exported, config.declarations)
+			? readGlossaries(root, config.module, config.exported, config.declarations, options?.exclude)
 			: { config: {}, terms: [], files: [], messages: [] };
 	return {
 		root,
@@ -115,6 +119,7 @@ export async function openAtlas(
 		diagrams: modules.map((loaded) => renderLoaded(root, loaded)),
 		messages: [...messages, ...glossaries.messages],
 		drawn: new Set(modules.flatMap(idsDrawnBy)),
+		excluded: options?.exclude,
 	};
 }
 
@@ -155,7 +160,7 @@ export async function lintAtlas(
 		...checkIds(valid),
 		...checkNamespaceHomes(valid),
 		...checkLanguage(valid, atlas.terms),
-		...checkLinks(root, valid, atlas.drawn, atlas.config, atlas.terms),
+		...checkLinks(root, valid, atlas.drawn, atlas.config, atlas.terms, atlas.excluded),
 	];
 	return { diagrams: rendered.length, messages: messages.sort(byPlace) };
 }
@@ -232,7 +237,7 @@ export async function indexAtlas(
 		...atlas.messages,
 		...rendered.flatMap(({ messages }) => messages),
 		...checkIds(valid),
-		...checkLinks(root, valid, atlas.drawn, atlas.config, atlas.terms),
+		...checkLinks(root, valid, atlas.drawn, atlas.config, atlas.terms, atlas.excluded),
 	]
 		.filter((message) => message.severity === "error")
 		.sort(byPlace);

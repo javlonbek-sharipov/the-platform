@@ -12,6 +12,7 @@ import { type AnyDiagram, type Link, namespaceOf } from "../authoring/model.ts";
 import { list } from "../core/diagnostics.ts";
 import type { Notation } from "../notations/notation.ts";
 import { notations } from "../notations/notations.ts";
+import { isExcluded } from "./excluded.ts";
 import { anchorOf, headingAnchors } from "./markdown.ts";
 import { type AtlasMessage, located } from "./messages.ts";
 import { termOf } from "./terms.ts";
@@ -159,6 +160,7 @@ export function checkLinks(
 	drawn: ReadonlySet<string>,
 	config: AtlasConfig,
 	terms: readonly GlossaryTerm[],
+	excluded: readonly string[] = [],
 ): AtlasMessage[] {
 	const anchors = new Map<string, Set<string>>();
 	const anchorsIn = (file: string) => {
@@ -182,6 +184,7 @@ export function checkLinks(
 				: undefined;
 		}
 		const file = resolve(root, link.doc);
+		if (isExcluded(file, excluded)) return `\`${link.doc}\`, which is excluded by this Atlas host`;
 		const path = relative(root, file);
 		const inRepo = path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path);
 		if (!inRepo || statSync(file, { throwIfNoEntry: false })?.isFile() !== true) {

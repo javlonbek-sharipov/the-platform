@@ -5,6 +5,7 @@ import type { AtlasConfig, AtlasContext } from "../authoring/atlas.ts";
 import type { Declarations } from "../authoring/declarations.ts";
 import { pointerSegment } from "../core/diagnostics.ts";
 import { formats } from "../core/validate.ts";
+import { isExcluded } from "./excluded.ts";
 import { anchorOf, headingAnchors } from "./markdown.ts";
 import { type AtlasMessage, located } from "./messages.ts";
 import type { GlossaryTerm } from "./types.ts";
@@ -14,6 +15,7 @@ export function readGlossaries(
 	module: string,
 	input: unknown,
 	declarations: Declarations,
+	excluded: readonly string[] = [],
 ): { config: AtlasConfig; terms: GlossaryTerm[]; files: string[]; messages: AtlasMessage[] } {
 	const contexts: Record<string, AtlasContext> = Object.create(null);
 	const config: AtlasConfig = { contexts };
@@ -74,6 +76,14 @@ export function readGlossaries(
 			continue;
 		}
 		contexts[context] = { glossary: relative(root, file).split(sep).join("/") };
+		if (isExcluded(file, excluded)) {
+			report(
+				`${at}/glossary`,
+				`Context \`${context}\`'s glossary \`${glossary}\` is excluded by this Atlas host.`,
+				"glossary-path",
+			);
+			continue;
+		}
 		try {
 			if (!statSync(file).isFile() || !inside(realpathSync(root), realpathSync(file))) {
 				throw new Error("It must name a file inside the Atlas.");
