@@ -114,11 +114,12 @@ export function bendEdge(
 	}
 	const translate = (element: SVGElement, point: Point) => {
 		const delta = displacement(point);
+		const base = element.style.transform === "none" ? "" : element.style.transform;
 		animations.push({
 			element,
 			frames: [
-				{ transform: "translate(0px, 0px)" },
-				{ transform: `translate(${delta.x}px, ${delta.y}px)` },
+				{ transform: `${base} translate(0px, 0px)` },
+				{ transform: `${base} translate(${delta.x}px, ${delta.y}px)` },
 			],
 		});
 	};

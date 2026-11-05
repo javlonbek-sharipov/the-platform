@@ -261,6 +261,83 @@ test("another redraw and disconnect cancel old transitions and leave the newest 
 	expect(host.shadowRoot?.getAnimations()).toEqual([]);
 });
 
+test.for([110, 400])(
+	"an interrupted glide at %s ms keeps every visible old arrow and route attached to both moving Nodes",
+	async (interruptAt) => {
+		const drawing = (version: number) =>
+			draw(
+				architecture({ id: "docs/rapid", title: "Rapid edits" }, (d) => {
+					const a = d.node({ id: "a", kind: "service", title: "Alpha" });
+					const b = d.node({ id: "b", kind: "service", title: "Beta" });
+					d.edge(a, b, { id: "ab", kind: "call" });
+					if (version > 0) {
+						const x = d.node({ id: "x", kind: "service", title: "Extra" });
+						d.edge(a, x, { kind: "call" });
+						d.edge(x, b, { kind: "call" });
+						if (version > 1) {
+							const y = d.node({ id: "y", kind: "service", title: "More" });
+							d.edge(x, y, { kind: "call" });
+							d.edge(y, b, { kind: "call" });
+						}
+					}
+				}),
+			);
+		const host = await mount(drawing(0).svg, "width: 1100px; height: 550px");
+		host.insertAdjacentHTML("beforeend", drawing(1).svg);
+		await new Promise((resolve) => setTimeout(resolve, interruptAt));
+		const before = drawnBox(svgOf(host), nodeOf(svgOf(host), "b"));
+		host.insertAdjacentHTML("beforeend", drawing(2).svg);
+		await frame();
+		const svg = svgOf(host);
+		const b = nodeOf(svg, "b");
+		expect(Math.abs(drawnBox(svg, b).x - before.x)).toBeLessThan(80);
+		const paths = [...svg.querySelectorAll<SVGPathElement>('[data-retired-edge="ab"] path')];
+		const visible = (path: SVGPathElement) => {
+			let opacity = 1;
+			for (
+				let element: Element | null = path;
+				element !== null && element !== svg;
+				element = element.parentElement
+			)
+				opacity *= Number(getComputedStyle(element).opacity);
+			return opacity > 0.1;
+		};
+		const screenPoint = (element: SVGGraphicsElement, point: DOMPointInit) =>
+			new DOMPoint(point.x, point.y).matrixTransform(element.getScreenCTM() ?? undefined);
+		for (let sample = 0; sample < 4; sample += 1) {
+			const targetBox = b.getBBox();
+			const target = screenPoint(b, { x: targetBox.x, y: targetBox.y + targetBox.height / 2 });
+			const a = nodeOf(svg, "a");
+			const sourceBox = a.getBBox();
+			const source = screenPoint(a, {
+				x: sourceBox.x + sourceBox.width,
+				y: sourceBox.y + sourceBox.height / 2,
+			});
+			const arrows = paths.filter(
+				(path) => path.getAttribute("fill") === "currentColor" && visible(path),
+			);
+			const lines = paths.filter(
+				(path) =>
+					path.getAttribute("stroke-width") === "3.5" &&
+					!path.hasAttribute("stroke-linecap") &&
+					visible(path),
+			);
+			expect(arrows.length).toBeGreaterThan(0);
+			expect(lines.length).toBeGreaterThan(0);
+			for (const arrow of arrows) {
+				const tip = screenPoint(arrow, arrow.getPointAtLength(0));
+				expect(Math.hypot(target.x - tip.x, target.y - tip.y)).toBeLessThan(2);
+			}
+			for (const line of lines) {
+				const start = screenPoint(line, line.getPointAtLength(line.getTotalLength()));
+				expect(Math.hypot(source.x - start.x, source.y - start.y)).toBeLessThan(2);
+			}
+			await frame();
+		}
+		await settled(host);
+	},
+);
+
 test("retiring text keeps its font during a transition and releases it when the transition ends", async () => {
 	const host = await mount(draw(shop()).svg, "width: 1100px; height: 600px");
 	const text = nodeOf(svgOf(host), "removed").querySelector("text");
