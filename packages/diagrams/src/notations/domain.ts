@@ -89,6 +89,7 @@ const definition = {
 		},
 	},
 	bundling: "none",
+	flow: false,
 } as const satisfies Notation;
 
 type Definition = typeof definition;

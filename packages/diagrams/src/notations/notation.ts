@@ -65,6 +65,8 @@ export interface Notation {
 	 * lane, where their routes run together.
 	 */
 	bundling: Bundling;
+	/** Whether directed Edges carry moving flow marks. Symmetric Edges never do. */
+	flow: boolean;
 }
 
 /** How a Node of one Kind looks: its size, its outline, its badge and its hue. A Kind alone decides it. */

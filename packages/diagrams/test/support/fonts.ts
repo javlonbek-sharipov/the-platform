@@ -37,20 +37,25 @@ export function styleOf(svg: string): string {
 
 /**
  * Every selector in a style sheet, from its style rules at any depth, such as
- * those inside `@media`. A `@font-face` rule has none.
+ * those inside `@media`. Font faces and keyframe steps have no selectors.
  */
 export function selectorsOf(css: string): string[] {
 	const selectors: string[] = [];
+	const blocks: string[] = [];
 	let prelude = "";
 	for (const character of css) {
 		if (character === "{") {
 			// An at-rule's prelude, such as `@media …` or `@font-face`, isn't a selector.
 			const text = prelude.trim();
-			if (!text.startsWith("@")) {
+			if (!text.startsWith("@") && !blocks.some((block) => block.startsWith("@keyframes "))) {
 				selectors.push(...text.split(",").map((selector) => selector.trim()));
 			}
+			blocks.push(text);
 			prelude = "";
-		} else if (character === "}" || character === ";") {
+		} else if (character === "}") {
+			blocks.pop();
+			prelude = "";
+		} else if (character === ";") {
 			prelude = "";
 		} else {
 			prelude += character;

@@ -189,6 +189,8 @@ export interface SceneEdge {
 	 * them along their trunk.
 	 */
 	chevrons: SceneChevron[];
+	/** Moving marks, when the Notation enables flow on this directed Edge. */
+	flow?: SceneFlow;
 	/**
 	 * Set when the Edge's ends sit in different Groups of a Kind that its
 	 * Notation says Edges cross between, as architecture's regions and zones
@@ -196,6 +198,14 @@ export interface SceneEdge {
 	 * in the middle of the stretch of its route that's its own.
 	 */
 	crosses?: { kind: string; badge: Point };
+}
+
+/** Flow along an Edge, in drawing units, independent of any renderer or clock. */
+export interface SceneFlow {
+	/** The distance between neighboring marks, in px. */
+	spacing: number;
+	/** The speed toward the target, in px per second. */
+	speed: number;
 }
 
 /**

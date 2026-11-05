@@ -61,6 +61,7 @@ export type {
 	SceneCallout,
 	SceneChevron,
 	SceneEdge,
+	SceneFlow,
 	SceneGroup,
 	SceneJunction,
 	SceneLabel,
