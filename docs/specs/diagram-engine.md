@@ -1922,7 +1922,7 @@ The fix of [code review 1](https://github.com/javlonbek-sharipov/the-platform/bl
     - Its types are `Builder<N>`, `DiagramDeclaration`, `NodeDeclaration<N, R>`, `RowDeclaration<R>`, `GroupDeclaration<N>` and `EdgeDeclaration<N>`. Architecture's public types, `ArchitectureNode` to `EdgeOptions`, are those for its definition, and are now type aliases.
     - The definition's type has a name, `ArchitectureNotation`, so that a type error reads `NodeKindOf<ArchitectureNotation>` and not the whole definition.
 12. **Holding the engine to one definition.** `test/definitions.test.ts` reads the engine's sources.
-    - Outside `src/notations/<name>.ts`, no module names one of that Notation's Kinds as a string. One string is excused: the `message` event of a worker thread, in `src/atlas/load.ts`.
+    - Outside `src/notations/<name>.ts`, no module names one of that Notation's Kinds as a string. Two uses are excused, since neither names a Kind: the `message` event of a worker thread, in `src/atlas/load.ts`, and `typeof x === "function"` anywhere. The test lists any other that only looks like a Kind's name.
     - Only `src/authoring/<name>.ts`, `src/notations/notations.ts` and `src/index.ts` import the definition.
     - Each definition refers only to hues and Node Kinds that it defines, and sizes its Nodes in steps of 16 px.
 13. **Left for the domain Notation.** A definition holds nothing yet for an Edge's `roles`, for ids that are local to a `context` Group, or for a rule about a whole Diagram, such as the one against mixing a context map with an aggregate diagram. Issues 3 and 4 add what they need.
