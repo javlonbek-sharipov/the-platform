@@ -50,9 +50,9 @@ async function loadPages(root: string, context: LoaderContext, keep: boolean): P
 	for (const { id, file, path } of files) {
 		const other = loaded.get(id);
 		if (other !== undefined) {
-			throw new Error(`${other} and ${file} would both be the page /${id}/. Rename one of them.`);
+			throw new Error(`${other} and ${path} would both be the page /${id}/. Rename one of them.`);
 		}
-		loaded.set(id, file);
+		loaded.set(id, path);
 		const text = await readFile(file, "utf8");
 		// Rendering comes first: it's what finds the doc's title, in its first heading.
 		const rendered = await renderMarkdown(text, { fileURL: pathToFileURL(file) });
@@ -71,7 +71,8 @@ async function loadPages(root: string, context: LoaderContext, keep: boolean): P
 			data,
 			body: text,
 			filePath: pathIn(fileURLToPath(config.root), file),
-			digest: generateDigest(rendered.html),
+			// The title isn't in the page's HTML, so a new one alone must count as a change too.
+			digest: generateDigest({ data, html: rendered.html }),
 			rendered,
 			assetImports: rendered.metadata?.imagePaths,
 		});

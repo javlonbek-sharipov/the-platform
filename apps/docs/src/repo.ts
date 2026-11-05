@@ -4,15 +4,16 @@
  */
 
 import { type Dirent, lstatSync, readdirSync, realpathSync } from "node:fs";
-import { isAbsolute, join, relative, sep } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
  * The repo's root: the repo this app is in, unless `DOCS_REPO` names another
  * one, as the tests do.
  */
-export const repoRoot: string =
-	process.env.DOCS_REPO ?? fileURLToPath(new URL("../../../", import.meta.url));
+export const repoRoot: string = resolve(
+	process.env.DOCS_REPO ?? fileURLToPath(new URL("../../../", import.meta.url)),
+);
 
 /** Where the repo is on GitHub, and the branch that the site is built from. */
 export const github = {
@@ -41,27 +42,29 @@ export const diagramSuffix = ".diagram.svg";
  * `packages/shop/`. It's empty for a file of the repo itself.
  */
 export function scopeOf(path: string): string {
-	const [first = "", second] = path.split("/");
-	return workspaces.includes(first) && second !== undefined ? `${first}/${second}/` : "";
+	const [first = "", second, ...inside] = path.split("/");
+	return workspaces.includes(first) && inside.length > 0 ? `${first}/${second}/` : "";
+}
+
+/** Whether a folder is one that never holds docs: a hidden one, or `node_modules`. */
+function isSkipped(folder: string): boolean {
+	return folder.startsWith(".") || folder === "node_modules";
 }
 
 /**
  * Whether a file is one of the repo's docs, by its path from the root: a
  * glossary, the glossary map, or Markdown in a `docs` folder, of the repo
  * itself or of one of its packages and apps. So `docs/specs/checkout.md` and
- * `packages/shop/GLOSSARY.md` are docs, and nothing in `repos/` or
- * `node_modules/` ever is.
+ * `packages/shop/GLOSSARY.md` are docs, and nothing in `repos/`, in
+ * `node_modules/` or in a hidden folder ever is.
  */
 export function isDoc(path: string): boolean {
+	const folders = path.split("/").slice(0, -1);
 	const [name = "", ...below] = path.slice(scopeOf(path).length).split("/");
-	if (below.length === 0) {
-		return glossaries.includes(name);
+	if (folders.some(isSkipped)) {
+		return false;
 	}
-	return (
-		name === "docs" &&
-		path.endsWith(".md") &&
-		below.every((part) => !part.startsWith(".") && part !== "node_modules")
-	);
+	return below.length === 0 ? glossaries.includes(name) : name === "docs" && path.endsWith(".md");
 }
 
 /**
@@ -88,7 +91,7 @@ export function docsOf(root: string): string[] {
 /** The folders in a folder of the repo, each as a path from the root that ends with a slash. */
 function foldersIn(root: string, folder: string): string[] {
 	return entriesOf(root, folder)
-		.filter((entry) => entry.isDirectory())
+		.filter((entry) => entry.isDirectory() && !isSkipped(entry.name))
 		.map((entry) => `${folder}/${entry.name}/`);
 }
 
@@ -165,20 +168,31 @@ export function embeddedFile(root: string, url: string, doc: URL | undefined): s
 	if (file === undefined || doc === undefined) {
 		return undefined;
 	}
+	// Where the file is by its path, and where it really is, if a link leads elsewhere.
 	for (const path of [pathIn(root, file), pathIn(realpathSync(root), really(file))]) {
-		const refuse = (why: string) => {
-			throw new Error(`${pathIn(root, fileURLToPath(doc))} embeds ${url}, ${why}`);
-		};
 		if (path.startsWith("../") || isAbsolute(path)) {
-			refuse("a file outside the repo. The site shows only the repo's own files.");
+			throw embedError(
+				root,
+				url,
+				doc,
+				"a file outside the repo. The site shows only the repo's own files.",
+			);
 		}
 		if (path.split("/")[0] === others) {
-			refuse(
+			throw embedError(
+				root,
+				url,
+				doc,
 				`a file in ${others}/. The site shows nothing from ${others}/, which holds other projects' files.`,
 			);
 		}
 	}
 	return file;
+}
+
+/** The error that stops the build when a doc embeds a file the site can't show, which says what is wrong with it. */
+export function embedError(root: string, url: string, doc: URL, problem: string): Error {
+	return new Error(`${pathIn(root, fileURLToPath(doc))} embeds ${url}, ${problem}`);
 }
 
 /** Where a file really is, when it or a folder above it is a link. A file that doesn't exist is where its path says. */

@@ -6,9 +6,9 @@
  * makes explorable.
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import type { MdastPluginDefinition } from "satteri";
-import { diagramSuffix, embeddedFile, pathIn } from "../repo.ts";
+import { diagramSuffix, embeddedFile, embedError } from "../repo.ts";
 
 /**
  * Turns each image of a `*.diagram.svg` in the docs of the repo at `root`
@@ -23,15 +23,15 @@ export function diagramImages(root: string): MdastPluginDefinition {
 			if (file === undefined || !file.endsWith(diagramSuffix)) {
 				return;
 			}
-			let svg: string;
-			try {
-				svg = readFileSync(file, "utf8");
-			} catch {
-				const doc = ctx.fileURL === undefined ? "A doc" : pathIn(root, ctx.fileURL.pathname);
-				throw new Error(
-					`${doc} embeds ${node.url}, which doesn't exist. Run \`pnpm exec diagrams render\` to draw it.`,
+			if (ctx.fileURL !== undefined && !existsSync(file)) {
+				throw embedError(
+					root,
+					node.url,
+					ctx.fileURL,
+					"which doesn't exist. Run `pnpm exec diagrams render` to draw it.",
 				);
 			}
+			const svg = readFileSync(file, "utf8");
 			const component = {
 				type: "html",
 				value: `<platform-diagram>${svg}</platform-diagram>`,

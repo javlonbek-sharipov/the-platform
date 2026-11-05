@@ -34,6 +34,8 @@ const shop = {
 		"",
 		"Every decision that is hard to reverse gets an ADR, so that the next person learns why.",
 	),
+	"docs/.drafts/idea.md": lines("# An idea", "", "Not ready to show."),
+	"docs/notes.md": lines("Remember to ask what a shopper pays with."),
 	"docs/specs/checkout.md": lines(
 		"# Checkout v1",
 		"",
@@ -249,6 +251,17 @@ describe("the docs site of a sample repo", () => {
 		expect(page).toContain(text);
 	});
 
+	test("a doc without a heading is titled by its file's name", async () => {
+		const page = await site.page("docs/notes");
+
+		expect(headingsOf(page)).toEqual(["notes"]);
+		expect(page).toContain("Remember to ask what a shopper pays with.");
+	});
+
+	test("a doc in a hidden folder isn't shown", async () => {
+		expect(await site.filesWith("Not ready to show")).toEqual([]);
+	});
+
 	test("the front page leads to every doc, grouped by where it lives", async () => {
 		const page = await open(await reading(site), "");
 
@@ -258,6 +271,7 @@ describe("the docs site of a sample repo", () => {
 				"the-platform": [
 					"Glossary Map",
 					{ ADRs: ["Write decisions down"] },
+					"notes",
 					{ Specs: ["Checkout v1"] },
 				],
 			},
@@ -409,6 +423,19 @@ describe("a doc that embeds a file it can't show", () => {
 	});
 });
 
+describe("two docs that would be one page", () => {
+	test("stop the build, which names them both", async () => {
+		const repo = await sampleRepo({
+			"docs/how to pay.md": lines("# How to pay"),
+			"docs/how-to-pay.md": lines("# How to pay, again"),
+		});
+
+		await expect(buildSite(repo)).rejects.toThrow(
+			"docs/how to pay.md and docs/how-to-pay.md would both be the page /docs/how-to-pay/. Rename one of them.",
+		);
+	});
+});
+
 describe("the docs site, while it's being developed", () => {
 	let repo: string;
 	let site: DevelopedSite;
@@ -417,6 +444,7 @@ describe("the docs site, while it's being developed", () => {
 		repo = await sampleRepo({
 			"GLOSSARY-MAP.md": lines("# Glossary Map", "", "The shop has one context so far."),
 			"docs/specs/checkout.md": lines("# Checkout v1", "", "Shoppers pay in cash."),
+			"docs/specs/returns.md": lines("# Returns v1", "", "Shoppers send things back."),
 			"packages/shop/docs/checkout.md": lines(
 				"# Checkout",
 				"",
@@ -439,6 +467,17 @@ describe("the docs site, while it's being developed", () => {
 		);
 
 		await expect.poll(() => site.page("docs/specs/checkout")).toContain("Shoppers pay by card.");
+	});
+
+	test("shows a doc's new title, when only its heading is edited", async () => {
+		await writeFile(
+			join(repo, "docs/specs/returns.md"),
+			lines("# Returns v2", "", "Shoppers send things back."),
+		);
+
+		await expect
+			.poll(async () => headingsOf(await site.page("docs/specs/returns")))
+			.toEqual(["Returns v2"]);
 	});
 
 	test("shows a glossary as it's edited", async () => {

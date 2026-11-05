@@ -31,22 +31,20 @@ export function sidebarOf(docs: string[], title: string): Sidebar {
  */
 function itemsOf(paths: string[], from: number): Sidebar {
 	const items: Sidebar = [];
-	const folders = new Map<string, string[]>();
+	const folders = new Set<string>();
 	for (const path of paths) {
 		const [name = "", ...below] = path.slice(from).split("/");
 		if (below.length === 0) {
 			// A glossary's title names its context, as its group in the sidebar already does.
 			items.push(name === "GLOSSARY.md" ? { slug: idOf(path), label: "Glossary" } : idOf(path));
 		} else if (!folders.has(name)) {
-			const inside: string[] = [];
-			folders.set(name, inside);
+			folders.add(name);
 			const folder = from + name.length + 1;
-			const entries = paths.filter((other) => other.slice(0, folder) === path.slice(0, folder));
-			if (name === "docs") {
-				items.push(...itemsOf(entries, folder));
-			} else {
-				items.push({ label: labelOf(name), items: itemsOf(entries, folder) });
-			}
+			const inside = itemsOf(
+				paths.filter((other) => other.slice(0, folder) === path.slice(0, folder)),
+				folder,
+			);
+			items.push(...(name === "docs" ? inside : [{ label: labelOf(name), items: inside }]));
 		}
 	}
 	return items;
