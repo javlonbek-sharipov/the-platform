@@ -203,9 +203,10 @@ export function route(
 	const segments = 2 * grid.xs.length * grid.ys.length;
 	const congestion: Congestion = {
 		history: new Float64Array(segments),
-		usage: new Uint16Array(segments),
+		corridorOf: grid.corridorOf,
+		usage: new Uint16Array(grid.capacity.length),
 		capacity: grid.capacity,
-		own: new Uint32Array(segments),
+		own: new Uint32Array(grid.capacity.length),
 		stamp: 0,
 		full: fullCost,
 	};
@@ -248,10 +249,11 @@ export function route(
 		return { ids, routes };
 	};
 	// Every Edge is routed, and its route spread into lanes. Then each segment
-	// left over capacity gains a lasting cost, as does each segment where lanes
-	// had to squeeze closer than the minimum spacing, and every Edge is routed
-	// again, until none is over or the passes run out. The pass that left the
-	// least over capacity wins.
+	// of a corridor left over capacity gains a lasting cost, as does each
+	// segment where lanes had to squeeze closer than the minimum spacing, and
+	// every Edge is routed again, until none is over or the passes run out. The
+	// pass that left the least over capacity wins. A corridor counts the lanes
+	// of all its parallel segments, which nudging spreads across its one width.
 	let best = {
 		paths: new Map<string, number[] | undefined>(),
 		ids: [] as string[],
@@ -274,8 +276,8 @@ export function route(
 			const own = used.get(group) ?? new Set<number>();
 			used.set(group, own);
 			congestion.stamp += 1;
-			for (const segment of own) {
-				congestion.own[segment] = congestion.stamp;
+			for (const corridor of own) {
+				congestion.own[corridor] = congestion.stamp;
 			}
 			const vertices = searchRoute(grid, search, fromPort, toPort, budget, {
 				trunk,
@@ -300,19 +302,22 @@ export function route(
 					trunk.set(vertex, { path: vertices, at, crossings: crossings?.[at] ?? 0 });
 				}
 				const next = vertices[at + 1];
-				const segment = next === undefined ? undefined : segmentBetween(vertex, next);
-				if (segment !== undefined && !own.has(segment)) {
-					own.add(segment);
-					congestion.usage[segment] = (congestion.usage[segment] ?? 0) + 1;
+				const corridor =
+					next === undefined ? undefined : grid.corridorOf[segmentBetween(vertex, next)];
+				if (corridor !== undefined && !own.has(corridor)) {
+					own.add(corridor);
+					congestion.usage[corridor] = (congestion.usage[corridor] ?? 0) + 1;
 				}
 			});
 		}
 		let over = 0;
-		congestion.usage.forEach((usage, segment) => {
-			const excess = usage - (congestion.capacity[segment] ?? 0);
+		congestion.usage.forEach((usage, corridor) => {
+			const excess = usage - (congestion.capacity[corridor] ?? 0);
 			if (excess > 0) {
 				over += excess;
-				congestion.history[segment] = (congestion.history[segment] ?? 0) + historyCost;
+				for (const segment of grid.corridors[corridor] ?? []) {
+					congestion.history[segment] = (congestion.history[segment] ?? 0) + historyCost;
+				}
 			}
 		});
 		const { ids, routes } = routesOf(paths);

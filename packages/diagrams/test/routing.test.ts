@@ -16,6 +16,7 @@ import {
 } from "../src/index.ts";
 import { crowded } from "./fixtures/crowded.ts";
 import { groupFixtures, labelInTheWay, twoRegions } from "./fixtures/groups.ts";
+import { labeled } from "./support/labeled.ts";
 
 const shop = architecture({ title: "Shop" }, (d) => {
 	const web = d.node({ id: "web-app", kind: "client", title: "Web app" });
@@ -989,6 +990,16 @@ describe.each(fixtures)("every route in %s", (_, diagram) => {
 				}
 			}
 		}
+	});
+});
+
+describe.each(fixtures)("every route in %s, with every Edge labeled", (_, diagram) => {
+	// Labels crowd Edges out of their trunks into lanes of their own, which
+	// need room of their own (spec: Edge routing, step 8).
+	test("shares every corridor with no more lanes than its width holds at the lane spacing", () => {
+		const { scene } = render(labeled(diagram));
+		expect(scene).toBeDefined();
+		expect(overfullCorridors(scene as Scene)).toEqual([]);
 	});
 });
 
