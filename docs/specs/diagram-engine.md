@@ -2076,6 +2076,16 @@ Context maps. This is GitHub's issue #3, not ticket 03 above.
     - The glossary has no entry for a role. The spec's own words, "role" and "role tag", are used as it uses them.
 16. **Speed.** On one machine, `pnpm bench` reported 88 ms median drawn `right`, 118 ms drawn `down`, and 377 and 156 ms with every Edge labeled, for the commit this issue started from, and 88, 123, 383 and 157 ms with it. The crowded fixture has no roles.
 
+**Issue 7**
+
+Focus, keyboard selection and the screen-reader lists. This is GitHub's issue #7, not ticket 07 above.
+
+1. **What a Node's focus includes.**
+   - Two separate walks start at the Node: one follows Edges upstream, the other downstream. Each follows a symmetric Edge either way, as its Notation's definition says. Cycles and parallel Edges are allowed.
+   - The walks keep the Nodes and Edges they reach. They don't change direction at an ancestor or a descendant, so another branch off an ancestor, or another caller of a descendant, stays faded unless a path of its own reaches the selected Node.
+2. **Strength.** Unrelated drawing parts show at opacity 0.2; the kept parts stay at 1. An Edge's path, label and role tags share the same strength, using the SVG's hooks. No static SVG or golden file changes.
+3. **Hover.** Leaving a Node clears its temporary focus. Escape clears focus even while the pointer stays over the Node; it takes a new hover to focus it again. Listeners leave with the SVG they belong to.
+
 ### References
 
 **Routing and layout papers**
