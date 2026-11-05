@@ -373,4 +373,77 @@ describe("a Notation defined only in the tests", () => {
 			],
 		});
 	});
+
+	test("flags an Edge between two Groups of a Kind that its definition says Edges cross between", () => {
+		// A boiler and a pump in two rooms of the ground floor, and a tap on the floor above.
+		const floors = plumbingModel({
+			members: ["ground", "upper"],
+			nodes: [
+				{ id: "boiler", kind: "tank", title: "Boiler" },
+				{ id: "pump", kind: "pump", title: "Pump" },
+				{ id: "bath-tap", kind: "tap", title: "Bath tap" },
+			],
+			groups: [
+				{ id: "ground", kind: "floor", title: "Ground floor", members: ["cellar", "utility"] },
+				{ id: "cellar", kind: "room", title: "Cellar", members: ["boiler"] },
+				{ id: "utility", kind: "room", title: "Utility room", members: ["pump"] },
+				{ id: "upper", kind: "floor", title: "Upper floor", members: ["bath-tap"] },
+			],
+			edges: [
+				{ id: "boiler->pump", kind: "pipe", from: "boiler", to: "pump" },
+				{ id: "pump->bath-tap", kind: "pipe", from: "pump", to: "bath-tap" },
+			],
+		});
+		const drawn = draw(floors, plumbing);
+		const crossings = drawn.scene.edges.map((edge) => [
+			edge.id,
+			edge.crosses?.kind,
+			edgeGroupOf(drawn, edge.id).attributes.get("data-crosses"),
+		]);
+
+		// Rooms are only rooms: an Edge between two of them crosses nothing.
+		expect(crossings).toEqual([
+			["boiler->pump", undefined, undefined],
+			["pump->bath-tap", "floor", "floor"],
+		]);
+		expect(drawn.root.children.find((child) => child.name === "desc")?.text).toBe(
+			"Nodes: Boiler (tank); Pump (pump); Bath tap (tap). Edges: Boiler feeds Pump. Pump feeds Bath tap between floors.",
+		);
+	});
+
+	test("bundles its Edges as its definition says, unless the core is told otherwise", () => {
+		// A boiler that feeds three taps: by source, its three pipes share a trunk out of its Port.
+		const taps = ["kitchen-tap", "bath-tap", "garden-tap"];
+		const fanOut = plumbingModel({
+			members: ["boiler", ...taps],
+			nodes: [
+				{ id: "boiler", kind: "tank", title: "Boiler" },
+				...taps.map((id) => ({ id, kind: "tap", title: "Tap" })),
+			],
+			edges: taps.map((to) => ({ id: `boiler->${to}`, kind: "pipe", from: "boiler", to })),
+		});
+		const routes = (bundle?: "target" | "source" | "none") =>
+			render(fanOut, { ...plumbing, ...(bundle === undefined ? {} : { bundle }) }).scene?.edges.map(
+				({ id, route }) => [id, route],
+			);
+
+		expect(routes()).toEqual(routes("source"));
+		expect(routes()).not.toEqual(routes("target"));
+		expect(routes("none")).toEqual(routes("target"));
+	});
+
+	test("describes each Node by the facts its definition lists, in its order", () => {
+		const described = plumbingModel({
+			members: ["boiler", "kitchen-tap"],
+			nodes: [
+				{ id: "boiler", kind: "tank", title: "Boiler", external: true },
+				{ id: "kitchen-tap", kind: "tap", title: "Kitchen tap", status: "shut" },
+			],
+		});
+		const { root } = draw(described, plumbing);
+
+		expect(root.children.find((child) => child.name === "desc")?.text).toBe(
+			"Nodes: Boiler (tank); Kitchen tap (shut, tap). Edges: none.",
+		);
+	});
 });

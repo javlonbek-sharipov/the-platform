@@ -152,6 +152,9 @@ export const architectureNotation = {
 			hue: "data",
 		},
 	},
+	// The description names what the drawing shows only as a logo, a dashed
+	// outline or a mark.
+	facts: ["kind", "technology", "external", "status"],
 	statuses: {
 		// A dot.
 		ok: { mark: "M 1 6 A 5 5 0 1 0 11 6 A 5 5 0 1 0 1 6 Z", line: false, color: "ok" },
@@ -163,16 +166,21 @@ export const architectureNotation = {
 		unknown: { mark: "M 1.75 1.75 H 10.25 V 10.25 H 1.75 Z", line: false, color: "muted" },
 	},
 	groupKinds: {
-		// A `system` is heavier than a `region`, and a `zone` is dashed.
+		// A `system` is heavier than a `region`, and a `zone` is dashed. A call
+		// between two regions, or two zones, costs latency and egress, so it
+		// stands out: between regions first.
 		system: { stroke: 2, line: "solid" },
-		region: { stroke: 1.5, line: "solid" },
-		zone: { stroke: 1.5, line: "dashed" },
+		region: { stroke: 1.5, line: "solid", crossing: "across regions" },
+		zone: { stroke: 1.5, line: "dashed", crossing: "across zones" },
 	},
 	edgeKinds: {
 		// Solid for a call, which waits for its answer, and dashed for a message, which doesn't.
 		call: { line: "solid", sentence: "{from} calls {to}" },
 		message: { line: "dashed", sentence: "{from} sends messages to {to}" },
 	},
+	// The Edges of one Kind into one Port merge into a trunk, so that a busy
+	// Node doesn't sprout a tangle of lines.
+	bundling: "target",
 } as const satisfies Notation;
 
 export type ArchitectureNodeKind = NodeKindOf<typeof architectureNotation>;

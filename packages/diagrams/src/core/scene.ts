@@ -181,12 +181,12 @@ export interface SceneEdge {
 	 */
 	chevrons: SceneChevron[];
 	/**
-	 * Set when the Edge's ends sit in different `region` Groups, or in
-	 * different `zone` Groups, since such calls cost latency and egress: which
-	 * Kind of Group it crosses between, regions before zones, and where its
-	 * badge sits, in the middle of the stretch of its route that's its own.
+	 * Set when the Edge's ends sit in different Groups of a Kind that its
+	 * Notation says Edges cross between, as architecture's regions and zones
+	 * are: which Kind of Group it crosses between, and where its badge sits,
+	 * in the middle of the stretch of its route that's its own.
 	 */
-	crosses?: { kind: "region" | "zone"; badge: Point };
+	crosses?: { kind: string; badge: Point };
 }
 
 /**

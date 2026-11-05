@@ -1,7 +1,8 @@
 /**
  * The marks along each routed Edge (spec: Static SVG, Look): the chevrons
  * that show which way it runs, the junctions where Edges that leave one Port
- * part, and the badge of an Edge that crosses between regions or zones.
+ * part, and the badge of an Edge that crosses between Groups, as one between
+ * architecture's regions or zones does.
  * They're plain geometry in the scene, so that any renderer draws them alike.
  * They're placed once the routes are final, broken at hops, and labeled.
  *
@@ -78,7 +79,7 @@ export function markEdges(diagram: Diagram, notation: Notation, edges: SceneEdge
 	const toPort = byPort(edges, "toPort");
 	const clear = clearOf(edges);
 	const labels = edges.flatMap(({ label }) => (label === undefined ? [] : [label.box]));
-	const crossing = crossingOf(diagram);
+	const crossing = crossingOf(diagram, notation);
 	return edges.map((edge) => {
 		const others = (sharing: Map<string, SceneEdge[]>, end: "fromPort" | "toPort") =>
 			(sharing.get(pointKey(edge[end].point)) ?? []).filter((other) => other !== edge);
@@ -116,16 +117,24 @@ export function markEdges(diagram: Diagram, notation: Notation, edges: SceneEdge
 }
 
 /**
- * Which Groups an Edge between two Nodes crosses between: regions, when its
- * ends sit in different `region` Groups, or else zones, when they sit in
- * different `zone` Groups. Each end counts the innermost Group of each Kind
- * around it, and an end in no Group of a Kind crosses nothing of that Kind.
+ * Which Kind of Groups an Edge between two Nodes crosses between: the first
+ * Group Kind, among those whose definition says that Edges cross between
+ * them, for which its ends sit in different Groups, as an architecture Edge
+ * crosses regions, or else zones. Each end counts the innermost Group of each
+ * Kind around it, and an end in no Group of a Kind crosses nothing of that
+ * Kind.
  */
-function crossingOf(diagram: Diagram): (from: string, to: string) => "region" | "zone" | undefined {
+function crossingOf(
+	diagram: Diagram,
+	notation: Notation,
+): (from: string, to: string) => string | undefined {
+	const crossed = Object.entries(notation.groupKinds).flatMap(([kind, { crossing }]) =>
+		crossing === undefined ? [] : [kind],
+	);
 	const parentOf = parentsOf(diagram);
-	const kindOf = new Map(diagram.groups.map((group) => [group.id, group.kind]));
+	const kindOf = new Map<string, string>(diagram.groups.map((group) => [group.id, group.kind]));
 	/** The innermost Group of a Kind around a Node, if any. */
-	const around = (node: string, kind: "region" | "zone") => {
+	const around = (node: string, kind: string) => {
 		for (let at = parentOf.get(node); at !== undefined; at = parentOf.get(at)) {
 			if (kindOf.get(at) === kind) {
 				return at;
@@ -134,7 +143,7 @@ function crossingOf(diagram: Diagram): (from: string, to: string) => "region" | 
 		return undefined;
 	};
 	return (from, to) =>
-		(["region", "zone"] as const).find((kind) => {
+		crossed.find((kind) => {
 			const [a, b] = [around(from, kind), around(to, kind)];
 			return a !== undefined && b !== undefined && a !== b;
 		});

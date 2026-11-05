@@ -35,7 +35,7 @@ import {
 } from "./search.ts";
 
 export interface RouteOptions {
-	/** Which Edges share a trunk. The architecture Notation bundles by target. */
+	/** Which Edges share a trunk. */
 	bundle: Bundling;
 	/**
 	 * How many states each Edge's search may visit. An Edge whose search runs

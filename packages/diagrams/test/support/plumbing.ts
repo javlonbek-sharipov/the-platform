@@ -32,6 +32,8 @@ export const plumbingNotation = {
 		// A spout.
 		tap: { width: 144, height: 48, outline: "pill", badge: "M 2 8 H 14 M 8 2 V 14", hue: "metal" },
 	},
+	// Whether its valve is open comes first, and whose it is goes unsaid.
+	facts: ["status", "kind"],
 	statuses: {
 		// A drop, and a bar across the pipe.
 		open: { mark: "M 6 1 L 10 7 A 4 4 0 1 1 2 7 Z", line: false, color: "ok" },
@@ -39,7 +41,8 @@ export const plumbingNotation = {
 	},
 	groupKinds: {
 		room: { stroke: 1, line: "dashed" },
-		floor: { stroke: 2.5, line: "solid" },
+		// Water that changes floors needs pressure, so an Edge between two floors stands out.
+		floor: { stroke: 2.5, line: "solid", crossing: "between floors" },
 	},
 	edgeKinds: {
 		// A pipe runs from a tank or a pump to a pump or a tap, and a drain joins any two Nodes.
@@ -59,6 +62,8 @@ export const plumbingNotation = {
 			to: ["tank"],
 		},
 	},
+	// The pipes out of one Port share a trunk until they part.
+	bundling: "source",
 } as const satisfies Notation;
 
 /** A plumbing Diagram's model, as a tool would write it, with nothing on it unless given. */

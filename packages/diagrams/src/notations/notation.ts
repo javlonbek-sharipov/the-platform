@@ -5,6 +5,7 @@
  * core.
  */
 
+import type { Bundling } from "../core/bundles.ts";
 import type { Outline } from "../core/outlines.ts";
 import type { ColorName, ThemeColor } from "../core/theme.ts";
 
@@ -21,6 +22,12 @@ export interface Notation {
 	/** Its Node Kinds, in the order messages list them, each with its look. */
 	nodeKinds: Record<string, NodeKindDefinition>;
 	/**
+	 * The facts that the SVG's description lists for each Node, after its
+	 * title, in this order. A fact that a Node lacks, such as a status, is
+	 * left out.
+	 */
+	facts: readonly NodeFact[];
+	/**
 	 * The statuses its Nodes may have, which say how each is doing, in the
 	 * order messages list them, each with its look.
 	 */
@@ -29,6 +36,11 @@ export interface Notation {
 	groupKinds: Record<string, GroupKindDefinition>;
 	/** Its Edge Kinds, in the order messages list them, each with its look and its sentence form. */
 	edgeKinds: Record<string, EdgeKindDefinition>;
+	/**
+	 * How its Edges bundle: which Edges of one Kind share a trunk, and so a
+	 * lane, where their routes run together.
+	 */
+	bundling: Bundling;
 }
 
 /** How a Node of one Kind looks. A Kind alone decides it. */
@@ -43,6 +55,12 @@ export interface NodeKindDefinition {
 	/** Which of the Notation's hues the Node takes. */
 	hue: string;
 }
+
+/**
+ * A fact that a description can list for a Node: its Kind, its Technology's
+ * name, that it's External, or its status.
+ */
+export type NodeFact = "kind" | "technology" | "external" | "status";
 
 /**
  * How a status shows: a mark of its own shape and its own color, at the end
@@ -63,6 +81,14 @@ export interface GroupKindDefinition {
 	stroke: number;
 	/** Its box's line: solid or dashed. */
 	line: "solid" | "dashed";
+	/**
+	 * Set when an Edge crosses between two Groups of this Kind, as it does
+	 * between two of architecture's regions: how the description says so, such
+	 * as `across regions`. Such an Edge is drawn in the warning color, with a
+	 * badge. An Edge that crosses between Groups of several Kinds is flagged
+	 * for the first of them in the definition.
+	 */
+	crossing?: string;
 }
 
 /** How an Edge of one Kind looks, and how a sentence names it. A Kind alone decides both. */

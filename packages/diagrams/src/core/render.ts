@@ -6,7 +6,7 @@
 
 import type { Notation } from "../notations/notation.ts";
 import { notations } from "../notations/notations.ts";
-import { type Bundling, defaultBundling, lanes } from "./bundles.ts";
+import { type Bundling, lanes } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { hop } from "./hops.ts";
 import { labelSpacing } from "./labels.ts";
@@ -26,10 +26,9 @@ export interface RenderResult {
 
 export interface RenderOptions {
 	/**
-	 * Which Edges share a trunk: those of one Kind into one Port (`target`,
-	 * which the architecture Notation uses and the default), those of one Kind
-	 * out of one Port (`source`), or none. A later Notation may bundle
-	 * differently, and tests compare the three.
+	 * Which Edges share a trunk: those of one Kind into one Port (`target`),
+	 * those of one Kind out of one Port (`source`), or none. The default is
+	 * the bundling of the Diagram's Notation, and tests compare the three.
 	 */
 	bundle?: Bundling;
 	/**
@@ -68,7 +67,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 	// Layout leaves room for that lane too, so both run again, until no trunk
 	// crowds out another label.
 	const ownLanes = new Set<string>();
-	const bundle = options.bundle ?? defaultBundling;
+	const bundle = options.bundle ?? notation.bundling;
 	let { nodes, groups } = layOut(model, notation, bundle, ownLanes);
 	let routing = route(model, nodes, groups, { ...options, bundle, ownLanes });
 	for (let round = 1; round < rounds && routing.crowdedOut.length > 0; round += 1) {

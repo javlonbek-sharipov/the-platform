@@ -10,12 +10,10 @@ import type { Diagram, RowEnd } from "../authoring/model.ts";
 /**
  * Which Edges share a trunk (spec: Edge routing, step 4): those of one Kind
  * that go into one Port, those of one Kind that leave one Port, or none.
- * Parallel Edges never share one.
+ * Parallel Edges never share one. Each Notation's definition says how its
+ * Edges bundle.
  */
 export type Bundling = "target" | "source" | "none";
-
-/** The architecture Notation bundles Edges into one Port, and so does `render` unless told otherwise. */
-export const defaultBundling: Bundling = "target";
 
 /**
  * Lanes keep the preferred spacing where there's room, squeeze down to the
