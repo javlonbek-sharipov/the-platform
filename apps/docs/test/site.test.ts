@@ -40,6 +40,8 @@ const shop = {
 		"How a shopper pays for a cart.",
 		"See [why a shopper has one cart](../../packages/shop/docs/adr/0001-one-cart-per-shopper.md#considered-options).",
 		"",
+		"The call, within a sentence: ![Checkout](../../packages/shop/docs/checkout.diagram.svg)",
+		"",
 		"## Problem Statement",
 		"",
 		"Shoppers can fill a cart, but they can't pay for it.",
@@ -148,6 +150,14 @@ describe("the docs site of a sample repo", () => {
 		// It stands on a line of its own in the doc, so it's a block of the page, not part of a paragraph.
 		expect(page).not.toContain("<p><platform-diagram>");
 		expect(page).not.toMatch(/<img[^>]*checkout\.diagram/);
+	});
+
+	test("a Diagram image within a sentence becomes the web component too, where it stands", async () => {
+		const page = await site.page("docs/specs/checkout");
+
+		expect(page).toContain(
+			`The call, within a sentence: <platform-diagram>${svg}</platform-diagram>`,
+		);
 	});
 
 	test("a reader explores the Diagram where it's embedded", async () => {
