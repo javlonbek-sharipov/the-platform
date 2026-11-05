@@ -446,7 +446,7 @@ describe("two docs that would be one page", () => {
 	});
 });
 
-describe("the docs site, while it's being developed", () => {
+describe("the docs site, while it's being developed", { timeout: 20_000 }, () => {
 	let repo: string;
 	let site: DevelopedSite;
 
@@ -468,6 +468,13 @@ describe("the docs site, while it's being developed", () => {
 
 	afterAll(() => site?.stop());
 
+	/**
+	 * What the site shows, looked at again until it shows what's expected. The
+	 * server learns of a changed file from the system, and writes what it loaded
+	 * half a second later, so on a busy machine a change can take a few seconds.
+	 */
+	const soon = <T>(look: () => Promise<T>) => expect.poll(look, { timeout: 15_000, interval: 100 });
+
 	test("shows a doc as it's edited", async () => {
 		expect(await site.page("docs/specs/checkout")).toContain("Shoppers pay in cash.");
 
@@ -476,7 +483,7 @@ describe("the docs site, while it's being developed", () => {
 			lines("# Checkout v1", "", "Shoppers pay by card."),
 		);
 
-		await expect.poll(() => site.page("docs/specs/checkout")).toContain("Shoppers pay by card.");
+		await soon(() => site.page("docs/specs/checkout")).toContain("Shoppers pay by card.");
 	});
 
 	test("shows a doc's new title, when only its heading is edited", async () => {
@@ -485,9 +492,9 @@ describe("the docs site, while it's being developed", () => {
 			lines("# Returns v2", "", "Shoppers send things back."),
 		);
 
-		await expect
-			.poll(async () => headingsOf(await site.page("docs/specs/returns")))
-			.toEqual(["Returns v2"]);
+		await soon(async () => headingsOf(await site.page("docs/specs/returns"))).toEqual([
+			"Returns v2",
+		]);
 	});
 
 	test("shows a glossary as it's edited", async () => {
@@ -496,7 +503,7 @@ describe("the docs site, while it's being developed", () => {
 			lines("# Glossary Map", "", "The shop has two contexts now."),
 		);
 
-		await expect.poll(() => site.page("glossary-map")).toContain("The shop has two contexts now.");
+		await soon(() => site.page("glossary-map")).toContain("The shop has two contexts now.");
 	});
 
 	test("shows a Diagram as it's drawn again", async () => {
@@ -507,9 +514,7 @@ describe("the docs site, while it's being developed", () => {
 			svg.replaceAll("Checkout API", "Payments API"),
 		);
 
-		await expect
-			.poll(() => site.page("packages/shop/docs/checkout"))
-			.toContain(">Payments API</text>");
+		await soon(() => site.page("packages/shop/docs/checkout")).toContain(">Payments API</text>");
 	});
 
 	test("shows a doc that's added", async () => {
@@ -518,9 +523,7 @@ describe("the docs site, while it's being developed", () => {
 			lines("# Refunds v1", "", "Shoppers get their money back."),
 		);
 
-		await expect
-			.poll(() => site.page("docs/specs/refunds"))
-			.toContain("Shoppers get their money back.");
+		await soon(() => site.page("docs/specs/refunds")).toContain("Shoppers get their money back.");
 	});
 
 	test("watches the repo's docs, and nothing in repos/", () => {

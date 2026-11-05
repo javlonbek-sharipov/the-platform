@@ -17,7 +17,9 @@
 		"@astrojs/markdown-satteri": "0.4.6",
 		"@astrojs/starlight": "0.42.9",
 		"@the-platform/diagrams": "workspace:*",
-		"astro": "7.4.5",
+		"astro": "7.4.5"
+	},
+	"devDependencies": {
 		"satteri": "0.10.5"
 	}
 }
