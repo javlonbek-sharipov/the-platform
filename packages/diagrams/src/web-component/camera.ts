@@ -55,10 +55,12 @@ export class Camera {
 	 * Turns to a drawing with these bounds, and fits it. Its view is a new one,
 	 * even if it's the same as the last drawing's.
 	 */
-	frame(bounds: Box): void {
+	frame(bounds: Box, preserve = false): void {
+		const previous = this.#view;
 		this.#bounds = bounds;
 		this.#view = undefined;
-		this.fit();
+		if (preserve && previous !== undefined) this.#show(previous.x, previous.y, previous.scale);
+		else this.fit();
 	}
 
 	/**

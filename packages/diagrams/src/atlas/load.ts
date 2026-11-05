@@ -14,48 +14,84 @@ export type Place = FilePlace & { line: number };
  * - `import`: importing the module, or a module it imports, threw.
  * - `json`: its default export can't be written as JSON.
  */
-export type Loaded =
-	| { module: string; exported: unknown; declarations: Declarations; unknownOptions: Diagnostic[] }
-	| { module: string; failed: "import" | "json"; reason: string; at?: Place };
+export type Loaded = { module: string; dependencies: string[] } & (
+	| { exported: unknown; declarations: Declarations; unknownOptions: Diagnostic[] }
+	| { failed: "import" | "json"; reason: string; at?: Place }
+);
 
 /** What the worker posts for one module: its default export as JSON, or why it failed. */
 export type LoadResult =
 	| {
 			module: string;
+			dependencies: string[];
 			json: string | undefined;
 			declarations: Declarations;
 			unknownOptions: Diagnostic[];
 	  }
 	| Extract<Loaded, { failed: unknown }>;
 
+export interface LoadOptions {
+	signal?: AbortSignal;
+	/** Called as imports resolve, so a preview can watch imports during a build too. */
+	onDependency?: (file: string) => void;
+}
+
+export type LoadMessage =
+	| { type: "dependency"; file: string }
+	| { type: "result"; result: LoadResult };
+
 /**
  * Loads modules in a fresh worker thread, so that edits to them and to the
  * modules they import are always picked up.
  */
-export function load(modules: string[]): Promise<Loaded[]> {
+export function load(modules: string[], options: LoadOptions = {}): Promise<Loaded[]> {
+	options.signal?.throwIfAborted();
 	if (modules.length === 0) {
 		return Promise.resolve([]);
 	}
-	return new Promise((resolve) => {
+	return new Promise((resolve, reject) => {
 		const results = new Map<string, Loaded>();
 		let failure = "the module loader stopped before it reached this module.";
 		const finish = () => {
+			options.signal?.removeEventListener("abort", abort);
+			if (options.signal?.aborted) {
+				reject(options.signal.reason);
+				return;
+			}
 			resolve(
 				modules.map(
-					(module) => results.get(module) ?? { module, failed: "import", reason: failure },
+					(module) =>
+						results.get(module) ?? {
+							module,
+							dependencies: [module],
+							failed: "import",
+							reason: failure,
+						},
 				),
 			);
 		};
 		const worker = new Worker(new URL("./load-worker.ts", import.meta.url), {
 			workerData: modules,
 		});
-		worker.on("message", (result: LoadResult) => {
+		const abort = () => {
+			void worker.terminate();
+		};
+		options.signal?.addEventListener("abort", abort, { once: true });
+		worker.on("message", (message: LoadMessage) => {
+			// Node's --watch may post its own dependency messages. Only consume our protocol.
+			if (message.type === "dependency") {
+				options.onDependency?.(message.file);
+				return;
+			}
+			if (message.type !== "result") return;
+			const { result } = message;
 			results.set(
 				result.module,
 				"failed" in result
 					? result
 					: {
 							module: result.module,
+							dependencies: result.dependencies,
 							exported: result.json === undefined ? undefined : JSON.parse(result.json),
 							declarations: result.declarations,
 							unknownOptions: result.unknownOptions,
