@@ -1,52 +1,36 @@
 /**
- * The loader of the site's pages: the repo's own Markdown, read from where it
- * lives. Nothing is copied into the app.
+ * The loader of the site's pages: the repo's own docs, read from where they
+ * live. Nothing is copied into the app.
  */
 
-import { readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join, relative, sep } from "node:path";
+import { basename, join, relative, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Loader } from "astro/loaders";
+import { docsOf, idOf } from "./repo.ts";
 
-/** Every Markdown file under a folder, as paths from `root`, in path order. */
-function markdownIn(root: string, folder: string): string[] {
-	let entries: import("node:fs").Dirent[];
-	try {
-		entries = readdirSync(join(root, folder), { withFileTypes: true });
-	} catch {
-		return [];
-	}
-	return entries
-		.sort((a, b) => (a.name < b.name ? -1 : 1))
-		.flatMap((entry) => {
-			const path = `${folder}/${entry.name}`;
-			if (entry.isDirectory()) {
-				return markdownIn(root, path);
-			}
-			return entry.isFile() && entry.name.endsWith(".md") ? [path] : [];
-		});
-}
-
-/** The docs of each package, as paths from the repo's root. */
-function docsOf(root: string): string[] {
-	return readdirSync(join(root, "packages")).flatMap((name) =>
-		markdownIn(root, `packages/${name}/docs`),
-	);
-}
-
+/** Loads each doc of the repo at `root` as a page, at the id that `idOf` gives its path. */
 export function repoDocs(root: string): Loader {
 	return {
 		name: "repo-docs",
 		async load({ store, config, parseData, renderMarkdown, generateDigest }) {
+			const loaded = new Map<string, string>();
 			for (const path of docsOf(root)) {
+				const id = idOf(path);
+				const other = loaded.get(id);
+				if (other !== undefined) {
+					throw new Error(
+						`${other} and ${path} would both be the page /${id}/. Rename one of them.`,
+					);
+				}
+				loaded.set(id, path);
 				const file = join(root, path);
 				const text = await readFile(file, "utf8");
+				// Rendering comes first: it's what finds the doc's title, in its first heading.
 				const rendered = await renderMarkdown(text, { fileURL: pathToFileURL(file) });
-				const id = path.slice(0, -".md".length);
 				const data = await parseData({
 					id,
-					data: { title: id, ...rendered.metadata?.frontmatter },
+					data: { title: basename(path, ".md"), ...rendered.metadata?.frontmatter },
 					filePath: file,
 				});
 				store.set({
@@ -56,7 +40,13 @@ export function repoDocs(root: string): Loader {
 					filePath: relative(fileURLToPath(config.root), file).split(sep).join("/"),
 					digest: generateDigest(rendered.html),
 					rendered,
+					assetImports: rendered.metadata?.imagePaths,
 				});
+			}
+			for (const id of store.keys()) {
+				if (!loaded.has(id)) {
+					store.delete(id);
+				}
 			}
 		},
 	};
