@@ -2319,6 +2319,8 @@ These resolve the accepted Spec findings at `2d40b3c83ca0e49561437389f7bb16be463
 
 2. **F2: interrupted route attachment.** A replacement during a glide or cross-fade freezes the visible route layers, path geometry, transforms and opacity before cancelling the previous timeline. The next transition bends those captured routes from the same visible Node positions, including both layers of an interrupted cross-fade. Retained Nodes and Groups still reuse their original elements; old scoped styles and font faces survive only until retirement. Playback marks are discarded by replacement cleanup. Real-browser regressions first reproduced a 211.6 px gap, then check every visible old route and arrow against both moving endpoints across several frames at 110 ms and 400 ms interruptions. Existing camera, selection, additions/removals, font lifetime, disconnect and immediate motion suppression checks remain in force.
 
+3. **F3: latest host emphasis across Steps.** Before each Step takes emphasis, playback checks whether the current highlight is still its own. A newer host value, including `undefined` to clear it, replaces the saved host intent. Close and replacement/disconnect cleanup therefore restore the latest host intent even after playback has advanced again. A host override after the last Step remains current directly. Six browser cases cover overriding and clearing followed by another Step, then Close, replacement or disconnect, while preserving ordinary selection and emitting no selection events.
+
 ### References
 
 **Routing and layout papers**

@@ -134,6 +134,13 @@ ${markCss}
 				stop();
 				const step = active?.steps[index];
 				if (step === undefined) return;
+				// A host override can arrive between Steps, including an explicit
+				// clear. Remember it before playback takes emphasis again.
+				if (highlights.current !== owned)
+					previous =
+						highlights.current === undefined
+							? undefined
+							: { nodes: [...highlights.current.nodes], edges: [...highlights.current.edges] };
 				finished = false;
 				clearMarks();
 				marks = stepMarks(svg, step);
