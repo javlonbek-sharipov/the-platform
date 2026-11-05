@@ -1,6 +1,6 @@
 /**
  * The SVG writer turns a scene into one self-contained SVG: its Groups, its
- * Edges with their marks and labels, and its Nodes, with what the SVG says
+ * Edges with their marks, role tags and labels, and its Nodes, with what the SVG says
  * about itself, and a style, which embeds the bundled font's glyphs that it
  * draws and the theme's rules for the colors it uses (`style.ts`). The path
  * data along Edges comes from `edge-paths.ts`, and the XML from `xml.ts`.
@@ -33,6 +33,7 @@ import type {
 	SceneLabel,
 	SceneLogo,
 	SceneNode,
+	SceneRole,
 	SceneStatus,
 	SceneText,
 } from "./scene.ts";
@@ -60,6 +61,10 @@ export function writeSvg(
 	// Labels are drawn over every Edge, so that no route runs across one.
 	const labels = scene.edges.flatMap(({ id, label }): [string, SceneLabel][] =>
 		label === undefined ? [] : [[id, label]],
+	);
+	// So are role tags, each on its own Edge's line, beneath the labels.
+	const roles = scene.edges.flatMap(({ id, roles }) =>
+		roles.map((role): [string, SceneRole] => [id, role]),
 	);
 	const size: Attribute[] = [
 		["viewBox", [bounds.x, bounds.y, bounds.width, bounds.height].map(number).join(" ")],
@@ -119,6 +124,13 @@ export function writeSvg(
 					indent(2, "</g>"),
 				]),
 		indent(1, "</g>"),
+		...(roles.length === 0
+			? []
+			: [
+					indent(1, start("g", [["class", "diagram-roles"]])),
+					...roles.flatMap(([id, role]) => writeRole(id, role).map((text) => indent(2, text))),
+					indent(1, "</g>"),
+				]),
 		...(labels.length === 0
 			? []
 			: [
@@ -469,6 +481,40 @@ function writeLabel(id: string, label: SceneLabel): string[] {
 					),
 				]),
 		...(rate === undefined ? [] : [indent(1, writeText(rate, "diagram-label-detail"))]),
+		"</g>",
+	];
+}
+
+/** How wide a role tag's outline is, and how far its corners round. */
+const roleOutline = 1;
+const roleCorner = 3;
+
+/**
+ * A role's tag: a box in the background's color, outlined in the Edges'
+ * color, which hides its Edge's line behind the role. Its outline stays
+ * inside the tag. It carries its Edge's id, the end that carries the role,
+ * and the role.
+ */
+function writeRole(id: string, { end, role, tag, text }: SceneRole): string[] {
+	return [
+		start("g", [
+			["data-edge-role", id],
+			["data-end", end],
+			["data-role", role],
+		]),
+		indent(
+			1,
+			empty("rect", [
+				["class", "diagram-role"],
+				["x", tag.x + roleOutline / 2],
+				["y", tag.y + roleOutline / 2],
+				["width", tag.width - roleOutline],
+				["height", tag.height - roleOutline],
+				["rx", roleCorner],
+				["stroke-width", roleOutline],
+			]),
+		),
+		indent(1, writeText(text, "diagram-role-text")),
 		"</g>",
 	];
 }

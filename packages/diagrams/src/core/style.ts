@@ -104,6 +104,10 @@ export function colorUses(drawing: string[], notation: Notation): ColorUse[] {
 		shared("[data-crosses]", "color", "warn", "data-crosses"),
 		shared("[data-crosses] .diagram-casing", "stroke", "warn-casing", "data-crosses"),
 		byClass("diagram-badge", "stroke", "surface"),
+		// A role tag hides its Edge's line behind it, inside an outline in the Edges' color.
+		byClass("diagram-role", "fill", "background"),
+		byClass("diagram-role", "stroke", "edge"),
+		byClass("diagram-role-text", "fill", "ink"),
 		byClass("diagram-label", "fill", "background"),
 		byClass("diagram-label-text", "fill", "ink"),
 		byClass("diagram-label-detail", "fill", "muted"),

@@ -12,6 +12,7 @@ import { hop } from "./hops.ts";
 import { labelSpacing } from "./labels.ts";
 import { clearance, grid, layOut, margin } from "./layout.ts";
 import { junctionsOf, markEdges } from "./marks.ts";
+import { roleSpacing } from "./roles.ts";
 import { route } from "./route.ts";
 import type { Box, Scene, SceneEdge } from "./scene.ts";
 import { writeSvg } from "./svg.ts";
@@ -86,6 +87,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 				),
 				...groups.map(({ box }) => box),
 				...edges.flatMap(({ label }) => (label === undefined ? [] : [label.box])),
+				...edges.flatMap(({ roles }) => roles.map(({ tag }) => tag)),
 			],
 			edges,
 		),
@@ -93,6 +95,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		grid,
 		lanes,
 		labelSpacing,
+		roleSpacing,
 		hop,
 		nodes,
 		groups,
@@ -109,8 +112,8 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 
 /**
  * The bounds of the drawing, with a margin: every Node's and Group's box,
- * every callout's tag, which sits above its Node, every label, and every
- * route.
+ * every callout's tag, which sits above its Node, every label, every role
+ * tag, and every route.
  */
 function boundsOf(boxes: Box[], edges: SceneEdge[]): Box {
 	const xs = [

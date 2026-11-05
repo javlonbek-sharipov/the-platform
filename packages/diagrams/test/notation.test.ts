@@ -458,6 +458,30 @@ describe("a Notation defined only in the tests", () => {
 		]);
 	});
 
+	test("describes each end of an Edge with its roles, by the names its definition gives them, after the Row it attaches to", () => {
+		const fitted = plumbingModel({
+			members: ["boiler", "pump"],
+			nodes: [
+				{ id: "boiler", kind: "tank", title: "Boiler", rows: [{ name: "outlet" }] },
+				{ id: "pump", kind: "pump", title: "Pump" },
+			],
+			edges: [
+				{
+					id: "run",
+					kind: "pipe",
+					from: { node: "boiler", row: "outlet" },
+					to: "pump",
+					roles: { from: ["NRV"], to: ["FLT"] },
+				},
+			],
+		});
+		const { root } = draw(fitted, plumbing);
+
+		expect(root.children.find((child) => child.name === "desc")?.text).toBe(
+			"Nodes: Boiler (tank); Pump (pump). Edges: Boiler (outlet, non-return valve) feeds Pump (filter).",
+		);
+	});
+
 	test("flags an Edge between two Groups of a Kind that its definition says Edges cross between", () => {
 		// A boiler and a pump in two rooms of the ground floor, and a tap on the floor above.
 		const floors = plumbingModel({

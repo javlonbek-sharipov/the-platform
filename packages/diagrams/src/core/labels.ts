@@ -26,7 +26,7 @@
 import type { AnyEdge, Direction } from "../authoring/model.ts";
 import { compareText } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
-import type { LineSpan } from "./geometry.ts";
+import { crosses, grown, type LineSpan, overlaps, type Segment, sidesOf } from "./geometry.ts";
 import type {
 	Box,
 	Point,
@@ -95,9 +95,6 @@ export function labelSize(edge: AnyEdge): { width: number; height: number } | un
 /** A straight stretch of a route, along one line. */
 type Stretch = LineSpan;
 
-/** A horizontal or vertical segment. */
-type Segment = [Point, Point];
-
 export interface Labeling {
 	/** Each Edge's label, by the Edge's id. */
 	labels: Map<string, SceneLabel>;
@@ -113,7 +110,9 @@ export interface Labeling {
 
 /**
  * Places each Edge's label, given each Edge's lane group, whose Edges may
- * share a lane, as a bundle's trunk does.
+ * share a lane, as a bundle's trunk does, and the stretches of its line that
+ * each Edge's role tags take, by the Edge's id, which its label leaves to
+ * them.
  */
 export function placeLabels(
 	diagram: { direction: Direction; edges: AnyEdge[] },
@@ -121,6 +120,7 @@ export function placeLabels(
 	groups: SceneGroup[],
 	edges: SceneEdge[],
 	laneGroupOf: Map<string, string>,
+	tagged: Map<string, LineSpan[]> = new Map(),
 ): Labeling {
 	const byId = new Map(edges.map((edge) => [edge.id, edge]));
 	const runs = new Map(edges.map((edge) => [edge.id, runsOf(edge.route, false)]));
@@ -128,6 +128,7 @@ export function placeLabels(
 	const solid: Box[] = [
 		...nodes.flatMap(({ box, callout }) => (callout === undefined ? [box] : [box, callout.tag])),
 		...groups.map(({ label }) => label),
+		...edges.flatMap(({ roles }) => roles.map(({ tag }) => tag)),
 	];
 	const stubs: Segment[] = [
 		...new Map(
@@ -165,7 +166,12 @@ export function placeLabels(
 			if (content === undefined || scene === undefined) {
 				return [];
 			}
-			const others = edges.flatMap((other) => (other === scene ? [] : (runs.get(other.id) ?? [])));
+			// A run of its own is the Edge's alone where no other route runs along it,
+			// and where none of its role tags sits on it.
+			const others = [
+				...edges.flatMap((other) => (other === scene ? [] : (runs.get(other.id) ?? []))),
+				...(tagged.get(edge.id) ?? []),
+			];
 			const stretches = ownStretches(scene, others, borders);
 			const candidates = [...stretches]
 				.sort((a, b) => b.high - b.low - (a.high - a.low))
@@ -358,7 +364,7 @@ function midpointOf(route: Point[]): { point: Point; horizontal: boolean } {
  * Each run of a route, from corner to corner, or, `straight`, only its
  * straight part, between the arcs that round its corners.
  */
-function runsOf(route: RoutePoint[], straight: boolean): Stretch[] {
+export function runsOf(route: RoutePoint[], straight: boolean): Stretch[] {
 	return route.slice(1).flatMap((to, index): Stretch[] => {
 		const from = route[index];
 		if (from === undefined) {
@@ -386,7 +392,12 @@ function runsOf(route: RoutePoint[], straight: boolean): Stretch[] {
  * on one doesn't sit across the border. They come in the order of the route.
  */
 function ownStretches(edge: SceneEdge, others: Stretch[], borders: Box[]): Stretch[] {
-	return runsOf(edge.route, true).flatMap((run) => {
+	return ownStretchesByRun(edge, others, borders).flat();
+}
+
+/** The stretches of an Edge's route that belong to it alone, for each run of the route, in order. */
+export function ownStretchesByRun(edge: SceneEdge, others: Stretch[], borders: Box[]): Stretch[][] {
+	return runsOf(edge.route, true).map((run) => {
 		const cuts: [number, number][] = [];
 		for (const { point, stub } of [edge.fromPort, edge.toPort]) {
 			const alongStub = run.horizontal ? point.y === stub.y : point.x === stub.x;
@@ -435,37 +446,4 @@ function without(interval: [number, number], cuts: [number, number][]): [number,
 		);
 	}
 	return pieces.filter(([low, high]) => high > low);
-}
-
-function grown(box: Box, by: number): Box {
-	return { x: box.x - by, y: box.y - by, width: box.width + 2 * by, height: box.height + 2 * by };
-}
-
-/** Whether two boxes overlap, more than along their borders. */
-function overlaps(a: Box, b: Box): boolean {
-	return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
-}
-
-/** Below this, a line that only grazes a box's border doesn't pass through it. */
-const graze = 1e-6;
-
-/** Whether a horizontal or vertical segment passes through a box, inside its border. */
-function crosses(box: Box, a: Point, b: Point): boolean {
-	return (
-		Math.min(a.x, b.x) < box.x + box.width - graze &&
-		Math.max(a.x, b.x) > box.x + graze &&
-		Math.min(a.y, b.y) < box.y + box.height - graze &&
-		Math.max(a.y, b.y) > box.y + graze
-	);
-}
-
-/** A box's four sides. */
-function sidesOf(box: Box): Segment[] {
-	const corners = [
-		{ x: box.x, y: box.y },
-		{ x: box.x + box.width, y: box.y },
-		{ x: box.x + box.width, y: box.y + box.height },
-		{ x: box.x, y: box.y + box.height },
-	];
-	return corners.map((corner, index): Segment => [corner, corners[(index + 1) % 4] ?? corner]);
 }

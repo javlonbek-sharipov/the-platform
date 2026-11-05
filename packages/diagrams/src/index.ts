@@ -67,6 +67,7 @@ export type {
 	SceneLogo,
 	SceneNode,
 	ScenePort,
+	SceneRole,
 	SceneRow,
 	SceneStatus,
 	SceneText,

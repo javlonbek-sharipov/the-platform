@@ -28,6 +28,7 @@ import { roundUp } from "./geometry.ts";
 import { labelEnds, labelSize } from "./labels.ts";
 import { arrange, type Connection, type Member } from "./layers.ts";
 import { faceOf, frameOf, type NodeFrame, partsOf, rowHeight } from "./nodes.ts";
+import { roleSpacing, rolesExtent } from "./roles.ts";
 import type { Box, Point, SceneGroup, SceneNode, ScenePort, Side } from "./scene.ts";
 import { groupLabelPadding, groupTitle, rowTexts } from "./text.ts";
 
@@ -148,6 +149,19 @@ export function layOut(
 		const size = labelSize(edge);
 		return size === undefined ? 0 : size[extentOf[rank]] + 2 * labelEnds;
 	};
+	/**
+	 * The room an Edge's role tags need along the rank axis at each of its
+	 * ends, past its Port's stub: the tags, side by side for `right` and one
+	 * after another for `down`, their margin from the stub, and half of the
+	 * bare line between the two ends' tags.
+	 */
+	const roleRoom = (edge: AnyEdge) => {
+		const room = (roles: readonly string[] = []) =>
+			roles.length === 0
+				? 0
+				: roleSpacing.margin + rolesExtent(roles, rank === "x") + roleSpacing.between / 2;
+		return { from: room(edge.roles?.from), to: room(edge.roles?.to) };
+	};
 	// Each Edge's lane group, so that each gap between ranks leaves room for a
 	// lane for each group that crosses it.
 	const laneOf = laneGroups(diagram, bundle, ownLanes);
@@ -220,7 +234,13 @@ export function layOut(
 			if (from === undefined || to === undefined) {
 				continue;
 			}
-			connections.push({ from, to, lane: laneOf.get(edge.id) ?? edge.id, label: labelRoom(edge) });
+			connections.push({
+				from,
+				to,
+				lane: laneOf.get(edge.id) ?? edge.id,
+				label: labelRoom(edge),
+				ends: roleRoom(edge),
+			});
 			if (from !== to) {
 				anchors.set(from, anchors.get(from) ?? fromNode);
 				anchors.set(to, anchors.get(to) ?? toNode);
