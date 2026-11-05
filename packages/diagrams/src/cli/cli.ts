@@ -66,16 +66,19 @@ async function run(args: string[], context: CliContext): Promise<number> {
 
 async function renderCommand(paths: string[], context: CliContext): Promise<number> {
 	const root = findRoot(context.cwd);
-	const atlas = (await discover(root)).modules;
+	const atlas = { root, modules: (await discover(root)).modules };
+	const named = paths.map((path) => modulesNamed(path, atlas, context, { folders: true }));
+	const refused = named.flatMap((found) => ("error" in found ? [found.error] : []));
+	if (refused.length > 0) {
+		for (const error of refused) {
+			context.stderr.write(`${error}\n`);
+		}
+		return 2;
+	}
 	const modules =
 		paths.length === 0
-			? atlas
-			: paths.flatMap((path) => {
-					const target = resolve(context.cwd, path);
-					return existsSync(target) && statSync(target).isDirectory()
-						? atlas.filter((module) => module.startsWith(`${target}${sep}`))
-						: [target];
-				});
+			? atlas.modules
+			: [...new Set(named.flatMap((found) => ("error" in found ? [] : found)))];
 	let failed = false;
 	for (const diagram of await renderDiagrams(root, modules)) {
 		print(diagram.messages, context);
@@ -148,21 +151,13 @@ async function exportCommand(args: string[], context: CliContext): Promise<numbe
 		return 2;
 	}
 	const root = findRoot(context.cwd);
-	const module = resolve(context.cwd, request.diagram);
-	if (!module.endsWith(moduleSuffix) || !existsSync(module) || !statSync(module).isFile()) {
-		context.stderr.write(
-			`There's no Diagram at \`${shown(module, context)}\`. Name one by its module's path, which ends in \`${moduleSuffix}\`.\n`,
-		);
+	const atlas = { root, modules: (await discover(root)).modules };
+	const named = modulesNamed(request.diagram, atlas, context, { folders: false });
+	if ("error" in named) {
+		context.stderr.write(`${named.error}\n`);
 		return 2;
 	}
-	const inAtlas = relative(root, module);
-	if (inAtlas.split(sep)[0] === ".." || isAbsolute(inAtlas)) {
-		context.stderr.write(
-			`\`${shown(module, context)}\` isn't in the Atlas: it lies outside the folder that holds \`${configFile}\`.\n`,
-		);
-		return 2;
-	}
-	const [rendered] = await renderDiagrams(root, [module]);
+	const [rendered] = await renderDiagrams(root, named);
 	const { svg, model, messages = [] } = rendered ?? {};
 	// The path alone goes to stdout, so that a script can read it.
 	print(messages, context, context.stderr);
@@ -184,6 +179,48 @@ async function exportCommand(args: string[], context: CliContext): Promise<numbe
 	}
 	context.stdout.write(`${file}\n`);
 	return 0;
+}
+
+/**
+ * The modules of the Atlas that a path names, from the working directory: a
+ * Diagram's module, or, where `folders` allows it, a folder of the Atlas and
+ * every module in it. A path that names anything else gets a message instead:
+ * a file that isn't a `*.diagram.ts` module, or one outside the Atlas, which
+ * leaves out what lies outside its root and what git ignores.
+ */
+function modulesNamed(
+	path: string,
+	atlas: { root: string; modules: string[] },
+	context: CliContext,
+	{ folders }: { folders: boolean },
+): string[] | { error: string } {
+	const target = resolve(context.cwd, path);
+	const named = shown(target, context);
+	const found = statSync(target, { throwIfNoEntry: false });
+	const folder = folders && found?.isDirectory() === true;
+	if (!folder && (!target.endsWith(moduleSuffix) || found?.isFile() !== true)) {
+		const orFolder = folders ? ", or name a folder to render every Diagram in it" : "";
+		return {
+			error: `There's no Diagram at \`${named}\`. Name one by its module's path, which ends in \`${moduleSuffix}\`${orFolder}.`,
+		};
+	}
+	if (!contains(atlas.root, target)) {
+		return {
+			error: `\`${named}\` isn't in the Atlas: it lies outside the folder that holds \`${configFile}\`.`,
+		};
+	}
+	if (folder) {
+		return atlas.modules.filter((module) => contains(target, module));
+	}
+	return atlas.modules.includes(target)
+		? [target]
+		: { error: `\`${named}\` isn't in the Atlas, which leaves out the files that git ignores.` };
+}
+
+/** Whether a path is a folder's own path or lies inside the folder. */
+function contains(folder: string, path: string): boolean {
+	const inside = relative(folder, path);
+	return inside === "" || (inside.split(sep)[0] !== ".." && !isAbsolute(inside));
 }
 
 /** Reads the export's arguments, or says what's wrong with them. */

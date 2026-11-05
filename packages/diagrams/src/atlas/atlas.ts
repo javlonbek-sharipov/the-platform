@@ -57,6 +57,9 @@ function diagramIdOf(root: string, module: string): string {
 
 /** `x.diagram.ts` is drawn in `x.diagram.svg`, beside it. */
 export function svgFileOf(module: string): string {
+	if (!module.endsWith(moduleSuffix)) {
+		throw new Error(`${module} isn't a diagram module, so it has no SVG`);
+	}
 	return `${module.slice(0, -moduleSuffix.length)}${svgSuffix}`;
 }
 

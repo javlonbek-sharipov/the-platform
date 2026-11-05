@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs";
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import { runCli, sampleAtlas, shopModule } from "./support/atlas.ts";
+import { git, runCli, sampleAtlas, sampleConfig, shopModule } from "./support/atlas.ts";
 import { embeddedFaces } from "./support/fonts.ts";
 import { characterMap, openFont } from "./support/truetype.ts";
 
@@ -216,6 +216,53 @@ describe("diagrams render and lint", () => {
 		expect((await runCli(["lint"], atlas)).stdout).toContain(
 			"docs/billing/billing.diagram.svg: error:",
 		);
+	});
+
+	test("render refuses a path that isn't a Diagram module in the Atlas, with exit code 2, and writes nothing", async () => {
+		const folder = await sampleAtlas({
+			"site/diagrams.config.ts": sampleConfig,
+			"site/.gitignore": "drafts/\n",
+			"site/docs/shop.diagram.ts": shopModule("Shop"),
+			"site/docs/shop.ts": shopModule("Shop"),
+			"site/drafts/stock.diagram.ts": shopModule("Stock"),
+			"docs/outside.diagram.ts": shopModule("Outside"),
+		});
+		const atlas = join(folder, "site");
+		git(atlas, "init", "-q");
+		const cases: [path: string, message: string][] = [
+			[
+				"docs/shop.ts",
+				"There's no Diagram at `docs/shop.ts`. Name one by its module's path, which ends in `.diagram.ts`, or name a folder to render every Diagram in it.",
+			],
+			[
+				"docs/shops.diagram.ts",
+				"There's no Diagram at `docs/shops.diagram.ts`. Name one by its module's path, which ends in `.diagram.ts`, or name a folder to render every Diagram in it.",
+			],
+			[
+				"../docs/outside.diagram.ts",
+				"`../docs/outside.diagram.ts` isn't in the Atlas: it lies outside the folder that holds `diagrams.config.ts`.",
+			],
+			[
+				"../docs",
+				"`../docs` isn't in the Atlas: it lies outside the folder that holds `diagrams.config.ts`.",
+			],
+			[
+				"drafts/stock.diagram.ts",
+				"`drafts/stock.diagram.ts` isn't in the Atlas, which leaves out the files that git ignores.",
+			],
+		];
+		for (const [path, message] of cases) {
+			expect(await runCli(["render", "docs/shop.diagram.ts", path], atlas), path).toEqual({
+				code: 2,
+				stdout: "",
+				stderr: `${message}\n`,
+			});
+		}
+		// The sample's own files, leaving out the engine that node_modules links to.
+		const svgs = (await readdir(folder, { recursive: true })).filter(
+			(file) => file.endsWith(".diagram.svg") && !file.startsWith("node_modules"),
+		);
+		expect(svgs).toEqual([]);
 	});
 });
 
