@@ -26,7 +26,7 @@ import {
 } from "./discover.ts";
 import { readGlossaries } from "./glossaries.ts";
 import { checkLanguage } from "./language.ts";
-import { type Loaded, load } from "./load.ts";
+import { type Loaded, type LoadOptions, load } from "./load.ts";
 import { type AtlasMessage, type FilePlace, located, placeText } from "./messages.ts";
 import type { AtlasIndex, GlossaryTerm } from "./types.ts";
 
@@ -87,9 +87,13 @@ export interface OpenAtlas {
 }
 
 /** Loads the config and every module together, in a fresh module context. */
-export async function openAtlas(root: string, files?: AtlasFiles): Promise<OpenAtlas> {
+export async function openAtlas(
+	root: string,
+	files?: AtlasFiles,
+	options?: LoadOptions,
+): Promise<OpenAtlas> {
 	files ??= await discover(root);
-	const [config, ...modules] = await load([join(root, configFile), ...files.modules]);
+	const [config, ...modules] = await load([join(root, configFile), ...files.modules], options);
 	const messages = config === undefined ? [] : checkConfig(root, config);
 	const glossaries =
 		config !== undefined && !("failed" in config) && messages.length === 0
@@ -100,7 +104,14 @@ export async function openAtlas(root: string, files?: AtlasFiles): Promise<OpenA
 		files,
 		config: glossaries.config,
 		terms: glossaries.terms,
-		dependencies: [join(root, configFile), ...files.modules, ...glossaries.files],
+		dependencies: [
+			...new Set([
+				join(root, configFile),
+				...files.modules,
+				...glossaries.files,
+				...[config, ...modules].flatMap((loaded) => loaded?.dependencies ?? []),
+			]),
+		].sort(),
 		diagrams: modules.map((loaded) => renderLoaded(root, loaded)),
 		messages: [...messages, ...glossaries.messages],
 		drawn: new Set(modules.flatMap(idsDrawnBy)),

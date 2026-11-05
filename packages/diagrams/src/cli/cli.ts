@@ -16,6 +16,7 @@ import {
 import { AtlasError, configFile, discover, findRoot, moduleSuffix } from "../atlas/discover.ts";
 import { type AtlasMessage, placeText } from "../atlas/messages.ts";
 import type { AnyDiagram } from "../authoring/model.ts";
+import { serveDev } from "../dev/server.ts";
 import { drawPng, type Theme, themes } from "./png.ts";
 
 export interface Output {
@@ -26,6 +27,8 @@ export interface CliContext {
 	cwd: string;
 	stdout: Output;
 	stderr: Output;
+	/** Stops a long-running preview when the caller owns its lifetime. */
+	signal?: AbortSignal;
 }
 
 const usage = `Usage: diagrams <command>
@@ -40,6 +43,8 @@ Commands:
                      as its JSON model, and print the file's path
   export --index [--out path]
                      Write the Atlas index, and print the file's path
+  dev [diagram] [--port n]
+                     Preview the Atlas on localhost, redrawing after edits
 `;
 
 /** Runs one command, and returns its exit code. */
@@ -64,6 +69,8 @@ async function run(args: string[], context: CliContext): Promise<number> {
 			return lintCommand(rest, context);
 		case "export":
 			return exportCommand(rest, context);
+		case "dev":
+			return devCommand(rest, context);
 		case undefined:
 		case "help":
 		case "--help":
@@ -72,6 +79,55 @@ async function run(args: string[], context: CliContext): Promise<number> {
 		default:
 			context.stderr.write(`Unknown command \`${command}\`.\n\n${usage}`);
 			return 2;
+	}
+}
+
+async function devCommand(args: string[], context: CliContext): Promise<number> {
+	const parsed = parseOptions(args, ["--port"]);
+	if ("error" in parsed || parsed.positionals.length > 1) {
+		context.stderr.write(
+			`${"error" in parsed ? parsed.error : "Preview one Diagram at a time."}\n\n${usage}`,
+		);
+		return 2;
+	}
+	const text = parsed.values.get("--port") ?? "3000";
+	const port = Number(text);
+	if (!/^\d+$/.test(text) || port > 65535) {
+		context.stderr.write("`--port` takes an integer from 0 to 65535; 0 chooses a free port.\n");
+		return 2;
+	}
+	const root = findRoot(context.cwd);
+	const files = await discover(root);
+	const [path] = parsed.positionals;
+	const named =
+		path === undefined
+			? []
+			: modulesNamed(path, { root, modules: files.modules }, context, { folders: false });
+	if ("error" in named) {
+		context.stderr.write(`${named.error}\n`);
+		return 2;
+	}
+	const stop = new AbortController();
+	const abort = () => stop.abort();
+	if (context.signal === undefined) {
+		process.once("SIGINT", abort);
+		process.once("SIGTERM", abort);
+	}
+	try {
+		return await serveDev({
+			root,
+			port,
+			diagram: named[0],
+			context: { ...context, signal: context.signal ?? stop.signal },
+		});
+	} catch (error) {
+		context.stderr.write(
+			`Couldn't start the preview: ${error instanceof Error ? error.message : String(error)}\n`,
+		);
+		return 2;
+	} finally {
+		process.off("SIGINT", abort);
+		process.off("SIGTERM", abort);
 	}
 }
 
