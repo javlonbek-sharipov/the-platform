@@ -235,6 +235,8 @@ describe("the docs site of a sample repo", () => {
 					await themes.selectOption({ label: theme });
 					// Zoomed out as far as it goes, the whole drawing is in view, with every color it has.
 					const diagram = page.locator("platform-diagram");
+					// Compare themes on a still drawing: moving marks otherwise change the picture with time.
+					await diagram.evaluate((element) => element.setAttribute("motion", "off"));
 					await diagram.click();
 					for (let press = 0; press < 8; press++) {
 						await page.keyboard.press("-");

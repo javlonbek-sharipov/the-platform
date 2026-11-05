@@ -176,7 +176,12 @@ export function embeddedFonts(scene: Scene, fontData: FontData): EmbeddedFont[] 
  * root, which every text inherits from, and which turns kerning and
  * ligatures off, since measuring ignores them; and the theme's rules.
  */
-export function styleElement(scope: string, fonts: EmbeddedFont[], uses: ColorUse[]): string[] {
+export function styleElement(
+	scope: string,
+	fonts: EmbeddedFont[],
+	uses: ColorUse[],
+	animation: string[] = [],
+): string[] {
 	return [
 		"<style>",
 		...fonts.map((font) =>
@@ -190,6 +195,7 @@ export function styleElement(scope: string, fonts: EmbeddedFont[], uses: ColorUs
 			`.${scope} { font-family: "${scope}", ${fallbackFonts}; font-kerning: none; font-variant-ligatures: none; }`,
 		),
 		...themeRules(scope, uses).map((text) => indent(1, text)),
+		...animation.map((text) => indent(1, text)),
 		"</style>",
 	];
 }

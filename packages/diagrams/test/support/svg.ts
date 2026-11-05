@@ -87,7 +87,10 @@ export interface Rule {
 	dark: boolean;
 }
 
-/** The style rules of the SVG's `<style>` elements, leaving out `@font-face`. */
+/**
+ * The still drawing's style rules, with reduced motion requested. Flow is
+ * checked in a real browser; this reader leaves out keyframes and font faces.
+ */
 export function rulesOf(root: Element): Rule[] {
 	const css = descendants(root)
 		.filter((element) => element.name === "style")
@@ -108,11 +111,14 @@ export function rulesOf(root: Element): Rule[] {
 			const close = matchingBrace(text, open);
 			const body = text.slice(open + 1, close);
 			if (prelude.startsWith("@media")) {
-				if (!/^@media \(prefers-color-scheme: dark\)$/.test(prelude)) {
+				if (prelude === "@media (prefers-color-scheme: dark)") {
+					read(body, true);
+				} else if (prelude === "@media (prefers-reduced-motion: reduce)") {
+					read(body, dark);
+				} else if (prelude !== "@media (prefers-reduced-motion: no-preference)") {
 					throw new Error(`unexpected media query: ${prelude}`);
 				}
-				read(body, true);
-			} else if (!prelude.startsWith("@font-face")) {
+			} else if (!prelude.startsWith("@font-face") && !prelude.startsWith("@keyframes ")) {
 				if (prelude.startsWith("@")) {
 					throw new Error(`unexpected at-rule: ${prelude}`);
 				}
