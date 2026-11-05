@@ -231,6 +231,29 @@ describe("rendered flow", () => {
 		expect(offsetsOf(svg)).not.toEqual(offsets);
 	});
 
+	test("skips a loop outside the view even when its bounding box covers the view", async () => {
+		const loop = architecture({ title: "Loop" }, (d) => {
+			const a = d.node({ id: "a", kind: "service", title: "A" });
+			d.edge(a, a, { kind: "call" });
+		});
+		const host = await mount(draw(loop).svg, "width: 240px; height: 128px");
+		const svg = svgOf(host);
+		const [mark] = marksOf(svg);
+		expect(animationsOf(svg)).toHaveLength(1);
+		await userEvent.click(host);
+		await userEvent.keyboard("++++++++");
+		await frame();
+		// The reader is looking closely at the Node, inside its self-loop.
+		expect(mark).toBeDefined();
+		expect(mark && isSeen(mark)).toBe(false);
+		expect(animationsOf(svg)).toEqual([]);
+
+		await userEvent.keyboard("0");
+		await frame();
+		expect(mark && isSeen(mark)).toBe(true);
+		expect(animationsOf(svg)).toHaveLength(1);
+	});
+
 	test("starts paused below the fold and follows a removed component when it is shown again", async () => {
 		const host = await show(
 			`<div style="height: 1600px"></div>

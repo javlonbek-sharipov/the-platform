@@ -1,5 +1,7 @@
 /** The host's motion policy, and flow within the reader's view. */
 
+import type { Box } from "../core/scene.ts";
+import { flowInView } from "./flow-path.ts";
 import type { Part } from "./stage.ts";
 
 /** Further out than the Rows disappear: the marks are no longer useful at this scale. */
@@ -24,20 +26,12 @@ export const flow: Part = {
 }
 `,
 	setUp({ element, camera, onShow }) {
-		let marks: { element: SVGPathElement; bounds: DOMRect }[] = [];
+		let marks: { element: SVGPathElement; inView: (view: Box) => boolean }[] = [];
 		let inSight = false;
 		const update = () => {
 			const view = camera.view;
-			for (const { element: mark, bounds } of marks) {
-				// Include the stroke, and keep an Edge whose ends are outside the
-				// view but whose route crosses it. Bounds are read once per SVG.
-				const hidden =
-					view === undefined ||
-					view.scale <= gone ||
-					bounds.x + bounds.width + 2 < view.x ||
-					bounds.y + bounds.height + 2 < view.y ||
-					bounds.x - 2 > view.x + view.width ||
-					bounds.y - 2 > view.y + view.height;
+			for (const { element: mark, inView } of marks) {
+				const hidden = view === undefined || view.scale <= gone || !inView(view);
 				if (hidden) {
 					mark.style.display = "none";
 				} else {
@@ -54,7 +48,7 @@ export const flow: Part = {
 		onShow((svg) => {
 			marks = [...svg.querySelectorAll<SVGPathElement>("[data-flow]")].map((element) => ({
 				element,
-				bounds: element.getBBox(),
+				inView: flowInView(element),
 			}));
 			inSight = false;
 			let live = true;
