@@ -14,6 +14,12 @@ import { fileURLToPath } from "node:url";
 export const repoRoot: string =
 	process.env.DOCS_REPO ?? fileURLToPath(new URL("../../../", import.meta.url));
 
+/** Where the repo is on GitHub, and the branch that the site is built from. */
+export const github = {
+	url: "https://github.com/javlonbek-sharipov/the-platform",
+	branch: "main",
+};
+
 /** The folders whose own folders are the repo's packages and apps. */
 const workspaces = ["apps", "packages"];
 

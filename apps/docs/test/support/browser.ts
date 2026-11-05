@@ -39,6 +39,8 @@ export async function reading(site: Site, reader: Reader = {}): Promise<BrowserC
 		colorScheme: reader.scheme ?? "light",
 		viewport: { width: 1280, height: 720 },
 	});
+	// A reader who can't find something gives up well before a test's own time is over.
+	context.setDefaultTimeout(3_000);
 	await context.route("**/*", (route) => {
 		const url = new URL(route.request().url());
 		let file = join(site.folder, decodeURIComponent(url.pathname));

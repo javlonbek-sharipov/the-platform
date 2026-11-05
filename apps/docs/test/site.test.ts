@@ -28,6 +28,7 @@ const shop = {
 		"# Checkout v1",
 		"",
 		"How a shopper pays for a cart.",
+		"See [why a shopper has one cart](../../packages/shop/docs/adr/0001-one-cart-per-shopper.md#considered-options).",
 		"",
 		"## Problem Statement",
 		"",
@@ -52,6 +53,10 @@ const shop = {
 		"## Considered Options",
 		"",
 		"- **A cart per device**: rejected, because a shopper who changes device would lose it.",
+		"",
+		"The [glossary][shop] says what a cart is.",
+		"",
+		"[shop]: ../../GLOSSARY.md",
 	),
 	"packages/shop/docs/checkout.md": lines(
 		"# Checkout",
@@ -61,6 +66,7 @@ const shop = {
 		"![Checkout](./checkout.diagram.svg)",
 		"",
 		"The Diagram above shows the call.",
+		"It's written in [`checkout.diagram.ts`](./checkout.diagram.ts).",
 	),
 	"packages/shop/docs/checkout.diagram.svg": svg,
 };
@@ -142,5 +148,43 @@ describe("the docs site of a sample repo", () => {
 		// Its heading is the page's title, and the page doesn't print it twice.
 		expect(headingsOf(page)).toEqual([title]);
 		expect(page).toContain(text);
+	});
+
+	test("a link from one doc to another opens that doc's page", async () => {
+		const page = await open(await reading(site), "glossary-map");
+
+		await page.getByRole("main").getByRole("link", { name: "Shop", exact: true }).click();
+
+		await page.getByRole("heading", { level: 1, name: "Shop" }).waitFor();
+	});
+
+	test("a link to a heading of another doc opens its page at that heading", async () => {
+		const page = await open(await reading(site), "docs/specs/checkout");
+
+		await page.getByRole("link", { name: "why a shopper has one cart" }).click();
+
+		await page.getByRole("heading", { level: 1, name: "Keep one cart per shopper" }).waitFor();
+		expect(await page.locator(":target").textContent()).toContain("Considered Options");
+	});
+
+	test("a link written as a reference opens its doc's page too", async () => {
+		const page = await open(
+			await reading(site),
+			"packages/shop/docs/adr/0001-one-cart-per-shopper",
+		);
+
+		await page.getByRole("main").getByRole("link", { name: "glossary" }).click();
+
+		await page.getByRole("heading", { level: 1, name: "Shop" }).waitFor();
+	});
+
+	test("a link to a file that isn't a doc opens the file on GitHub", async () => {
+		const page = await open(await reading(site), "packages/shop/docs/checkout");
+
+		const link = page.getByRole("link", { name: "checkout.diagram.ts" });
+
+		expect(await link.getAttribute("href")).toBe(
+			"https://github.com/javlonbek-sharipov/the-platform/blob/main/packages/shop/docs/checkout.diagram.ts",
+		);
 	});
 });
