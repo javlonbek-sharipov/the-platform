@@ -104,6 +104,12 @@ function steer(stage: HTMLElement, camera: Camera): void {
 		if (event.button !== 0) {
 			return;
 		}
+		// A first pointer starts afresh. One still held here never lifted for the stage
+		// to see: its lifting went to an element that had left the stage by then.
+		if (event.isPrimary) {
+			pointers.clear();
+			dragging = false;
+		}
 		pointers.set(event.pointerId, place(event));
 		restart();
 		// A second finger makes the press a pinch at once: two fingers never click.

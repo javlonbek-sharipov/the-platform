@@ -3,7 +3,7 @@ import { page, userEvent } from "vitest/browser";
 import example from "../../docs/example-system.diagram.ts";
 import { architecture, type Diagram, type Direction, type Point } from "../../src/index.ts";
 import { draw } from "./support/drawing.ts";
-import { drag, letGo, moveTo, press, touch, wheel } from "./support/input.ts";
+import { drag, letGo, moveTo, press, touch, touchDown, touchUp, wheel } from "./support/input.ts";
 import { gapsOf, middleOf, textOf, viewOf } from "./support/looking.ts";
 import { frame, mount, next, show } from "./support/page.ts";
 
@@ -581,6 +581,29 @@ describe("touch", () => {
 		await frame();
 
 		expect(shiftOf(before)[0]?.x).toBeCloseTo(-200, 0);
+	});
+
+	test("forgets a finger whose lifting it never saw, when the SVG under it was replaced", async () => {
+		const { svg } = draw(example);
+		const diagram = await mount(svg, "width: 800px; height: 420px");
+		const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+		const loaded = next(diagram, "load");
+
+		// A finger is down on the drawing when a new SVG takes the drawing's place.
+		await touchDown(diagram, [{ x: 300, y: 200 }]);
+		diagram.setAttribute("src", url);
+		await loaded;
+		URL.revokeObjectURL(url);
+		await touchUp();
+		await frame();
+
+		// The next drag is one pointer's: it pans, and zooms nothing.
+		const gateway = textOf(diagram, "Shop gateway");
+		const before = gateway.getBoundingClientRect();
+		await drag(diagram, { x: 600, y: 200 }, { x: 480, y: 200 });
+		const after = gateway.getBoundingClientRect();
+		expect(after.width).toBeCloseTo(before.width, 3);
+		expect(after.left - before.left).toBeCloseTo(-120, 0);
 	});
 
 	test("takes a tap for a click, though the finger moved more than a mouse would", async () => {

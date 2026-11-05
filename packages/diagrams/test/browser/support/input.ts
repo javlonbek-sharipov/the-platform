@@ -86,12 +86,21 @@ export async function drag(element: Element, from: Point, ...to: Point[]): Promi
  * after the last. A finger that a step leaves out has lifted.
  */
 export async function touch(element: Element, ...steps: Point[][]): Promise<void> {
-	const session = cdp();
+	await touchDown(element, ...steps);
+	await touchUp();
+}
+
+/** The same, but the fingers stay down after the last step, until `touchUp`. */
+export async function touchDown(element: Element, ...steps: Point[][]): Promise<void> {
 	for (const [index, fingers] of steps.entries()) {
-		await session.send("Input.dispatchTouchEvent", {
+		await cdp().send("Input.dispatchTouchEvent", {
 			type: index === 0 ? "touchStart" : "touchMove",
 			touchPoints: fingers.map((finger, id) => ({ ...inWindow(element, finger), id })),
 		});
 	}
-	await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+}
+
+/** Lifts every finger. */
+export async function touchUp(): Promise<void> {
+	await cdp().send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
 }
