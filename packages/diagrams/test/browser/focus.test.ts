@@ -36,11 +36,13 @@ test("hover keeps only a Node's ancestors and descendants at full strength", asy
 
 	await userEvent.hover(textOf(diagram, "Focus"));
 
-	expect(
-		["Source", "Focus", "Downstream", "Leaf"].map((title) => opacityOf(textOf(diagram, title))),
-	).toEqual([1, 1, 1, 1]);
+	await expect
+		.poll(() =>
+			["Source", "Focus", "Downstream", "Leaf"].map((title) => opacityOf(textOf(diagram, title))),
+		)
+		.toEqual([1, 1, 1, 1]);
 	for (const title of ["Sibling", "Other caller", "Isolated"]) {
-		expect(opacityOf(textOf(diagram, title)), title).toBeLessThan(0.5);
+		await expect.poll(() => opacityOf(textOf(diagram, title))).toBeLessThan(0.5);
 	}
 });
 
@@ -71,12 +73,14 @@ test.for(["partnership", "shared-kernel"] as const)(
 		for (const title of ["Ordering", "Shipping"]) {
 			await userEvent.hover(textOf(diagram, title));
 
-			expect(
-				["Catalog", "Ordering", "Shipping", "Billing"].map((name) =>
-					opacityOf(textOf(diagram, name)),
-				),
-			).toEqual([1, 1, 1, 1]);
-			expect(opacityOf(textOf(diagram, "Archive"))).toBeLessThan(0.5);
+			await expect
+				.poll(() =>
+					["Catalog", "Ordering", "Shipping", "Billing"].map((name) =>
+						opacityOf(textOf(diagram, name)),
+					),
+				)
+				.toEqual([1, 1, 1, 1]);
+			await expect.poll(() => opacityOf(textOf(diagram, "Archive"))).toBeLessThan(0.5);
 			for (const edge of model.edges) {
 				const kept = edge.id !== "catalog->archive";
 				const parts =
@@ -84,7 +88,7 @@ test.for(["partnership", "shared-kernel"] as const)(
 						`[data-edge="${edge.id}"], [data-edge-label="${edge.id}"], [data-edge-role="${edge.id}"]`,
 					) ?? [];
 				for (const part of parts) {
-					expect(opacityOf(part) === 1, `${title}: ${edge.id}`).toBe(kept);
+					await expect.poll(() => opacityOf(part)).toBe(kept ? 1 : 0.2);
 				}
 			}
 		}
@@ -105,8 +109,8 @@ test("an Edge's label follows its path's focus", async () => {
 		["other->downstream", "Other work", false],
 	] as const) {
 		const edge = diagram.shadowRoot?.querySelector(`[data-edge="${id}"]`) as Element;
-		expect(opacityOf(edge) === 1, id).toBe(kept);
-		expect(opacityOf(textOf(diagram, label))).toBe(opacityOf(edge));
+		await expect.poll(() => opacityOf(edge)).toBe(kept ? 1 : 0.2);
+		await expect.poll(() => opacityOf(textOf(diagram, label))).toBe(opacityOf(edge));
 	}
 });
 
@@ -115,16 +119,16 @@ test("leaving a hovered Node and pressing Escape each clear focus", async () => 
 	const focus = textOf(diagram, "Focus");
 	const isolated = textOf(diagram, "Isolated");
 	await userEvent.hover(focus);
-	expect(opacityOf(isolated)).toBeLessThan(0.5);
+	await expect.poll(() => opacityOf(isolated)).toBeLessThan(0.5);
 
 	await userEvent.unhover(focus);
-	expect(opacityOf(isolated)).toBe(1);
+	await expect.poll(() => opacityOf(isolated)).toBe(1);
 
 	await userEvent.click(focus);
 	await userEvent.keyboard("{Escape}");
 
-	expect(opacityOf(isolated)).toBe(1);
-	expect(opacityOf(textOf(diagram, "Sibling work"))).toBe(1);
+	await expect.poll(() => opacityOf(isolated)).toBe(1);
+	await expect.poll(() => opacityOf(textOf(diagram, "Sibling work"))).toBe(1);
 });
 
 test("clicking selects a Node until Escape, and reports the selection to the page", async () => {
@@ -139,11 +143,11 @@ test("clicking selects a Node until Escape, and reports the selection to the pag
 	await userEvent.unhover(focus);
 
 	expect(heard).toEqual([{ detail: { kind: "node", id: "focus" }, composed: true }]);
-	expect(opacityOf(textOf(diagram, "Isolated"))).toBeLessThan(0.5);
+	await expect.poll(() => opacityOf(textOf(diagram, "Isolated"))).toBeLessThan(0.5);
 
 	await userEvent.keyboard("{Escape}");
 
-	expect(opacityOf(textOf(diagram, "Isolated"))).toBe(1);
+	await expect.poll(() => opacityOf(textOf(diagram, "Isolated"))).toBe(1);
 	expect(heard.at(-1)).toEqual({ detail: null, composed: true });
 });
 
@@ -166,7 +170,7 @@ test("hovering an Edge reveals its whole label, Technology and rate", async () =
 	expect(tooltip.textContent).toContain(label);
 	expect(tooltip.textContent).toContain("grpc");
 	expect(tooltip.textContent).toContain("2k/s");
-	expect(opacityOf(textOf(diagram, "Unrelated"))).toBeLessThan(0.5);
+	await expect.poll(() => opacityOf(textOf(diagram, "Unrelated"))).toBeLessThan(0.5);
 
 	await userEvent.unhover(tooltip);
 	expect(page.elementLocator(diagram).getByRole("tooltip").elements()).toEqual([]);
@@ -216,11 +220,11 @@ test("explicit highlights can override hover without changing the selected Node"
 	await userEvent.hover(textOf(diagram, "Focus"));
 
 	expect(diagram.selectedNode).toBe("focus");
-	expect(opacityOf(textOf(diagram, "Isolated"))).toBe(1);
-	expect(opacityOf(textOf(diagram, "Focus"))).toBeLessThan(0.5);
+	await expect.poll(() => opacityOf(textOf(diagram, "Isolated"))).toBe(1);
+	await expect.poll(() => opacityOf(textOf(diagram, "Focus"))).toBeLessThan(0.5);
 	diagram.setHighlight(undefined);
-	expect(opacityOf(textOf(diagram, "Focus"))).toBe(1);
-	expect(opacityOf(textOf(diagram, "Isolated"))).toBeLessThan(0.5);
+	await expect.poll(() => opacityOf(textOf(diagram, "Focus"))).toBe(1);
+	await expect.poll(() => opacityOf(textOf(diagram, "Isolated"))).toBeLessThan(0.5);
 });
 
 test("unrelated Groups and junctions fade along with their Nodes and Edges", async () => {
@@ -242,11 +246,11 @@ test("unrelated Groups and junctions fade along with their Nodes and Edges", asy
 
 	await userEvent.hover(textOf(diagram, "Focus"));
 
-	expect(opacityOf(textOf(diagram, "Main"))).toBe(1);
-	expect(opacityOf(textOf(diagram, "Elsewhere"))).toBeLessThan(0.5);
+	await expect.poll(() => opacityOf(textOf(diagram, "Main"))).toBe(1);
+	await expect.poll(() => opacityOf(textOf(diagram, "Elsewhere"))).toBeLessThan(0.5);
 	for (const junction of diagram.shadowRoot?.querySelectorAll(
 		'[data-from="other"]:not([data-edge])',
 	) ?? []) {
-		expect(opacityOf(junction)).toBeLessThan(0.5);
+		await expect.poll(() => opacityOf(junction)).toBeLessThan(0.5);
 	}
 });

@@ -222,7 +222,7 @@ test("redrawing preserves the reader's zoom, selection and explicit highlights",
 	await frame();
 	expect(host.selectedNode).toBe("a");
 	expect(svgOf(host).viewBox.baseVal.width).toBeCloseTo(width, 5);
-	expect(getComputedStyle(nodeOf(svgOf(host), "a")).opacity).toBe("0.2");
+	await expect.poll(() => getComputedStyle(nodeOf(svgOf(host), "a")).opacity).toBe("0.2");
 	expect(getComputedStyle(nodeOf(svgOf(host), "b")).opacity).toBe("1");
 	await settled(host);
 });

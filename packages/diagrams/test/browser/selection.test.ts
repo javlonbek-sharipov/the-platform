@@ -37,9 +37,9 @@ test("a host selects by id without taking focus or repeating a selection event",
 	expect(heard).toEqual([{ kind: "node", id: "b" }]);
 	await userEvent.hover(textOf(diagram, "Aside"));
 	expect(diagram.selectedNode).toBe("b");
-	expect(opacityOf(textOf(diagram, "Second"))).toBeLessThan(0.5);
+	await expect.poll(() => opacityOf(textOf(diagram, "Second"))).toBeLessThan(0.5);
 	await userEvent.unhover(textOf(diagram, "Aside"));
-	expect(opacityOf(textOf(diagram, "Second"))).toBe(1);
+	await expect.poll(() => opacityOf(textOf(diagram, "Second"))).toBe(1);
 });
 
 test("replacing the SVG keeps selection and stage focus, and uses only the new layout", async () => {
@@ -61,7 +61,7 @@ test("replacing the SVG keeps selection and stage focus, and uses only the new l
 	await userEvent.keyboard("{ArrowDown}");
 	expect(diagram.selectedNode).toBe("c");
 	await userEvent.keyboard("{Escape}");
-	expect(opacityOf(textOf(diagram, "Aside"))).toBe(1);
+	await expect.poll(() => opacityOf(textOf(diagram, "Aside"))).toBe(1);
 });
 
 test("a replacement without the selected Node clears selection and removes old list entries", async () => {
@@ -93,7 +93,7 @@ test("a replacement without the selected Node clears selection and removes old l
 			.elements()
 			.map((item) => item.textContent),
 	).toEqual(["Replacement (service)."]);
-	expect(opacityOf(textOf(diagram, "Replacement"))).toBe(1);
+	await expect.poll(() => opacityOf(textOf(diagram, "Replacement"))).toBe(1);
 });
 
 test("a list item keeps keyboard focus by id when the SVG is replaced", async () => {
