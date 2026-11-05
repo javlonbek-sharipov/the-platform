@@ -12,7 +12,7 @@
 		"golden:update": "DIAGRAMS_UPDATE_GOLDEN=1 vitest run",
 		"bench": "node packages/diagrams/scripts/benchmark.ts",
 		"check": "biome check",
-		"typecheck": "tsc -p .",
+		"typecheck": "tsc -p . && tsc -p tsconfig.browser.json",
 		"generate:font-metrics": "node packages/diagrams/scripts/generate-font-metrics.ts",
 		"generate:technologies": "node packages/diagrams/scripts/generate-technologies.ts"
 	},
@@ -22,8 +22,10 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.6.4",
 		"@types/node": "^24.19.2",
+		"@vitest/browser-playwright": "5.1.0",
 		"ajv": "^8.20.0",
 		"lefthook": "^2.2.2",
+		"playwright": "1.64.1",
 		"typescript": "^7.0.2",
 		"vitest": "^5.1.0"
 	}
