@@ -1,0 +1,16 @@
+/*
+ * A Diagram on a page stands in a frame of its own. In the light theme its
+ * background is the page's, and a drawing wider than the page is cut off at
+ * the frame's side: the frame shows that there's more, for a reader to drag
+ * into view.
+ */
+platform-diagram {
+	overflow: hidden;
+	border: 1px solid var(--diagram-border);
+	border-radius: 0.5rem;
+}
+
+/* Until the component's script has run, or where none runs, the element is still a block around its drawing. */
+platform-diagram:not(:defined) {
+	display: block;
+}

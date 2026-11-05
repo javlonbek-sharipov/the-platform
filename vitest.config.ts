@@ -10,7 +10,7 @@ export default defineConfig({
 			{
 				test: {
 					name: "node",
-					include: ["packages/*/test/**/*.test.ts"],
+					include: ["packages/*/test/**/*.test.ts", "apps/*/test/**/*.test.ts"],
 					exclude: [browserTests],
 					typecheck: {
 						enabled: true,

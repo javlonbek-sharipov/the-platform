@@ -1,0 +1,25 @@
+{
+	"name": "@the-platform/docs",
+	"version": "0.0.0",
+	"private": true,
+	"license": "UNLICENSED",
+	"type": "module",
+	"engines": {
+		"node": ">=24"
+	},
+	"scripts": {
+		"dev": "ASTRO_TELEMETRY_DISABLED=1 astro dev",
+		"build": "ASTRO_TELEMETRY_DISABLED=1 astro build",
+		"preview": "ASTRO_TELEMETRY_DISABLED=1 astro preview",
+		"sync": "ASTRO_TELEMETRY_DISABLED=1 astro sync"
+	},
+	"dependencies": {
+		"@astrojs/markdown-satteri": "0.4.6",
+		"@astrojs/starlight": "0.42.9",
+		"@the-platform/diagrams": "workspace:*",
+		"astro": "7.4.5"
+	},
+	"devDependencies": {
+		"satteri": "0.10.5"
+	}
+}

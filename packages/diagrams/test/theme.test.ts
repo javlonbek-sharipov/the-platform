@@ -1,10 +1,11 @@
 import { describe, expect, test } from "vitest";
 import example from "../docs/example-system.diagram.ts";
-import { architecture } from "../src/index.ts";
+import { architecture, notations, render, themeColors } from "../src/index.ts";
 import { contextMap } from "./fixtures/context-map.ts";
 import everyKind from "./fixtures/every-kind.ts";
 import externalStatusCallout from "./fixtures/external-status-callout.ts";
 import technologies from "./fixtures/technologies.ts";
+import { everyFixture } from "./support/fixtures.ts";
 import { renderWithFont } from "./support/fonts.ts";
 import {
 	colorUnder,
@@ -202,6 +203,36 @@ describe("an SVG's colors", () => {
 				}
 			}
 		}
+	});
+});
+
+describe("the theme's colors, for a page that sets them itself", () => {
+	test("hold every property that an SVG reads, with the fallbacks it has there", async () => {
+		const theme = themeColors(notations);
+		let read = 0;
+		for (const [name, diagram] of await everyFixture()) {
+			const { svg = "" } = render(diagram);
+			for (const rule of rulesOf(parseSvg(svg))) {
+				for (const [property, value] of rule.declarations) {
+					const [, color = "", fallback] =
+						/^var\(--diagram-([\w-]+), (#[0-9a-f]{6})\)$/.exec(value) ?? [];
+					if (colorProperties.has(property)) {
+						expect(theme[color]?.[rule.dark ? "dark" : "light"], `${name}: ${value}`).toBe(
+							fallback,
+						);
+						read += 1;
+					}
+				}
+			}
+		}
+		expect(read).toBeGreaterThan(0);
+	});
+
+	test("name each Notation's hues as their properties do", () => {
+		expect(themeColors(notations)).toMatchObject({
+			ink: { light: "#1f2328", dark: "#f0f6fc" },
+			"hue-compute": { light: "#0969da", dark: "#4493f8" },
+		});
 	});
 });
 
