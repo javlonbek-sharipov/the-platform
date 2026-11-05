@@ -433,6 +433,24 @@ describe("a doc that embeds a file it can't show", () => {
 	});
 });
 
+describe("a site that is built again", () => {
+	test("shows a Diagram that was drawn again, though its doc is as it was", async () => {
+		const repo = await sampleRepo({
+			"docs/checkout.md": lines("# Checkout", "", "![Checkout](./checkout.diagram.svg)"),
+			"docs/checkout.diagram.svg": svg,
+		});
+		const site = await buildSite(repo);
+		expect(await site.page("docs/checkout")).toContain(">Checkout API</text>");
+
+		await writeFile(
+			join(repo, "docs/checkout.diagram.svg"),
+			svg.replaceAll("Checkout API", "Payments API"),
+		);
+
+		expect(await (await site.again()).page("docs/checkout")).toContain(">Payments API</text>");
+	});
+});
+
 describe("two docs that would be one page", () => {
 	test("stop the build, which names them both", async () => {
 		const repo = await sampleRepo({
@@ -524,6 +542,17 @@ describe("the docs site, while it's being developed", { timeout: 20_000 }, () =>
 		);
 
 		await soon(() => site.page("docs/specs/refunds")).toContain("Shoppers get their money back.");
+	});
+
+	test("goes on after a doc breaks, and shows the doc once it's mended", async () => {
+		const doc = join(repo, "docs/specs/checkout.md");
+		await writeFile(doc, lines("# Checkout v1", "", "![Gone](./gone.diagram.svg)"));
+		// Long enough for the server to have tried the broken doc.
+		await new Promise((resolve) => setTimeout(resolve, 1_000));
+
+		await writeFile(doc, lines("# Checkout v1", "", "Shoppers pay as they like."));
+
+		await soon(() => site.page("docs/specs/checkout")).toContain("Shoppers pay as they like.");
 	});
 
 	test("watches the repo's docs, and nothing in repos/", () => {

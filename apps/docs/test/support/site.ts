@@ -22,6 +22,8 @@ export interface Site {
 	page(path: string): Promise<string>;
 	/** The files that hold a text, among all that the build wrote: the site, and what it keeps to build faster. */
 	filesWith(text: string): Promise<string[]>;
+	/** Builds the site again, with what the build before it kept. */
+	again(): Promise<Site>;
 }
 
 /**
@@ -58,8 +60,8 @@ afterAll(async () => {
  * It's written, with what the build keeps to build faster, into a temporary
  * folder, so that a test's build leaves the app's own alone.
  */
-export async function buildSite(repo?: string): Promise<Site> {
-	const folder = await siteFolder();
+export async function buildSite(repo?: string, into?: string): Promise<Site> {
+	const folder = into ?? (await siteFolder());
 	const outDir = join(folder, "dist");
 	if (repo !== undefined) {
 		process.env.DOCS_REPO = repo;
@@ -86,6 +88,7 @@ export async function buildSite(repo?: string): Promise<Site> {
 			}
 			return holding;
 		},
+		again: () => buildSite(repo, folder),
 	};
 }
 
