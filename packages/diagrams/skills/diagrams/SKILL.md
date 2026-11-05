@@ -97,7 +97,7 @@ Use `domain` for this form too:
 - **Edges.** `references` goes from aggregate to aggregate, dashed; `emits` from aggregate to an event inside its own context, solid; `reacts` from event to aggregate, dotted. Each has an arrowhead and takes a label, with no roles, Technology or rate. An Edge always ends at a Node, never at the context Group.
 - **Other contexts' events.** Draw one outside the Group, using its full id, such as `ordering/order-placed`, and react from it into a local aggregate. A member with another context's id inside the Group is an error. Lint warns if no Diagram draws the event inside its own context Group; add that drawing instead of inventing another id.
 
-The example below is `packages/diagrams/docs/example-billing.diagram.ts`. Its shared definition in `docs/shared/ordering.ts`, beside the examples, gives `orderPlaced` the full id `ordering/order-placed`, Kind `event` and title `Order placed`. `docs/example-ordering.diagram.ts` draws it inside Ordering, so both modules belong in the Atlas. Use `DomainNode` for shared Nodes and `DomainGroup` for shared Groups, as the architecture types above are used; a definition shared between a context Node and Group holds their common fields only.
+The example below is `packages/diagrams/docs/example-billing.diagram.ts`. Its shared definition in `docs/shared/ordering.ts`, beside the examples, gives `orderPlaced` the full id `ordering/order-placed`, Kind `event` and title `Order placed`. `docs/example-ordering.diagram.ts` draws it inside Ordering, so both modules belong in the Atlas. Use `DomainNode` for shared Nodes and `DomainGroup` for shared Groups, as the architecture types above are used.
 
 ```ts
 import { domain } from "@the-platform/diagrams";
@@ -126,6 +126,18 @@ export default domain({ title: "Billing aggregates" }, (d) => {
 });
 ```
 
+A context drawn as a Node on one Diagram and a Group on another can check both types. Its shared definition holds only their common fields:
+
+```ts
+import type { DomainGroup, DomainNode } from "@the-platform/diagrams";
+
+export const billing = {
+	id: "billing",
+	kind: "context",
+	title: "Billing",
+} as const satisfies DomainNode & DomainGroup;
+```
+
 ## Term Links
 
 Read `diagrams.config.ts` and the glossary of each context you draw. Its config entry is `contexts: { billing: { glossary: "billing/GLOSSARY.md" } }`, inside `atlas({ … })`; paths start at the Atlas root. Register a context's existing glossary there before linking its terms. A context without an entry is allowed, and gets no glossary checks or term Links. The repo registers `diagrams` at `packages/diagrams/GLOSSARY.md`; the shop examples above are fictional contexts without glossaries here.
@@ -147,6 +159,17 @@ export default domain({ title: "Diagrams language" }, (d) => {
 		title: "Diagrams",
 		links: [{ term: "Diagram" }, { term: "Atlas" }, { term: "Link" }],
 	});
+});
+```
+
+An event may Link to the existing term it concerns. Inside the Diagrams context's callback, this event points to `Diagram`, whose definition already exists:
+
+```ts
+diagrams.node({
+	id: "diagram-rendered",
+	kind: "event",
+	title: "Diagram rendered",
+	links: [{ term: "Diagram" }],
 });
 ```
 
