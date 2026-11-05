@@ -77,7 +77,7 @@ Each Notation may have further rules about a whole Diagram, described under its 
 \`diagrams lint\` checks the Atlas as a whole too:
 
 - \`kind-conflict\` and \`title-conflict\`: an id names one thing across the Atlas, with one Kind and one title on every Diagram that draws it, as a Node or as a Group.
-- \`broken-link\`: every Link resolves, to an id that some Diagram draws, or to a file inside the repo and, with a \`section\`, to one of its headings.`;
+- \`broken-link\`: every Link resolves, to an id that some Diagram draws, to a glossary term in its owner's context or an explicit context, or to a file inside the repo and, with a \`section\`, to one of its headings.`;
 
 const id = { $ref: "#/$defs/id" };
 const text = { $ref: "#/$defs/text" };
@@ -187,8 +187,23 @@ const shared: Record<string, Schema> = {
 	},
 	link: {
 		description:
-			'A "see also" pointer from a Node or a Group to exactly one thing: another id, or a Markdown document.',
-		oneOf: [{ $ref: "#/$defs/idLink" }, { $ref: "#/$defs/docLink" }],
+			'A "see also" pointer from a Node or a Group to exactly one thing: another id, a Markdown document or a glossary term.',
+		oneOf: [{ $ref: "#/$defs/idLink" }, { $ref: "#/$defs/docLink" }, { $ref: "#/$defs/termLink" }],
+	},
+	termLink: {
+		description: "A Link to a glossary term in its owner's context, unless context names another.",
+		type: "object",
+		properties: {
+			term: { description: "The glossary term's name.", ...someText },
+			context: {
+				description: "The context id whose glossary holds the term.",
+				type: "string",
+				pattern: formats.slug,
+			},
+			label: { description: "Replaces the text shown for the Link.", ...text },
+		},
+		required: ["term"],
+		additionalProperties: false,
 	},
 	idLink: {
 		description: "A Link to another id in the Atlas.",

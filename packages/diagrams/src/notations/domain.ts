@@ -40,6 +40,7 @@ const definition = {
 		// A bounded context is drawn as context maps draw one: as an oval, bigger
 		// than anything an architecture Diagram draws inside a system.
 		context: {
+			namespace: true,
 			width: 192,
 			height: 64,
 			outline: "oval",

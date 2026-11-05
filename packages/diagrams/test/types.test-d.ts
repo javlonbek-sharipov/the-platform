@@ -97,8 +97,28 @@ test("a Node defined once, as a constant, carries its Rows' names to every Diagr
 	});
 });
 
-test("a Link points at exactly one thing: an id, or a document", () => {
+test("a Link points at exactly one thing: an id, a document or a term", () => {
 	architecture({ title: "Shop" }, (d) => {
+		d.node({
+			id: "billing-api",
+			kind: "service",
+			title: "Billing API",
+			links: [{ term: "Invoice", context: "billing" }, { term: "Order" }],
+		});
+		d.node({
+			id: "billing",
+			kind: "system",
+			title: "Billing",
+			// @ts-expect-error: a term Link cannot also name an id.
+			links: [{ term: "Invoice", id: "invoice" }],
+		});
+		d.node({
+			id: "orders",
+			kind: "system",
+			title: "Orders",
+			// @ts-expect-error: only a term Link can name another context.
+			links: [{ doc: "orders.md", context: "ordering" }],
+		});
 		d.node({
 			id: "shop-api",
 			kind: "service",
@@ -186,8 +206,13 @@ test("a Diagram and a Node take a description, as a Group does, which is text", 
 	architecture({ title: "Stock", description: ["Counts"] }, () => {});
 });
 
-test("the Atlas config is an object with no settings until slice 2 adds its contexts", () => {
+test("the Atlas config types context entries and their glossary paths", () => {
 	atlas({});
+	atlas({ contexts: { billing: { glossary: "billing/GLOSSARY.md" } } });
+	// @ts-expect-error: a context entry names its glossary path.
+	atlas({ contexts: { billing: "billing/GLOSSARY.md" } });
+	// @ts-expect-error: a glossary path is text.
+	atlas({ contexts: { billing: { glossary: 7 } } });
 	// @ts-expect-error: the config has no such setting.
 	atlas({ contxts: {} });
 });

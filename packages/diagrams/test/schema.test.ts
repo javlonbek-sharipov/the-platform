@@ -99,7 +99,12 @@ const brokenModels: [what: string, pointer: string, value: unknown, rule: string
 		"model-shape",
 	],
 	["a Link to neither an id nor a document", "/nodes/2/links/0", { label: "x" }, "model-shape"],
-	["a Link to a glossary term", "/nodes/2/links/0", { term: "Order" }, "model-shape"],
+	[
+		"a term Link with two targets",
+		"/nodes/2/links/0",
+		{ term: "Order", doc: "x.md" },
+		"model-shape",
+	],
 	["a section on a Link to an id", "/nodes/2/links/0/section", "Storage", "model-shape"],
 	["a Link to an id that isn't kebab-case", "/nodes/2/links/0/id", "Orders DB", "id-format"],
 	["a Link's label that isn't a string", "/nodes/2/links/0/label", 7, "model-shape"],
@@ -113,7 +118,12 @@ const brokenModels: [what: string, pointer: string, value: unknown, rule: string
 	["a Group without members", "/groups/1/members", undefined, "model-shape"],
 	["a Group member that isn't a string", "/groups/0/members/0", 7, "model-shape"],
 	["a Group description that isn't a string", "/groups/0/description", ["x"], "model-shape"],
-	["a Group's Link to a glossary term", "/groups/0/links/0", { term: "Region" }, "model-shape"],
+	[
+		"a Group's term Link with two targets",
+		"/groups/0/links/0",
+		{ term: "Region", id: "eu-west" },
+		"model-shape",
+	],
 
 	["an Edge that isn't an object", "/edges/0", "shopper->web-app", "model-shape"],
 	["an Edge without an id", "/edges/0/id", undefined, "model-shape"],
@@ -190,7 +200,11 @@ describe("the JSON Schema", () => {
 			["a Group", "/groups/0", [group.properties]],
 			["an Edge", "/edges/1", [edge.properties]],
 			["an Edge end at a Row", "/edges/2/from", [$defs.rowEnd.properties]],
-			["a Link", "/nodes/2/links/0", [$defs.idLink.properties, $defs.docLink.properties]],
+			[
+				"a Link",
+				"/nodes/2/links/0",
+				[$defs.idLink.properties, $defs.docLink.properties, $defs.termLink.properties],
+			],
 		];
 		for (const [what, pointer, properties] of objects) {
 			// The core's message about a field it doesn't know lists the fields it does.

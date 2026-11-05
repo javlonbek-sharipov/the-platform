@@ -93,16 +93,36 @@ test("the Atlas index records a context as both Node and Group, and keeps equal 
 	expect(exported.stderr).toBe("");
 	const index = JSON.parse(await readFile(exported.stdout.trim(), "utf8"));
 	expect(index.ids).toEqual({
-		billing: { kind: "context", title: "Billing", asNode: ["docs/map"], asGroup: ["docs/billing"] },
-		"billing/order": { kind: "aggregate", title: "Order", asNode: ["docs/billing"], asGroup: [] },
+		billing: {
+			context: "billing",
+			kind: "context",
+			title: "Billing",
+			asNode: ["docs/map"],
+			asGroup: ["docs/billing"],
+		},
+		"billing/order": {
+			context: "billing",
+			kind: "aggregate",
+			title: "Order",
+			asNode: ["docs/billing"],
+			asGroup: [],
+		},
 		ordering: {
+			context: "ordering",
 			kind: "context",
 			title: "Ordering",
 			asNode: ["docs/map"],
 			asGroup: ["docs/ordering"],
 		},
-		"ordering/order": { kind: "aggregate", title: "Order", asNode: ["docs/ordering"], asGroup: [] },
+		"ordering/order": {
+			context: "ordering",
+			kind: "aggregate",
+			title: "Order",
+			asNode: ["docs/ordering"],
+			asGroup: [],
+		},
 		"ordering/order-placed": {
+			context: "ordering",
 			kind: "event",
 			title: "Order placed",
 			asNode: ["docs/billing", "docs/ordering"],

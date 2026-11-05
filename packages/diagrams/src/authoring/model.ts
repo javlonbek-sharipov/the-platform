@@ -135,10 +135,9 @@ export type GroupOf<N extends Notation> = Fields<
 
 /**
  * A "see also" pointer from a Node or a Group, which isn't drawn on the
- * Diagram. It points at exactly one thing: an id or a document. Term Links
- * come in slice 2.
+ * Diagram. It points at exactly one thing: an id, a document or a glossary term.
  */
-export type Link = IdLink | DocLink;
+export type Link = IdLink | DocLink | TermLink;
 
 /** A Link to another id in the Atlas. */
 export interface IdLink {
@@ -147,6 +146,8 @@ export interface IdLink {
 	label?: string;
 	doc?: never;
 	section?: never;
+	term?: never;
+	context?: never;
 }
 
 /** A Link to a Markdown document, such as an ADR or a spec, and optionally to one of its sections. */
@@ -158,6 +159,18 @@ export interface DocLink {
 	/** Replaces the text shown for the Link. */
 	label?: string;
 	id?: never;
+	term?: never;
+	context?: never;
+}
+
+/** A Link to a term in its owner's context, or in the context named explicitly. */
+export interface TermLink {
+	term: string;
+	context?: string;
+	label?: string;
+	id?: never;
+	doc?: never;
+	section?: never;
 }
 
 /** The optional fields that the model has for an Edge. */
@@ -251,4 +264,25 @@ export function parentsOf(diagram: AnyDiagram): Map<string, string> {
 		}
 	}
 	return parents;
+}
+
+/**
+ * The namespace an id belongs to: its own id for a namespace Node or Group,
+ * otherwise its full-id prefix. A borrowed Node keeps its owning namespace.
+ * The definition supplies namespace semantics; no Kind name is special here.
+ */
+export function namespaceOf(
+	diagram: AnyDiagram,
+	id: string,
+	notation: Notation,
+): string | undefined {
+	const node = diagram.nodes.find((node) => node.id === id);
+	const group = diagram.groups.find((group) => group.id === id);
+	if (
+		(node !== undefined && notation.nodeKinds[node.kind]?.namespace === true) ||
+		(group !== undefined && notation.groupKinds[group.kind]?.namespace === true)
+	)
+		return id;
+	const slash = id.lastIndexOf("/");
+	return slash < 0 ? undefined : id.slice(0, slash);
 }
