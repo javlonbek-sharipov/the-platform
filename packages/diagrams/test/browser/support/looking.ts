@@ -14,13 +14,17 @@ export interface ScreenBox {
 	bottom: number;
 }
 
-/** Each element that draws exactly this text in a Diagram, in the order they're drawn. */
+/**
+ * Each element that draws exactly this text in a Diagram, in the order
+ * they're drawn. An element that the page doesn't render draws nothing.
+ */
 export function textsOf(diagram: Element, text: string): SVGGraphicsElement[] {
 	return page
 		.elementLocator(diagram)
 		.getByText(text, { exact: true })
 		.elements()
-		.filter((element): element is SVGGraphicsElement => element instanceof SVGGraphicsElement);
+		.filter((element): element is SVGGraphicsElement => element instanceof SVGGraphicsElement)
+		.filter((element) => element.checkVisibility());
 }
 
 /** The element that draws a text which a Diagram shows once. */

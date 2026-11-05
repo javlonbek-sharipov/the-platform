@@ -22,6 +22,62 @@ function shop(direction: Direction = "right"): Diagram {
 /** The smallest a Row's text, 12 px in the drawing, may get on the screen and still be read. */
 const readable = 8 / 12;
 
+/** A chain of Nodes drawn `down`, 1104 px high: higher than the window the tests run in. */
+function tower(): Diagram {
+	return architecture({ title: "Tower", direction: "down" }, (d) => {
+		const floors = Array.from({ length: 8 }, (_, index) =>
+			d.node({ id: `floor-${index + 1}`, kind: "service", title: `Floor ${index + 1}` }),
+		);
+		floors.slice(1).forEach((floor, index) => {
+			d.edge(floors[index] ?? floor, floor, { kind: "call" });
+		});
+	});
+}
+
+describe("the component's size", () => {
+	test("is the size the page gives it", async () => {
+		const diagram = await mount(draw(shop()).svg, "width: 600px; height: 300px");
+
+		const frame = diagram.getBoundingClientRect();
+		expect(frame.width).toBe(600);
+		expect(frame.height).toBe(300);
+	});
+
+	test.for([
+		["narrower than its drawing", "width: 620px"],
+		["too narrow to show its drawing whole", "width: 400px"],
+		["wider than its drawing", "width: 1200px"],
+	] as const)(
+		"without a height, hugs its drawing as Fit frames it, when it's %s",
+		async ([, style]) => {
+			const { svg, scene } = draw(shop());
+
+			const diagram = await mount(svg, style);
+
+			const gaps = gapsOf(viewOf(diagram, scene).bounds, diagram.getBoundingClientRect());
+			// Above and below the drawing, only the padding is left.
+			expect(gaps.top).toBeGreaterThanOrEqual(8);
+			expect(gaps.top).toBeLessThanOrEqual(32);
+			expect(gaps.bottom).toBeCloseTo(gaps.top, 0);
+		},
+	);
+
+	test("without a height, stops short of the window's, so that the page can be scrolled past it", async () => {
+		const { svg, scene } = draw(tower());
+
+		const diagram = await mount(svg, "width: 600px");
+
+		const frame = diagram.getBoundingClientRect();
+		expect(frame.height).toBeGreaterThan(window.innerHeight / 2);
+		expect(frame.height).toBeLessThanOrEqual(window.innerHeight * 0.9);
+		// The drawing starts at its top, and its foot is out of view.
+		const gaps = gapsOf(viewOf(diagram, scene).bounds, frame);
+		expect(gaps.top).toBeGreaterThanOrEqual(8);
+		expect(gaps.top).toBeLessThanOrEqual(32);
+		expect(gaps.bottom).toBeLessThan(0);
+	});
+});
+
 describe("fit", () => {
 	test("shows the whole drawing, in the middle, with some padding around it", async () => {
 		const { svg, scene } = draw(shop());

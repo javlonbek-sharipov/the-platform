@@ -93,6 +93,20 @@ export class Camera {
 }
 
 /**
+ * The height, as a CSS length, of a stage that hugs a drawing as Fit frames
+ * it, in a stage as wide as its container: `100cqw`. The drawing takes the
+ * width left between the paddings, at a scale from the smallest that reads to
+ * its natural size, and the stage is as high as the drawing is then, with
+ * its paddings.
+ */
+export function huggingHeight(bounds: Box): string {
+	const least = bounds.height * readable;
+	const most = bounds.height * natural;
+	const across = `(100cqw - ${2 * padding}px) * ${bounds.height / bounds.width}`;
+	return `calc(clamp(${least}px, ${across}, ${most}px) + ${2 * padding}px)`;
+}
+
+/**
  * Where the view starts along one axis, to show a stretch of the drawing in
  * a room of the stage: in the middle of the room if the stretch fits in it,
  * and with the stretch's start one padding in if it doesn't.

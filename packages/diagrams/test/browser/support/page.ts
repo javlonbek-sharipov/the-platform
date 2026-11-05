@@ -13,14 +13,26 @@ export async function frame(): Promise<void> {
 	await new Promise((resolve) => requestAnimationFrame(resolve));
 }
 
+/** Puts an element at the end of the page, until the test is over. */
+export function place<T extends Element>(element: T): T {
+	const holder = document.createElement("div");
+	holder.dataset.test = "holder";
+	holder.append(element);
+	document.body.append(holder);
+	return element;
+}
+
+/** The next event of a type that a target dispatches. */
+export function next(target: EventTarget, type: string): Promise<Event> {
+	return new Promise((resolve) => target.addEventListener(type, resolve, { once: true }));
+}
+
 /**
  * Puts HTML at the end of the page, parsed as a page's own HTML is, and
  * gives back its `<platform-diagram>`, once the browser has laid it out.
  */
 export async function show(html: string): Promise<HTMLElement> {
-	const holder = document.createElement("div");
-	holder.dataset.test = "holder";
-	document.body.append(holder);
+	const holder = place(document.createElement("div"));
 	holder.insertAdjacentHTML("beforeend", html);
 	const diagram = holder.querySelector<HTMLElement>("platform-diagram");
 	if (diagram === null) {
