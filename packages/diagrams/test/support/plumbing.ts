@@ -32,6 +32,12 @@ export const plumbingNotation = {
 		// A spout.
 		tap: { width: 144, height: 48, outline: "pill", badge: "M 2 8 H 14 M 8 2 V 14", hue: "metal" },
 	},
+	// Plumbing has no Technologies, callouts, Links or rates.
+	fields: {
+		node: ["external", "status", "rows", "description"],
+		group: ["description"],
+		edge: ["label"],
+	},
 	// Whether its valve is open comes first, and whose it is goes unsaid.
 	facts: ["status", "kind"],
 	statuses: {

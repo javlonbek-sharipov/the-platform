@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { render } from "../src/index.ts";
+import { architectureNotation, render } from "../src/index.ts";
 import {
 	draw,
 	edgeGroupOf,
@@ -445,5 +445,83 @@ describe("a Notation defined only in the tests", () => {
 		expect(root.children.find((child) => child.name === "desc")?.text).toBe(
 			"Nodes: Boiler (tank); Kitchen tap (shut, tap). Edges: none.",
 		);
+	});
+
+	test("lets its Nodes, Groups and Edges have only the fields its definition lists", () => {
+		const cellar = (node: object, group: object, edge: object) =>
+			plumbingModel({
+				members: ["cellar"],
+				nodes: [
+					{ id: "boiler", kind: "tank", title: "Boiler", ...node },
+					{ id: "pump", kind: "pump", title: "Pump" },
+				],
+				groups: [
+					{ id: "cellar", kind: "room", title: "Cellar", members: ["boiler", "pump"], ...group },
+				],
+				edges: [{ id: "boiler->pump", kind: "pipe", from: "boiler", to: "pump", ...edge }],
+			});
+		const leftOut = (pointer: string, thing: string, fields: string) => ({
+			severity: "error",
+			rule: "model-shape",
+			message: `\`${pointer}\` must be left out: ${thing} has no such field in the plumbing Notation. Its fields are ${fields}.`,
+			pointer,
+		});
+		const nodeFields = "`id`, `kind`, `title`, `external`, `status`, `rows` and `description`";
+		const groupFields = "`id`, `kind`, `title`, `members` and `description`";
+		const edgeFields = "`id`, `kind`, `from`, `to` and `label`";
+
+		const allowed = cellar(
+			{
+				external: true,
+				status: "open",
+				rows: [{ name: "litres", value: "200" }],
+				description: "Heats the water.",
+			},
+			{ description: "Below the kitchen." },
+			{ label: "Hot water" },
+		);
+		expect(renderPlumbing(allowed).diagnostics).toEqual([]);
+
+		// Fields that the model has, and that another Notation's Diagrams may have.
+		const others = cellar(
+			{ technology: "copper", callout: "leaks", links: [{ id: "pump" }] },
+			{ links: [{ id: "pump" }] },
+			{ technology: "copper", rate: 7 },
+		);
+		expect(renderPlumbing(others)).toEqual({
+			diagnostics: [
+				leftOut("/nodes/0/technology", "a Node", nodeFields),
+				leftOut("/nodes/0/callout", "a Node", nodeFields),
+				leftOut("/nodes/0/links", "a Node", nodeFields),
+				leftOut("/groups/0/links", "a Group", groupFields),
+				leftOut("/edges/0/technology", "an Edge", edgeFields),
+				leftOut("/edges/0/rate", "an Edge", edgeFields),
+			],
+		});
+		// A field that the model doesn't have at all is listed against the Notation's fields too.
+		expect(renderPlumbing(cellar({ extrenal: true }, {}, {})).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "model-shape",
+				message: `\`/nodes/0/extrenal\` must be left out: a Node has no such field. Its fields are ${nodeFields}.`,
+				pointer: "/nodes/0/extrenal",
+			},
+		]);
+	});
+
+	test("is checked against its own fields, beside a Diagram of another Notation that has more", () => {
+		const both = { notations: [architectureNotation, plumbingNotation] };
+		const calledOut = (notation: string, kind: string) => ({
+			...plumbingModel({
+				members: ["boiler"],
+				nodes: [{ id: "boiler", kind, title: "Boiler", callout: "leaks" }],
+			}),
+			notation,
+		});
+
+		expect(render(calledOut("architecture", "service"), both).diagnostics).toEqual([]);
+		expect(render(calledOut("plumbing", "tank"), both).diagnostics).toMatchObject([
+			{ severity: "error", rule: "model-shape", pointer: "/nodes/0/callout" },
+		]);
 	});
 });

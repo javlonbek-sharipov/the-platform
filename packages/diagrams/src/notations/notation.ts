@@ -22,6 +22,16 @@ export interface Notation {
 	/** Its Node Kinds, in the order messages list them, each with its look. */
 	nodeKinds: Record<string, NodeKindDefinition>;
 	/**
+	 * The fields its Diagrams may have: of the optional fields that the model
+	 * has for a Node, a Group and an Edge, the ones that its own may have.
+	 * Any other is an error on one of its Diagrams.
+	 */
+	fields: {
+		node: readonly NodeField[];
+		group: readonly GroupField[];
+		edge: readonly EdgeField[];
+	};
+	/**
 	 * The facts that the SVG's description lists for each Node, after its
 	 * title, in this order. A fact that a Node lacks, such as a status, is
 	 * left out.
@@ -54,6 +64,36 @@ export interface NodeKindDefinition {
 	badge: string;
 	/** Which of the Notation's hues the Node takes. */
 	hue: string;
+}
+
+/**
+ * The optional fields that the model has for a Node, a Group and an Edge, in
+ * the model's order. Each Notation's definition lists those that its
+ * Diagrams may have.
+ */
+export const optionalFields = {
+	node: ["technology", "external", "status", "rows", "description", "links", "callout"],
+	group: ["description", "links"],
+	edge: ["label", "technology", "rate"],
+} as const;
+
+export type NodeField = (typeof optionalFields.node)[number];
+export type GroupField = (typeof optionalFields.group)[number];
+export type EdgeField = (typeof optionalFields.edge)[number];
+
+/**
+ * Whether a Notation's Nodes, Groups or Edges may have a field of the model:
+ * every field that isn't optional, and the optional ones that its definition
+ * lists.
+ */
+export function hasField(
+	notation: Notation,
+	thing: keyof Notation["fields"],
+	field: string,
+): boolean {
+	const optional: readonly string[] = optionalFields[thing];
+	const listed: readonly string[] = notation.fields[thing];
+	return !optional.includes(field) || listed.includes(field);
 }
 
 /**

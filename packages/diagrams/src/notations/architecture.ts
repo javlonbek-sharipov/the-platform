@@ -152,6 +152,11 @@ export const architectureNotation = {
 			hue: "data",
 		},
 	},
+	fields: {
+		node: ["technology", "external", "status", "rows", "description", "links", "callout"],
+		group: ["description", "links"],
+		edge: ["label", "technology", "rate"],
+	},
 	// The description names what the drawing shows only as a logo, a dashed
 	// outline or a mark.
 	facts: ["kind", "technology", "external", "status"],

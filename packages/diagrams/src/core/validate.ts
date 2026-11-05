@@ -15,8 +15,11 @@ import {
 } from "../authoring/model.ts";
 import { unknownOptionsOf } from "../authoring/options.ts";
 import {
+	type EdgeField,
 	edgeKindsOf,
 	groupKindsOf,
+	hasField,
+	type NodeField,
 	type Notation,
 	nodeKindsOf,
 	statusesOf,
@@ -53,7 +56,9 @@ function fieldsOf<T>(fields: Record<keyof T, true>): readonly string[] {
 
 /**
  * Every field that a version-1 model may have. Any other is an error, as the
- * types make it one, so that a misspelled field is never silently ignored.
+ * types make it one, so that a misspelled field is never silently ignored. Of
+ * the optional fields of a Node, a Group and an Edge, a Diagram may have only
+ * those that its Notation's definition lists.
  */
 const fields = {
 	diagram: fieldsOf<Diagram>({
@@ -108,15 +113,16 @@ const fields = {
  * the one of `notations` that it names.
  */
 export function validate(input: unknown, notations: readonly Notation[]): Validation {
-	const shape = checkShape(input, notations);
+	const read = readNotation(input, notations);
+	if ("diagnostics" in read) {
+		return read;
+	}
+	const { notation } = read;
+	const shape = checkShape(read.model, notation);
 	if (shape.length > 0) {
 		return { diagnostics: shape };
 	}
 	const diagram = input as Diagram;
-	const notation = notations.find(({ name }) => name === diagram.notation);
-	if (notation === undefined) {
-		throw new Error("The shape check lets through only a Diagram in one of the Notations");
-	}
 	const nodeKinds: readonly string[] = nodeKindsOf(notation);
 	const groupKinds: readonly string[] = groupKindsOf(notation);
 	const edgeKinds: readonly string[] = edgeKindsOf(notation);
@@ -603,35 +609,53 @@ function checkCycles(diagram: Diagram, parents: Map<string, string | undefined>)
 }
 
 /**
- * Checks that the input is a version-1 model of the architecture Notation,
- * with every field of the right type and no field that the model doesn't
- * have, so the rules after it can read it.
+ * Reads which Notation the input is written in: it must be a version-1
+ * model, in one of the Notations. Every other rule depends on its Notation.
  */
-function checkShape(input: unknown, notations: readonly Notation[]): Diagnostic[] {
+function readNotation(
+	input: unknown,
+	notations: readonly Notation[],
+): { diagnostics: Diagnostic[] } | { model: Record<string, unknown>; notation: Notation } {
 	if (!isObject(input)) {
-		return [error("model-shape", "A Diagram must be a JSON object.", "")];
+		return { diagnostics: [error("model-shape", "A Diagram must be a JSON object.", "")] };
 	}
 	if (input.version !== 1) {
-		return [
-			error(
-				"model-version",
-				input.version === undefined
-					? "The model has no `version`. This engine reads version 1 of the JSON model."
-					: `This engine reads version 1 of the JSON model, not version ${JSON.stringify(input.version)}.`,
-				"/version",
-			),
-		];
+		return {
+			diagnostics: [
+				error(
+					"model-version",
+					input.version === undefined
+						? "The model has no `version`. This engine reads version 1 of the JSON model."
+						: `This engine reads version 1 of the JSON model, not version ${JSON.stringify(input.version)}.`,
+					"/version",
+				),
+			],
+		};
 	}
-	if (!notations.some(({ name }) => name === input.notation)) {
-		return [
-			error(
-				"unknown-notation",
-				`The Diagram's Notation is \`${String(input.notation)}\`, which this engine doesn't have. Its Notations are ${list(notations.map(({ name }) => name))}.`,
-				"/notation",
-			),
-		];
+	const notation = notations.find(({ name }) => name === input.notation);
+	if (notation === undefined) {
+		return {
+			diagnostics: [
+				error(
+					"unknown-notation",
+					`The Diagram's Notation is \`${String(input.notation)}\`, which this engine doesn't have. Its Notations are ${list(notations.map(({ name }) => name))}.`,
+					"/notation",
+				),
+			],
+		};
 	}
+	return { model: input, notation };
+}
 
+/** What checks one optional field's value, at its pointer. */
+type FieldCheck = (value: unknown, at: string) => void;
+
+/**
+ * Checks that a version-1 model has every field of the right type, and no
+ * field that the model doesn't have, or that its Notation's Diagrams don't,
+ * so the rules after it can read it.
+ */
+function checkShape(input: Record<string, unknown>, notation: Notation): Diagnostic[] {
 	// The authoring API's functions record each option they don't know, rather
 	// than leave it behind, so that it's rejected as a field the model doesn't
 	// have would be.
@@ -665,29 +689,60 @@ function checkShape(input: unknown, notations: readonly Notation[]): Diagnostic[
 	};
 	/**
 	 * Reports each field of `value` that `thing` doesn't have, listing those it
-	 * does. `alsoRead` holds fields that a later check reports in its own words.
+	 * does. `all` holds every field that the model has for it, of which its
+	 * Notation's Diagrams may have only some. `alsoRead` holds fields that a
+	 * later check reports in its own words.
 	 */
 	const checkFields = (
 		value: Record<string, unknown>,
 		pointer: string,
 		thing: string,
 		known: readonly string[],
+		all: readonly string[] = known,
 		alsoRead: readonly string[] = [],
 	) => {
 		for (const field of Object.keys(value)) {
 			if (!known.includes(field) && !alsoRead.includes(field)) {
 				const at = `${pointer}/${pointerSegment(field)}`;
 				const listed = list(known.map((name) => `\`${name}\``));
+				const where = all.includes(field) ? ` in the ${notation.name} Notation` : "";
 				diagnostics.push(
 					error(
 						"model-shape",
-						`\`${at}\` must be left out: ${thing} has no such field. Its fields are ${listed}.`,
+						`\`${at}\` must be left out: ${thing} has no such field${where}. Its fields are ${listed}.`,
 						at,
 					),
 				);
 			}
 		}
 	};
+	/** The fields that the Notation's Nodes, Groups or Edges may have, in the model's order. */
+	const fieldsOfIts = (thing: "node" | "group" | "edge") =>
+		fields[thing].filter((field) => hasField(notation, thing, field));
+	/**
+	 * Checks each optional field that `value` has and that its Notation's
+	 * Diagrams may have, in the order of `checks`. One they may not have is
+	 * already reported as a field to leave out.
+	 */
+	const checkOptional = <F extends string>(
+		value: Record<string, unknown>,
+		pointer: string,
+		thing: "node" | "group" | "edge",
+		checks: Record<F, FieldCheck>,
+	) => {
+		for (const [field, checkField] of Object.entries<FieldCheck>(checks)) {
+			if (hasField(notation, thing, field) && value[field] !== undefined) {
+				checkField(value[field], `${pointer}/${field}`);
+			}
+		}
+	};
+	const isText: FieldCheck = (value, at) => check(typeof value === "string", at, "a string");
+	const isSomeText: FieldCheck = (value, at) =>
+		check(
+			typeof value === "string" && /[^ \t\n\r]/.test(value),
+			at,
+			"a string with some text in it",
+		);
 
 	checkFields(input, "", "a Diagram", fields.diagram);
 	check(input.id === undefined || typeof input.id === "string", "/id", "a string");
@@ -711,7 +766,7 @@ function checkShape(input: unknown, notations: readonly Notation[]): Diagnostic[
 			return;
 		}
 		// A Link to a glossary term is reported below, as a Link without a target.
-		checkFields(link, at, "a Link", fields.link, ["term"]);
+		checkFields(link, at, "a Link", fields.link, fields.link, ["term"]);
 		const targets = ["id", "doc", "term"].filter((field) => link[field] !== undefined);
 		const [target] = targets;
 		if (target === undefined || target === "term" || targets.length > 1) {
@@ -759,81 +814,53 @@ function checkShape(input: unknown, notations: readonly Notation[]): Diagnostic[
 		}
 	};
 
+	const nodeChecks: Record<NodeField, FieldCheck> = {
+		technology: isText,
+		external: (value, at) => check(typeof value === "boolean", at, "`true` or `false`"),
+		status: isText,
+		description: isText,
+		callout: isSomeText,
+		rows: (rows, at) => checkList(rows, at, checkRow),
+		links: (links, at) => checkList(links, at, checkLink),
+	};
 	checkList(input.nodes, "/nodes", (node, at) => {
 		if (isObject(node)) {
-			checkFields(node, at, "a Node", fields.node);
+			checkFields(node, at, "a Node", fieldsOfIts("node"), fields.node);
 		}
 		checkStrings(node, at, ["id", "kind", "title"]);
 		if (isObject(node)) {
-			const { technology, external, status, description, callout } = node;
-			check(
-				technology === undefined || typeof technology === "string",
-				`${at}/technology`,
-				"a string",
-			);
-			check(
-				external === undefined || typeof external === "boolean",
-				`${at}/external`,
-				"`true` or `false`",
-			);
-			check(status === undefined || typeof status === "string", `${at}/status`, "a string");
-			check(
-				description === undefined || typeof description === "string",
-				`${at}/description`,
-				"a string",
-			);
-			check(
-				callout === undefined || (typeof callout === "string" && /[^ \t\n\r]/.test(callout)),
-				`${at}/callout`,
-				"a string with some text in it",
-			);
-		}
-		if (isObject(node) && node.rows !== undefined) {
-			checkList(node.rows, `${at}/rows`, checkRow);
-		}
-		if (isObject(node) && node.links !== undefined) {
-			checkList(node.links, `${at}/links`, checkLink);
+			checkOptional(node, at, "node", nodeChecks);
 		}
 	});
 	checkList(input.groups, "/groups", (group, at) => {
 		if (isObject(group)) {
-			checkFields(group, at, "a Group", fields.group);
+			checkFields(group, at, "a Group", fieldsOfIts("group"), fields.group);
 		}
 		checkStrings(group, at, ["id", "kind", "title"]);
 		if (isObject(group)) {
-			check(
-				group.description === undefined || typeof group.description === "string",
-				`${at}/description`,
-				"a string",
-			);
+			checkOptional(group, at, "group", { description: isText });
 			checkList(group.members, `${at}/members`, (member, memberAt) => {
 				check(typeof member === "string", memberAt, "an id");
 			});
-			if (group.links !== undefined) {
-				checkList(group.links, `${at}/links`, checkLink);
-			}
+			checkOptional(group, at, "group", {
+				links: (links, linksAt) => checkList(links, linksAt, checkLink),
+			});
 		}
 	});
+	const edgeChecks: Record<EdgeField, FieldCheck> = {
+		label: isSomeText,
+		technology: isText,
+		rate: isText,
+	};
 	checkList(input.edges, "/edges", (edge, at) => {
 		if (isObject(edge)) {
-			checkFields(edge, at, "an Edge", fields.edge);
+			checkFields(edge, at, "an Edge", fieldsOfIts("edge"), fields.edge);
 		}
 		checkStrings(edge, at, ["id", "kind"]);
 		if (isObject(edge)) {
-			const { label, technology, rate } = edge;
 			checkEnd(edge.from, `${at}/from`);
 			checkEnd(edge.to, `${at}/to`);
-			check(
-				label === undefined || (typeof label === "string" && /[^ \t\n\r]/.test(label)),
-				`${at}/label`,
-				"a string with some text in it",
-			);
-			check(
-				technology === undefined || typeof technology === "string",
-				`${at}/technology`,
-				"a string",
-			);
-			check(rate === undefined || typeof rate === "string", `${at}/rate`, "a string");
+			checkOptional(edge, at, "edge", edgeChecks);
 		}
 	});
 	// Walkthroughs come in slice 4. Until then, one would be dropped unseen.
