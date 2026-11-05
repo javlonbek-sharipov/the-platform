@@ -120,7 +120,7 @@ describe("diagrams render and lint", () => {
 
 	test("an option that the builder or the config doesn't know is an error at the call it's given to, so it never vanishes", async () => {
 		const atlas = await sampleAtlas({
-			"diagrams.config.ts": sampleConfig.replace("atlas({})", "atlas({ contexts: {} })"),
+			"diagrams.config.ts": sampleConfig.replace("atlas({})", "atlas({ contxts: {} })"),
 			"docs/shop.diagram.ts": shopModule().replace(
 				'{ kind: "call" }',
 				'{ kind: "call", lable: "Buys" }',
@@ -131,7 +131,7 @@ describe("diagrams render and lint", () => {
 		expect(render).toEqual({
 			code: 1,
 			stdout:
-				"diagrams.config.ts:3:16: error: The Atlas config has no option `contexts`. It has no options yet. (model-shape)\n" +
+				"diagrams.config.ts:3:16: error: The Atlas config has no option `contxts`. Its options are `contexts`. (model-shape)\n" +
 				"docs/shop.diagram.ts:6:4: error: An Edge has no option `lable`. Its options are `kind`, `id`, `label`, `technology` and `rate`. (model-shape)\n",
 			stderr: "",
 		});
@@ -140,7 +140,7 @@ describe("diagrams render and lint", () => {
 		expect(await runCli(["lint"], atlas)).toEqual({
 			code: 1,
 			stdout:
-				"diagrams.config.ts:3:16: error: The Atlas config has no option `contexts`. It has no options yet. (model-shape)\n" +
+				"diagrams.config.ts:3:16: error: The Atlas config has no option `contxts`. Its options are `contexts`. (model-shape)\n" +
 				"docs/shop.diagram.ts:6:4: error: An Edge has no option `lable`. Its options are `kind`, `id`, `label`, `technology` and `rate`. (model-shape)\n" +
 				"Checked 1 Diagram: 2 errors.\n",
 			stderr: "",

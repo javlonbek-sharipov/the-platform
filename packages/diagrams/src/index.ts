@@ -1,5 +1,7 @@
 /** The public surface of @the-platform/diagrams: the authoring API and the core. */
 
+export { termOf } from "./atlas/terms.ts";
+export type { AtlasIndex, GlossaryTerm } from "./atlas/types.ts";
 export type {
 	ArchitectureBuilder,
 	ArchitectureGroup,
@@ -9,7 +11,7 @@ export type {
 	EdgeOptions,
 } from "./authoring/architecture.ts";
 export { architecture } from "./authoring/architecture.ts";
-export type { AtlasConfig } from "./authoring/atlas.ts";
+export type { AtlasConfig, AtlasContext } from "./authoring/atlas.ts";
 export { atlas } from "./authoring/atlas.ts";
 export type {
 	Builder,
@@ -50,7 +52,9 @@ export type {
 	NodeOf,
 	Row,
 	RowEnd,
+	TermLink,
 } from "./authoring/model.ts";
+export { namespaceOf } from "./authoring/model.ts";
 export type { Bundling } from "./core/bundles.ts";
 export type { Diagnostic, Severity } from "./core/diagnostics.ts";
 export type { RenderOptions, RenderResult } from "./core/render.ts";

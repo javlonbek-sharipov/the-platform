@@ -6,13 +6,16 @@
 
 import { readFileSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
+import type { AtlasConfig } from "../authoring/atlas.ts";
 import type { Declarations } from "../authoring/declarations.ts";
-import type { AnyDiagram, Link } from "../authoring/model.ts";
+import { type AnyDiagram, type Link, namespaceOf } from "../authoring/model.ts";
 import { list } from "../core/diagnostics.ts";
 import type { Notation } from "../notations/notation.ts";
 import { notations } from "../notations/notations.ts";
 import { anchorOf, headingAnchors } from "./markdown.ts";
 import { type AtlasMessage, located } from "./messages.ts";
+import { termOf } from "./terms.ts";
+import type { GlossaryTerm } from "./types.ts";
 
 /** A Diagram that passed validation, with where its module declared each thing. */
 export interface CheckedDiagram {
@@ -154,6 +157,8 @@ export function checkLinks(
 	root: string,
 	diagrams: CheckedDiagram[],
 	drawn: ReadonlySet<string>,
+	config: AtlasConfig,
+	terms: readonly GlossaryTerm[],
 ): AtlasMessage[] {
 	const anchors = new Map<string, Set<string>>();
 	const anchorsIn = (file: string) => {
@@ -162,9 +167,19 @@ export function checkLinks(
 		return known;
 	};
 	/** What's wrong with a Link, as the end of a sentence that starts "has a Link to". */
-	const problemWith = (link: Link): string | undefined => {
+	const problemWith = (link: Link, context: string | undefined): string | undefined => {
 		if (link.id !== undefined) {
 			return drawn.has(link.id) ? undefined : `\`${link.id}\`, which no Diagram in the Atlas draws`;
+		}
+		if (link.term !== undefined) {
+			const named = link.context ?? context;
+			if (named === undefined)
+				return `term \`${link.term}\`, but this id has no context. Name the glossary's \`context\` in the Link`;
+			if (!Object.hasOwn(config.contexts ?? {}, named))
+				return `term \`${link.term}\` in context \`${named}\`, which has no glossary in \`diagrams.config.ts\``;
+			return termOf(terms, link, context) === undefined
+				? `term \`${link.term}\`, which context \`${named}\`'s glossary doesn't define`
+				: undefined;
 		}
 		const file = resolve(root, link.doc);
 		const path = relative(root, file);
@@ -180,7 +195,11 @@ export function checkLinks(
 	return diagrams.flatMap(({ module, model, declarations }) =>
 		thingsOf(model).flatMap(({ thing, id, links, pointer }) =>
 			(links ?? []).flatMap((link, linkIndex) => {
-				const problem = problemWith(link);
+				const notation: Notation | undefined = notations.find(
+					({ name }) => name === model.notation,
+				);
+				const context = notation === undefined ? undefined : namespaceOf(model, id, notation);
+				const problem = problemWith(link, context);
 				return problem === undefined
 					? []
 					: [
