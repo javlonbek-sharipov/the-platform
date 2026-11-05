@@ -6,3 +6,13 @@ packages:
 # script does that instead, so the step is visible in package.json.
 allowBuilds:
   lefthook: false
+
+# Astro's optional image service, sharp, brings libvips, which is LGPL. The
+# docs site doesn't process images, so it's left out (spec: Dependencies).
+ignoredOptionalDependencies:
+  - sharp
+
+# pnpm added this when the docs site was set up, less than a day after this
+# release came out. It can go once the lockfile has moved past this version.
+minimumReleaseAgeExclude:
+  - "@astrojs/starlight@0.42.9"
