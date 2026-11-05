@@ -42,6 +42,7 @@ export type {
 	SceneGroup,
 	SceneJunction,
 	SceneLabel,
+	SceneLogo,
 	SceneNode,
 	ScenePort,
 	SceneRow,

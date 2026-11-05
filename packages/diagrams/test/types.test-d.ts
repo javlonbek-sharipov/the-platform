@@ -12,6 +12,9 @@ import {
 	type KnownTechnology,
 	type NodeHandle,
 	type RowEnd,
+	type SceneLabel,
+	type SceneLogo,
+	type SceneNode,
 	type Technology,
 } from "../src/index.ts";
 
@@ -225,4 +228,10 @@ test("`technology` autocompletes the slugs that have a logo, and accepts any oth
 		// @ts-expect-error: a Technology is a slug, written as a string.
 		d.node({ id: "shop-db", kind: "database", title: "Shop database", technology: 7 });
 	});
+});
+
+test("the scene's types are exported for tests and future renderers, logos included", () => {
+	expectTypeOf<SceneNode["logo"]>().toEqualTypeOf<SceneLogo | undefined>();
+	expectTypeOf<SceneLabel["logo"]>().toEqualTypeOf<SceneLogo | undefined>();
+	expectTypeOf<SceneLogo["technology"]>().toEqualTypeOf<string>();
 });
