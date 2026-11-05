@@ -7,6 +7,7 @@
 
 import { type ColorName, palette } from "../core/theme.ts";
 import { parts } from "./parts.ts";
+import { tooltipCss } from "./tooltip.ts";
 
 /**
  * The colors that all Diagrams share, as the stage's own properties:
@@ -63,4 +64,4 @@ ${themeOf("dark")}
 `;
 
 export const styles = new CSSStyleSheet();
-styles.replaceSync([css, ...parts.map((part) => part.css ?? "")].join(""));
+styles.replaceSync([css, tooltipCss, ...parts.map((part) => part.css ?? "")].join(""));

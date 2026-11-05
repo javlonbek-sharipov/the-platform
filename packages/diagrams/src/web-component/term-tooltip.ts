@@ -4,6 +4,7 @@ import { termOf } from "../atlas/terms.ts";
 import type { AnyNode } from "../authoring/model.ts";
 import type { Part } from "./stage.ts";
 import { modelOf } from "./svg.ts";
+import { createTooltip } from "./tooltip.ts";
 
 export const termTooltip: Part = {
 	css: `.term-definition { white-space: pre-wrap; }`,
@@ -11,23 +12,17 @@ export const termTooltip: Part = {
 		onShow((svg) => {
 			const model = modelOf(svg);
 			if (model === undefined) return undefined;
-			const tooltip = document.createElement("div");
-			tooltip.setAttribute("role", "tooltip");
-			tooltip.hidden = true;
-			element.append(tooltip);
 			let hovered: AnyNode | undefined;
 			let pointer: PointerEvent | undefined;
-			const position = () => {
-				if (pointer === undefined) return;
-				const frame = element.getBoundingClientRect();
-				const { width, height } = tooltip.getBoundingClientRect();
-				tooltip.style.left = `${Math.max(8, Math.min(pointer.clientX - frame.left + 12, frame.width - width - 8))}px`;
-				tooltip.style.top = `${Math.max(8, Math.min(pointer.clientY - frame.top + 12, frame.height - height - 8))}px`;
-			};
-			const hide = () => {
+			const {
+				element: tooltip,
+				signal,
+				hide,
+				position,
+				remove,
+			} = createTooltip(element, () => {
 				hovered = undefined;
-				tooltip.hidden = true;
-			};
+			});
 			const show = () => {
 				const context = hovered === undefined ? undefined : navigation.contextOf(model, hovered.id);
 				const terms = new Set(
@@ -49,11 +44,9 @@ export const termTooltip: Part = {
 					tooltip.append(title, definition);
 				}
 				tooltip.hidden = terms.size === 0;
-				position();
+				position(pointer);
 			};
 			const unwatch = navigation.watch(show);
-			const events = new AbortController();
-			const { signal } = events;
 			for (const drawn of svg.querySelectorAll<SVGGElement>("[data-node]")) {
 				const node = model.nodes.find(({ id }) => id === drawn.dataset.node);
 				if (!node?.links?.some((link) => link.term !== undefined)) continue;
@@ -70,23 +63,15 @@ export const termTooltip: Part = {
 					"pointermove",
 					(event) => {
 						pointer = event;
-						position();
+						position(pointer);
 					},
 					{ signal },
 				);
 				drawn.addEventListener("pointerleave", hide, { signal });
 			}
-			element.addEventListener(
-				"keydown",
-				(event) => {
-					if (event.key === "Escape") hide();
-				},
-				{ signal },
-			);
 			return () => {
-				events.abort();
 				unwatch();
-				tooltip.remove();
+				remove();
 			};
 		});
 	},

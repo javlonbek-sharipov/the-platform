@@ -4,45 +4,16 @@ import { technologyOf } from "../core/technology.ts";
 import { collapseSpaces } from "../core/text.ts";
 import type { Part } from "./stage.ts";
 import { modelOf } from "./svg.ts";
+import { createTooltip } from "./tooltip.ts";
 
 export const edgeTooltip: Part = {
-	css: `
-[role="tooltip"] {
-	position: absolute;
-	z-index: 1;
-	max-width: min(32rem, calc(100% - 32px));
-	box-sizing: border-box;
-	padding: 8px 12px;
-	border: 1px solid var(--theme-border);
-	border-radius: 4px;
-	background: var(--theme-surface);
-	color: var(--theme-ink);
-	font: 13px / 1.5 Helvetica, Arial, sans-serif;
-	overflow-wrap: anywhere;
-	pointer-events: none;
-}
-`,
 	setUp({ element, onShow }) {
 		onShow((svg) => {
 			const diagram = modelOf(svg);
 			if (diagram === undefined) {
 				return undefined;
 			}
-			const tooltip = document.createElement("div");
-			tooltip.setAttribute("role", "tooltip");
-			tooltip.hidden = true;
-			element.append(tooltip);
-			const events = new AbortController();
-			const { signal } = events;
-			const hide = () => {
-				tooltip.hidden = true;
-			};
-			const position = (event: PointerEvent) => {
-				const frame = element.getBoundingClientRect();
-				const { width, height } = tooltip.getBoundingClientRect();
-				tooltip.style.left = `${Math.max(8, Math.min(event.clientX - frame.left + 12, frame.width - width - 8))}px`;
-				tooltip.style.top = `${Math.max(8, Math.min(event.clientY - frame.top + 12, frame.height - height - 8))}px`;
-			};
+			const { element: tooltip, signal, hide, position, remove } = createTooltip(element);
 			for (const part of svg.querySelectorAll<SVGGElement>(
 				"[data-edge], [data-edge-label], [data-edge-role]",
 			)) {
@@ -80,19 +51,7 @@ export const edgeTooltip: Part = {
 				part.addEventListener("pointermove", position, { signal });
 				part.addEventListener("pointerleave", hide, { signal });
 			}
-			element.addEventListener(
-				"keydown",
-				(event) => {
-					if (event.key === "Escape") {
-						hide();
-					}
-				},
-				{ signal },
-			);
-			return () => {
-				events.abort();
-				tooltip.remove();
-			};
+			return remove;
 		});
 	},
 };
