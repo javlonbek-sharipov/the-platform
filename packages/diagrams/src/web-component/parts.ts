@@ -1,5 +1,6 @@
 /** The component's parts, in the order they're set up on its stage. */
 
+import { details } from "./details.ts";
 import { edgeTooltip } from "./edge-tooltip.ts";
 import { flow } from "./flow.ts";
 import { focus } from "./focus.ts";
@@ -21,4 +22,5 @@ export const parts: Part[] = [
 	edgeTooltip,
 	keyboard,
 	readerLists,
+	details,
 ];
