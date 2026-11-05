@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { readFile, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -155,7 +155,12 @@ describe("the docs site of a sample repo", () => {
 	let site: Site;
 
 	beforeAll(async () => {
-		site = await buildSite(await sampleRepo(shop));
+		const repo = await sampleRepo(shop);
+		// Links that lead from where our docs are into `repos/`: a folder of docs, a doc, and a package.
+		await symlink("../repos/quorum/docs", join(repo, "docs/theirs"));
+		await symlink("../repos/quorum/docs/board.md", join(repo, "docs/their-board.md"));
+		await symlink("../repos/quorum", join(repo, "packages/quorum"));
+		site = await buildSite(repo);
 	}, 120_000);
 
 	afterAll(closeBrowser);
@@ -520,6 +525,8 @@ describe("the docs site, while it's being developed", { timeout: 20_000 }, () =>
 			"packages/shop/docs/checkout.diagram.svg": svg,
 			"repos/quorum/docs/board.md": theirs("# Board"),
 		});
+		// A link from among our docs into `repos/` isn't followed there either.
+		await symlink("../repos/quorum/docs", join(repo, "docs/theirs"));
 		site = await developSite(repo);
 	}, 120_000);
 
@@ -574,15 +581,6 @@ describe("the docs site, while it's being developed", { timeout: 20_000 }, () =>
 		await soon(() => site.page("packages/shop/docs/checkout")).toContain(">Payments API</text>");
 	});
 
-	test("shows a doc that's added", async () => {
-		await writeFile(
-			join(repo, "docs/specs/refunds.md"),
-			lines("# Refunds v1", "", "Shoppers get their money back."),
-		);
-
-		await soon(() => site.page("docs/specs/refunds")).toContain("Shoppers get their money back.");
-	});
-
 	test("goes on after a doc breaks, and shows the doc once it's mended", async () => {
 		const doc = join(repo, "docs/specs/checkout.md");
 		await writeFile(doc, lines("# Checkout v1", "", "![Gone](./gone.diagram.svg)"));
@@ -598,7 +596,9 @@ describe("the docs site, while it's being developed", { timeout: 20_000 }, () =>
 		const watched = site.watched();
 
 		expect(watched).toContain(join(repo, "docs/specs/checkout.md"));
-		expect(watched.filter((path) => path.startsWith(join(repo, "repos")))).toEqual([]);
+		// Each is taken for where it really is, behind any link.
+		const real = watched.filter(existsSync).map((path) => realpathSync(path));
+		expect(real.filter((path) => path.startsWith(join(repo, "repos")))).toEqual([]);
 	});
 });
 

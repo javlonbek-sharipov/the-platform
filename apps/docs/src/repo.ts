@@ -70,22 +70,35 @@ export function isDoc(path: string): boolean {
 /**
  * The places where the docs of the repo at `root` are, as paths from it: the
  * `docs` folder and the glossaries of the repo itself, and of each of its
- * packages and apps. Nothing else is read to find the docs, or watched for
- * changes to them.
+ * packages and apps. Nothing else is read to find the docs.
  */
-export function docPlaces(root: string): string[] {
+function docPlaces(root: string): string[] {
 	const scopes = ["", ...workspaces.flatMap((folder) => foldersIn(root, folder))];
 	return scopes
 		.flatMap((scope) => [...glossaries, "docs"].map((name) => `${scope}${name}`))
 		.filter((place) => kindOf(join(root, place)) === (place.endsWith(".md") ? "file" : "folder"));
 }
 
+/** Every file in the places where the repo's docs are, as paths from the root. A link is no file. */
+function filesOfDocs(root: string): string[] {
+	return docPlaces(root).flatMap((place) =>
+		place.endsWith(".md") ? [place] : filesIn(root, place),
+	);
+}
+
 /** The docs of the repo at `root`, as paths from it, in path order. */
 export function docsOf(root: string): string[] {
-	return docPlaces(root)
-		.flatMap((place) => (place.endsWith(".md") ? [place] : filesIn(root, place)))
-		.filter(isDoc)
-		.sort();
+	return filesOfDocs(root).filter(isDoc).sort();
+}
+
+/**
+ * The files that the pages of the repo at `root` are made from, as paths
+ * from it: its docs, and the Diagrams' SVGs kept beside them. These are what
+ * the site watches while it's developed: each file by itself, never a folder,
+ * so that nothing a link leads to is watched, in `repos/` or anywhere else.
+ */
+export function sourcesOf(root: string): string[] {
+	return filesOfDocs(root).filter((path) => isDoc(path) || path.endsWith(diagramSuffix));
 }
 
 /** The folders in a folder of the repo, each as a path from the root that ends with a slash. */

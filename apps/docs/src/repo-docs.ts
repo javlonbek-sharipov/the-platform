@@ -7,7 +7,7 @@ import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Loader, LoaderContext } from "astro/loaders";
-import { diagramSuffix, docPlaces, docsOf, filesIn, github, idOf, isDoc, pathIn } from "./repo.ts";
+import { docsOf, filesIn, github, idOf, pathIn, sourcesOf } from "./repo.ts";
 
 /**
  * Loads each doc of the repo at `root` as a page, at the id that `idOf` gives
@@ -87,21 +87,23 @@ async function loadPages(root: string, context: LoaderContext, keep: boolean): P
 }
 
 /**
- * While the site is being developed, shows each doc as it's edited or added,
- * and each Diagram as it's drawn again. Only the places where the repo's docs
- * are get watched, not the repo: its other folders hold far more files, and
- * `repos/` holds other projects'.
+ * While the site is being developed, shows each doc as it's edited, and each
+ * Diagram as it's drawn again. The docs' own files get watched, one by one,
+ * not the repo: its other folders hold far more files, and `repos/` holds
+ * other projects'.
  *
- * The sidebar is made when the server starts. So a doc that's added has its
- * page at once, and joins the sidebar at the next start, and one that's
- * removed keeps its page until then.
+ * The pages are those there were when the server started, as the sidebar is.
+ * So a doc that's added shows at the next start, and one that's removed keeps
+ * its page until then.
  */
 function watch(root: string, context: LoaderContext): void {
 	const { watcher, logger } = context;
 	if (watcher === undefined) {
 		return;
 	}
-	watcher.add(docPlaces(root).map((place) => join(root, place)));
+	const sources = new Set(sourcesOf(root).map((path) => join(root, path)));
+	watcher.add([...sources]);
+	// The app's own pages are in the app, which the server watches already.
 	const own = fileURLToPath(new URL("content/docs", context.config.srcDir));
 	let loading: Promise<void> | undefined;
 	let again = false;
@@ -121,12 +123,11 @@ function watch(root: string, context: LoaderContext): void {
 			});
 	};
 	const changed = (file: string) => {
-		const path = pathIn(root, file);
-		const inRepo = !path.startsWith("../") && (isDoc(path) || path.endsWith(diagramSuffix));
-		if (inRepo || (!pathIn(own, file).startsWith("../") && file.endsWith(".md"))) {
+		if (sources.has(file) || (!pathIn(own, file).startsWith("../") && file.endsWith(".md"))) {
 			reload();
 		}
 	};
+	// A file that's replaced, as some editors save it, is added again.
 	watcher.on("add", changed);
 	watcher.on("change", changed);
 }

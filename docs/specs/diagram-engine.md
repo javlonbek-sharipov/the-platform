@@ -2012,6 +2012,7 @@ The docs site. This is GitHub's issue #12, not ticket 12 above.
    - A doc is `GLOSSARY-MAP.md`, a `GLOSSARY.md`, or a Markdown file anywhere in a `docs` folder: of the repo itself, or of a folder of `apps/` or of `packages/`. A hidden folder holds none, and neither does `node_modules`.
    - So the site shows the glossaries, the ADRs, the specs, the docs in `docs/agents/`, and each package's docs, such as the example system. It doesn't show `AGENTS.md` or the agent skill, which are written for agents.
    - The rule goes by a file's path alone: `isDoc`, in `apps/docs/src/repo.ts`. The site reads only those places, and asks git nothing, unlike the Atlas. A list of places can't reach `repos/`, whatever `.gitignore` says, and a build needs no git.
+   - A link, as the file system has them, is never followed: a linked file is no doc, and a linked folder holds none.
    - The app's own pages are in `apps/docs/src/content/docs/`. There's one, the front page, which says what the site is and how to explore a Diagram. Every other page is a file of the repo.
 3. **A loader of its own.** `apps/docs/src/repo-docs.ts` loads the pages, in place of Starlight's `docsLoader()` and of Astro's `glob()`.
    - `docsLoader()` reads only `src/content/docs`.
@@ -2047,8 +2048,8 @@ The docs site. This is GitHub's issue #12, not ticket 12 above.
 10. **`repos/`.** The site never reads, watches or shows anything in the `repos/` folder at the repo's root.
     - No doc is there (decision 2).
     - A file that a doc embeds, a Diagram or any other picture, must be the repo's own: inside the root and outside `repos/`, both by its path and by where it really is, when a link leads elsewhere. Anything else stops the build, with a message that names the doc and the file. Left alone, Astro would copy such a picture into the site.
-    - The dev server watches only the places of decision 2 (decision 13).
-    - Tests check each of the three, on a sample repo that keeps another project's files in `repos/`, in every place where a doc of ours could be.
+    - The dev server watches the docs' own files, each by itself, and never a folder (decision 13). A watched folder would be followed through any link in it.
+    - Tests check each of the three, on a sample repo that keeps another project's files in `repos/`, in every place where a doc of ours could be, with links that lead there from among our docs.
     - A link to a file in `repos/` isn't refused. It goes to GitHub, where the file isn't.
 11. **Licenses.**
     - `ignoredOptionalDependencies`, in `pnpm-workspace.yaml`, leaves out sharp, Astro's optional image service, and with it libvips, which is LGPL-3.0-or-later. The site uses Astro's pass-through image service instead, which shows a doc's picture as the file it is. A test fails when `sharp` or an `@img/` package is back in the lockfile.
@@ -2062,8 +2063,8 @@ The docs site. This is GitHub's issue #12, not ticket 12 above.
     - It groups the docs by where they live. The repo's own come first, under the site's title. Then come each package's and each app's, under its folder's name with a capital, which for a context is the context's name: `Diagrams`.
     - A glossary comes first in its group, as "Glossary", and its docs follow. A `docs` folder is no level of its own, each folder inside it is a group, `adr` is labeled "ADRs", and entries come in path order.
     - It's made from the files when the config is read, and each entry's label is its page's title.
-13. **While the site is developed.** Under `astro dev`, the site shows a doc as it's edited, and a Diagram as it's drawn again.
-    - The sidebar is as it was when the server started. A doc that's added has its page at once, and joins the sidebar at the next start. One that's removed keeps its page until then, since Starlight fails every page over a sidebar entry that has none.
+13. **While the site is developed.** Under `astro dev`, the site shows a doc as it's edited, and a Diagram as it's drawn again. It watches each doc, and each Diagram's SVG in the docs' folders.
+    - The pages and the sidebar are as they were when the server started. A doc that's added shows at the next start. One that's removed keeps its page until then, since Starlight fails every page over a sidebar entry that has none.
     - A doc that breaks, such as one that embeds a Diagram not yet drawn, logs its error and keeps its last page.
 14. **Tests.** On top of the one check that Testing Decisions asks for, the site has a seam of its own: the site as built, or as its dev server sends it, for a sample repo.
     - `DOCS_REPO` names the repo that the site shows. Without it, that's the repo the app is in. A test writes a small repo into a temporary folder, a shop with one context, as seam 2 writes an Atlas, and builds the site for it with Astro's `build()`.
