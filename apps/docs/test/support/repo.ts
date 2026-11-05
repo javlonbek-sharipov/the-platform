@@ -1,7 +1,7 @@
 /**
- * A sample repo for the docs site to show: a small shop, laid out as
- * the-platform is, with a glossary map, a context's glossary, ADRs, a spec
- * and a doc that embeds a Diagram.
+ * Sample repos for the docs site to show, each written into a temporary
+ * folder as a test lays it out, and the SVG of a Diagram for their docs to
+ * embed.
  */
 
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";

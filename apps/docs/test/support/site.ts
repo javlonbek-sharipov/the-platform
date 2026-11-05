@@ -57,8 +57,9 @@ afterAll(async () => {
 
 /**
  * Builds the site of the repo at `repo`, or of the repo that the app is in.
- * It's written, with what the build keeps to build faster, into a temporary
- * folder, so that a test's build leaves the app's own alone.
+ * It's written, with what the build keeps to build faster, into a folder of
+ * its own, so that a test's build leaves the app's own alone. Given such a
+ * folder, it builds into it again.
  */
 export async function buildSite(repo?: string, into?: string): Promise<Site> {
 	const folder = into ?? (await siteFolder());
@@ -117,9 +118,16 @@ export async function developSite(repo: string): Promise<DevelopedSite> {
 		cacheDir: join(folder, "cache"),
 		logLevel: "silent",
 		server: { port: 0 },
-	}).finally(() => {
-		process.env.VITEST = VITEST;
-	});
+	})
+		.catch((error: unknown) => {
+			delete process.env.DOCS_REPO;
+			throw error;
+		})
+		.finally(() => {
+			if (VITEST !== undefined) {
+				process.env.VITEST = VITEST;
+			}
+		});
 	const [url = ""] = server.resolvedUrls.local;
 	return {
 		page: async (path) => (await fetch(new URL(`${path}/`, url))).text(),
