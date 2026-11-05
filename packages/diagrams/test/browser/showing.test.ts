@@ -79,6 +79,48 @@ describe("a Diagram given as an inline child", () => {
 		expect(framed(diagram, scene)).toBe(true);
 	});
 
+	test("is shown when it's given after the element is in the page", async () => {
+		const { svg, scene } = draw(shop());
+		const diagram = await show(
+			'<platform-diagram style="width: 400px; height: 300px"></platform-diagram>',
+		);
+
+		diagram.innerHTML = svg;
+		await frame();
+
+		expect(textsOf(diagram, "Shop API")).toHaveLength(1);
+		expect(framed(diagram, scene)).toBe(true);
+	});
+
+	test("gives way to an SVG given as a child after it", async () => {
+		const second = draw(warehouse());
+		const diagram = await show(
+			`<platform-diagram style="width: 400px; height: 300px">${draw(shop()).svg}</platform-diagram>`,
+		);
+
+		diagram.innerHTML = second.svg;
+		await frame();
+
+		expect(textsOf(diagram, "Shop API")).toEqual([]);
+		expect(textsOf(diagram, "Stock database")).toHaveLength(1);
+		expect(framed(diagram, second.scene)).toBe(true);
+	});
+
+	test("stays on the stage when the element moves to another place in the page", async () => {
+		const { svg, scene } = draw(shop());
+		const diagram = await show(
+			`<platform-diagram style="width: 400px; height: 300px">${svg}</platform-diagram>`,
+		);
+
+		place(diagram);
+		diagram.style.width = "620px";
+		await frame();
+
+		expect(textsOf(diagram, "Shop API")).toHaveLength(1);
+		expect(framed(diagram, scene)).toBe(true);
+		expect(viewOf(diagram, scene).scale).toBeGreaterThan(0.9);
+	});
+
 	test("tells the page when its SVG isn't one the engine made, and goes on to show its src", async () => {
 		const diagram = document.createElement("platform-diagram");
 		diagram.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg"><text>Hand-drawn</text></svg>';
@@ -92,6 +134,50 @@ describe("a Diagram given as an inline child", () => {
 		await loaded;
 		expect(textsOf(diagram, "Hand-drawn")).toEqual([]);
 		expect(textsOf(diagram, "Shop API")).toHaveLength(1);
+	});
+});
+
+describe("a Diagram that the page is still parsing when the element is defined", () => {
+	test("is shown as it arrives, fitted, and drawn in its own font once the page has it whole", async () => {
+		const { svg, scene } = draw(shop());
+		// A page of its own, written piece by piece, as a slow page arrives.
+		const inner = place(document.createElement("iframe"));
+		inner.style.cssText = "width: 700px; height: 400px";
+		const page = inner.contentDocument as Document;
+		const view = inner.contentWindow as Window & typeof globalThis;
+		const later = () =>
+			new Promise((resolve) =>
+				view.requestAnimationFrame(() => view.requestAnimationFrame(resolve)),
+			);
+		const component = new URL("../../src/web-component/index.ts", import.meta.url).href;
+		page.open();
+		page.write(`<!doctype html><script type="module" async src="${component}"></script><body>`);
+		await expect.poll(() => view.customElements.get("platform-diagram") !== undefined).toBe(true);
+
+		// The SVG arrives as far as its style, which declares its font, and then the rest.
+		const cut = svg.indexOf("<style>");
+		page.write(`<platform-diagram style="width: 620px; height: 300px">${svg.slice(0, cut)}`);
+		await later();
+		page.write(`${svg.slice(cut)}</platform-diagram>`);
+		page.close();
+		await later();
+
+		const diagram = page.querySelector("platform-diagram") as HTMLElement;
+		const title = [...(diagram.shadowRoot?.querySelectorAll("text") ?? [])].find(
+			(text) => text.textContent === "Shop API",
+		) as SVGTextContentElement;
+		// Fitted: both titles are in the 620 px frame, though the SVG is 496 px wide as drawn.
+		const frame = diagram.getBoundingClientRect();
+		const titles = [...(diagram.shadowRoot?.querySelectorAll("text") ?? [])].map((text) =>
+			text.getBoundingClientRect(),
+		);
+		expect(titles).toHaveLength(2);
+		expect(Math.min(...titles.map((box) => box.left))).toBeGreaterThan(frame.left + 16);
+		expect(Math.max(...titles.map((box) => box.right))).toBeLessThan(frame.right - 16);
+		// In its own font: as wide as the core measured it.
+		await expect
+			.poll(() => Math.abs(title.getComputedTextLength() - (scene.nodes[1]?.title.width ?? 0)))
+			.toBeLessThan(0.15);
 	});
 });
 
@@ -120,6 +206,24 @@ describe("a Diagram given as a src URL", () => {
 		await drawn(diagram, "Stock database");
 		expect(textsOf(diagram, "Shop API")).toEqual([]);
 		expect(framed(diagram, second.scene)).toBe(true);
+	});
+
+	test("is dropped when the element leaves the page before it has loaded, and loaded again when it's back", async () => {
+		const diagram = document.createElement("platform-diagram");
+		diagram.setAttribute("src", served(draw(shop()).svg));
+		const heard: string[] = [];
+		diagram.addEventListener("load", () => heard.push("load"));
+		diagram.addEventListener("error", () => heard.push("error"));
+
+		place(diagram).remove();
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		expect(heard).toEqual([]);
+
+		const loaded = next(diagram, "load");
+		place(diagram);
+		await loaded;
+		expect(textsOf(diagram, "Shop API")).toHaveLength(1);
+		expect(heard).toEqual(["load"]);
 	});
 
 	test("takes the place of an inline child, which shows until it has loaded", async () => {

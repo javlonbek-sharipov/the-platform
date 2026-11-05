@@ -114,3 +114,27 @@ export function opacityOf(element: Element): number {
 export function isSeen(element: Element): boolean {
 	return element.checkVisibility({ opacityProperty: true, visibilityProperty: true });
 }
+
+/**
+ * Takes a picture of the page, and gives the color of the pixel at each of
+ * the points asked for, as `rgb(r, g, b)`: what a reader sees there,
+ * whatever paints it.
+ */
+export async function colorsAt(...points: Point[]): Promise<string[]> {
+	const picture = await page.screenshot({ base64: true, save: false });
+	const bitmap = await createImageBitmap(
+		await (await fetch(`data:image/png;base64,${picture}`)).blob(),
+	);
+	const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+	const context = canvas.getContext("2d");
+	if (context === null) {
+		throw new Error("the browser gave no canvas to read the picture with");
+	}
+	context.drawImage(bitmap, 0, 0);
+	// The picture has the screen's pixels, which a page's pixel may hold several of.
+	const density = bitmap.width / window.innerWidth;
+	return points.map(({ x, y }) => {
+		const [red, green, blue] = context.getImageData(x * density, y * density, 1, 1).data;
+		return `rgb(${red}, ${green}, ${blue})`;
+	});
+}

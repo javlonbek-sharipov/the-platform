@@ -10,6 +10,7 @@
 
 import { Camera, huggingHeight, type View } from "./camera.ts";
 import { parts } from "./parts.ts";
+import type { Shown } from "./stage.ts";
 import { styles } from "./styles.ts";
 import { boundsOf, fetchSvg } from "./svg.ts";
 
@@ -29,7 +30,14 @@ export class PlatformDiagram extends HTMLElement {
 			this.#camera.resize({ width: size.inlineSize, height: size.blockSize });
 		}
 	});
+	/** Takes each SVG that the page gives the element as a child, later than the first too. */
+	readonly #children = new MutationObserver(() => this.#take());
+	/** The children that couldn't be shown, which stay where they are, and aren't tried again. */
+	readonly #refused = new WeakSet<SVGSVGElement>();
 	#svg: SVGSVGElement | undefined;
+	/** What the parts asked to be told of each SVG that's shown, and what to call when it no longer is. */
+	readonly #shown = new Set<Shown>();
+	readonly #hidden: (() => void)[] = [];
 	/** Whether the element is in a page, where it shows its `src`. */
 	#live = false;
 	/** Stops the `src` on its way, when another takes its place or the element leaves the page. */
@@ -46,22 +54,20 @@ export class PlatformDiagram extends HTMLElement {
 		root.append(this.#stage);
 		this.#camera.watch((view) => this.#look(view));
 		for (const part of parts) {
-			part.setUp({ element: this.#stage, camera: this.#camera });
+			part.setUp({
+				element: this.#stage,
+				camera: this.#camera,
+				onShow: (listener) => this.#shown.add(listener),
+			});
 		}
 	}
 
 	connectedCallback(): void {
-		const child = this.querySelector(":scope > svg");
-		if (child instanceof SVGSVGElement) {
-			try {
-				this.#show(child);
-			} catch (error) {
-				this.#fail(
-					`The Diagram given as an inline child can't be shown: ${reasonOf(error)}.`,
-					error,
-				);
-			}
+		if (!this.#take()) {
+			// Back in a page, with the SVG it had on its stage when it left.
+			this.#tell();
 		}
+		this.#children.observe(this, { childList: true });
 		this.#sizes.observe(this.#stage);
 		this.#live = true;
 		void this.#load(this.getAttribute("src"));
@@ -70,7 +76,45 @@ export class PlatformDiagram extends HTMLElement {
 	disconnectedCallback(): void {
 		this.#live = false;
 		this.#loading?.abort();
+		this.#children.disconnect();
 		this.#sizes.disconnect();
+		this.#untell();
+	}
+
+	/**
+	 * Moves the SVG that the page gave the element as a child onto the stage.
+	 * It says whether there was one to show.
+	 */
+	#take(): boolean {
+		const child = this.querySelector(":scope > svg");
+		if (!(child instanceof SVGSVGElement) || this.#refused.has(child)) {
+			return false;
+		}
+		try {
+			this.#show(child);
+		} catch (error) {
+			this.#refused.add(child);
+			this.#fail(`The Diagram given as an inline child can't be shown: ${reasonOf(error)}.`, error);
+			return false;
+		}
+		// A page that's still being parsed may not have the whole SVG yet: an element
+		// defined early is given its child while the child is still arriving. The
+		// parser goes on filling the SVG on the stage, and the parts are told of it
+		// again once it's whole, since some read what comes late, such as its style.
+		const page = this.ownerDocument;
+		if (page.readyState === "loading") {
+			page.addEventListener(
+				"DOMContentLoaded",
+				() => {
+					if (this.#svg === child && this.#live) {
+						this.#untell();
+						this.#tell();
+					}
+				},
+				{ once: true },
+			);
+		}
+		return true;
 	}
 
 	attributeChangedCallback(_name: string, _before: string | null, value: string | null): void {
@@ -112,9 +156,31 @@ export class PlatformDiagram extends HTMLElement {
 	#show(svg: SVGSVGElement): void {
 		const bounds = boundsOf(svg);
 		svg.style.height = `min(${huggingHeight(bounds)}, ${tallest})`;
+		this.#untell();
 		this.#svg = svg;
 		this.#stage.replaceChildren(svg);
 		this.#camera.frame(bounds);
+		this.#tell();
+	}
+
+	/** Tells the parts of the SVG on the stage. */
+	#tell(): void {
+		const svg = this.#svg;
+		if (svg !== undefined) {
+			for (const listener of this.#shown) {
+				const hidden = listener(svg);
+				if (hidden !== undefined) {
+					this.#hidden.push(hidden);
+				}
+			}
+		}
+	}
+
+	/** Tells the parts that the SVG they were told of is shown no longer. */
+	#untell(): void {
+		for (const hidden of this.#hidden.splice(0)) {
+			hidden();
+		}
 	}
 
 	/** Shows a view: the SVG fills the stage, and its `viewBox` is the part of the drawing in view. */

@@ -17,7 +17,16 @@ export interface Stage {
 	readonly element: HTMLElement;
 	/** Which part of the drawing the stage shows, and how large. */
 	readonly camera: Camera;
+	/**
+	 * Calls back with each Diagram's SVG when it's shown: put on the stage of a
+	 * component that's in a page, or already on the stage when the component
+	 * joins one. The callback may return a function, which is called when that
+	 * ends: another SVG takes its place, or the component leaves the page.
+	 */
+	onShow(listener: Shown): void;
 }
+
+export type Shown = (svg: SVGSVGElement) => (() => void) | undefined;
 
 export interface Part {
 	/** The part's rules for the component's style sheet, which only reaches the component's shadow root. */
