@@ -1,6 +1,6 @@
 ---
 name: diagrams
-description: Drawing Diagrams with @the-platform/diagrams. Use when a doc describes how systems talk, when writing or editing a `*.diagram.ts` module, or when `diagrams lint` fails.
+description: Drawing Diagrams with @the-platform/diagrams. Use when a doc describes how systems talk or how bounded contexts relate, when writing or editing a `*.diagram.ts` module, or when `diagrams lint` fails.
 ---
 
 # Diagrams
@@ -9,7 +9,10 @@ A Diagram is a TypeScript module, `<name>.diagram.ts`, kept next to the doc it i
 
 ## When a Diagram helps
 
-Draw one when readers need to see several systems, services or stores at once: which exist, how they talk, where they run, and which we don't run. Prose suits one thing's insides, and the order in which things happen. The architecture Notation is the only one so far.
+Draw one when readers need to see several things at once, and how they relate. Prose suits one thing's insides, and the order in which things happen. Pick the Notation by what the things are:
+
+- `architecture` draws systems, services and stores: which exist, how they talk, where they run, and which we don't run.
+- `domain` draws a context map: which bounded contexts there are, which depend on which, and how each side integrates. See [Context maps](#context-maps).
 
 ## Write the module
 
@@ -40,6 +43,48 @@ A request that names a Diagram, as in "draw the example system with a cache", as
 **Links** point readers from a Node or Group to another id or a doc, and aren't drawn: `links: [{ id: "<id>" }, { doc: "<path from the repo root>", section: "<heading>" }]`. Nor is a `description`, which a Diagram, Node or Group may carry to say more than its title.
 
 **Layout** is automatic. Steer it with `direction: "down"` in `architecture`'s options, the nesting of Groups, and the order of declarations, which breaks every tie.
+
+## Context maps
+
+A context map is written like any other module, with `domain` in place of `architecture`, and `DomainNode` for a context that several Diagrams share. What differs:
+
+- **Nodes.** Each is a `context`, with `external: true` for one we don't own, such as a payment provider's. A context takes a `description` and `links`, and no other option. Its title fits in about 17 characters. A context map has no Groups.
+- **Edges.** `upstream-downstream` and `customer-supplier` run from the upstream context to the downstream one, so the upstream context, or the supplier, is the Edge's first end. `partnership` and `shared-kernel` run both ways alike, and are drawn without an arrowhead. Two contexts that go separate ways get no Edge. An Edge takes a `label`, and no Technology or rate.
+- **Roles.** `roles: { from: […], to: […] }` tags each end of an `upstream-downstream` or `customer-supplier` Edge with how its context integrates. The upstream end, `from`, takes `OHS`, open host service, and `PL`, published language, one or both. The downstream end, `to`, takes `CF`, conformist, or `ACL`, anticorruption layer, one of the two.
+
+The example context map, from `packages/diagrams/docs/example-context-map.diagram.ts`:
+
+```ts
+import { domain } from "@the-platform/diagrams";
+
+/**
+ * A small example context map: the shop's Catalog, Ordering and Shipping
+ * contexts, and the context of a card payments provider, which we don't own.
+ * Ordering is downstream of two of them. It conforms to the Catalog, which
+ * offers an open host service in a published language, and it keeps the
+ * provider's model out with an anticorruption layer. Ordering and Shipping
+ * are partners. Catalog and Shipping go separate ways, so no Edge joins them.
+ */
+export default domain({ title: "Example context map" }, (d) => {
+	const catalog = d.node({ id: "catalog", kind: "context", title: "Catalog" });
+	const cards = d.node({
+		id: "card-payments",
+		kind: "context",
+		title: "Card payments",
+		external: true,
+	});
+	const ordering = d.node({ id: "ordering", kind: "context", title: "Ordering" });
+	const shipping = d.node({ id: "shipping", kind: "context", title: "Shipping" });
+
+	d.edge(catalog, ordering, {
+		kind: "upstream-downstream",
+		label: "Products",
+		roles: { from: ["OHS", "PL"], to: ["CF"] },
+	});
+	d.edge(cards, ordering, { kind: "upstream-downstream", roles: { to: ["ACL"] } });
+	d.edge(ordering, shipping, { kind: "partnership" });
+});
+```
 
 ## Finish
 

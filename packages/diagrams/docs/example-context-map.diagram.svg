@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="diagram-7daaf27b0421132d" role="img" viewBox="0 0 960 208" width="960" height="208">
+  <title>Example context map</title>
+  <desc>Nodes: Catalog (context); Card payments (context, External); Ordering (context); Shipping (context). Edges: Catalog (open host service, published language) is upstream of Ordering (conformist): Products. Card payments is upstream of Ordering (anticorruption layer). Ordering and Shipping are partners.</desc>
+  <metadata>{"direction":"right","edges":[{"from":"catalog","id":"catalog-&gt;ordering","kind":"upstream-downstream","label":"Products","roles":{"from":["OHS","PL"],"to":["CF"]},"to":"ordering"},{"from":"card-payments","id":"card-payments-&gt;ordering","kind":"upstream-downstream","roles":{"to":["ACL"]},"to":"ordering"},{"from":"ordering","id":"ordering-&gt;shipping","kind":"partnership","to":"shipping"}],"groups":[],"id":"packages/diagrams/docs/example-context-map","members":["catalog","card-payments","ordering","shipping"],"nodes":[{"id":"catalog","kind":"context","title":"Catalog"},{"external":true,"id":"card-payments","kind":"context","title":"Card payments"},{"id":"ordering","kind":"context","title":"Ordering"},{"id":"shipping","kind":"context","title":"Shipping"}],"notation":"domain","title":"Example context map","version":1,"walkthroughs":[]}</metadata>
+  <style>
+    @font-face { font-family: "diagram-7daaf27b0421132d"; font-weight: 400; src: url("data:font/ttf;base64,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AFMATQBTADsASQBuAHQAZQByAC0AUgBlAGcAdQBsAGEAcgBJAG4AdABlAHIAIABSAGUAZwB1AGwAYQByAFYAZQByAHMAaQBvAG4AIAA0AC4AMAAwADEAOwBnAGkAdAAtADkAMgAyADEAYgBlAGUAZAAzAEkAbgB0AGUAcgAtAFIAZQBnAHUAbABhAHIASQBuAHQAZQByACAAVQBJACAAYQBuAGQAIABJAG4AdABlAHIAIABpAHMAIABhACAAdAByAGEAZABlAG0AYQByAGsAIABvAGYAIAByAHMAbQBzAC4AcgBzAG0AcwBSAGEAcwBtAHUAcwAgAEEAbgBkAGUAcgBzAHMAbwBuAGgAdAB0AHAAcwA6AC8ALwByAHMAbQBzAC4AbQBlAC8AaAB0AHQAcABzADoALwAvAHIAcwBtAHMALgBtAGUALwBUAGgAaQBzACAARgBvAG4AdAAgAFMAbwBmAHQAdwBhAHIAZQAgAGkAcwAgAGwAaQBjAGUAbgBzAGUAZAAgAHUAbgBkAGUAcgAgAHQAaABlACAAUwBJAEwAIABPAHAAZQBuACAARgBvAG4AdAAgAEwAaQBjAGUAbgBzAGUALAAgAFYAZQByAHMAaQBvAG4AIAAxAC4AMQAuACAAVABoAGkAcwAgAGwAaQBjAGUAbgBzAGUAIABpAHMAIABhAHYAYQBpAGwAYQBiAGwAZQAgAHcAaQB0AGgAIABhACAARgBBAFEAIABhAHQAOgAgAGgAdAB0AHAAOgAvAC8AcwBjAHIAaQBwAHQAcwAuAHMAaQBsAC4AbwByAGcALwBPAEYATABoAHQAdABwADoALwAvAHMAYwByAGkAcAB0AHMALgBzAGkAbAAuAG8AcgBnAC8ATwBGAEwAAwAAAAAAAP6kAIwAAAAAAAAAAAAAAAAAAAAAAAAAAA==") format("truetype"); }
+    @font-face { font-family: "diagram-7daaf27b0421132d"; font-weight: 600; src: url("data:font/ttf;base64,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AGEAIAB0AHIAYQBkAGUAbQBhAHIAawAgAG8AZgAgAHIAcwBtAHMALgByAHMAbQBzAFIAYQBzAG0AdQBzACAAQQBuAGQAZQByAHMAcwBvAG4AaAB0AHQAcABzADoALwAvAHIAcwBtAHMALgBtAGUALwBoAHQAdABwAHMAOgAvAC8AcgBzAG0AcwAuAG0AZQAvAFQAaABpAHMAIABGAG8AbgB0ACAAUwBvAGYAdAB3AGEAcgBlACAAaQBzACAAbABpAGMAZQBuAHMAZQBkACAAdQBuAGQAZQByACAAdABoAGUAIABTAEkATAAgAE8AcABlAG4AIABGAG8AbgB0ACAATABpAGMAZQBuAHMAZQAsACAAVgBlAHIAcwBpAG8AbgAgADEALgAxAC4AIABUAGgAaQBzACAAbABpAGMAZQBuAHMAZQAgAGkAcwAgAGEAdgBhAGkAbABhAGIAbABlACAAdwBpAHQAaAAgAGEAIABGAEEAUQAgAGEAdAA6ACAAaAB0AHQAcAA6AC8ALwBzAGMAcgBpAHAAdABzAC4AcwBpAGwALgBvAHIAZwAvAE8ARgBMAGgAdAB0AHAAOgAvAC8AcwBjAHIAaQBwAHQAcwAuAHMAaQBsAC4AbwByAGcALwBPAEYATABJAG4AdABlAHIAUwBlAG0AaQBCAG8AbABkAEkAbgB0AGUAcgBTAGUAbQBpAEIAbwBsAGQAAwAAAAAAAP61AK0AAAAAAAAAAAAAAAAAAAAAAAAAAA==") format("truetype"); }
+    .diagram-7daaf27b0421132d { font-family: "diagram-7daaf27b0421132d", Helvetica, Arial; font-kerning: none; font-variant-ligatures: none; }
+    .diagram-7daaf27b0421132d .diagram-background { fill: var(--diagram-background, #ffffff); }
+    .diagram-7daaf27b0421132d .diagram-edges { color: var(--diagram-edge, #818b98); }
+    .diagram-7daaf27b0421132d .diagram-casing { stroke: var(--diagram-edge-casing, #424a53); }
+    .diagram-7daaf27b0421132d .diagram-role { fill: var(--diagram-background, #ffffff); }
+    .diagram-7daaf27b0421132d .diagram-role { stroke: var(--diagram-edge, #818b98); }
+    .diagram-7daaf27b0421132d .diagram-role-text { fill: var(--diagram-ink, #1f2328); }
+    .diagram-7daaf27b0421132d .diagram-label { fill: var(--diagram-background, #ffffff); }
+    .diagram-7daaf27b0421132d .diagram-label-text { fill: var(--diagram-ink, #1f2328); }
+    .diagram-7daaf27b0421132d .diagram-base { fill: var(--diagram-surface, #ffffff); }
+    .diagram-7daaf27b0421132d [data-node][data-kind="context"] { color: var(--diagram-hue-context, #4f55c8); }
+    .diagram-7daaf27b0421132d .diagram-text { fill: var(--diagram-ink, #1f2328); }
+    @media (prefers-color-scheme: dark) {
+      .diagram-7daaf27b0421132d .diagram-background { fill: var(--diagram-background, #0d1117); }
+      .diagram-7daaf27b0421132d .diagram-edges { color: var(--diagram-edge, #9198a1); }
+      .diagram-7daaf27b0421132d .diagram-casing { stroke: var(--diagram-edge-casing, #262c36); }
+      .diagram-7daaf27b0421132d .diagram-role { fill: var(--diagram-background, #0d1117); }
+      .diagram-7daaf27b0421132d .diagram-role { stroke: var(--diagram-edge, #9198a1); }
+      .diagram-7daaf27b0421132d .diagram-role-text { fill: var(--diagram-ink, #f0f6fc); }
+      .diagram-7daaf27b0421132d .diagram-label { fill: var(--diagram-background, #0d1117); }
+      .diagram-7daaf27b0421132d .diagram-label-text { fill: var(--diagram-ink, #f0f6fc); }
+      .diagram-7daaf27b0421132d .diagram-base { fill: var(--diagram-surface, #161b22); }
+      .diagram-7daaf27b0421132d [data-node][data-kind="context"] { color: var(--diagram-hue-context, #8f96f5); }
+      .diagram-7daaf27b0421132d .diagram-text { fill: var(--diagram-ink, #f0f6fc); }
+    }
+  </style>
+  <rect class="diagram-background" x="0" y="0" width="960" height="208"/>
+  <g class="diagram-edges" fill="none">
+    <g data-edge="catalog-&gt;ordering" data-kind="upstream-downstream" data-from="catalog" data-to="ordering">
+      <path class="diagram-casing" d="M 449 56 L 216 56" stroke-width="3.5"/>
+      <path d="M 449 56 L 216 56" stroke="currentColor" stroke-width="1.5"/>
+      <path class="diagram-casing" d="M 296 59.5 L 300 56 L 296 52.5" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 296 59.5 L 300 56 L 296 52.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="diagram-casing" d="M 456 56 L 448 60.5 L 448 51.5 Z" fill="currentColor" stroke-width="1" stroke-linejoin="round"/>
+    </g>
+    <g data-edge="card-payments-&gt;ordering" data-kind="upstream-downstream" data-from="card-payments" data-to="ordering">
+      <path class="diagram-casing" d="M 449 56 L 444 56 A 4 4 0 0 0 440 60 A 4 4 0 0 1 436 64 L 240 64 A 8 8 0 0 0 232 72 L 232 144 A 8 8 0 0 1 224 152 L 216 152" stroke-width="3.5"/>
+      <path d="M 449 56 L 444 56 A 4 4 0 0 0 440 60 A 4 4 0 0 1 436 64 L 240 64 A 8 8 0 0 0 232 72 L 232 144 A 8 8 0 0 1 224 152 L 216 152" stroke="currentColor" stroke-width="1.5"/>
+      <path class="diagram-casing" d="M 235.5 138 L 232 134 L 228.5 138" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 235.5 138 L 232 134 L 228.5 138" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="diagram-casing" d="M 456 56 L 448 60.5 L 448 51.5 Z" fill="currentColor" stroke-width="1" stroke-linejoin="round"/>
+    </g>
+    <g data-edge="ordering-&gt;shipping" data-kind="partnership" data-from="ordering" data-to="shipping">
+      <path class="diagram-casing" d="M 744 56 L 648 56" stroke-width="3.5"/>
+      <path d="M 744 56 L 648 56" stroke="currentColor" stroke-width="1.5"/>
+    </g>
+  </g>
+  <g class="diagram-roles">
+    <g data-edge-role="catalog-&gt;ordering" data-end="from" data-role="OHS">
+      <rect class="diagram-role" x="236.5" y="46.5" width="29" height="13" rx="3" stroke-width="1"/>
+      <text class="diagram-role-text" x="251" y="53" font-size="10" font-weight="600" text-anchor="middle" dominant-baseline="central">OHS</text>
+    </g>
+    <g data-edge-role="catalog-&gt;ordering" data-end="from" data-role="PL">
+      <rect class="diagram-role" x="268.5" y="46.5" width="21" height="13" rx="3" stroke-width="1"/>
+      <text class="diagram-role-text" x="279" y="53" font-size="10" font-weight="600" text-anchor="middle" dominant-baseline="central">PL</text>
+    </g>
+    <g data-edge-role="catalog-&gt;ordering" data-end="to" data-role="CF">
+      <rect class="diagram-role" x="378.5" y="46.5" width="21" height="13" rx="3" stroke-width="1"/>
+      <text class="diagram-role-text" x="389" y="53" font-size="10" font-weight="600" text-anchor="middle" dominant-baseline="central">CF</text>
+    </g>
+    <g data-edge-role="card-payments-&gt;ordering" data-end="to" data-role="ACL">
+      <rect class="diagram-role" x="402.5" y="60.5" width="29" height="13" rx="3" stroke-width="1"/>
+      <text class="diagram-role-text" x="417" y="67" font-size="10" font-weight="600" text-anchor="middle" dominant-baseline="central">ACL</text>
+    </g>
+  </g>
+  <g class="diagram-labels">
+    <g data-edge-label="catalog-&gt;ordering">
+      <rect class="diagram-label" x="304.53" y="32" width="58.94" height="20" rx="4"/>
+      <text class="diagram-label-text" x="334" y="42" font-size="12" font-weight="400" text-anchor="middle" dominant-baseline="central">Products</text>
+    </g>
+  </g>
+  <g class="diagram-nodes">
+    <g data-node="catalog" data-kind="context">
+      <path class="diagram-base" d="M 24.75 56 A 95.25 31.25 0 0 1 215.25 56 A 95.25 31.25 0 0 1 24.75 56 Z"/>
+      <path d="M 24.75 56 A 95.25 31.25 0 0 1 215.25 56 A 95.25 31.25 0 0 1 24.75 56 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path transform="translate(40 48)" d="M 4 2 H 12 A 2.5 2.5 0 0 1 14.5 4.5 V 9 A 2.5 2.5 0 0 1 12 11.5 H 8 L 4.5 14.5 V 11.5 H 4 A 2.5 2.5 0 0 1 1.5 9 V 4.5 A 2.5 2.5 0 0 1 4 2 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text class="diagram-text" x="132" y="56" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Catalog</text>
+    </g>
+    <g data-node="card-payments" data-kind="context">
+      <path class="diagram-base" d="M 24.75 152 A 95.25 31.25 0 0 1 215.25 152 A 95.25 31.25 0 0 1 24.75 152 Z"/>
+      <path d="M 24.75 152 A 95.25 31.25 0 0 1 215.25 152 A 95.25 31.25 0 0 1 24.75 152 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 3.75" stroke-linejoin="round"/>
+      <path transform="translate(40 144)" d="M 4 2 H 12 A 2.5 2.5 0 0 1 14.5 4.5 V 9 A 2.5 2.5 0 0 1 12 11.5 H 8 L 4.5 14.5 V 11.5 H 4 A 2.5 2.5 0 0 1 1.5 9 V 4.5 A 2.5 2.5 0 0 1 4 2 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text class="diagram-text" x="132" y="152" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Card payments</text>
+    </g>
+    <g data-node="ordering" data-kind="context">
+      <path class="diagram-base" d="M 456.75 56 A 95.25 31.25 0 0 1 647.25 56 A 95.25 31.25 0 0 1 456.75 56 Z"/>
+      <path d="M 456.75 56 A 95.25 31.25 0 0 1 647.25 56 A 95.25 31.25 0 0 1 456.75 56 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path transform="translate(472 48)" d="M 4 2 H 12 A 2.5 2.5 0 0 1 14.5 4.5 V 9 A 2.5 2.5 0 0 1 12 11.5 H 8 L 4.5 14.5 V 11.5 H 4 A 2.5 2.5 0 0 1 1.5 9 V 4.5 A 2.5 2.5 0 0 1 4 2 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text class="diagram-text" x="564" y="56" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Ordering</text>
+    </g>
+    <g data-node="shipping" data-kind="context">
+      <path class="diagram-base" d="M 744.75 56 A 95.25 31.25 0 0 1 935.25 56 A 95.25 31.25 0 0 1 744.75 56 Z"/>
+      <path d="M 744.75 56 A 95.25 31.25 0 0 1 935.25 56 A 95.25 31.25 0 0 1 744.75 56 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path transform="translate(760 48)" d="M 4 2 H 12 A 2.5 2.5 0 0 1 14.5 4.5 V 9 A 2.5 2.5 0 0 1 12 11.5 H 8 L 4.5 14.5 V 11.5 H 4 A 2.5 2.5 0 0 1 1.5 9 V 4.5 A 2.5 2.5 0 0 1 4 2 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text class="diagram-text" x="852" y="56" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">Shipping</text>
+    </g>
+  </g>
+</svg>
