@@ -5,8 +5,8 @@
  * the Edge falls back to a simple route, and the router warns about it.
  */
 
-import { type Diagram, endNode, type RowEnd } from "../authoring/model.ts";
-import { type Bundling, compareText, laneGroups } from "./bundles.ts";
+import { type Diagram, endNode, parentsOf, type RowEnd } from "../authoring/model.ts";
+import { type Bundling, compareText, laneGroups, lanes } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { buildGrid, type Grid, pointOf, vertexAt } from "./grid.ts";
 import { strokesOf } from "./hops.ts";
@@ -36,7 +36,7 @@ import {
 
 export interface RouteOptions {
 	/** Which Edges share a trunk. The architecture Notation bundles by target. */
-	bundle?: Bundling;
+	bundle: Bundling;
 	/**
 	 * How many states each Edge's search may visit. An Edge whose search runs
 	 * out falls back to the simple route.
@@ -78,13 +78,6 @@ const cornerRadius = 8;
  * search, set well above what routes on Diagrams of a few hundred Nodes need.
  */
 const defaultSearchBudget = 1_000_000;
-
-/**
- * Lanes keep the preferred spacing where there's room, squeeze down to the
- * minimum in a narrow corridor, and keep the padding from the corridor's
- * sides. The narrowest corridor, a clearance wide, holds four lanes.
- */
-export const lanes = { spacing: 8, minimum: 4, padding: 8 };
 
 /**
  * Negotiation (spec: Edge routing, step 5): how many times every Edge is
@@ -134,7 +127,7 @@ export function route(
 	diagram: Diagram,
 	nodes: SceneNode[],
 	groups: SceneGroup[],
-	options: RouteOptions = {},
+	options: RouteOptions,
 ): Routing {
 	const byId = new Map(nodes.map((node) => [node.id, node]));
 	const rowNames = new Map(
@@ -154,15 +147,10 @@ export function route(
 	const grid = buildGrid(nodes, groups, clearance, lanes.spacing);
 	const search = searchOn(grid);
 	const budget = options.searchBudget ?? defaultSearchBudget;
-	const bundle = options.bundle ?? "target";
+	const { bundle } = options;
 	const laneGroupOf = laneGroups(diagram, bundle, options.ownLanes);
 	// The Group that holds each Node or Group, and each Group's box.
-	const parentOf = new Map<string, string>();
-	for (const group of diagram.groups) {
-		for (const member of group.members) {
-			parentOf.set(member, group.id);
-		}
-	}
+	const parentOf = parentsOf(diagram);
 	const boxOf = new Map(groups.map((group) => [group.id, group.box]));
 	/** The box of the innermost Group that holds both Nodes, if any does. */
 	const sharedGroup = (a: string, b: string): Box | undefined => {

@@ -43,7 +43,7 @@ export interface SearchCosts {
 	crossing: number;
 	/** The most states the search may visit before it gives up. */
 	budget: number;
-	congestion?: Congestion;
+	congestion: Congestion;
 }
 
 /**
@@ -160,7 +160,7 @@ export function searchOn(grid: Grid): Search {
 					Math.abs(yOf(neighbor) - yOf(vertex)) +
 					(next === heading ? 0 : costs.bend) +
 					costs.crossing * crossingsOf(grid, vertex, next) +
-					(costs.congestion === undefined ? 0 : crowding(costs.congestion, vertex, neighbor));
+					crowding(costs.congestion, vertex, neighbor);
 				if (neighbor === goal.vertex) {
 					if (next === (goalHeading + 2) % 4) {
 						continue;

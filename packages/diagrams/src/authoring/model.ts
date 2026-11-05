@@ -145,3 +145,14 @@ export interface RowEnd {
 export function endNode(end: string | RowEnd): string {
 	return typeof end === "string" ? end : end.node;
 }
+
+/** The Group that each Node or Group is a member of, by id, unless it's on the Diagram itself. */
+export function parentsOf(diagram: Diagram): Map<string, string> {
+	const parents = new Map<string, string>();
+	for (const group of diagram.groups) {
+		for (const member of group.members) {
+			parents.set(member, group.id);
+		}
+	}
+	return parents;
+}

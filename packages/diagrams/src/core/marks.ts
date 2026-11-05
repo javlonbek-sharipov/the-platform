@@ -9,7 +9,7 @@
  * corner point, ignoring the arcs that round the corners.
  */
 
-import type { Diagram } from "../authoring/model.ts";
+import { type Diagram, parentsOf } from "../authoring/model.ts";
 import { headingOf } from "./geometry.ts";
 import type { Box, Point, RoutePoint, SceneChevron, SceneEdge, SceneJunction } from "./scene.ts";
 
@@ -103,12 +103,7 @@ export function markEdges(diagram: Diagram, edges: SceneEdge[]): SceneEdge[] {
  * around it, and an end in no Group of a Kind crosses nothing of that Kind.
  */
 function crossingOf(diagram: Diagram): (from: string, to: string) => "region" | "zone" | undefined {
-	const parentOf = new Map<string, string>();
-	for (const group of diagram.groups) {
-		for (const member of group.members) {
-			parentOf.set(member, group.id);
-		}
-	}
+	const parentOf = parentsOf(diagram);
 	const kindOf = new Map(diagram.groups.map((group) => [group.id, group.kind]));
 	/** The innermost Group of a Kind around a Node, if any. */
 	const around = (node: string, kind: "region" | "zone") => {

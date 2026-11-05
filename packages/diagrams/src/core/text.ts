@@ -55,7 +55,7 @@ const titleRise = 7;
 const technologyDrop = 8;
 const groupTitleSize = 13;
 /** The room a Group's title leaves on each side, between it and the edge of its label box. */
-export const labelPadding = 12;
+export const groupLabelPadding = 12;
 const calloutSize = 11;
 const rowSize = 12;
 /** The room a Row leaves on each side, between its text and the edge of its Node. */
@@ -110,11 +110,11 @@ export function groupTitle(title: string, band: Box): SceneText {
 		collapseSpaces(title),
 		"semibold",
 		groupTitleSize,
-		band.width - 2 * labelPadding,
+		band.width - 2 * groupLabelPadding,
 	);
 	return {
 		...fitted,
-		point: { x: band.x + labelPadding + fitted.width / 2, y: band.y + band.height / 2 },
+		point: { x: band.x + groupLabelPadding + fitted.width / 2, y: band.y + band.height / 2 },
 		weight: "semibold",
 		size: groupTitleSize,
 	};

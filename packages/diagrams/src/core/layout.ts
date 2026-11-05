@@ -14,14 +14,14 @@
  * members, and an Edge that leaves the level is ignored there.
  */
 
-import { type Diagram, type Edge, endNode } from "../authoring/model.ts";
-import { type Bundling, laneGroups } from "./bundles.ts";
+import { type Diagram, type Direction, type Edge, endNode, parentsOf } from "../authoring/model.ts";
+import { type Bundling, laneGroups, lanes } from "./bundles.ts";
 import { roundUp } from "./geometry.ts";
 import { labelEnds, labelSize } from "./labels.ts";
 import { arrange, type Connection, type Member } from "./layers.ts";
 import { faceOf, frameOf, type NodeFrame, partsOf, rowHeight } from "./nodes.ts";
 import type { Box, Point, SceneGroup, SceneNode, ScenePort, Side } from "./scene.ts";
-import { groupTitle, labelPadding, rowTexts } from "./text.ts";
+import { groupLabelPadding, groupTitle, rowTexts } from "./text.ts";
 
 const rankGap = 96;
 export const clearance = 32;
@@ -72,8 +72,46 @@ interface Block extends Level {
 	tagRoom: number;
 }
 
-/** The spacing of lanes, as the router spaces them where there's room. */
-const laneSpacing = 8;
+/** An empty Group keeps room for one Node of the usual size, 176 by 48 px, so that its title has room too. */
+const emptyGroup = { width: 176, height: 48 };
+
+/**
+ * A direction's axes: the rank axis runs along it, x for `right` and y for
+ * `down`, and the order axis runs across it. Layout works out every position
+ * as a distance along each, and these turn it into a point.
+ */
+interface Axes {
+	rank: "x" | "y";
+	order: "x" | "y";
+	/** The sides of a Node that its header's input and output Ports sit on. */
+	input: Side;
+	output: Side;
+	/**
+	 * From a Node's leading side across the rank to its header Ports' line:
+	 * level with its header for `right`, and halfway across it for `down`.
+	 */
+	toPorts: (frame: NodeFrame) => number;
+}
+
+const axesOf: Record<Direction, Axes> = {
+	right: {
+		rank: "x",
+		order: "y",
+		input: "left",
+		output: "right",
+		toPorts: ({ headerTop, headerHeight }) => headerTop + headerHeight / 2,
+	},
+	down: {
+		rank: "y",
+		order: "x",
+		input: "top",
+		output: "bottom",
+		toPorts: ({ width }) => width / 2,
+	},
+};
+
+/** How far a box reaches along each axis. */
+const extentOf = { x: "width", y: "height" } as const;
 
 /**
  * Lays the Diagram out. Each gap between ranks leaves room for a lane for
@@ -82,10 +120,14 @@ const laneSpacing = 8;
  */
 export function layOut(
 	diagram: Diagram,
-	bundle: Bundling = "target",
+	bundle: Bundling,
 	ownLanes: ReadonlySet<string> = new Set(),
 ): Layout {
-	const down = diagram.direction === "down";
+	const axes = axesOf[diagram.direction];
+	const { rank, order } = axes;
+	/** The point that lies `along` the rank axis and `across` it. */
+	const pointAt = (along: number, across: number): Point =>
+		rank === "x" ? { x: along, y: across } : { x: across, y: along };
 	/**
 	 * The room an Edge's label needs along the rank axis, in a gap between
 	 * ranks, with some to spare at each end: as wide as its box for `right`,
@@ -94,7 +136,7 @@ export function layOut(
 	 */
 	const labelRoom = (edge: Edge) => {
 		const size = labelSize(edge);
-		return size === undefined ? 0 : (down ? size.height : size.width) + 2 * labelEnds;
+		return size === undefined ? 0 : size[extentOf[rank]] + 2 * labelEnds;
 	};
 	// Each Edge's lane group, so that each gap between ranks leaves room for a
 	// lane for each group that crosses it.
@@ -102,26 +144,19 @@ export function layOut(
 	const groupsById = new Map(diagram.groups.map((group) => [group.id, group]));
 	// A Node is as tall as its Kind's header and its Rows' bands together.
 	const frames = new Map(diagram.nodes.map((node) => [node.id, frameOf(node)]));
-	/**
-	 * From a Node's leading side across the rank to its header Ports' line:
-	 * level with its header for `right`, and halfway across it for `down`.
-	 */
-	const toPorts = ({ width, headerTop, headerHeight }: NodeFrame) =>
-		down ? width / 2 : headerTop + headerHeight / 2;
-	/** An empty Group keeps room for a plain Node, so that its title has room too. */
-	const emptyRoom = frameOf({ id: "", kind: "service", title: "" });
 	/** The Group that each Node or Group is a member of, unless it's on the Diagram itself. */
-	const parentOf = new Map<string, string>();
-	for (const group of diagram.groups) {
-		for (const member of group.members) {
-			parentOf.set(member, group.id);
-		}
-	}
+	const parentOf = parentsOf(diagram);
 
 	const blockOf = (id: string): Block => {
 		const group = groupsById.get(id);
 		if (group === undefined) {
-			const { width, height, tagRoom } = frames.get(id) ?? emptyRoom;
+			const frame = frames.get(id);
+			if (frame === undefined) {
+				throw new Error(
+					`${id} is neither a Node nor a Group, which validation should have rejected`,
+				);
+			}
+			const { width, height, tagRoom } = frame;
 			return {
 				width,
 				height: tagRoom + height,
@@ -132,7 +167,7 @@ export function layOut(
 		}
 		const content: Level =
 			group.members.length === 0
-				? { width: emptyRoom.width, height: emptyRoom.height, nodes: new Map(), groups: new Map() }
+				? { ...emptyGroup, nodes: new Map(), groups: new Map() }
 				: layOutLevel(group.members);
 		// Whole steps of twice the grid, so that a Group centered on a rank's line
 		// has its corners on the grid, as a Node does.
@@ -189,25 +224,25 @@ export function layOut(
 			const anchor = anchors.get(member) ?? [...block.nodes.keys()][0];
 			const corner = anchor === undefined ? undefined : block.nodes.get(anchor);
 			const frame = anchor === undefined ? undefined : frames.get(anchor);
-			const breadth = down ? block.width : block.height;
+			const breadth = block[extentOf[order]];
 			const ports =
 				corner === undefined || frame === undefined
 					? Math.floor(breadth / 2 / grid) * grid
-					: (down ? corner.x : corner.y) + toPorts(frame);
-			return down
-				? {
-						depth: block.height - block.tagRoom,
-						lead: block.tagRoom,
-						before: ports,
-						after: breadth - ports,
-					}
-				: { depth: block.width, before: ports, after: breadth - ports };
+					: corner[order] + axes.toPorts(frame);
+			// The tag sits above the Node, so its room lies along y.
+			const lead = rank === "y" ? block.tagRoom : 0;
+			return {
+				depth: block[extentOf[rank]] - lead,
+				...(lead === 0 ? {} : { lead }),
+				before: ports,
+				after: breadth - ports,
+			};
 		});
 		const placements = arrange(measured, connections, {
 			clearance,
 			rankGap,
 			grid,
-			laneSpacing,
+			laneSpacing: lanes.spacing,
 			stubs: 2 * stubLength,
 		});
 
@@ -217,7 +252,7 @@ export function layOut(
 			const { depth, lead = 0, before } = measured[member] ?? { depth: 0, before: 0 };
 			const along = line - depth / 2 - lead;
 			const across = ports - before;
-			place(level, block, down ? { x: across, y: along } : { x: along, y: across });
+			place(level, block, pointAt(along, across));
 		});
 		return level;
 	};
@@ -230,7 +265,7 @@ export function layOut(
 		const frame = frames.get(node.id) ?? frameOf(node);
 		const { width, height } = frame;
 		const box = { x: origin.x + corner.x, y: origin.y + corner.y, width, height };
-		const ports = (down ? box.x : box.y) + toPorts(frame);
+		const ports = box[order] + axes.toPorts(frame);
 		const { header, badge, title, technology, logo, status, callout } = partsOf(
 			node,
 			box,
@@ -243,10 +278,8 @@ export function layOut(
 			kind: node.kind,
 			box,
 			header,
-			input: down ? port("top", { x: ports, y: box.y }) : port("left", { x: box.x, y: ports }),
-			output: down
-				? port("bottom", { x: ports, y: box.y + height })
-				: port("right", { x: box.x + width, y: ports }),
+			input: port(axes.input, pointAt(box[rank], ports)),
+			output: port(axes.output, pointAt(box[rank] + box[extentOf[rank]], ports)),
 			badge,
 			title,
 			...(technology === undefined ? {} : { technology }),
@@ -281,7 +314,10 @@ export function layOut(
 		const label = {
 			x: box.x,
 			y: box.y,
-			width: Math.min(roundUp(labelPadding + title.width + labelPadding, grid), box.width),
+			width: Math.min(
+				roundUp(groupLabelPadding + title.width + groupLabelPadding, grid),
+				box.width,
+			),
 			height: labelBand,
 		};
 		let depth = 0;
