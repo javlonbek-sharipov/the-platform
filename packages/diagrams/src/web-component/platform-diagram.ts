@@ -9,7 +9,9 @@
  */
 
 import { Camera, huggingHeight, type View } from "./camera.ts";
+import { Highlights, type HighlightTargets } from "./highlights.ts";
 import { parts } from "./parts.ts";
+import { Selection, type SelectionTarget } from "./selection.ts";
 import type { Shown } from "./stage.ts";
 import { styles } from "./styles.ts";
 import { boundsOf, fetchSvg } from "./svg.ts";
@@ -24,6 +26,8 @@ export class PlatformDiagram extends HTMLElement {
 	/** Holds the SVG, clips it, and takes the reader's input. */
 	readonly #stage = document.createElement("div");
 	readonly #camera = new Camera();
+	readonly #selection = new Selection();
+	readonly #highlights = new Highlights();
 	readonly #sizes = new ResizeObserver(([entry]) => {
 		const size = entry?.contentBoxSize[0];
 		if (size !== undefined) {
@@ -45,6 +49,25 @@ export class PlatformDiagram extends HTMLElement {
 
 	static readonly observedAttributes = ["src"];
 
+	/** The reader's persistent selection. Hover leaves it unchanged. */
+	get selection(): SelectionTarget | undefined {
+		return this.#selection.current;
+	}
+
+	get selectedNode(): string | undefined {
+		return this.selection?.kind === "node" ? this.selection.id : undefined;
+	}
+
+	/** Selects a Node by id without moving keyboard focus. Unknown ids return false. */
+	selectNode(id: string | undefined): boolean {
+		return this.#selection.select(id === undefined ? undefined : { kind: "node", id });
+	}
+
+	/** Emphasizes exactly these Nodes and Edges until cleared, without changing selection. */
+	setHighlight(targets: HighlightTargets | undefined): void {
+		this.#highlights.set(targets);
+	}
+
 	constructor() {
 		super();
 		const root = this.attachShadow({ mode: "open" });
@@ -53,10 +76,21 @@ export class PlatformDiagram extends HTMLElement {
 		this.#stage.tabIndex = 0;
 		root.append(this.#stage);
 		this.#camera.watch((view) => this.#look(view));
+		this.#selection.watch((target) => {
+			this.dispatchEvent(
+				new CustomEvent("diagram-select", {
+					detail: target ?? null,
+					bubbles: true,
+					composed: true,
+				}),
+			);
+		});
 		for (const part of parts) {
 			part.setUp({
 				element: this.#stage,
 				camera: this.#camera,
+				selection: this.#selection,
+				highlights: this.#highlights,
 				onShow: (listener) => this.#shown.add(listener),
 			});
 		}
