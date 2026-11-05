@@ -2076,6 +2076,43 @@ Context maps. This is GitHub's issue #3, not ticket 03 above.
     - The glossary has no entry for a role. The spec's own words, "role" and "role tag", are used as it uses them.
 16. **Speed.** On one machine, `pnpm bench` reported 88 ms median drawn `right`, 118 ms drawn `down`, and 377 and 156 ms with every Edge labeled, for the commit this issue started from, and 88, 123, 383 and 157 ms with it. The crowded fixture has no roles.
 
+**Issue 7**
+
+Focus, keyboard selection and the screen-reader lists. This is GitHub's issue #7, not ticket 07 above.
+
+1. **What a Node's focus includes.**
+   - Two separate walks start at the Node: one follows Edges upstream, the other downstream. Each follows a symmetric Edge either way, as its Notation's definition says. Cycles and parallel Edges are allowed.
+   - The walks keep the Nodes and Edges they reach. They don't change direction at an ancestor or a descendant, so another branch off an ancestor, or another caller of a descendant, stays faded unless a path of its own reaches the selected Node.
+2. **Strength.** Unrelated drawing parts show at opacity 0.2; the kept parts stay at 1. An Edge's path, label and role tags share the same strength, using the SVG's hooks. No static SVG or golden file changes.
+3. **Hover.** Leaving a Node clears its temporary focus. Escape clears focus even while the pointer stays over the Node; it takes a new hover to focus it again. Listeners leave with the SVG they belong to.
+4. **Persistent selection and the host.**
+   - A click selects a Node. Hover temporarily takes precedence; leaving it restores the selection. Escape clears both.
+   - `PlatformDiagram.selection` is `{ kind: "node" | "edge", id }` or `undefined`. `selectedNode` returns the Node's id, or `undefined`. `selectNode(id)` selects without moving keyboard focus; `selectNode(undefined)` clears. It returns false for an unknown id and leaves the selection alone.
+   - A change raises `diagram-select`, which bubbles and is composed, with that target as its `detail`, or `null` when cleared. Re-selecting the same target raises no duplicate event. The component's parts share the same selection and may watch its changes, which details and Walkthroughs can extend.
+5. **Edge hover.**
+   - The hovered Edge, its label and its role tags stay at full strength, as do its two Nodes; the rest fades. Its label and tags count as hovering the Edge too.
+   - An HTML tooltip shows the whole label, the Technology's display name (its slug when unknown) and the rate. It uses text content, wraps inside the stage, and follows the pointer without taking its events. Leaving the Edge or pressing Escape hides it.
+   - Each Edge gets a transparent hit path 12 screen pixels wide, made from its existing stroke. It leaves with the SVG, so it never changes the committed drawing or its routing.
+6. **Keyboard.**
+   - Tab focuses the existing stage. With no selection, keyboard focus selects the first Node in layout order. Arrows choose among Node centers strictly ahead, scoring `ahead + 4 × abs(sideways)`; layout order breaks a tie. With no candidate the selection stays put. With no selection, an arrow starts at the first Node.
+   - The selected Node has an accent outline. Selection pans just far enough to show its bounds with 16 screen pixels of room, within the camera's existing limits. Hover doesn't pan.
+   - Arrows are handled only on the stage itself. Tab moves through the lists' ordinary buttons; their keys, and the keys of future details controls, retain their own behavior. Ctrl, Meta and Alt combinations are left to the browser. A part can handle Walkthrough keys in the capture phase and prevent the default to keep spatial navigation from handling them.
+7. **Layout order.**
+   - The component reads each Node's bounds from its SVG group. It sorts their centers along the Diagram's direction first, then across it, with model order settling equal positions. It never runs layout or routing.
+   - Edges follow their source Nodes' order, then their target Nodes' order, then model order for parallel Edges and loops. Both directions use the same rule.
+8. **The text alternative.**
+   - Two ordered lists, named `Nodes` and `Edges`, hold ordinary buttons. Focusing or activating a button selects its Node or Edge. `aria-current` marks the selection. An Edge selection highlights its two Nodes and its own drawing parts, as hover does.
+   - A Node's entry is its whole title and its Notation's facts, as in the SVG description, followed by `Rows: name: value; name.` when it has Rows. The Edge entries use `sentenceOf` and the SVG's crossing hook, so roles, Row ends, Technology names, rates and crossing phrases are exactly the SVG description's sentences.
+   - The lists are clipped to one pixel rather than hidden, so assistive technology and find-in-page can read them, including titles shortened in the drawing. They become a visible, scrollable text panel while a list button has keyboard focus.
+   - In the component the SVG is hidden from assistive technology to avoid a second description. The stage keeps its named `group` role and keyboard instructions. A polite status announces the selected entry while the stage has focus; list buttons announce themselves. The committed SVG retains its own accessible image description.
+9. **Explicit highlights.**
+   - `PlatformDiagram.setHighlight({ nodes?, edges? })` keeps exactly the listed Node and Edge ids at full strength. It takes precedence over hover and ordinary selection, and doesn't change the selection or raise a selection event. Passing `undefined` gives emphasis back to hover or selection; Escape clears it along with ordinary focus.
+   - The parts share that controller as `Stage.highlights`, so a Walkthrough can apply a Step's emphasis through it. Playback, Step controls and details remain their own tickets. Focus writes only its own `--focus-opacity`; it doesn't change animation or a motion setting.
+10. **Other drawing parts.** Groups enclosing a kept Node stay at full strength, including nested parents; other Groups fade. A junction stays at full strength when a kept Edge leaves from its Port, Row Ports included. These layers are separate from the Nodes and Edges, so none is faded twice.
+11. **Replacement and activation seams.**
+    - Selection survives a new SVG that still draws its target id. Removing that id clears selection and raises the clearing event. The lists are rebuilt in the new layout order, and old listeners, hit paths, tooltips and selection marks are removed. Keyboard focus on a list item returns to its selected id after a redraw; if that item is gone it returns to the stage. Disconnecting doesn't restore focus on reconnect.
+    - List buttons carry `data-node-item` or `data-edge-item`, each with its target id. A later details part can handle their ordinary click or Enter activation separately from selection changes, just as it can handle the drawing's `data-node` clicks and Enter on the stage.
+
 **Issue 4**
 
 Aggregate diagrams. This is GitHub's issue #4, not ticket 04 above.

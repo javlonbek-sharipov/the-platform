@@ -28,10 +28,7 @@ const factOf: Record<NodeFact, (node: AnyNode) => string | undefined> = {
  */
 export function descriptionOf(diagram: AnyDiagram, notation: Notation, scene: Scene): string {
 	const crosses = new Map(scene.edges.map((edge) => [edge.id, edge.crosses?.kind]));
-	const nodes = diagram.nodes.map((node) => {
-		const facts = notation.facts.flatMap((fact) => factOf[fact](node) ?? []);
-		return `${collapseSpaces(node.title)} (${facts.join(", ")})`;
-	});
+	const nodes = diagram.nodes.map((node) => nodeDescriptionOf(node, notation));
 	const edges = diagram.edges.map(
 		(edge) => `${sentenceOf(diagram, notation, edge, crosses.get(edge.id))}.`,
 	);
@@ -39,6 +36,12 @@ export function descriptionOf(diagram: AnyDiagram, notation: Notation, scene: Sc
 		`Nodes: ${nodes.length === 0 ? "none" : nodes.join("; ")}.`,
 		`Edges: ${edges.length === 0 ? "none." : edges.join(" ")}`,
 	].join(" ");
+}
+
+/** A Node's whole title and the facts its Notation describes, shared with the component's list. */
+export function nodeDescriptionOf(node: AnyNode, notation: Notation): string {
+	const facts = notation.facts.flatMap((fact) => factOf[fact](node) ?? []);
+	return `${collapseSpaces(node.title)} (${facts.join(", ")})`;
 }
 
 /**

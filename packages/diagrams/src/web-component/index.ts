@@ -5,6 +5,8 @@
 
 import { PlatformDiagram } from "./platform-diagram.ts";
 
+export type { HighlightTargets } from "./highlights.ts";
+export type { DiagramSelectionEvent, SelectionTarget } from "./selection.ts";
 export { PlatformDiagram };
 
 if (customElements.get("platform-diagram") === undefined) {
