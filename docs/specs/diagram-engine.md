@@ -2098,6 +2098,11 @@ Aggregate diagrams. This is GitHub's issue #4, not ticket 04 above.
 5. **The Atlas.**
    - `namespace-home-missing` warns at each borrowed Node's declaration when no valid Diagram draws that full id as a member of its own namespace Group. Merely drawing the context Node, or an empty context Group, doesn't supply the Node's home. The check reads the Group Kind's namespace flag, so no domain Kind is named in the Atlas code. It runs in lint, including staged lint; warnings still exit with 0.
    - The existing index format suffices: a context id's `asNode` lists its context maps, and `asGroup` its aggregate diagrams. An event's `asNode` includes both its own context's Diagram and Diagrams that borrow it. Each id still has one Kind and title across both forms; local ids in different contexts remain distinct full ids. Exporting the index doesn't require a borrowed Node's home, as that is a lint warning.
+6. **Fixtures and the skill.**
+   - `docs/example-billing.diagram.ts` draws aggregate Rows, each new Edge Kind and Ordering's event outside Billing. `docs/example-ordering.diagram.ts` supplies that event's home. Both have committed SVGs, shown in `docs/example-aggregates.md`. `docs/shared/ordering.ts` defines the context and the event once, for the context map and the aggregate diagrams.
+   - `test/fixtures/aggregate.ts` draws the Billing example in either direction, so it joins every fixture-wide property. Its golden is `aggregates.svg`, updated with `pnpm golden:update --project node packages/diagrams/test/golden.test.ts`.
+   - The skill's `Aggregate diagrams` section teaches the form, namespaces and borrowed events, with the complete Billing example. Its command test supplies the shared module and the event's already-rendered home, then follows the skill. Every example is still held byte for byte to its source module.
+7. **Docs-site themes.** After merging issue 12, `themeColors(notations)` exports the new hues automatically. No change to the site's theme code was needed. The theme's fixture-wide property checks both hues, and the built site's real-browser theme check now draws aggregates as well as architecture, comparing each site theme under both system schemes.
 
 **Issue 12**
 
