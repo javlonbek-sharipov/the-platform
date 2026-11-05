@@ -2,12 +2,12 @@ import { describe, expect, test } from "vitest";
 import {
 	architecture,
 	architectureNotation,
-	architectureStatuses,
 	type Box,
 	type Direction,
 	nodeKindsOf,
 	render,
 	type Scene,
+	statusesOf,
 } from "../src/index.ts";
 import { type Drawn, draw, nodeOf, paintsWithin, shapesOf, withoutColor } from "./support/drawn.ts";
 import { computedStyle, type Element } from "./support/svg.ts";
@@ -79,7 +79,7 @@ describe("an External Node", () => {
 /** One Node of each Kind for each status, with ids like `database-down`. */
 function everyStatus(title = "Shop") {
 	return architecture({ title: "Statuses" }, (d) => {
-		for (const status of architectureStatuses) {
+		for (const status of statusesOf(architectureNotation)) {
 			for (const kind of nodeKindsOf(architectureNotation)) {
 				d.node({ id: `${kind}-${status}`, kind, title, status });
 			}
@@ -108,7 +108,7 @@ function markColors(drawn: Drawn, shapes: Element[], theme: "light" | "dark"): s
 
 describe("a Node's status", () => {
 	test("is one of ok, degraded, down and unknown, in the model", () => {
-		expect(architectureStatuses).toEqual(["ok", "degraded", "down", "unknown"]);
+		expect(statusesOf(architectureNotation)).toEqual(["ok", "degraded", "down", "unknown"]);
 		const diagram = architecture({ title: "Payments" }, (d) => {
 			d.node({ id: "payments-api", kind: "service", title: "Payments API", status: "degraded" });
 			d.node({ id: "ledger", kind: "database", title: "Ledger" });
@@ -144,7 +144,7 @@ describe("a Node's status", () => {
 	test("draws a mark that differs from every other status's in both shape and color", () => {
 		const drawn = draw(everyStatus());
 		for (const kind of nodeKindsOf(architectureNotation)) {
-			const marks = architectureStatuses.map((status) => {
+			const marks = statusesOf(architectureNotation).map((status) => {
 				const id = `${kind}-${status}`;
 				const shapes = markOf(drawn, id);
 				const mark = nodeOf(drawn.scene, id).status?.mark ?? { x: 0, y: 0 };
@@ -161,14 +161,16 @@ describe("a Node's status", () => {
 					looks.every((look) => look !== ""),
 					`${kind}: ${part}`,
 				).toBe(true);
-				expect(new Set(looks).size, `${kind}: ${part}`).toBe(architectureStatuses.length);
+				expect(new Set(looks).size, `${kind}: ${part}`).toBe(
+					statusesOf(architectureNotation).length,
+				);
 			}
 		}
 	});
 
 	test("draws the same mark for a status, whatever the Kind", () => {
 		const drawn = draw(everyStatus());
-		for (const status of architectureStatuses) {
+		for (const status of statusesOf(architectureNotation)) {
 			const looks = nodeKindsOf(architectureNotation).map((kind) => {
 				const id = `${kind}-${status}`;
 				const mark = nodeOf(drawn.scene, id).status?.mark ?? { x: 0, y: 0 };

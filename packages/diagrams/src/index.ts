@@ -56,15 +56,10 @@ export type {
 	ArchitectureGroupKind,
 	ArchitectureNodeKind,
 	ArchitectureStatus,
-	ArchitectureStatusLook,
 	KnownTechnology,
 	Technology,
 } from "./notations/architecture.ts";
-export {
-	architectureNotation,
-	architectureStatuses,
-	architectureStatusLooks,
-} from "./notations/architecture.ts";
+export { architectureNotation } from "./notations/architecture.ts";
 export type {
 	EdgeKindDefinition,
 	EdgeKindOf,
@@ -73,6 +68,8 @@ export type {
 	NodeKindDefinition,
 	NodeKindOf,
 	Notation,
+	StatusDefinition,
+	StatusOf,
 } from "./notations/notation.ts";
-export { edgeKindsOf, groupKindsOf, nodeKindsOf } from "./notations/notation.ts";
+export { edgeKindsOf, groupKindsOf, nodeKindsOf, statusesOf } from "./notations/notation.ts";
 export { technologies } from "./notations/technologies.ts";

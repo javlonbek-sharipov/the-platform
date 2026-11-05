@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
 import {
 	architectureNotation,
-	architectureStatuses,
 	edgeKindsOf,
 	groupKindsOf,
 	nodeKindsOf,
 	render,
+	statusesOf,
 } from "../src/index.ts";
 import everyField from "./fixtures/every-field.json" with { type: "json" };
 import everyKind from "./fixtures/every-kind.ts";
@@ -170,7 +170,7 @@ describe("the JSON Schema", () => {
 		expect($defs.node.properties.kind.enum).toEqual(nodeKindsOf(architectureNotation));
 		expect($defs.group.properties.kind.enum).toEqual(groupKindsOf(architectureNotation));
 		expect($defs.edge.properties.kind.enum).toEqual(edgeKindsOf(architectureNotation));
-		expect($defs.node.properties.status.enum).toEqual(architectureStatuses);
+		expect($defs.node.properties.status.enum).toEqual(statusesOf(architectureNotation));
 	});
 
 	test("allows each object the fields that the core does, and no others", () => {

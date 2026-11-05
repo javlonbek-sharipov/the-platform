@@ -6,7 +6,7 @@
  */
 
 import type { Outline } from "../core/outlines.ts";
-import type { ThemeColor } from "../core/theme.ts";
+import type { ColorName, ThemeColor } from "../core/theme.ts";
 
 export interface Notation {
 	/** What a Diagram's `notation` names it by. */
@@ -20,6 +20,11 @@ export interface Notation {
 	hues: Record<string, ThemeColor>;
 	/** Its Node Kinds, in the order messages list them, each with its look. */
 	nodeKinds: Record<string, NodeKindDefinition>;
+	/**
+	 * The statuses its Nodes may have, which say how each is doing, in the
+	 * order messages list them, each with its look.
+	 */
+	statuses: Record<string, StatusDefinition>;
 	/** Its Group Kinds, in the order messages list them, each with its look. */
 	groupKinds: Record<string, GroupKindDefinition>;
 	/** Its Edge Kinds, in the order messages list them, each with its look and its sentence form. */
@@ -37,6 +42,19 @@ export interface NodeKindDefinition {
 	badge: string;
 	/** Which of the Notation's hues the Node takes. */
 	hue: string;
+}
+
+/**
+ * How a status shows: a mark of its own shape and its own color, at the end
+ * of its Node's header, so that color is never the only signal.
+ */
+export interface StatusDefinition {
+	/** The mark, as path data in a box 12 px square. */
+	mark: string;
+	/** Whether the mark is stroked as lines, rather than filled. */
+	line: boolean;
+	/** The theme's color for it. */
+	color: ColorName;
 }
 
 /** How a Group of one Kind draws its box. A Kind alone decides it. */
@@ -57,6 +75,17 @@ export interface EdgeKindDefinition {
 	 * its two ends.
 	 */
 	sentence: string;
+	/**
+	 * Whether it runs both ways alike, as a partnership does. A symmetric Edge
+	 * is drawn without an arrowhead and without chevrons.
+	 */
+	symmetric?: boolean;
+	/**
+	 * The Node Kinds it may join: those it may start at, and those it may end
+	 * at. Left out, it may start, or end, at a Node of any Kind.
+	 */
+	from?: readonly string[];
+	to?: readonly string[];
 }
 
 /** The names of a Notation's Node Kinds. */
@@ -65,6 +94,14 @@ export type NodeKindOf<N extends Notation> = keyof N["nodeKinds"] & string;
 /** A Notation's Node Kinds, in its definition's order. */
 export function nodeKindsOf<N extends Notation>(notation: N): NodeKindOf<N>[] {
 	return Object.keys(notation.nodeKinds);
+}
+
+/** The names of a Notation's statuses. */
+export type StatusOf<N extends Notation> = keyof N["statuses"] & string;
+
+/** A Notation's statuses, in its definition's order. */
+export function statusesOf<N extends Notation>(notation: N): StatusOf<N>[] {
+	return Object.keys(notation.statuses);
 }
 
 /** The names of a Notation's Group Kinds. */

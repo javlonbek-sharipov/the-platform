@@ -11,13 +11,14 @@
  */
 
 import type { Diagram } from "../authoring/model.ts";
-import { architectureStatusLooks, logoUnits, technologyOf } from "../notations/architecture.ts";
+import { logoUnits, technologyOf } from "../notations/architecture.ts";
 import {
 	definitionOf,
 	type EdgeKindDefinition,
 	type GroupKindDefinition,
 	type NodeKindDefinition,
 	type Notation,
+	type StatusDefinition,
 } from "../notations/notation.ts";
 import { compareText } from "./bundles.ts";
 import { descriptionOf } from "./description.ts";
@@ -127,9 +128,7 @@ export function writeSvg(
 					indent(1, "</g>"),
 				]),
 		indent(1, start("g", [["class", "diagram-nodes"]])),
-		...scene.nodes.flatMap((node) =>
-			writeNode(node, definitionOf(notation.nodeKinds, node.kind)).map((text) => indent(2, text)),
-		),
+		...scene.nodes.flatMap((node) => writeNode(node, notation).map((text) => indent(2, text))),
 		indent(1, "</g>"),
 	];
 	const fonts = fontData === undefined ? [] : embeddedFonts(scene, fontData);
@@ -191,8 +190,9 @@ function writeGroup(group: SceneGroup, look: GroupKindDefinition): string[] {
  * title and its Technology's name; a line across it above its Rows, and their
  * names and values; its status mark; and its callout's tag.
  */
-function writeNode(node: SceneNode, look: NodeKindDefinition): string[] {
+function writeNode(node: SceneNode, notation: Notation): string[] {
 	const { box, badge, title, technology, logo, rows, callout } = node;
+	const look: NodeKindDefinition = definitionOf(notation.nodeKinds, node.kind);
 	const outline = outlines[look.outline];
 	// A callout highlights the outline: wider, and in the accent color.
 	const width = callout === undefined ? outline.stroke : outline.stroke + highlightGain;
@@ -264,7 +264,9 @@ function writeNode(node: SceneNode, look: NodeKindDefinition): string[] {
 					]),
 				]),
 		...rowTextsOf(node).map((text) => writeText(text, "diagram-text")),
-		...(node.status === undefined ? [] : [writeStatus(node.status)]),
+		...(node.status === undefined
+			? []
+			: [writeStatus(node.status, definitionOf(notation.statuses, node.status.value))]),
 		...(callout === undefined
 			? []
 			: [
@@ -334,8 +336,7 @@ function writeText(text: SceneText, className: string): string {
 	);
 }
 
-function writeStatus({ value, mark }: SceneStatus): string {
-	const look = architectureStatusLooks[value];
+function writeStatus({ value, mark }: SceneStatus, look: StatusDefinition): string {
 	const paint: Attribute[] = look.line
 		? [
 				["fill", "none"],
@@ -384,10 +385,12 @@ const casingWidth = markSizes.casing;
 
 /**
  * An Edge: its line, as a casing beneath a body; its chevrons, cased alike;
- * its arrowhead; and its badge, if it crosses between regions or zones.
+ * its arrowhead, unless its Kind is symmetric; and its badge, if it crosses
+ * between Groups.
  */
 function writeEdge(edge: SceneEdge, look: EdgeKindDefinition): string[] {
-	const line = linePath(edge);
+	const directed = look.symmetric !== true;
+	const line = linePath(edge, directed);
 	const dashed: Attribute[] = look.line === "dashed" ? [["stroke-dasharray", dashes]] : [];
 	const rounded: Attribute[] = [
 		["stroke-linecap", "round"],
@@ -396,13 +399,17 @@ function writeEdge(edge: SceneEdge, look: EdgeKindDefinition): string[] {
 	const parts = [
 		...cased(line, dashed),
 		...(edge.chevrons.length === 0 ? [] : cased(edge.chevrons.map(chevronPath).join(" "), rounded)),
-		empty("path", [
-			["class", "diagram-casing"],
-			["d", arrowhead(edge.toPort)],
-			["fill", "currentColor"],
-			["stroke-width", arrowOutline],
-			["stroke-linejoin", "round"],
-		]),
+		...(directed
+			? [
+					empty("path", [
+						["class", "diagram-casing"],
+						["d", arrowhead(edge.toPort)],
+						["fill", "currentColor"],
+						["stroke-width", arrowOutline],
+						["stroke-linejoin", "round"],
+					]),
+				]
+			: []),
 		...(edge.crosses === undefined ? [] : writeBadge(edge.crosses.badge)),
 	];
 	return [

@@ -5,7 +5,6 @@
  * the whole page, so every selector is scoped to the SVG.
  */
 
-import { architectureStatuses, architectureStatusLooks } from "../notations/architecture.ts";
 import { definitionOf, type Notation, nodeKindsOf } from "../notations/notation.ts";
 import { base64 } from "./encoding.ts";
 import type { Scene } from "./scene.ts";
@@ -110,8 +109,8 @@ export function colorUses(drawing: string[], notation: Notation): ColorUse[] {
 		byClass("diagram-label-detail", "fill", "muted"),
 		byClass("diagram-base", "fill", "surface"),
 		...hues,
-		...architectureStatuses.map((status) =>
-			byClass(`diagram-status-${status}`, "color", architectureStatusLooks[status].color),
+		...Object.entries(notation.statuses).map(([status, { color }]) =>
+			byClass(`diagram-status-${status}`, "color", color),
 		),
 		byClass("diagram-text", "fill", "ink"),
 		byClass("diagram-technology", "fill", "muted"),

@@ -14,8 +14,13 @@ import {
 	type RowEnd,
 } from "../authoring/model.ts";
 import { unknownOptionsOf } from "../authoring/options.ts";
-import { architectureStatuses } from "../notations/architecture.ts";
-import { edgeKindsOf, groupKindsOf, type Notation, nodeKindsOf } from "../notations/notation.ts";
+import {
+	edgeKindsOf,
+	groupKindsOf,
+	type Notation,
+	nodeKindsOf,
+	statusesOf,
+} from "../notations/notation.ts";
 import { codePointOf, type Diagnostic, list, pointerSegment } from "./diagnostics.ts";
 import { type TextField, type TextOwner, textsOf } from "./texts.ts";
 
@@ -23,8 +28,6 @@ import { type TextField, type TextOwner, textsOf } from "./texts.ts";
 export type Validation =
 	| { diagnostics: Diagnostic[]; diagram?: undefined }
 	| { diagnostics: Diagnostic[]; diagram: Diagram; notation: Notation };
-
-const statuses: readonly string[] = architectureStatuses;
 
 const kebabCase = "[a-z0-9]+(?:-[a-z0-9]+)*";
 /** Lowercase kebab-case words, optionally namespaced by a context, as in `billing/order`. */
@@ -117,6 +120,7 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 	const nodeKinds: readonly string[] = nodeKindsOf(notation);
 	const groupKinds: readonly string[] = groupKindsOf(notation);
 	const edgeKinds: readonly string[] = edgeKindsOf(notation);
+	const statuses: readonly string[] = statusesOf(notation);
 	const diagnostics: Diagnostic[] = [];
 
 	const nodeIds = new Set<string>();
@@ -153,7 +157,7 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 			diagnostics.push(
 				error(
 					"unknown-status",
-					`Node \`${node.id}\` has the status \`${node.status}\`, which the architecture Notation doesn't have. Its statuses are ${list(statuses)}.`,
+					`Node \`${node.id}\` has the status \`${node.status}\`, which the ${notation.name} Notation doesn't have. Its statuses are ${list(statuses)}.`,
 					`/nodes/${index}/status`,
 				),
 			);
@@ -217,6 +221,7 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 
 	// An Edge end names a Row by its name, among its Node's Rows.
 	const rowsOf = new Map(diagram.nodes.map((node) => [node.id, node.rows ?? []]));
+	const kindOf = new Map(diagram.nodes.map((node) => [node.id, node.kind]));
 	const edgeIds = new Set<string>();
 	diagram.edges.forEach((edge, index) => {
 		if (!edgeIdPattern.test(edge.id)) {
@@ -245,6 +250,7 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 			const end = edge[field];
 			const node = endNode(end);
 			const at = `/edges/${index}/${field}`;
+			const atNode = typeof end === "string" ? at : `${at}/node`;
 			if (!nodeIds.has(node)) {
 				diagnostics.push(
 					error(
@@ -252,10 +258,29 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 						groupIds.has(node)
 							? `Edge \`${edge.id}\` ${verb} at \`${node}\`, which is a Group. An Edge starts and ends at Nodes, never at Groups.`
 							: `Edge \`${edge.id}\` ${verb} at \`${node}\`, which isn't a Node on this Diagram.`,
-						typeof end === "string" ? at : `${at}/node`,
+						atNode,
 					),
 				);
-			} else if (typeof end !== "string") {
+				continue;
+			}
+			// An Edge's ends have Kinds that its own Kind allows. An end or an Edge
+			// of a Kind the Notation lacks has its own error.
+			const allowed = notation.edgeKinds[edge.kind]?.[field];
+			const kind = kindOf.get(node) ?? "";
+			if (allowed !== undefined && nodeKinds.includes(kind) && !allowed.includes(kind)) {
+				const kinds = list(
+					allowed.map((name) => `\`${name}\``),
+					"or",
+				);
+				diagnostics.push(
+					error(
+						"edge-end-kind",
+						`Edge \`${edge.id}\` ${verb} at \`${node}\`, whose Kind is \`${kind}\`. An Edge of the Kind \`${edge.kind}\` may ${field === "from" ? "start" : "end"} only at a Node of the Kind ${kinds}.`,
+						atNode,
+					),
+				);
+			}
+			if (typeof end !== "string") {
 				const names = (rowsOf.get(node) ?? []).map((row) => row.name);
 				if (!names.includes(end.row)) {
 					// Row names may hold spaces, so each one is quoted.

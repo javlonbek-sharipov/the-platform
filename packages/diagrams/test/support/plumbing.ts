@@ -15,7 +15,7 @@ export const plumbingNotation = {
 	nodeKinds: {
 		// A drum.
 		tank: {
-			width: 144,
+			width: 160,
 			height: 64,
 			outline: "cylinder",
 			badge: "M 3 3 H 13 V 13 H 3 Z",
@@ -30,16 +30,34 @@ export const plumbingNotation = {
 			hue: "metal",
 		},
 		// A spout.
-		tap: { width: 112, height: 48, outline: "pill", badge: "M 2 8 H 14 M 8 2 V 14", hue: "metal" },
+		tap: { width: 144, height: 48, outline: "pill", badge: "M 2 8 H 14 M 8 2 V 14", hue: "metal" },
+	},
+	statuses: {
+		// A drop, and a bar across the pipe.
+		open: { mark: "M 6 1 L 10 7 A 4 4 0 1 1 2 7 Z", line: false, color: "ok" },
+		shut: { mark: "M 2 6 H 10", line: true, color: "danger" },
 	},
 	groupKinds: {
 		room: { stroke: 1, line: "dashed" },
 		floor: { stroke: 2.5, line: "solid" },
 	},
 	edgeKinds: {
-		pipe: { line: "solid", sentence: "{from} feeds {to}" },
+		// A pipe runs from a tank or a pump to a pump or a tap, and a drain joins any two Nodes.
+		pipe: {
+			line: "solid",
+			sentence: "{from} feeds {to}",
+			from: ["tank", "pump"],
+			to: ["pump", "tap"],
+		},
 		drain: { line: "dashed", sentence: "{from} drains into {to}" },
-		coupling: { line: "solid", sentence: "{from} is coupled with {to}" },
+		// A coupling joins two tanks, and runs neither way.
+		coupling: {
+			line: "solid",
+			sentence: "{from} is coupled with {to}",
+			symmetric: true,
+			from: ["tank"],
+			to: ["tank"],
+		},
 	},
 } as const satisfies Notation;
 

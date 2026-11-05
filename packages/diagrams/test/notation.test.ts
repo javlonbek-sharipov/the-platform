@@ -1,8 +1,16 @@
 import { describe, expect, test } from "vitest";
 import { render } from "../src/index.ts";
-import { draw, groupOf, linesOf, shapesOf, strokeOf, strokesOf } from "./support/drawn.ts";
+import {
+	draw,
+	edgeGroupOf,
+	groupOf,
+	linesOf,
+	shapesOf,
+	strokeOf,
+	strokesOf,
+} from "./support/drawn.ts";
 import { plumbingModel, plumbingNotation } from "./support/plumbing.ts";
-import { descendants, isShape } from "./support/svg.ts";
+import { computedStyle, descendants, isShape, runsOf } from "./support/svg.ts";
 
 /** Reads only the plumbing Notation, in place of the engine's own. */
 const plumbing = { notations: [plumbingNotation] };
@@ -89,9 +97,9 @@ describe("a Notation defined only in the tests", () => {
 		const sizes = scene.nodes.map(({ id, box }) => [id, box.width, box.height]);
 
 		expect(sizes).toEqual([
-			["boiler", 144, 64],
+			["boiler", 160, 64],
 			["pump", 128, 48],
-			["kitchen-tap", 112, 48],
+			["kitchen-tap", 144, 48],
 		]);
 	});
 
@@ -110,7 +118,7 @@ describe("a Notation defined only in the tests", () => {
 		expect(paths("pump")).toContain("M 8 2 L 14 14 H 2 Z");
 		expect(paths("kitchen-tap")).toContain("M 2 8 H 14 M 8 2 V 14");
 		// A tank is a cylinder, whose lid and base are halves of ellipses.
-		expect(silhouette("boiler")).toMatch(/ A 71\.25 7 /);
+		expect(silhouette("boiler")).toMatch(/ A 79\.25 7 /);
 		// A pump is a rectangle with its four corners cut off, so it has eight.
 		expect(silhouette("pump")).toMatch(/^M [\d.]+ [\d.]+(?: L [\d.]+ [\d.]+){7} Z$/);
 		// A tap is a pill: both ends round right through, by half its height inside its stroke.
@@ -222,5 +230,147 @@ describe("a Notation defined only in the tests", () => {
 		expect(root.children.find((child) => child.name === "desc")?.text).toBe(
 			"Nodes: Boiler (tank); Pump (pump); Kitchen tap (tap). Edges: Boiler feeds Pump. Pump feeds Kitchen tap. Kitchen tap drains into Boiler.",
 		);
+	});
+
+	test("has the statuses its definition lists, each drawn as its mark, in its color", () => {
+		const taps = (...statuses: string[]) =>
+			plumbingModel({
+				members: statuses.map((status) => `${status}-tap`),
+				nodes: statuses.map((status) => ({
+					id: `${status}-tap`,
+					kind: "tap",
+					title: "Tap",
+					status,
+				})),
+			});
+
+		expect(renderPlumbing(taps("ok"))).toEqual({
+			diagnostics: [
+				{
+					severity: "error",
+					rule: "unknown-status",
+					message:
+						"Node `ok-tap` has the status `ok`, which the plumbing Notation doesn't have. Its statuses are open and shut.",
+					pointer: "/nodes/0/status",
+				},
+			],
+		});
+
+		const drawn = draw(taps("open", "shut"), plumbing);
+		const marks = drawn.scene.nodes.map(({ id, status }) => {
+			const mark = shapesOf(drawn, id).find((shape) =>
+				shape.attributes.get("class")?.startsWith("diagram-status-"),
+			);
+			const style = mark === undefined ? undefined : computedStyle(mark, drawn.rules, "light");
+			return [status?.value, mark?.attributes.get("d"), style?.get("fill"), style?.get("stroke")];
+		});
+		expect(marks).toEqual([
+			["open", "M 6 1 L 10 7 A 4 4 0 1 1 2 7 Z", "#1a7f37", "#1a7f37"],
+			["shut", "M 2 6 H 10", "none", "#d1242f"],
+		]);
+	});
+
+	test("draws an Edge of a symmetric Kind as a line alone, with no arrowhead and no chevrons", () => {
+		const coupled = plumbingModel({
+			members: ["boiler", "cistern", "pump"],
+			nodes: [
+				{ id: "boiler", kind: "tank", title: "Boiler" },
+				{ id: "cistern", kind: "tank", title: "Cistern" },
+				{ id: "pump", kind: "pump", title: "Pump" },
+			],
+			edges: [
+				{ id: "boiler->cistern", kind: "coupling", from: "boiler", to: "cistern" },
+				{ id: "cistern->pump", kind: "pipe", from: "cistern", to: "pump" },
+			],
+		});
+		const drawn = draw(coupled, plumbing);
+		const drawing = drawn.scene.edges.map((edge) => {
+			const lines = linesOf(drawn, edge);
+			const marks = descendants(edgeGroupOf(drawn, edge.id)).filter(
+				(shape) => isShape(shape) && !lines.includes(shape),
+			);
+			const reach = Math.min(
+				...lines
+					.flatMap(runsOf)
+					.flat()
+					.map((point) => Math.hypot(point.x - edge.toPort.point.x, point.y - edge.toPort.point.y)),
+			);
+			return {
+				edge: edge.id,
+				chevrons: edge.chevrons.length,
+				lines: lines.length,
+				marks: marks.length,
+				// How far the line stops short of its target's Port.
+				short: reach,
+			};
+		});
+
+		expect(drawing).toEqual([
+			// Its casing and its body, which run all the way into the Port.
+			{ edge: "boiler->cistern", chevrons: 0, lines: 2, marks: 0, short: 0 },
+			// A directed Edge has a chevron, cased like its line, and an arrowhead that its line stops inside.
+			{ edge: "cistern->pump", chevrons: 1, lines: 2, marks: 3, short: 7 },
+		]);
+		expect(drawn.root.children.find((child) => child.name === "desc")?.text).toBe(
+			"Nodes: Boiler (tank); Cistern (tank); Pump (pump). Edges: Boiler is coupled with Cistern. Cistern feeds Pump.",
+		);
+	});
+
+	test("lets each Edge Kind join only the Node Kinds its definition allows", () => {
+		const joined = (kind: string, from: unknown, to: unknown) => ({
+			...house,
+			nodes: [
+				{ id: "boiler", kind: "tank", title: "Boiler", rows: [{ name: "outlet" }] },
+				{ id: "pump", kind: "pump", title: "Pump" },
+				{ id: "kitchen-tap", kind: "tap", title: "Kitchen tap" },
+			],
+			edges: [{ id: "joint", kind, from, to }],
+		});
+		const wrongEnd = (message: string, pointer: string) => ({
+			severity: "error",
+			rule: "edge-end-kind",
+			message,
+			pointer,
+		});
+
+		// The house's pipes run from a tank to a pump, and from a pump to a tap.
+		expect(renderPlumbing(house).diagnostics).toEqual([]);
+		// A drain's definition names no Kinds, so it joins any two.
+		expect(renderPlumbing(joined("drain", "kitchen-tap", "kitchen-tap")).diagnostics).toEqual([]);
+		expect(renderPlumbing(joined("pipe", "kitchen-tap", "boiler"))).toEqual({
+			diagnostics: [
+				wrongEnd(
+					"Edge `joint` starts at `kitchen-tap`, whose Kind is `tap`. An Edge of the Kind `pipe` may start only at a Node of the Kind `tank` or `pump`.",
+					"/edges/0/from",
+				),
+				wrongEnd(
+					"Edge `joint` ends at `boiler`, whose Kind is `tank`. An Edge of the Kind `pipe` may end only at a Node of the Kind `pump` or `tap`.",
+					"/edges/0/to",
+				),
+			],
+		});
+		// An end at a Row is judged by its Node's Kind, and pointed at by its Node.
+		expect(renderPlumbing(joined("coupling", { node: "boiler", row: "outlet" }, "pump"))).toEqual({
+			diagnostics: [
+				wrongEnd(
+					"Edge `joint` ends at `pump`, whose Kind is `pump`. An Edge of the Kind `coupling` may end only at a Node of the Kind `tank`.",
+					"/edges/0/to",
+				),
+			],
+		});
+		expect(renderPlumbing(joined("pipe", { node: "kitchen-tap", row: "spout" }, "pump"))).toEqual({
+			diagnostics: [
+				wrongEnd(
+					"Edge `joint` starts at `kitchen-tap`, whose Kind is `tap`. An Edge of the Kind `pipe` may start only at a Node of the Kind `tank` or `pump`.",
+					"/edges/0/from/node",
+				),
+				{
+					severity: "error",
+					rule: "edge-end",
+					message: "Edge `joint` starts at the Row `spout` of `kitchen-tap`, which has no Rows.",
+					pointer: "/edges/0/from/row",
+				},
+			],
+		});
 	});
 });

@@ -4,10 +4,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import {
 	architectureNotation,
-	architectureStatuses,
 	edgeKindsOf,
 	groupKindsOf,
 	nodeKindsOf,
+	statusesOf,
 	technologies,
 } from "../src/index.ts";
 import { type CliRun, runCli, sampleAtlas } from "./support/atlas.ts";
@@ -80,7 +80,7 @@ describe("the agent skill", () => {
 			...nodeKindsOf(architectureNotation),
 			...groupKindsOf(architectureNotation),
 			...edgeKindsOf(architectureNotation),
-			...architectureStatuses,
+			...statusesOf(architectureNotation),
 			...Object.keys(technologies),
 		];
 

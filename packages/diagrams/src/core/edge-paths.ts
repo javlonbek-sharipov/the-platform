@@ -23,17 +23,19 @@ const meridian = 1.5;
 /**
  * The path data of an Edge's line: each piece of its stroke, between hops, as
  * a subpath of its own, so that hops show as gaps in both casing and body.
- * The piece at the target stops just inside the arrowhead, so that the
- * casing doesn't show beside the tip. The pieces are written from the target
- * back, so that the dashes of a dashed line start there: the Edges of one
- * bundle end at one Port, hop together, and so dash alike along the trunk
+ * Under an arrowhead, the piece at the target stops just inside it, so that
+ * the casing doesn't show beside the tip. The pieces are written from the
+ * target back, so that the dashes of a dashed line start there: the Edges of
+ * one bundle end at one Port, hop together, and so dash alike along the trunk
  * they share.
  */
-export function linePath({ route, stroke }: SceneEdge): string {
+export function linePath({ route, stroke }: SceneEdge, arrow: boolean): string {
 	const pieces = stroke.length === 0 ? [route] : stroke;
 	return pieces
 		.map((piece, index) =>
-			index === pieces.length - 1 ? trimmed(piece, arrowLength - arrowOutline) : [...piece],
+			arrow && index === pieces.length - 1
+				? trimmed(piece, arrowLength - arrowOutline)
+				: [...piece],
 		)
 		.reverse()
 		.map((piece) => pathData(piece.reverse()))

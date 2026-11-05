@@ -78,7 +78,7 @@ export function render(diagram: unknown, options: RenderOptions = {}): RenderRes
 		({ nodes, groups } = layOut(model, notation, bundle, ownLanes));
 		routing = route(model, nodes, groups, { ...options, bundle, ownLanes });
 	}
-	const edges = markEdges(model, routing.edges);
+	const edges = markEdges(model, notation, routing.edges);
 	const scene: Scene = {
 		bounds: boundsOf(
 			[

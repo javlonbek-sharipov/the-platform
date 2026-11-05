@@ -3,8 +3,7 @@
  * Technologies that have a logo.
  */
 
-import type { ColorName } from "../core/theme.ts";
-import type { EdgeKindOf, GroupKindOf, NodeKindOf, Notation } from "./notation.ts";
+import type { EdgeKindOf, GroupKindOf, NodeKindOf, Notation, StatusOf } from "./notation.ts";
 import { technologies } from "./technologies.ts";
 
 /** The slug of a Technology that has a logo, which editors offer for `technology`. */
@@ -33,35 +32,6 @@ export function technologyOf(slug: string): { name: string; logo?: string } {
 	const known = knownTechnologies.get(slug);
 	return known === undefined ? { name: slug } : { name: known.name, logo: known.path };
 }
-
-/** How a Node is doing. Each status shows as a mark with a shape and a color of its own. */
-export const architectureStatuses = ["ok", "degraded", "down", "unknown"] as const;
-
-export type ArchitectureStatus = (typeof architectureStatuses)[number];
-
-/**
- * How a status shows: a mark of its own shape and its own color, at the end
- * of its Node's header, so that color is never the only signal.
- */
-export interface ArchitectureStatusLook {
-	/** The mark, as path data in a box 12 px square. */
-	mark: string;
-	/** Whether the mark is stroked as lines, rather than filled. */
-	line: boolean;
-	/** The theme's color for it. */
-	color: ColorName;
-}
-
-export const architectureStatusLooks: Record<ArchitectureStatus, ArchitectureStatusLook> = {
-	// A dot.
-	ok: { mark: "M 1 6 A 5 5 0 1 0 11 6 A 5 5 0 1 0 1 6 Z", line: false, color: "ok" },
-	// A warning triangle.
-	degraded: { mark: "M 6 1.5 L 11 10.5 H 1 Z", line: false, color: "warn" },
-	// A cross.
-	down: { mark: "M 2.5 2.5 L 9.5 9.5 M 9.5 2.5 L 2.5 9.5", line: true, color: "danger" },
-	// A square.
-	unknown: { mark: "M 1.75 1.75 H 10.25 V 10.25 H 1.75 Z", line: false, color: "muted" },
-};
 
 /**
  * The architecture Notation's definition: everything about architecture
@@ -182,6 +152,16 @@ export const architectureNotation = {
 			hue: "data",
 		},
 	},
+	statuses: {
+		// A dot.
+		ok: { mark: "M 1 6 A 5 5 0 1 0 11 6 A 5 5 0 1 0 1 6 Z", line: false, color: "ok" },
+		// A warning triangle.
+		degraded: { mark: "M 6 1.5 L 11 10.5 H 1 Z", line: false, color: "warn" },
+		// A cross.
+		down: { mark: "M 2.5 2.5 L 9.5 9.5 M 9.5 2.5 L 2.5 9.5", line: true, color: "danger" },
+		// A square.
+		unknown: { mark: "M 1.75 1.75 H 10.25 V 10.25 H 1.75 Z", line: false, color: "muted" },
+	},
 	groupKinds: {
 		// A `system` is heavier than a `region`, and a `zone` is dashed.
 		system: { stroke: 2, line: "solid" },
@@ -196,5 +176,6 @@ export const architectureNotation = {
 } as const satisfies Notation;
 
 export type ArchitectureNodeKind = NodeKindOf<typeof architectureNotation>;
+export type ArchitectureStatus = StatusOf<typeof architectureNotation>;
 export type ArchitectureGroupKind = GroupKindOf<typeof architectureNotation>;
 export type ArchitectureEdgeKind = EdgeKindOf<typeof architectureNotation>;
