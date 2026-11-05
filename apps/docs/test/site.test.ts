@@ -3,7 +3,7 @@ import { existsSync, realpathSync } from "node:fs";
 import { readFile, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { render } from "@the-platform/diagrams";
+import { domain, render } from "@the-platform/diagrams";
 import type { Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import billing from "../../../packages/diagrams/docs/example-billing.diagram.ts";
@@ -671,5 +671,58 @@ describe("the docs site of the-platform", () => {
 		const page = await site.page("packages/diagrams/docs/example-system");
 
 		expect(page).toContain(`<platform-diagram>${drawing}</platform-diagram>`);
+	});
+});
+
+describe("Atlas navigation on the built site", () => {
+	let site: Site;
+
+	beforeAll(async () => {
+		const overview = domain({ id: "packages/shop/docs/overview", title: "Shop overview" }, (d) => {
+			d.node({ id: "shop", kind: "context", title: "Shop", links: [{ term: "Cart" }] });
+		});
+		const drawing = render(overview).svg;
+		if (drawing === undefined) throw new Error("the navigation Diagram has errors");
+		const repo = await sampleRepo({
+			"diagrams.config.ts":
+				'export default { contexts: { shop: { glossary: "packages/shop/GLOSSARY.md" } } };',
+			"packages/shop/GLOSSARY.md": lines(
+				"# Shop",
+				"",
+				"## Cart",
+				"",
+				"A heading that already owns the cart anchor.",
+				"",
+				"**Cart**:",
+				"What a shopper has **picked**, before placing an order.",
+			),
+			"packages/shop/docs/overview.diagram.ts": `export default ${JSON.stringify(overview)};`,
+			"packages/shop/docs/overview.diagram.svg": drawing,
+			"packages/shop/docs/overview.md": lines(
+				"# Shop overview",
+				"",
+				"![Shop](./overview.diagram.svg)",
+			),
+		});
+		site = await buildSite(repo);
+	}, 120_000);
+
+	afterAll(closeBrowser);
+
+	test("a Node's term hover uses the glossary definition indexed at build time", async () => {
+		const reader = await reading(site);
+		try {
+			const page = await open(reader, "packages/shop/docs/overview");
+			const diagram = page.locator("platform-diagram");
+			await diagram.getByText("Shop", { exact: true }).hover();
+
+			const definition = diagram.getByRole("tooltip").filter({ visible: true });
+			await definition.waitFor();
+			expect(await definition.textContent()).toContain(
+				"What a shopper has **picked**, before placing an order.",
+			);
+		} finally {
+			await reader.close();
+		}
 	});
 });

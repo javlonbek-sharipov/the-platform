@@ -2287,6 +2287,12 @@ Walkthroughs. This is GitHub's issue #11, not ticket 11 above.
 6. **Lifetime.** SVG replacement and disconnect end playback, cancel its timer, remove marks, controls, listeners and visibility observation, and release its explicit highlight. Selection keeps issue 7's reconciliation behavior. Replacement rebuilds the list from the new metadata and returns control focus to the stage; reconnect starts with the list and never restores keyboard focus. Playback state is local to one component.
 7. **Author guidance and checks.** `docs/example-walkthrough.diagram.ts` and its committed SVG demonstrate all four Step forms; `docs/example-walkthrough.md` embeds it on the docs site. The skill teaches the API with that complete small module, and its existing command test renders, lints and exports it in a sample Atlas. A separate CLI test checks JSON export and the declaration's source position for a broken Step. Browser motion checks establish moving marks and intermediate highlight opacity inside the shadow root before verifying reduced motion and host motion-off; they also cover both Notations, playback timing, selection, replacement, disconnect and offscreen pause.
 
+**Issue 13**
+
+Links, drill-down and Node URLs on the docs site. This is GitHub's issue #13, not ticket 13 above.
+
+1. **The built index.** The app opens the Atlas in Node while reading its config, using `openAtlas` and `indexAtlas`. An Astro integration exposes the resulting plain index through a Vite virtual module, bundled once for every page to share. The page gives that same index to every component; term hover and details use the component's existing lookup and rendering. No Node-only Atlas code goes into the browser. A repo with prose alone and no Atlas config gets an empty index.
+
 ### References
 
 **Routing and layout papers**

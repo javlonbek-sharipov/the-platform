@@ -4,3 +4,8 @@
  */
 
 import "@the-platform/diagrams/web-component";
+import index from "virtual:diagram-atlas";
+
+for (const diagram of document.querySelectorAll("platform-diagram")) {
+	diagram.atlasIndex = index;
+}

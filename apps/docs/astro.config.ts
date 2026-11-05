@@ -1,6 +1,7 @@
 import { satteri, satteriHeadingIdsPlugin } from "@astrojs/markdown-satteri";
 import starlight from "@astrojs/starlight";
 import { defineConfig, passthroughImageService } from "astro/config";
+import { buildAtlas } from "./src/diagrams/atlas.ts";
 import { diagramImages } from "./src/diagrams/images.ts";
 import { diagrams } from "./src/diagrams/integration.ts";
 import { themeStyle } from "./src/diagrams/theme.ts";
@@ -11,6 +12,7 @@ import { docsOf, github, repoRoot } from "./src/repo.ts";
 import { sidebarOf } from "./src/sidebar.ts";
 
 const title = "the-platform";
+const atlas = await buildAtlas(repoRoot);
 
 /** The docs site: the repo's glossaries, ADRs, specs and docs, with their Diagrams. */
 export default defineConfig({
@@ -36,6 +38,6 @@ export default defineConfig({
 			// Starlight's own touches, such as each heading's link to itself, are for the repo's docs too.
 			markdown: { processedDirs: [repoRoot] },
 		}),
-		diagrams(),
+		diagrams(atlas),
 	],
 });
