@@ -17,5 +17,5 @@ Every other page is a file of the repo, shown from where it lives. To change a p
 A Diagram on a page is more than a picture:
 
 - drag it to move around it;
-- click into it, then turn the mouse wheel to zoom, or pinch it on a trackpad;
-- press `+` and `-` to zoom, and `0` to fit it to its frame again.
+- pinch it on a trackpad to zoom;
+- click into it, and the mouse wheel zooms too, as `+` and `-` do, and `0` fits the drawing to its frame again.
