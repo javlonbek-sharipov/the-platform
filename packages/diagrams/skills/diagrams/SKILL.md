@@ -40,7 +40,7 @@ A request that names a Diagram, as in "draw the example system with a cache", as
 
 **Values.** `external: true` marks a Node we don't own or run. A `status` is `ok`, `degraded`, `down` or `unknown`. A `rate` is like `30/s`, `2k/min` or `1.5M/h`. A `callout` is a short tag above its Node, such as `SPOF`.
 
-**Links** point readers from a Node or Group to another id or a doc, and aren't drawn: `links: [{ id: "<id>" }, { doc: "<path from the repo root>", section: "<heading>" }]`. Nor is a `description`, which a Diagram, Node or Group may carry to say more than its title.
+**Links** point readers from a Node or Group to another id, a [glossary term](#term-links) or a doc, and aren't drawn: `links: [{ id: "<id>" }, { doc: "<path from the repo root>", section: "<heading>" }]`. Each Link names exactly one target and may carry a `label` for its display text. Nor is a `description`, which a Diagram, Node or Group may carry to say more than its title.
 
 **Layout** is automatic. Steer it with `direction: "down"` in `architecture`'s options, the nesting of Groups, and the order of declarations, which breaks every tie.
 
@@ -126,6 +126,30 @@ export default domain({ title: "Billing aggregates" }, (d) => {
 });
 ```
 
+## Term Links
+
+Read `diagrams.config.ts` and the glossary of each context you draw. Its config entry is `contexts: { billing: { glossary: "billing/GLOSSARY.md" } }`, inside `atlas({ … })`; paths start at the Atlas root. Register a context's existing glossary there before linking its terms. A context without an entry is allowed, and gets no glossary checks or term Links. The repo registers `diagrams` at `packages/diagrams/GLOSSARY.md`; the shop examples above are fictional contexts without glossaries here.
+
+A glossary entry is `**Invoice**:` on its own line, its definition below it, and optionally `_Avoid_: bill, payment request`. Keep existing definitions and use their terms in titles, Rows and labels. Add a real missing definition when the task calls for it; keep the glossary's wording when fixing a Diagram.
+
+Use `links: [{ term: "Invoice" }]` on Billing's context-map Node, its context Group, or its `billing/invoice` aggregate. All three use Billing's glossary. In a shared `DomainNode` definition for that aggregate, the Link sits beside `id`, `kind` and `title`, as in the examples above. To link another context's meaning, write `{ term: "Order", context: "ordering", label: "Ordering's order" }`. That context also needs a config entry and glossary. An event borrowed as `ordering/order-placed` uses Ordering's glossary even on Billing's Diagram. An unnamespaced architecture Node needs an explicit `context`. Names match without regard to case or runs of whitespace; use the glossary's spelling.
+
+This complete context map, `packages/diagrams/docs/example-glossary-links.diagram.ts`, uses the repo's registered glossary:
+
+```ts
+import { domain } from "@the-platform/diagrams";
+
+/** The Diagrams context leads readers to the language its glossary defines. */
+export default domain({ title: "Diagrams language" }, (d) => {
+	d.node({
+		id: "diagrams",
+		kind: "context",
+		title: "Diagrams",
+		links: [{ term: "Diagram" }, { term: "Atlas" }, { term: "Link" }],
+	});
+});
+```
+
 ## Finish
 
 Run each command from the repo root, with the module's path for `<module>`:
@@ -137,6 +161,8 @@ Run each command from the repo root, with the module's path for `<module>`:
    - `fallback-route`: reorder the declarations, or change `direction`.
    - `role-placement`: fix a `fallback-route` warning on that Edge first, or else change `direction`.
    - `namespace-home-missing`: draw the event inside its own context Group on another Diagram of the Atlas, using the same full id, Kind and title.
+   - `glossary-avoid`: use the suggested term in the Diagram. An Edge between contexts is checked against both glossaries.
+   - `broken-link` for a term: check its name, its owning context and that context's config entry. Use an explicit `context` when linking a different glossary.
 3. `pnpm exec diagrams export <module> --format png` prints the path of a PNG. Look at it: every title and label whole, each label beside its own Edge, and every Edge easy to follow. If not, steer the layout and go back to step 1.
 4. Stage the module and its SVG, and commit them together. The pre-commit hook runs Biome and `diagrams lint --staged`, which judges what's staged, so an SVG left unstaged fails it. `pnpm exec biome check --write <module>` formats the module.
 
