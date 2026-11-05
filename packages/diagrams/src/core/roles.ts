@@ -15,8 +15,8 @@
  * the outer side of its own line. Labels come after the tags, and keep clear
  * of them.
  *
- * A tag that has no such room is drawn just past its Port's stub anyway, with
- * a warning.
+ * A tag that has no such room is drawn anyway, just past its Port's stub or
+ * the tag before it, with a warning.
  */
 
 import type { AnyEdge } from "../authoring/model.ts";
@@ -212,7 +212,7 @@ export function placeRoles(
 						diagnostic: {
 							severity: "warning",
 							rule: "role-placement",
-							message: `Edge \`${edge.id}\`'s role \`${role}\` has no room on the Edge's own line near its \`${end}\` end, clear of Nodes, Group labels and other role tags, so its tag is drawn just past its Port's stub.`,
+							message: `Edge \`${edge.id}\`'s role \`${role}\` has no room on the Edge's own line near its \`${end}\` end, clear of Nodes, Group labels and other role tags. So its tag is drawn there anyway, and may cover them.`,
 							pointer: `/edges/${index}/roles/${end}/${end === "from" ? place : listed.length - 1 - place}`,
 						},
 					});
@@ -362,7 +362,8 @@ function firstSpot(
 
 /**
  * Where a tag goes when nothing has room for it: just past its Port's stub,
- * or beyond the tag before it, whatever lies there.
+ * or past the tag before it, whatever lies there. It starts on the run that
+ * lies there, and takes as much of the route as it does of that run.
  */
 function pastStub(runs: Run[], port: ScenePort, size: Size, way: 1 | -1, bounds: Bounds): Spot {
 	const length = runs.reduce((sum, run) => sum + run.length, 0);
@@ -375,13 +376,14 @@ function pastStub(runs: Run[], port: ScenePort, size: Size, way: 1 | -1, bounds:
 		length: 0,
 	};
 	const past = Math.min(stub, nearest.length) + roleSpacing.margin;
-	const half = alongOf(nearest, size) / 2;
-	const at =
-		way > 0
-			? Math.min(Math.max(bounds.low, past) + half, length)
-			: Math.max(Math.min(bounds.high, length - past) - half, 0);
-	// The run that the place lies on, which is the nearest one unless tags before it fill that.
-	const run = runs.find((candidate) => at <= candidate.start + candidate.length) ?? nearest;
+	// Where the tag's near side goes, and the run that lies there: the nearest
+	// one to its end, unless the tags before it fill that.
+	const edge = way > 0 ? Math.max(bounds.low, past) : Math.min(bounds.high, length - past);
+	const run =
+		(way > 0
+			? runs.find((candidate) => edge < candidate.start + candidate.length)
+			: runs.findLast((candidate) => edge > candidate.start)) ?? nearest;
+	const at = Math.max(0, Math.min(edge + (way * alongOf(run, size)) / 2, length));
 	return { run, at, side: 0, box: boxAt(run, at, size) };
 }
 

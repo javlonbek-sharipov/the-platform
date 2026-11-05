@@ -887,7 +887,7 @@ describe("a role tag", () => {
 		const noRoom = (role: string, end: string) => ({
 			severity: "warning",
 			rule: "role-placement",
-			message: `Edge \`products\`'s role \`${role}\` has no room on the Edge's own line near its \`${end}\` end, clear of Nodes, Group labels and other role tags, so its tag is drawn just past its Port's stub.`,
+			message: `Edge \`products\`'s role \`${role}\` has no room on the Edge's own line near its \`${end}\` end, clear of Nodes, Group labels and other role tags. So its tag is drawn there anyway, and may cover them.`,
 			pointer: `/edges/0/roles/${end}/0`,
 		});
 
@@ -903,6 +903,41 @@ describe("a role tag", () => {
 		expect(stub(products?.fromPort)).toBe(16);
 		expect(ohs?.x).toBe((products?.fromPort.stub.x ?? 0) + 4);
 		expect((cf?.x ?? 0) + (cf?.width ?? 0)).toBe((products?.toPort.stub.x ?? 0) - 4);
+	});
+
+	test("that has no room still comes after its end's tag before it, rather than on it", () => {
+		// A context with an Edge back to another and a loop to itself, laid out down. Both leave
+		// its Port side by side, and the first one's tags take the room that the loop's would.
+		const crowded = domain({ title: "Loop", direction: "down" }, (d) => {
+			const catalog = d.node({ id: "catalog", kind: "context", title: "Catalog" });
+			const ordering = d.node({ id: "ordering", kind: "context", title: "Ordering" });
+			d.edge(catalog, ordering, { kind: "upstream-downstream" });
+			d.edge(ordering, catalog, {
+				kind: "upstream-downstream",
+				id: "back",
+				roles: { from: ["PL", "OHS"], to: ["CF"] },
+			});
+			d.edge(ordering, ordering, {
+				kind: "upstream-downstream",
+				id: "loop",
+				roles: { from: ["PL", "OHS"], to: ["ACL"] },
+			});
+		});
+		const { scene, diagnostics } = render(crowded);
+		const loop = scene?.edges.find(({ id }) => id === "loop");
+		const [pl, ohs] = (loop?.roles ?? []).map(({ tag }) => tag);
+
+		expect(diagnostics.map(({ rule, pointer }) => [rule, pointer])).toEqual([
+			["role-placement", "/edges/2/roles/from/1"],
+		]);
+		expect(loop?.roles.map(({ end, role }) => `${end} ${role}`)).toEqual([
+			"from PL",
+			"from OHS",
+			"to ACL",
+		]);
+		// Both sit on the loop's run across, the second one past the first.
+		expect(pl?.y).toBe(ohs?.y);
+		expect(ohs?.x).toBeGreaterThanOrEqual((pl?.x ?? 0) + (pl?.width ?? 0));
 	});
 
 	/** Whether two boxes overlap, more than touching. */

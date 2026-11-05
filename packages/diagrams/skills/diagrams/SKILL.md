@@ -95,6 +95,7 @@ Run each command from the repo root, with the module's path for `<module>`:
    - `label-placement` with no room beside any run: shorten the labels near it, or label fewer Edges.
    - `label-placement` with no run of its own: fix the `fallback-route` warning on that Edge first.
    - `fallback-route`: reorder the declarations, or change `direction`.
+   - `role-placement`: fix a `fallback-route` warning on that Edge first, or else change `direction`.
 3. `pnpm exec diagrams export <module> --format png` prints the path of a PNG. Look at it: every title and label whole, each label beside its own Edge, and every Edge easy to follow. If not, steer the layout and go back to step 1.
 4. Stage the module and its SVG, and commit them together. The pre-commit hook runs Biome and `diagrams lint --staged`, which judges what's staged, so an SVG left unstaged fails it. `pnpm exec biome check --write <module>` formats the module.
 
