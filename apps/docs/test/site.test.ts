@@ -314,6 +314,16 @@ describe("the docs site of a sample repo", () => {
 		expect(await colors("server { listen 80; }")).toBe(1);
 	});
 
+	test("every page leads to the repo on GitHub", async () => {
+		const page = await open(await reading(site), "docs/specs/checkout");
+
+		const link = page.getByRole("banner").getByRole("link", { name: "GitHub" });
+
+		expect(await link.getAttribute("href")).toBe(
+			"https://github.com/javlonbek-sharipov/the-platform",
+		);
+	});
+
 	test("a page says where its doc is edited: its file, on GitHub", async () => {
 		const page = await open(await reading(site), "docs/specs/checkout");
 

@@ -6,7 +6,7 @@
  */
 
 import type { MdastPluginDefinition } from "satteri";
-import { fileAt, github, idOf, isDoc, pathIn } from "../repo.ts";
+import { fileAt, github, isDoc, pageOf, pathIn } from "../repo.ts";
 
 /**
  * Where a link written in the file at `from` leads on the site, if it's a
@@ -22,11 +22,9 @@ function siteUrl(root: string, url: string, from: URL | undefined): string | und
 		return undefined;
 	}
 	const { hash } = new URL(url, from);
-	if (isDoc(path)) {
-		const id = idOf(path);
-		return `/${id === "index" ? "" : `${id}/`}${hash}`;
-	}
-	return `${github.url}/blob/${github.branch}/${path}${hash}`;
+	return isDoc(path)
+		? `${pageOf(path)}${hash}`
+		: `${github.url}/blob/${github.branch}/${path}${hash}`;
 }
 
 /** Rewrites the relative links of the docs of the repo at `root`. */

@@ -7,7 +7,7 @@ import { themeStyle } from "./src/diagrams/theme.ts";
 import { codeLanguages } from "./src/markdown/code-languages.ts";
 import { pageTitle } from "./src/markdown/page-title.ts";
 import { repoLinks } from "./src/markdown/repo-links.ts";
-import { docsOf, repoRoot } from "./src/repo.ts";
+import { docsOf, github, repoRoot } from "./src/repo.ts";
 import { sidebarOf } from "./src/sidebar.ts";
 
 const title = "the-platform";
@@ -29,6 +29,7 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title,
+			social: [{ icon: "github", label: "GitHub", href: github.url }],
 			sidebar: sidebarOf(docsOf(repoRoot), title),
 			head: [{ tag: "style", content: themeStyle() }],
 			customCss: ["./src/diagrams/frame.css"],

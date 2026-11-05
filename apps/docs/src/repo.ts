@@ -139,6 +139,12 @@ export function idOf(path: string): string {
 	return id.replace(/(^|\/)index$/, "") || "index";
 }
 
+/** The path of a doc's page on the site, by the doc's path from the repo's root, as `/docs/specs/checkout/`. */
+export function pageOf(path: string): string {
+	const id = idOf(path);
+	return id === "index" ? "/" : `/${id}/`;
+}
+
 /** A file's path from the repo's root, with forward slashes. It starts with `../` for a file outside the repo. */
 export function pathIn(root: string, file: string): string {
 	return relative(root, file).split(sep).join("/");
