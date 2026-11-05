@@ -9,6 +9,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
+import { isExcluded } from "./excluded.ts";
 
 export const moduleSuffix = ".diagram.ts";
 export const svgSuffix = ".diagram.svg";
@@ -52,8 +53,13 @@ export interface AtlasFiles {
  * or doesn't ignore. Outside one, discovery walks every folder except
  * `node_modules`.
  */
-export async function discover(root: string): Promise<AtlasFiles> {
-	const files = (inGitRepo(root) ? await gitFiles(root) : walk(root)).sort(byPath);
+export async function discover(
+	root: string,
+	excluded: readonly string[] = [],
+): Promise<AtlasFiles> {
+	const files = (inGitRepo(root) ? await gitFiles(root, excluded) : walk(root, excluded)).sort(
+		byPath,
+	);
 	return {
 		modules: files.filter((file) => file.endsWith(moduleSuffix)),
 		svgs: files.filter((file) => file.endsWith(svgSuffix)),
@@ -76,11 +82,12 @@ function inGitRepo(folder: string): boolean {
  * The Atlas's files under `root` that git tracks or doesn't ignore, and that
  * still exist: git still lists a tracked file that was deleted.
  */
-async function gitFiles(root: string): Promise<string[]> {
+async function gitFiles(root: string, excluded: readonly string[]): Promise<string[]> {
 	const args = ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--"];
 	const listing = await git(root, gitEnvironment(), [...args, `*${moduleSuffix}`, `*${svgSuffix}`]);
 	return pathsIn(listing)
 		.map((path) => join(root, path))
+		.filter((file) => !isExcluded(file, excluded))
 		.filter((file) => existsSync(file));
 }
 
@@ -199,11 +206,12 @@ export async function stagedAtlas(root: string, cwd: string): Promise<StagedAtla
 }
 
 /** The Atlas's files under `root`, in every folder except `.git` and `node_modules`. */
-function walk(root: string): string[] {
+function walk(root: string, excluded: readonly string[]): string[] {
 	const files: string[] = [];
 	const visit = (folder: string) => {
 		for (const entry of readdirSync(folder, { withFileTypes: true })) {
 			const path = join(folder, entry.name);
+			if (isExcluded(path, excluded)) continue;
 			if (entry.isDirectory()) {
 				if (entry.name !== ".git" && entry.name !== "node_modules") {
 					visit(path);

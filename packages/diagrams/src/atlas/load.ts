@@ -34,6 +34,13 @@ export interface LoadOptions {
 	signal?: AbortSignal;
 	/** Called as imports resolve, so a preview can watch imports during a build too. */
 	onDependency?: (file: string) => void;
+	/** Absolute folders this host must never load, including through symlinks. */
+	exclude?: readonly string[];
+}
+
+export interface LoadInput {
+	modules: string[];
+	excluded: readonly string[];
 }
 
 export type LoadMessage =
@@ -71,7 +78,7 @@ export function load(modules: string[], options: LoadOptions = {}): Promise<Load
 			);
 		};
 		const worker = new Worker(new URL("./load-worker.ts", import.meta.url), {
-			workerData: modules,
+			workerData: { modules, excluded: options.exclude ?? [] } satisfies LoadInput,
 		});
 		const abort = () => {
 			void worker.terminate();

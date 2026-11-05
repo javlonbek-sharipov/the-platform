@@ -680,6 +680,84 @@ describe("the docs site of the-platform", () => {
 	});
 });
 
+describe("Atlas inputs excluded from the docs site", () => {
+	test.each(["repos/reference/GLOSSARY.md", "docs/foreign.md"])(
+		"refuses the configured glossary %s before reading it",
+		async (glossary) => {
+			const repo = await sampleRepo({
+				"diagrams.config.ts": `export default { contexts: { foreign: { glossary: ${JSON.stringify(glossary)} } } };`,
+				"docs/index.md": lines("# Shop"),
+				"repos/reference/GLOSSARY.md": lines(
+					"# Foreign",
+					"",
+					"**Foreign**:",
+					"A definition the site must never read.",
+				),
+			});
+			await symlink("../repos/reference/GLOSSARY.md", join(repo, "docs/foreign.md"));
+
+			await expect(buildSite(repo)).rejects.toThrow(/excluded/);
+		},
+	);
+
+	test.each(["../repos/reference/model.ts", "./foreign.ts"])(
+		"refuses a Diagram import from %s before running it",
+		async (imported) => {
+			const repo = await sampleRepo({
+				"diagrams.config.ts": "export default {};",
+				"docs/index.md": lines("# Shop"),
+				"docs/shop.diagram.ts": `export { default } from ${JSON.stringify(imported)};`,
+				"repos/reference/model.ts": 'throw new Error("The excluded source was executed");',
+			});
+			await symlink("../repos/reference/model.ts", join(repo, "docs/foreign.ts"));
+
+			await expect(buildSite(repo)).rejects.toThrow(/excluded by this Atlas host/);
+		},
+	);
+
+	test("Atlas discovery respects git ignores and never loads reference modules or links to them", async () => {
+		const repo = await sampleRepo({
+			"diagrams.config.ts": "export default {};",
+			"docs/index.md": lines("# Shop"),
+			".gitignore": "ignored/\n",
+			"ignored/hidden.diagram.ts": 'throw new Error("An ignored module was loaded");',
+			"repos/reference/hidden.diagram.ts": 'throw new Error("A reference module was loaded");',
+		});
+		await symlink("../repos/reference/hidden.diagram.ts", join(repo, "docs/foreign.diagram.ts"));
+		execFileSync("git", ["-c", "init.defaultBranch=main", "init", repo]);
+
+		const site = await buildSite(repo);
+		expect(headingsOf(await site.page("docs"))).toEqual(["Shop"]);
+	});
+
+	test.each(["repos/reference/notes.md", "docs/foreign.md"])(
+		"refuses the indexed document Link %s before reading its headings",
+		async (doc) => {
+			const model = domain({ title: "Shop" }, (d) => {
+				d.node({
+					id: "shop",
+					kind: "context",
+					title: "Shop",
+					links: [{ doc, section: "Foreign" }],
+				});
+			});
+			const repo = await sampleRepo({
+				"diagrams.config.ts": "export default {};",
+				"docs/index.md": lines("# Shop"),
+				"docs/shop.diagram.ts": `export default ${JSON.stringify(model)};`,
+				"repos/reference/notes.md": lines(
+					"# Foreign",
+					"",
+					"The site must never read these headings.",
+				),
+			});
+			await symlink("../repos/reference/notes.md", join(repo, "docs/foreign.md"));
+
+			await expect(buildSite(repo)).rejects.toThrow(/excluded by this Atlas host/);
+		},
+	);
+});
+
 describe("Atlas navigation on the built site", () => {
 	let site: Site;
 
