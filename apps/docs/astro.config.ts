@@ -18,6 +18,8 @@ export default defineConfig({
 			mdastPlugins: [diagramImages(repoRoot), repoLinks(repoRoot)],
 			// The headings get their ids first, the title's among them, as on GitHub.
 			hastPlugins: [satteriHeadingIdsPlugin(), pageTitle],
+			// A doc reads as it's written, and as GitHub shows it: `--` stays two hyphens.
+			features: { smartPunctuation: false },
 		}),
 	},
 	integrations: [

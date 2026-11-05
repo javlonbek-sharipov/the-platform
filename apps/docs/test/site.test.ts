@@ -43,6 +43,7 @@ const shop = {
 		"## Problem Statement",
 		"",
 		"Shoppers can fill a cart, but they can't pay for it.",
+		'A shopper who types "pay" -- or presses Enter -- gets nothing...',
 	),
 	"packages/shop/GLOSSARY.md": lines(
 		"# Shop",
@@ -249,6 +250,21 @@ describe("the docs site of a sample repo", () => {
 			.click();
 
 		await page.getByRole("heading", { level: 1, name: "Shop" }).waitFor();
+	});
+
+	test("a page says where its doc is edited: its file, on GitHub", async () => {
+		const page = await open(await reading(site), "docs/specs/checkout");
+
+		expect(await page.getByRole("link", { name: "Edit page" }).getAttribute("href")).toBe(
+			"https://github.com/javlonbek-sharipov/the-platform/edit/main/docs/specs/checkout.md",
+		);
+	});
+
+	test("a doc's punctuation shows as it's written, as on GitHub", async () => {
+		const page = await open(await reading(site), "docs/specs/checkout");
+
+		const written = 'A shopper who types "pay" -- or presses Enter -- gets nothing...';
+		expect(await page.getByText(written).isVisible()).toBe(true);
 	});
 
 	test("a heading keeps the anchor that GitHub gives it", async () => {

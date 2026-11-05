@@ -7,7 +7,7 @@ import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Loader, LoaderContext } from "astro/loaders";
-import { diagramSuffix, docPlaces, docsOf, filesIn, idOf, isDoc, pathIn } from "./repo.ts";
+import { diagramSuffix, docPlaces, docsOf, filesIn, github, idOf, isDoc, pathIn } from "./repo.ts";
 
 /**
  * Loads each doc of the repo at `root` as a page, at the id that `idOf` gives
@@ -34,14 +34,20 @@ export function repoDocs(root: string): Loader {
 async function loadPages(root: string, context: LoaderContext, keep: boolean): Promise<void> {
 	const { store, config, parseData, renderMarkdown, generateDigest } = context;
 	const own = fileURLToPath(new URL("content/docs", config.srcDir));
+	// The app's own pages are files of the repo that the app is in, two folders up.
+	const home = fileURLToPath(new URL("../../", config.root));
 	const files = [
 		...filesIn(own, "")
 			.filter((path) => path.endsWith(".md"))
-			.map((path) => ({ id: idOf(path), file: join(own, path) })),
-		...docsOf(root).map((path) => ({ id: idOf(path), file: join(root, path) })),
+			.map((path) => ({
+				id: idOf(path),
+				file: join(own, path),
+				path: pathIn(home, join(own, path)),
+			})),
+		...docsOf(root).map((path) => ({ id: idOf(path), file: join(root, path), path })),
 	];
 	const loaded = new Map<string, string>();
-	for (const { id, file } of files) {
+	for (const { id, file, path } of files) {
 		const other = loaded.get(id);
 		if (other !== undefined) {
 			throw new Error(`${other} and ${file} would both be the page /${id}/. Rename one of them.`);
@@ -52,7 +58,12 @@ async function loadPages(root: string, context: LoaderContext, keep: boolean): P
 		const rendered = await renderMarkdown(text, { fileURL: pathToFileURL(file) });
 		const data = await parseData({
 			id,
-			data: { title: basename(file, ".md"), ...rendered.metadata?.frontmatter },
+			data: {
+				title: basename(file, ".md"),
+				// Each page's "Edit page" link opens its file, where it lives in the repo.
+				editUrl: `${github.url}/edit/${github.branch}/${path}`,
+				...rendered.metadata?.frontmatter,
+			},
 			filePath: file,
 		});
 		store.set({
