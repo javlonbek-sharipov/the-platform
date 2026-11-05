@@ -43,12 +43,12 @@ describe("the config", () => {
 		}
 	});
 
-	test("must default-export an Atlas config, which lint checks", async () => {
+	test("must default-export an Atlas config, which every command checks", async () => {
 		const atlas = await sampleAtlas({
-			"diagrams.config.ts": "export const contexts = {};\n",
 			"docs/shop.diagram.ts": shopModule(),
 		});
 		expect((await runCli(["render"], atlas)).code).toBe(0);
+		await writeFile(join(atlas, "diagrams.config.ts"), "export const contexts = {};\n");
 
 		expect(await runCli(["lint"], atlas)).toEqual({
 			code: 1,

@@ -79,6 +79,8 @@ export interface Notation {
 
 /** How a Node of one Kind looks: its size, its outline, its badge and its hue. A Kind alone decides it. */
 export interface NodeKindDefinition {
+	/** Whether the Node stands for a namespace, whose glossary uses this Node's own id. */
+	namespace?: boolean;
 	/** The Node's size, in px, which its title never changes. Both are multiples of 16, twice the grid. */
 	width: number;
 	height: number;

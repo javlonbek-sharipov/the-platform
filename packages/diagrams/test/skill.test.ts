@@ -11,7 +11,7 @@ import {
 	statusesOf,
 	technologies,
 } from "../src/index.ts";
-import { type CliRun, runCli, sampleAtlas } from "./support/atlas.ts";
+import { type CliRun, runCli, sampleAtlas, sampleConfig } from "./support/atlas.ts";
 import { pngSize } from "./support/png.ts";
 
 const skillFile = new URL("../skills/diagrams/SKILL.md", import.meta.url);
@@ -22,7 +22,7 @@ const repo = new URL("../../../", import.meta.url);
  * Diagram: the heading that each sits under in the skill, and the package's
  * module that it copies.
  */
-const examples = [
+const examples: { heading: string; module: string; support: string[]; glossary?: string }[] = [
 	{ heading: "Example", module: "docs/example-system.diagram.ts", support: [] },
 	{
 		heading: "Context maps",
@@ -33,6 +33,12 @@ const examples = [
 		heading: "Aggregate diagrams",
 		module: "docs/example-billing.diagram.ts",
 		support: ["docs/shared/ordering.ts", "docs/example-ordering.diagram.ts"],
+	},
+	{
+		heading: "Term Links",
+		module: "docs/example-glossary-links.diagram.ts",
+		support: ["GLOSSARY.md"],
+		glossary: "GLOSSARY.md",
 	},
 ];
 
@@ -59,7 +65,7 @@ function commandsIn(skill: string, module: string): string[][] {
 describe("the agent skill", () => {
 	test.each(examples)(
 		"its own commands render its example under `$heading`, lint it without a message, and export it as a PNG",
-		async ({ heading, module, support }) => {
+		async ({ heading, module, support, glossary }) => {
 			const skill = await readFile(skillFile, "utf8");
 			const files = Object.fromEntries(
 				await Promise.all(
@@ -69,7 +75,18 @@ describe("the agent skill", () => {
 					]),
 				),
 			);
-			const atlas = await sampleAtlas({ ...files, [module]: exampleUnder(skill, heading) });
+			const config =
+				glossary === undefined
+					? sampleConfig
+					: sampleConfig.replace(
+							"atlas({})",
+							`atlas({ contexts: { diagrams: { glossary: ${JSON.stringify(glossary)} } } })`,
+						);
+			const atlas = await sampleAtlas({
+				...files,
+				"diagrams.config.ts": config,
+				[module]: exampleUnder(skill, heading),
+			});
 			// The example borrows an event from an existing Diagram. Render that
 			// fixture under the sample Atlas's paths before following the skill.
 			const companions = support.filter((file) => file.endsWith(".diagram.ts"));

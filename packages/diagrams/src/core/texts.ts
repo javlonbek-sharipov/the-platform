@@ -21,7 +21,7 @@ export type TextOwner =
 export type TextField =
 	| { name: "id" | "title" | "description" | "callout" | "label" | "technology" | "rate" }
 	| { name: "row name" | "row value"; row: string; rowIndex: number }
-	| { name: "link doc" | "link section" | "link label"; target: string }
+	| { name: "link doc" | "link section" | "link label" | "link term"; target: string }
 	| { name: "end row"; end: "from" | "to" };
 
 export interface ModelText {
@@ -42,7 +42,8 @@ export function textsOf(diagram: AnyDiagram): ModelText[] {
 	};
 	const addLinks = (owner: TextOwner, links: Link[] | undefined, at: string) => {
 		(links ?? []).forEach((link, index) => {
-			const target = link.id ?? link.doc ?? "";
+			const target = link.id ?? link.doc ?? link.term ?? "";
+			add(owner, { name: "link term", target }, link.term, `${at}/links/${index}/term`);
 			add(owner, { name: "link doc", target }, link.doc, `${at}/links/${index}/doc`);
 			add(owner, { name: "link section", target }, link.section, `${at}/links/${index}/section`);
 			add(owner, { name: "link label", target }, link.label, `${at}/links/${index}/label`);

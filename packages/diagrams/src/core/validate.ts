@@ -127,7 +127,14 @@ const fields = {
 	}),
 	roles: fieldsOf<EdgeRoles>({ from: true, to: true }),
 	rowEnd: fieldsOf<RowEnd>({ node: true, row: true }),
-	link: fieldsOf<Link>({ id: true, doc: true, section: true, label: true }),
+	link: fieldsOf<Link>({
+		id: true,
+		doc: true,
+		term: true,
+		context: true,
+		section: true,
+		label: true,
+	}),
 };
 
 /**
@@ -601,8 +608,14 @@ function textNamed(owner: TextOwner, field: TextField): string {
 			return `the ${field.name === "row name" ? "name" : "value"} of ${named}'s Row \`${shown(field.row)}\``;
 		case "link doc":
 		case "link section":
+		case "link term":
 		case "link label": {
-			const part = { "link doc": "document", "link section": "section", "link label": "label" };
+			const part = {
+				"link doc": "document",
+				"link section": "section",
+				"link label": "label",
+				"link term": "term",
+			};
 			return `the ${part[field.name]} of ${named}'s Link to \`${shown(field.target)}\``;
 		}
 		case "end row":
@@ -649,15 +662,26 @@ function shown(text: string): string {
 /** A Link to an id must name it as the model writes ids. `owner` is the Node or Group that has the Links. */
 function checkLinkIds(owner: string, links: Link[] | undefined, pointer: string): Diagnostic[] {
 	return (links ?? []).flatMap((link, index) =>
-		link.id === undefined || idPattern.test(link.id)
-			? []
-			: [
-					error(
-						"id-format",
-						`${owner} has a Link to \`${link.id}\`, which isn't a lowercase kebab-case id. Write ids like \`payments-api\`.`,
-						`${pointer}/links/${index}/id`,
-					),
-				],
+		[
+			...(link.context === undefined || slugPattern.test(link.context)
+				? []
+				: [
+						error(
+							"id-format",
+							`${owner} has a term Link whose context \`${link.context}\` isn't one lowercase kebab-case name. Write a context id like \`billing\`.`,
+							`${pointer}/links/${index}/context`,
+						),
+					]),
+			link.id === undefined || idPattern.test(link.id)
+				? []
+				: [
+						error(
+							"id-format",
+							`${owner} has a Link to \`${link.id}\`, which isn't a lowercase kebab-case id. Write ids like \`payments-api\`.`,
+							`${pointer}/links/${index}/id`,
+						),
+					],
+		].flat(),
 	);
 }
 
@@ -933,27 +957,32 @@ function checkShape(input: Record<string, unknown>, notation: Notation): Diagnos
 		check(typeof member === "string", at, "an id");
 	});
 	/**
-	 * A Link has exactly one target, `id` or `doc`, and only a `doc` has a
-	 * `section`. The model's third target, `term`, comes in slice 2.
+	 * A Link has exactly one target. Only a document has sections, and only a
+	 * term has a context override.
 	 */
 	const checkLink = (link: unknown, at: string) => {
 		if (!isObject(link)) {
 			check(false, at, "an object");
 			return;
 		}
-		// A Link to a glossary term is reported below, as a Link without a target.
-		checkFields(link, at, "a Link", fields.link, fields.link, ["term"]);
+		checkFields(link, at, "a Link", fields.link);
 		const targets = ["id", "doc", "term"].filter((field) => link[field] !== undefined);
 		const [target] = targets;
-		if (target === undefined || target === "term" || targets.length > 1) {
+		if (target === undefined || targets.length > 1) {
 			diagnostics.push(
-				error("model-shape", `\`${at}\` must have exactly one of \`id\` and \`doc\`.`, at),
+				error(
+					"model-shape",
+					`\`${at}\` must have exactly one of \`id\`, \`doc\` and \`term\`.`,
+					at,
+				),
 			);
 			return;
 		}
 		check(typeof link[target] === "string", `${at}/${target}`, "a string");
+		if (target === "term" && typeof link.term === "string")
+			check(link.term.trim() !== "", `${at}/term`, "a nonempty string");
 		check(link.label === undefined || typeof link.label === "string", `${at}/label`, "a string");
-		if (link.section !== undefined && target === "id") {
+		if (link.section !== undefined && target !== "doc") {
 			diagnostics.push(
 				error(
 					"model-shape",
@@ -965,6 +994,21 @@ function checkShape(input: Record<string, unknown>, notation: Notation): Diagnos
 			check(
 				link.section === undefined || typeof link.section === "string",
 				`${at}/section`,
+				"a string",
+			);
+		}
+		if (link.context !== undefined && target !== "term") {
+			diagnostics.push(
+				error(
+					"model-shape",
+					`\`${at}/context\` must be left out: only a Link to a term has a context.`,
+					`${at}/context`,
+				),
+			);
+		} else {
+			check(
+				link.context === undefined || typeof link.context === "string",
+				`${at}/context`,
 				"a string",
 			);
 		}
