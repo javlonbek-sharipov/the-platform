@@ -628,6 +628,23 @@ describe("the keyboard's focus", () => {
 	});
 });
 
+describe("a view the reader left as Fit made it", () => {
+	test("is fitted again when the frame changes size, though the reader pressed and dragged to no effect", async () => {
+		const { svg, scene } = draw(shop());
+		const diagram = await mount(svg, "width: 1200px; height: 400px");
+		// The whole drawing is in view, so a drag has nowhere to take it.
+		await drag(diagram, { x: 600, y: 200 }, { x: 500, y: 150 });
+
+		diagram.style.width = "620px";
+		await frame();
+
+		const fitted = viewOf(diagram, scene);
+		const gaps = gapsOf(fitted.bounds, diagram.getBoundingClientRect());
+		expect(fitted.scale).toBeLessThan(1);
+		expect(Math.min(gaps.left, gaps.top, gaps.right, gaps.bottom)).toBeGreaterThanOrEqual(8);
+	});
+});
+
 describe("a view the reader chose", () => {
 	test("stays when the frame changes size, until the reader fits the drawing again", async () => {
 		const { svg, scene } = draw(shop());

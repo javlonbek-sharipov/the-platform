@@ -51,9 +51,13 @@ export class Camera {
 		this.#watchers.add(watcher);
 	}
 
-	/** Turns to a drawing with these bounds, and fits it. */
+	/**
+	 * Turns to a drawing with these bounds, and fits it. Its view is a new one,
+	 * even if it's the same as the last drawing's.
+	 */
 	frame(bounds: Box): void {
 		this.#bounds = bounds;
+		this.#view = undefined;
 		this.fit();
 	}
 
@@ -112,12 +116,16 @@ export class Camera {
 		}
 		const furthest = Math.min(whole, readable);
 		const scale = Math.min(Math.max(since.scale * factor, furthest), closest);
+		const before = this.#view;
 		this.#show(
 			since.x + from.x / since.scale - to.x / scale,
 			since.y + from.y / since.scale - to.y / scale,
 			scale,
 		);
-		this.#fitted = false;
+		// A move that the limits brought to nothing leaves Fit's view Fit's.
+		if (this.#view !== before) {
+			this.#fitted = false;
+		}
 	}
 
 	/** The scale at which the whole drawing just fits the stage, inside the padding. */
@@ -135,7 +143,8 @@ export class Camera {
 
 	/**
 	 * Shows the drawing at a scale, from as near a point as the view's limits
-	 * allow: the point would go to the stage's top left corner.
+	 * allow: the point would go to the stage's top left corner. A view no
+	 * different from the one before is no new view, and nobody is told of it.
 	 */
 	#show(x: number, y: number, scale: number): void {
 		const bounds = this.#bounds;
@@ -143,6 +152,7 @@ export class Camera {
 			return;
 		}
 		const { width, height } = this.#size;
+		const before = this.#view;
 		const view = {
 			x: placed(bounds.x, bounds.width, width, scale, x),
 			y: placed(bounds.y, bounds.height, height, scale, y),
@@ -150,6 +160,15 @@ export class Camera {
 			height: height / scale,
 			scale,
 		};
+		if (
+			before !== undefined &&
+			before.x === view.x &&
+			before.y === view.y &&
+			before.width === view.width &&
+			before.height === view.height
+		) {
+			return;
+		}
 		this.#view = view;
 		for (const watcher of this.#watchers) {
 			watcher(view);
