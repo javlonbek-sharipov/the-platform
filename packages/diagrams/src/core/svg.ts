@@ -15,7 +15,6 @@ import {
 	definitionOf,
 	type EdgeKindDefinition,
 	type GroupKindDefinition,
-	type NodeKindDefinition,
 	type Notation,
 	type StatusDefinition,
 } from "../notations/notation.ts";
@@ -104,8 +103,8 @@ export function writeSvg(
 				["fill", "none"],
 			]),
 		),
-		// Edges that cross between Groups go beneath the others, so a
-		// trunk they share with Edges that don't shows the plain color.
+		// Edges that cross between Groups go beneath the others, so a trunk they
+		// share with Edges that don't shows the plain color.
 		...[
 			...scene.edges.filter((edge) => edge.crosses !== undefined),
 			...scene.edges.filter((edge) => edge.crosses === undefined),
@@ -192,7 +191,7 @@ function writeGroup(group: SceneGroup, look: GroupKindDefinition): string[] {
  */
 function writeNode(node: SceneNode, notation: Notation): string[] {
 	const { box, badge, title, technology, logo, rows, callout } = node;
-	const look: NodeKindDefinition = definitionOf(notation.nodeKinds, node.kind);
+	const look = definitionOf(notation.nodeKinds, node.kind);
 	const outline = outlines[look.outline];
 	// A callout highlights the outline: wider, and in the accent color.
 	const width = callout === undefined ? outline.stroke : outline.stroke + highlightGain;
