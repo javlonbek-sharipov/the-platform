@@ -3,6 +3,7 @@
 	"notation": "architecture",
 	"id": "every-field",
 	"title": "Orders",
+	"description": "How a shopper's order reaches the card network.",
 	"direction": "right",
 	"members": ["shopper", "web-app", "eu-west", "card-network"],
 	"nodes": [
@@ -21,6 +22,7 @@
 			"technology": "go",
 			"status": "degraded",
 			"rows": [{ "name": "replicas", "value": "3" }, { "name": "orders" }],
+			"description": "Takes orders, and keeps them until they ship.",
 			"links": [{ "id": "orders-db", "label": "Its database" }, { "doc": "docs/orders.md" }],
 			"callout": "SPOF"
 		},

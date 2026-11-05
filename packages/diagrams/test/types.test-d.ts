@@ -173,6 +173,16 @@ test("one `system` definition can be a Node on one Diagram and a Group on anothe
 	});
 });
 
+test("a Diagram and a Node take a description, as a Group does, which is text", () => {
+	architecture({ title: "Shop", description: "How the shop takes orders." }, (d) => {
+		d.node({ id: "shop-api", kind: "service", title: "Shop API", description: "Takes orders." });
+		// @ts-expect-error: a description is text.
+		d.node({ id: "shop-db", kind: "database", title: "Shop database", description: 7 });
+	});
+	// @ts-expect-error: a description is text.
+	architecture({ title: "Stock", description: ["Counts"] }, () => {});
+});
+
 test("the Atlas config is an object with no settings until slice 2 adds its contexts", () => {
 	atlas({});
 	// @ts-expect-error: the config has no such setting.

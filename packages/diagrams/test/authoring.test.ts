@@ -161,6 +161,46 @@ describe("the architecture builder", () => {
 		]);
 	});
 
+	test("keeps a Diagram's description and a Node's, beside their titles", () => {
+		const diagram = architecture(
+			{ title: "Shop", description: "How the shop takes orders." },
+			(d) => {
+				d.node({
+					id: "shop-api",
+					kind: "service",
+					title: "Shop API",
+					rows: [{ name: "replicas", value: "3" }],
+					description: "Takes orders, and keeps them until they ship.",
+					links: [{ id: "shop-db" }],
+				});
+			},
+		);
+
+		expect(JSON.stringify(diagram)).toBe(
+			JSON.stringify({
+				version: 1,
+				notation: "architecture",
+				title: "Shop",
+				description: "How the shop takes orders.",
+				direction: "right",
+				members: ["shop-api"],
+				nodes: [
+					{
+						id: "shop-api",
+						kind: "service",
+						title: "Shop API",
+						rows: [{ name: "replicas", value: "3" }],
+						description: "Takes orders, and keeps them until they ship.",
+						links: [{ id: "shop-db" }],
+					},
+				],
+				groups: [],
+				edges: [],
+				walkthroughs: [],
+			}),
+		);
+	});
+
 	test("keeps a Node's Rows in order, each a name and an optional value", () => {
 		const diagram = architecture({ title: "Shop" }, (d) => {
 			d.node({
@@ -280,11 +320,11 @@ describe("an option that an authoring function doesn't know", () => {
 		expect(render(misspelled())).toEqual({
 			diagnostics: [
 				shape(
-					"The Diagram has no option `directon`. Its options are `id`, `title` and `direction`.",
+					"The Diagram has no option `directon`. Its options are `id`, `title`, `description` and `direction`.",
 					"/directon",
 				),
 				shape(
-					"A Node has no option `lable`. Its options are `id`, `kind`, `title`, `technology`, `external`, `status`, `rows`, `links` and `callout`.",
+					"A Node has no option `lable`. Its options are `id`, `kind`, `title`, `technology`, `external`, `status`, `rows`, `description`, `links` and `callout`.",
 					"/nodes/0/lable",
 				),
 				shape(

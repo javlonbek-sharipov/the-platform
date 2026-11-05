@@ -20,6 +20,10 @@
 			"description": "The Diagram's title.",
 			"$ref": "#/$defs/text"
 		},
+		"description": {
+			"description": "What the Diagram shows, which isn't drawn. The SVG carries it in its model.",
+			"$ref": "#/$defs/text"
+		},
 		"direction": {
 			"description": "Which way the ranks run: `right`, the default, or `down`.",
 			"enum": ["right", "down"],
@@ -139,6 +143,10 @@
 					"items": {
 						"$ref": "#/$defs/row"
 					}
+				},
+				"description": {
+					"description": "What the Node is, which isn't drawn. The SVG carries it in its model.",
+					"$ref": "#/$defs/text"
 				},
 				"links": {
 					"description": "\"See also\" pointers, which aren't drawn.",

@@ -24,6 +24,8 @@ export interface ArchitectureOptions {
 	/** Only for Diagrams built outside the Atlas, which assigns ids from paths. */
 	id?: string;
 	title: string;
+	/** What the Diagram shows, which isn't drawn. The SVG carries it in its model. */
+	description?: string;
 	/** Which way the ranks run: `right`, the default, or `down`. */
 	direction?: Direction;
 }
@@ -52,6 +54,8 @@ export interface ArchitectureNode<R extends string = string> {
 	status?: ArchitectureStatus;
 	/** Shown below the header, each with its name on the left and its value on the right. */
 	rows?: readonly ArchitectureRow<R>[];
+	/** What the Node is, which isn't drawn. The SVG carries it in its model. */
+	description?: string;
 	links?: readonly Link[];
 	/** A short tag above the Node that draws attention to it, such as `single point of failure`. */
 	callout?: string;
@@ -73,6 +77,7 @@ export interface ArchitectureGroup {
 	id: string;
 	kind: ArchitectureGroupKind;
 	title: string;
+	/** What the Group is, which isn't drawn. The SVG carries it in its model. */
 	description?: string;
 	links?: readonly Link[];
 }
@@ -134,7 +139,12 @@ export interface ArchitectureBuilder {
 
 /** The options that each function of the builder takes, for the errors about any other. */
 const known = {
-	diagram: optionsOf<ArchitectureOptions>({ id: true, title: true, direction: true }),
+	diagram: optionsOf<ArchitectureOptions>({
+		id: true,
+		title: true,
+		description: true,
+		direction: true,
+	}),
 	node: optionsOf<ArchitectureNode>({
 		id: true,
 		kind: true,
@@ -143,6 +153,7 @@ const known = {
 		external: true,
 		status: true,
 		rows: true,
+		description: true,
 		links: true,
 		callout: true,
 	}),
@@ -187,7 +198,8 @@ export function architecture(
 			node(node) {
 				const at = `/nodes/${nodes.length}`;
 				declare(at, builder.node);
-				const { id, kind, title, technology, external, status, rows, links, callout } = node;
+				const { id, kind, title, technology, external, status, rows, description, links, callout } =
+					node;
 				unknown.push(...unknownOptions(node, known.node, "A Node", at));
 				rows?.forEach((row, index) => {
 					unknown.push(...unknownOptions(row, known.row, "A Row", `${at}/rows/${index}`));
@@ -206,6 +218,7 @@ export function architecture(
 									value === undefined ? { name } : { name, value },
 								),
 							}),
+					...(description === undefined ? {} : { description }),
 					...copyLinks(links),
 					...(callout === undefined ? {} : { callout }),
 				});
@@ -260,6 +273,7 @@ export function architecture(
 		notation: "architecture",
 		...(options.id === undefined ? {} : { id: options.id }),
 		title: options.title,
+		...(options.description === undefined ? {} : { description: options.description }),
 		direction: options.direction ?? "right",
 		members,
 		nodes,

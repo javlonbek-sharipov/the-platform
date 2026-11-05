@@ -23,6 +23,8 @@ export interface Diagram {
 	 */
 	id?: string;
 	title: string;
+	/** What the Diagram shows, which isn't drawn. The SVG carries it in its model. */
+	description?: string;
 	direction: Direction;
 	/** The ids of the top-level Nodes and Groups, in declaration order. */
 	members: string[];
@@ -47,6 +49,8 @@ export interface Node {
 	status?: ArchitectureStatus;
 	/** Drawn below the Node's header, one band each, in order. */
 	rows?: Row[];
+	/** What the Node is, which isn't drawn. The SVG carries it in its model. */
+	description?: string;
 	links?: Link[];
 	/** A short tag that draws attention to the Node, such as `single point of failure`. */
 	callout?: string;
@@ -72,6 +76,7 @@ export interface Group {
 	title: string;
 	/** The ids of its Nodes and child Groups, in declaration order. */
 	members: string[];
+	/** What the Group is, which isn't drawn. The SVG carries it in its model. */
 	description?: string;
 	links?: Link[];
 }

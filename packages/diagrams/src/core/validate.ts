@@ -65,6 +65,7 @@ const fields = {
 		notation: true,
 		id: true,
 		title: true,
+		description: true,
 		direction: true,
 		members: true,
 		nodes: true,
@@ -80,6 +81,7 @@ const fields = {
 		external: true,
 		status: true,
 		rows: true,
+		description: true,
 		links: true,
 		callout: true,
 	}),
@@ -373,6 +375,7 @@ function checkCharacters(diagram: Diagram): Diagnostic[] {
 	const texts: PlacedText[] = [
 		["the Diagram's id", diagram.id, "/id"],
 		["the Diagram's title", diagram.title, "/title"],
+		["the Diagram's description", diagram.description, "/description"],
 		...diagram.nodes.flatMap((node, index): PlacedText[] => {
 			const named = `Node \`${shown(node.id)}\``;
 			const at = `/nodes/${index}`;
@@ -388,6 +391,7 @@ function checkCharacters(diagram: Diagram): Diagnostic[] {
 						],
 					),
 				),
+				[`${named}'s description`, node.description, `${at}/description`],
 				...linkTexts(named, node.links, at),
 			];
 		}),
@@ -704,6 +708,11 @@ function checkShape(input: unknown): Diagnostic[] {
 	checkFields(input, "", "a Diagram", fields.diagram);
 	check(input.id === undefined || typeof input.id === "string", "/id", "a string");
 	check(typeof input.title === "string", "/title", "a string");
+	check(
+		input.description === undefined || typeof input.description === "string",
+		"/description",
+		"a string",
+	);
 	check(directions.includes(input.direction), "/direction", "`right` or `down`");
 	checkList(input.members, "/members", (member, at) => {
 		check(typeof member === "string", at, "an id");
@@ -772,7 +781,7 @@ function checkShape(input: unknown): Diagnostic[] {
 		}
 		checkStrings(node, at, ["id", "kind", "title"]);
 		if (isObject(node)) {
-			const { technology, external, status, callout } = node;
+			const { technology, external, status, description, callout } = node;
 			check(
 				technology === undefined || typeof technology === "string",
 				`${at}/technology`,
@@ -784,6 +793,11 @@ function checkShape(input: unknown): Diagnostic[] {
 				"`true` or `false`",
 			);
 			check(status === undefined || typeof status === "string", `${at}/status`, "a string");
+			check(
+				description === undefined || typeof description === "string",
+				`${at}/description`,
+				"a string",
+			);
 			check(
 				callout === undefined || (typeof callout === "string" && /[^ \t\n\r]/.test(callout)),
 				`${at}/callout`,
