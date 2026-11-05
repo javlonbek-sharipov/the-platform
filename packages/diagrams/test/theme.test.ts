@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import example from "../docs/example-system.diagram.ts";
 import { architecture, notations, render, themeColors } from "../src/index.ts";
+import { contextMap } from "./fixtures/context-map.ts";
 import everyKind from "./fixtures/every-kind.ts";
 import externalStatusCallout from "./fixtures/external-status-callout.ts";
 import technologies from "./fixtures/technologies.ts";
@@ -42,6 +43,8 @@ const fixtures: Record<string, unknown> = {
 	example,
 	titles,
 	downward,
+	// Contexts, role tags and labels, in the domain Notation's hue.
+	"a context map": contextMap("right"),
 };
 
 function svgOf(diagram: unknown): string {

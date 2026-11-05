@@ -36,6 +36,13 @@ export interface Connection {
 	 * between ranks that the connection spans: none, without a label.
 	 */
 	label?: number;
+	/**
+	 * How much room its Edge needs at each of its ends along the rank axis,
+	 * past its Port's stub, such as for the role tags there: where it leaves,
+	 * in the gap after its source's rank, and where it enters, in the gap
+	 * before its target's rank.
+	 */
+	ends?: { from: number; to: number };
 }
 
 export interface Spacing {
@@ -288,8 +295,9 @@ function crossings(ranks: number[][], lower: number[][]): number {
 /**
  * The gap after each rank (layout step 6): room for the stubs on both sides
  * of it, a lane for each lane group of Edges that crosses it, in either
- * direction, and the widest label of those Edges, but never less than the
- * usual gap.
+ * direction, the widest label of those Edges, and what the Edges that leave
+ * the rank before it and those that enter the rank after it need at those
+ * ends, but never less than the usual gap.
  */
 function gapsOf(
 	rank: number[],
@@ -299,17 +307,32 @@ function gapsOf(
 ): number[] {
 	const crossing = Array.from({ length: count }, () => new Set<string>());
 	const labels: number[] = new Array(count).fill(0);
-	connections.forEach(({ from, to, lane, label = 0 }, index) => {
-		const [low, high] = [rank[from] ?? 0, rank[to] ?? 0].sort((a, b) => a - b);
+	const leaving: number[] = new Array(count).fill(0);
+	const entering: number[] = new Array(count).fill(0);
+	connections.forEach(({ from, to, lane, label = 0, ends }, index) => {
+		const [source, target] = [rank[from] ?? 0, rank[to] ?? 0];
+		const [low, high] = [source, target].sort((a, b) => a - b);
 		for (let gap = low ?? 0; gap < (high ?? 0); gap += 1) {
 			crossing[gap]?.add(lane ?? `${index}`);
 			labels[gap] = Math.max(labels[gap] ?? 0, label);
+		}
+		// An Edge leaves its source into the gap after it, and enters its target
+		// from the gap before it, whichever way it runs.
+		if (ends !== undefined && from !== to) {
+			leaving[source] = Math.max(leaving[source] ?? 0, ends.from);
+			if (target > 0) {
+				entering[target - 1] = Math.max(entering[target - 1] ?? 0, ends.to);
+			}
 		}
 	});
 	return crossing.map((lanes, gap) =>
 		Math.max(
 			spacing.rankGap,
-			spacing.stubs + lanes.size * spacing.laneSpacing + (labels[gap] ?? 0),
+			spacing.stubs +
+				lanes.size * spacing.laneSpacing +
+				(labels[gap] ?? 0) +
+				(leaving[gap] ?? 0) +
+				(entering[gap] ?? 0),
 		),
 	);
 }

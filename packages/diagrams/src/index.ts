@@ -21,9 +21,17 @@ export type {
 	GroupHandle,
 	NodeDeclaration,
 	NodeHandle,
+	RolesDeclaration,
 	RowDeclaration,
 } from "./authoring/builder.ts";
 export { builderOf } from "./authoring/builder.ts";
+export type {
+	DomainBuilder,
+	DomainEdgeOptions,
+	DomainNode,
+	DomainOptions,
+} from "./authoring/domain.ts";
+export { domain } from "./authoring/domain.ts";
 export type {
 	Diagram,
 	DiagramOf,
@@ -31,6 +39,7 @@ export type {
 	DocLink,
 	Edge,
 	EdgeOf,
+	EdgeRoles,
 	Group,
 	GroupOf,
 	IdLink,
@@ -58,6 +67,7 @@ export type {
 	SceneLogo,
 	SceneNode,
 	ScenePort,
+	SceneRole,
 	SceneRow,
 	SceneStatus,
 	SceneText,
@@ -78,16 +88,32 @@ export type {
 } from "./notations/architecture.ts";
 export { architectureNotation } from "./notations/architecture.ts";
 export type {
+	DomainEdgeKind,
+	DomainNodeKind,
+	DomainNotation,
+	DomainRole,
+} from "./notations/domain.ts";
+export { domainNotation } from "./notations/domain.ts";
+export type {
 	EdgeKindDefinition,
 	EdgeKindOf,
+	EndRoles,
 	GroupKindDefinition,
 	GroupKindOf,
 	NodeKindDefinition,
 	NodeKindOf,
 	Notation,
+	RoleDefinition,
+	RoleOf,
 	StatusDefinition,
 	StatusOf,
 } from "./notations/notation.ts";
-export { edgeKindsOf, groupKindsOf, nodeKindsOf, statusesOf } from "./notations/notation.ts";
+export {
+	edgeKindsOf,
+	groupKindsOf,
+	nodeKindsOf,
+	rolesOf,
+	statusesOf,
+} from "./notations/notation.ts";
 export { notations } from "./notations/notations.ts";
 export { technologies } from "./notations/technologies.ts";

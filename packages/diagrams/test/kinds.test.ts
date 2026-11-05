@@ -8,6 +8,7 @@ import {
 	nodeKindsOf,
 } from "../src/index.ts";
 import {
+	distanceToShapes,
 	draw,
 	fillAndBackground,
 	looksOf,
@@ -17,7 +18,7 @@ import {
 	shapesOf,
 	strokesOf,
 } from "./support/drawn.ts";
-import { computedStyle, contrast, type Point, runsOf } from "./support/svg.ts";
+import { computedStyle, contrast, runsOf } from "./support/svg.ts";
 
 const directions: Direction[] = ["right", "down"];
 const nodeKinds = nodeKindsOf(architectureNotation);
@@ -198,24 +199,6 @@ function withRows(direction: Direction) {
 			}
 		}
 	});
-}
-
-/** How far a point is from the nearest stretch of any of the shapes' outlines. */
-function distanceToShapes(point: Point, runs: Point[][]): number {
-	let nearest = Number.POSITIVE_INFINITY;
-	for (const run of runs) {
-		run.forEach((a, index) => {
-			const b = run[(index + 1) % run.length] ?? a;
-			const [dx, dy] = [b.x - a.x, b.y - a.y];
-			const length = dx * dx + dy * dy;
-			const t =
-				length === 0
-					? 0
-					: Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / length));
-			nearest = Math.min(nearest, Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy)));
-		});
-	}
-	return nearest;
 }
 
 describe("each Kind's outline, with Rows or without", () => {

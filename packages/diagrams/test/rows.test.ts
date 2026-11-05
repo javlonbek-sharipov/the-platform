@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vitest";
 import {
+	type ArchitectureNotation,
 	architecture,
-	type Diagram,
+	type DiagramOf,
 	type Direction,
 	type Row,
 	type RowEnd,
@@ -12,6 +13,9 @@ import {
 } from "../src/index.ts";
 import { descendants, parseSvg } from "./support/svg.ts";
 import { advanceOf, bundledFont, characterMap, unitsPerEm } from "./support/truetype.ts";
+
+/** The tests here draw architecture Diagrams, so they read the fields that those have. */
+type Diagram = DiagramOf<ArchitectureNotation>;
 
 const interRegular = bundledFont("Inter-Regular.ttf");
 const regularCharacters = characterMap(interRegular);

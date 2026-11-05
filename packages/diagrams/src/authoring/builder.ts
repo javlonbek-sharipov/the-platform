@@ -18,6 +18,7 @@ import {
 	type NodeKindOf,
 	type Notation,
 	optionalFields,
+	type RoleOf,
 	type StatusOf,
 } from "../notations/notation.ts";
 import { callerOf, type Declarations, declarationsKey } from "./declarations.ts";
@@ -112,7 +113,7 @@ export type GroupDeclaration<N extends Notation> = Options<
 >;
 
 /** The options that an Edge may take, of which a Notation's Edges take those its definition lists. */
-interface EdgeOptions {
+interface EdgeOptions<N extends Notation> {
 	/** What passes over the Edge, drawn beside it, such as `Places orders`. */
 	label: string;
 	/**
@@ -123,6 +124,18 @@ interface EdgeOptions {
 	technology: Technology;
 	/** How much passes over it, as in `2k/s` or `30/min`: drawn below the label. */
 	rate: string;
+	/**
+	 * The roles that each end carries, each drawn as a short tag at that end:
+	 * `from` where the Edge leaves, and `to` where it enters. The Edge's Kind
+	 * decides which roles each end may carry.
+	 */
+	roles: RolesDeclaration<RoleOf<N>>;
+}
+
+/** The roles to declare at the ends of an Edge, such as `{ from: ["OHS"], to: ["ACL"] }`. */
+export interface RolesDeclaration<R extends string = string> {
+	from?: readonly R[];
+	to?: readonly R[];
 }
 
 /** What an Edge is declared with, between its two ends, on a Diagram of the Notation `N`. */
@@ -132,7 +145,7 @@ export type EdgeDeclaration<N extends Notation> = Options<
 		/** Defaults to the two ends' ids, as in `checkout-api->payments-api`. */
 		id?: string;
 	},
-	EdgeOptions,
+	EdgeOptions<N>,
 	N["fields"]["edge"][number] & EdgeField
 >;
 
@@ -213,7 +226,9 @@ const options = {
 		label: true,
 		technology: true,
 		rate: true,
+		roles: true,
 	}),
+	roles: optionsOf<RolesDeclaration>({ from: true, to: true }),
 };
 
 /**
@@ -326,8 +341,18 @@ export function builderOf<const N extends Notation>(
 				edge(from, to, declaredEdge) {
 					const at = `/edges/${edges.length}`;
 					declare(at, builder.edge);
-					const { kind, id } = declaredEdge;
+					const { kind, id, roles } = declaredEdge as EdgeDeclaration<Notation>;
 					unknown.push(...unknownOptions(declaredEdge, known.edge, "An Edge", at));
+					if (roles !== undefined) {
+						unknown.push(
+							...unknownOptions(
+								roles,
+								{ known: options.roles },
+								"An Edge's `roles`",
+								`${at}/roles`,
+							),
+						);
+					}
 					const fromEnd = modelEnd(from);
 					const toEnd = modelEnd(to);
 					// A default id names the two Nodes, whatever their Rows.
@@ -336,7 +361,9 @@ export function builderOf<const N extends Notation>(
 						kind,
 						from: fromEnd,
 						to: toEnd,
-						...fieldsOf<EdgeField>("edge", declaredEdge),
+						...fieldsOf<EdgeField>("edge", declaredEdge, (field, value) =>
+							field === "roles" ? copyRoles(value as RolesDeclaration) : value,
+						),
 					};
 					edges.push(edge);
 					return Object.freeze({ id: edge.id });
@@ -379,6 +406,14 @@ function modelEnd(end: EdgeEnd): string | RowEnd {
 /** The model's own Rows, each a name and, if it has one, a value. */
 function copyRows(rows: readonly RowDeclaration[]): { name: string; value?: string }[] {
 	return rows.map(({ name, value }) => (value === undefined ? { name } : { name, value }));
+}
+
+/** The model's own roles: each end's list, copied, for the ends that were given one. */
+function copyRoles({ from, to }: RolesDeclaration): { from?: string[]; to?: string[] } {
+	return {
+		...(from === undefined ? {} : { from: [...from] }),
+		...(to === undefined ? {} : { to: [...to] }),
+	};
 }
 
 /** The model's own copy of each Link, so that a shared definition never changes with it. */

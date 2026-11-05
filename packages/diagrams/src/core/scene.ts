@@ -177,6 +177,12 @@ export interface SceneEdge {
 	/** What the Edge carries, drawn beside its route, when it has a label, a Technology or a rate. */
 	label?: SceneLabel;
 	/**
+	 * The roles that the Edge's ends carry, each as a tag on its line, near its
+	 * end: its `from` end's, then its `to` end's, each end's in the model's
+	 * order, which is their order along the route.
+	 */
+	roles: SceneRole[];
+	/**
 	 * The marks that show which way the Edge runs, in order from its target
 	 * back to its source. They sit at a fixed spacing back from the target, on
 	 * straight stretches of the route, so that the Edges of a bundle share
@@ -206,6 +212,21 @@ export interface SceneLabel {
 	logo?: SceneLogo;
 	/** The Edge's rate, after its Technology. */
 	rate?: SceneText;
+}
+
+/**
+ * A role that one end of an Edge carries, drawn as a short tag on the Edge's
+ * line, near that end, on a stretch that's the Edge's own.
+ */
+export interface SceneRole {
+	/** Which end of the Edge carries it. */
+	end: "from" | "to";
+	/** One of its Notation's roles. */
+	role: string;
+	/** The tag's box, centered on the Edge's line. */
+	tag: Box;
+	/** The role, as the tag shows it. */
+	text: SceneText;
 }
 
 /**
@@ -250,6 +271,12 @@ export interface Scene {
 	 * labels and other labels.
 	 */
 	labelSpacing: { gap: number; margin: number };
+	/**
+	 * How role tags keep clear: the gap between two tags, the margin a tag
+	 * keeps from Nodes, callouts' tags and Group labels, and the stretch of
+	 * bare line that layout leaves between the tags of an Edge's two ends.
+	 */
+	roleSpacing: { gap: number; margin: number; between: number };
 	/** The length of the gap a hop leaves in a stroke, centered on the crossing. */
 	hop: number;
 	nodes: SceneNode[];

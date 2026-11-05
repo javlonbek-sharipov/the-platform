@@ -1,9 +1,12 @@
 import { describe, expect, test } from "vitest";
 import example from "../docs/example-system.diagram.ts";
 import {
+	type ArchitectureNotation,
 	architecture,
 	type Box,
-	type Diagram,
+	type DiagramOf,
+	type EdgeKindDefinition,
+	notations,
 	type Point,
 	type SceneEdge,
 	type Side,
@@ -26,6 +29,9 @@ import {
 	runsOf,
 	type Theme,
 } from "./support/svg.ts";
+
+/** The tests here draw architecture Diagrams, so they read the fields that those have. */
+type Diagram = DiagramOf<ArchitectureNotation>;
 
 const themes: Theme[] = ["light", "dark"];
 const fixtures = await everyFixture();
@@ -142,8 +148,16 @@ const inward: Record<Side, Point> = {
 	bottom: { x: 0, y: -1 },
 };
 
+/** Whether an Edge Kind of a fixture's Notation is symmetric, as the Notation's definition has it. */
+function symmetric(notation: string, kind: string): boolean {
+	const kinds: Record<string, EdgeKindDefinition> =
+		notations.find(({ name }) => name === notation)?.edgeKinds ?? {};
+	return kinds[kind]?.symmetric === true;
+}
+
 describe("an Edge's arrowhead", () => {
-	test("sits at its target, pointing into the Node, wider than its line and in its color, in every fixture", () => {
+	test("sits at its target, pointing into the Node, wider than its line and in its color, unless its Kind is symmetric, in every fixture", () => {
+		const seen = { directed: 0, symmetric: 0 };
 		for (const [name, diagram] of fixtures) {
 			const drawn = draw(diagram);
 			for (const edge of drawn.scene.edges) {
@@ -160,6 +174,13 @@ describe("an Edge's arrowhead", () => {
 							.flat()
 							.every((at) => ahead(at) <= 0.01 && ahead(at) >= -16 && Math.abs(aside(at)) <= 8),
 				);
+				// A symmetric Edge runs neither way, so nothing points into its target.
+				if (symmetric(diagram.notation, edge.kind)) {
+					expect(heads, `${name}: ${edge.id}`).toEqual([]);
+					seen.symmetric += 1;
+					continue;
+				}
+				seen.directed += 1;
 				expect(heads, `${name}: ${edge.id}`).toHaveLength(1);
 				const [head] = heads;
 				const [casing] = linesOf(drawn, edge);
@@ -186,6 +207,9 @@ describe("an Edge's arrowhead", () => {
 				}
 			}
 		}
+		// The fixtures hold Edges of both sorts.
+		expect(seen.directed).toBeGreaterThan(100);
+		expect(seen.symmetric).toBeGreaterThan(1);
 	});
 });
 

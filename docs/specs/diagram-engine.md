@@ -394,6 +394,7 @@ Breaking any of these is a validation error.
 - **Kinds.**
   - `kind` must be one of the Notation's Kinds for a Node, Group or Edge, as the case may be.
   - An Edge's ends must have Kinds that its Edge Kind allows.
+- **Roles.** Each role at an end of an Edge must be one of the Notation's roles, and one that the Edge's Kind lets that end carry.
 - **Fields.** A Node, a Group or an Edge has only those of its optional fields that its Diagram's Notation lists.
 - **Values.**
   - `status` is one of `ok`, `degraded`, `down` and `unknown`.
@@ -468,6 +469,7 @@ A Notation defines:
 - which Edge Kinds are symmetric, and so drawn without an arrowhead or chevrons;
 - which facts the description lists for a Node;
 - which Group Kinds make an Edge cross between them, as `region` and `zone` do in architecture;
+- which roles the ends of its Edges may carry, and which of them each end of each Edge Kind may carry;
 - how its Edges bundle;
 - which of the model's optional fields its Diagrams may have.
 
@@ -601,7 +603,7 @@ Below, the "rank axis" runs along the direction: x for `right` and y for `down`.
 6. **Coordinates.**
    - Each rank becomes a column (for `right`) or a row (for `down`), with its members centered on the rank's line.
    - Within a rank, members are stacked along the order axis, at least the clearance apart.
-   - Each gap between two ranks leaves room for the labels and lanes of the Edges that span it.
+   - Each gap between two ranks leaves room for the labels and lanes of the Edges that span it, and for the role tags of the Edges that leave and enter there.
    - Then align each child with its connected neighbors, wherever that keeps the order and the clearance. Brandes and Köpf (2001) is the reference.
    - Snap every position to a small grid.
 7. **Groups.**
@@ -680,7 +682,7 @@ The method comes from Wybrow, Marriott and Stuckey (2009), Marriott, Stuckey and
 8. **Labels.** Place each label, with its Technology and rate below it.
    - Use the longest straight run that belongs to that Edge alone, not to a shared trunk, and center the label beside the line.
    - So a label needs a run of its own that holds it. When a bundle's trunk would leave a labeled Edge no such run, the Edge stays out of the trunk and keeps its own lane, as a parallel Edge does.
-   - If it would cover a Node, a Port stub, a Group label or another label, try the next-longest run.
+   - If it would cover a Node, a Port stub, a Group label, a role tag or another label, try the next-longest run.
    - If nothing fits, put it at the route's midpoint and report a warning.
 9. **Crossings.**
    - Where two Edges with different targets cross at a right angle, break one of them with a small gap, a hop, so that readers see they don't connect.
@@ -724,6 +726,7 @@ It holds:
   - its id, Kind and two Ports;
   - its route, as pieces of orthogonal polyline between hops, with their corner radii;
   - its label box;
+  - its role tags, each with the end that carries it, its box and its text;
   - whether it fell back to the simple route;
 - the diagnostics that layout and routing raised.
 
@@ -743,6 +746,7 @@ The SVG writer turns a scene into one self-contained SVG, committed next to its 
 
 - The SVG carries its JSON model in a `<metadata>` element, so the SVG alone is enough for the web component to make it explorable.
 - Every Node, Group and Edge is drawn in its own `<g>`, which carries its id and Kind as data attributes. An Edge's `<g>` also carries its two ends.
+- Every role tag is drawn in a `<g>` of its own too, which carries its Edge's id, the end that carries the role, and the role.
 
 **Look**
 
@@ -755,7 +759,7 @@ The SVG writer turns a scene into one self-contained SVG, committed next to its 
 - **Edges.**
   - An Edge is drawn as a body inside a darker casing, so that it reads clearly where it passes over other Edges.
   - Small chevrons at a fixed spacing show its direction, except on symmetric Edges.
-  - Its end markers and role tags sit at its ends.
+  - Its end markers sit at its ends, and its role tags near them, on its own line.
   - Where one Port feeds two or more Edges, a small junction mark sits over the split.
 - **Groups.** A Group's box shows its title in its label band.
 
@@ -815,7 +819,7 @@ On top of the model's own rules, these are errors:
 
 - A title, Row or label uses a word that its context's glossary lists under _Avoid_. The message names the term to use instead.
 - A text was shortened, or contains characters that the bundled font lacks.
-- An Edge fell back to the simple route, or its label couldn't be placed clear of everything else.
+- An Edge fell back to the simple route, its label couldn't be placed clear of everything else, or one of its role tags had no room at its end.
 - An id from another context, such as `ordering/order-placed`, isn't drawn inside its own context on any Diagram.
 
 **Output**
@@ -1997,6 +2001,80 @@ The web component's camera and level of detail. This is GitHub's issue #6, not t
     - `test/browser/support/` holds what the next issues can share: `drawing.ts` draws, `page.ts` puts a `<platform-diagram>` on the page as HTML would, `input.ts` presses the mouse and the keys, turns the wheel and touches the screen, and `looking.ts` says where a text is on the screen, how strongly it shows, and what color a pixel is, read off a picture of the page.
     - Every input is the browser's own, so its events are trusted. The wheel at a point and the touches go through the DevTools protocol, since Vitest's `wheel` only turns over an element's middle and has no touch.
     - A failed browser test leaves its picture under `.vitest/`, which git ignores.
+
+**Issue 3**
+
+Context maps. This is GitHub's issue #3, not ticket 03 above.
+
+1. **The domain Notation.**
+   - Its definition is `src/notations/domain.ts`, and its builder is `domain`, `builderOf` that definition. The package exports both, with `DomainNode`, `DomainEdgeOptions`, `DomainBuilder`, `DomainOptions`, `DomainNodeKind`, `DomainEdgeKind` and `DomainRole`.
+   - `Diagram`, `Node`, `Group` and `Edge` are now those of either Notation, as issue 2's decision 10 foresaw. What reads a field that only one Notation's Diagrams have names that Notation, as in `DiagramOf<ArchitectureNotation>`.
+   - A context takes `external`, `description` and `links`, and an Edge `label` and `roles`. A context has no Technology, status, Rows or callout, and an Edge no Technology or rate: those say how a thing is built and how it runs, which a context map doesn't draw.
+   - The description lists a context's Kind, and that it's External.
+2. **No Group Kinds yet.** Issue 4 adds `context`. Until then, a Group on a domain Diagram is an `unknown-kind` error, and `d.group` is a type error. That brought two things for any Notation:
+   - Where a message lists what a Notation has, it says "It has no Group Kinds." for none, and "Its only Node Kind is context." for one.
+   - The schema lets no value be the Kind of a Group whose Notation has none (`not: {}`), since `enum` can't be empty. So the schema fails where validation does, at the Kind.
+3. **A context's look.**
+   - It's 192 by 64 px, larger than anything an architecture Diagram draws inside a system. A title fits in about 17 characters.
+   - Its outline is new, `oval`: an ellipse that touches the Node's rectangle at the middle of each side, where its Ports are, laid out either way. Should its Notation give it Rows, only the header's upper half arches, the sides run straight down past the Rows, and the bottom corners round by 16 px, as a pill's do. The header's contents start 4 px further in at each end, where the ellipse narrows.
+   - Its badge is a speech bubble: a context is where one language is spoken.
+   - Its hue is `context`, the property `--diagram-hue-context`: #4f55c8 light and #8f96f5 dark.
+4. **The Edge Kinds.**
+   - `partnership` and `shared-kernel` are symmetric. `upstream-downstream` and `customer-supplier` run from the upstream context to the downstream one. In each pair, the first is solid and the second dashed, so that each of the four looks different. The spec asks only that the symmetric ones have no arrowhead.
+   - Their sentence forms are "{from} and {to} are partners", "{from} and {to} share a kernel", "{from} is upstream of {to}" and "{from} supplies {to}".
+   - Each may start and end only at a `context`, which shows once issue 4 adds other Node Kinds.
+   - The Notation bundles nothing (`none`). Each Edge keeps a line of its own into its Port, so that each end's role tags sit on a line that's that Edge's alone. Issue 4 may want its own Edge Kinds bundled, which would make bundling a matter of the Edge Kind.
+   - A symmetric Edge still enters its `to` Node's input Port (issue 2, decision 5). Where a directed Edge enters the same Port, the two share the Port's stub, and the directed Edge's arrowhead sits at its end. Only the chevrons along each Edge's own line, and the dashes, tell the two apart there. Nothing is done about it yet.
+5. **Roles in a definition.**
+   - A definition's `roles` name each role and give it a `name`, its name in full: `OHS: { name: "open host service" }`. The role's key is what the model holds and what its tag shows, so it's written in capitals.
+   - Each Edge Kind's `roles` say what each of its ends may carry: `{ anyOf: [...] }` for any of some roles together, or `{ oneOf: [...] }` for one of them at most. An end it leaves out carries none. So `upstream-downstream` and `customer-supplier` have `from: { anyOf: ["OHS", "PL"] }` and `to: { oneOf: ["CF", "ACL"] }`, and issue 4's Edge Kinds need say nothing to take no roles.
+   - `roles` joins the model's optional Edge fields (issue 2, decision 3). A definition lists it exactly when it has roles. The package exports `rolesOf`, `RoleOf`, `RoleDefinition` and `EndRoles`.
+6. **Roles in the model and the builder.**
+   - An Edge's `roles` is `{ from?: [...], to?: [...] }`, written after `rate`, and `d.edge(a, b, { kind, roles })` takes the same. The builder copies both lists, and records an option of `roles` that it doesn't know, such as `form`, as it records any other (Review 1, decision 5).
+   - The types take any of the Notation's roles at either end, so a role the Notation lacks is a type error. A role at the wrong end, or CF beside ACL, is left to validation, as an Edge between Kinds that its Kind doesn't join is.
+7. **Validating roles.**
+   - A role that the Notation lacks is `unknown-role`, at the role: "Edge `x` has the role `PLS` at its `from` end, which the domain Notation doesn't have. Its roles are OHS, PL, CF and ACL."
+   - The rest is one rule, `edge-end-role`, with a message for each case:
+     - a role at the wrong end, at the role: "Edge `x` has the role `CF` at its `from` end. An Edge of the Kind `upstream-downstream` may carry `CF` only at its `to` end.";
+     - a role that the Kind's ends never carry, at the role: "…may carry only `ISO` or `NRV` there.", or "…carries no roles there.";
+     - two roles where the Kind allows one, at the end's list: "Edge `x` has both `CF` and `ACL` at its `to` end. An Edge of the Kind `customer-supplier` may carry only one of them there.";
+     - any role on a symmetric Edge, once, at `roles`: "Edge `x` has roles, but its Kind, `partnership`, is symmetric: its two ends are alike, so it takes no roles.";
+     - any role on an Edge whose Kind lists none, once, at `roles`: "Edge `x` has roles, but an Edge of the Kind `drain` takes none.";
+     - a role listed twice at one end, at the end's list: "Edge `x` lists the role `OHS` twice at its `from` end. List each role once."
+   - Roles that list no role are no roles, on any Edge.
+   - A symmetric Edge takes no roles whatever its definition says, and a test holds each of the engine's definitions to listing none for one.
+   - The schema gives `roles` both lists, of the Notation's roles, each role once. It can't tell which end of which Kind may carry which, and its description names `edge-end-role` among the rules it can't express.
+8. **Role tags.**
+   - A tag is a box 14 px high, as wide as its role in Inter SemiBold at 10 px with 4 px on each side, to the next even number. It sits on its Edge's line, which runs through it, so that it's plain whose it is. A tag beside the line, as a label is, could belong to either of two lines that run side by side.
+   - It sits on a stretch that's the Edge's own, as ticket 10's decision 3 counts them: past the Port's stub, where the Edges that share the Port have parted. The `from` end's tags come first along the route, in the model's order, and the `to` end's last. Each sits as near its end as it has room, 4 px in from the stretch's end, 2 px from the tag before it, with its middle nearer its own end than the other.
+   - It keeps 4 px clear of Nodes, callouts' tags and Group labels, and 2 px clear of other tags. Tags are placed in the order of their Edges' ids, as labels are.
+   - It hides nothing where it can: no other route and no Group's border passes through it, or within 2 px of it. For that, it may sit to one side of its line, with its edge 4 px past the line. So where two Edges run side by side into one Port, 8 px apart, each one's tag keeps to the outer side of its own line. An end's tags keep to one side together.
+   - To hide nothing, a tag goes at most 128 px further from its end than the nearest place it has room. Past that, it's centered on its line at the nearest place clear of Nodes, Group labels and other tags, and covers the routes it must. Without the limit, a tag went to the far side of a corner, beside another Node.
+   - A tag with no room at all is drawn anyway, just past its Port's stub or the tag before it, with the warning `role-placement`, at the role: "Edge `x`'s role `OHS` has no room on the Edge's own line near its `from` end, clear of Nodes, Group labels and other role tags. So its tag is drawn there anyway, and may cover them." That happens when two Edges fall back to one simple route, or when a loop and another Edge leave one Port side by side, laid out `down`.
+   - Labels are placed after the tags. A label keeps clear of every tag, and the runs it may sit beside leave out what its own Edge's tags take, with 4 px on each side.
+   - An Edge's chevrons and its badge keep to the line between its two ends' tags. So the one chevron of a short Edge sits in the middle of the bare line.
+   - The scene gives each Edge its `roles`, each with its `end`, its `role`, its `tag` and its `text`, and states the spacing as `roleSpacing: { gap, margin, between }`. Tags count in the drawing's bounds.
+9. **Room for tags.** Each gap between ranks leaves room for the tags of the Edges that leave the rank before it, and of those that enter the rank after it: the tags, side by side for `right` and one after another for `down`, 4 px before them, and 12 px after, half of the 24 px of bare line between an Edge's two ends' tags. With OHS and PL at one end and ACL at the other, two contexts stand 160 px apart, from 96.
+10. **Tags in the SVG.**
+    - They're drawn over the Edges and beneath the labels, in a `<g class="diagram-roles">`. Each tag's `<g>` carries `data-edge-role`, its Edge's id, `data-end` and `data-role`, and holds a rect of class `diagram-role` and its text, of class `diagram-role-text`.
+    - The rect is filled with `--diagram-background`, which hides the Edge's line behind the role, and outlined 1 px in `--diagram-edge`, inside the tag, with corners rounded by 3 px. The text is in `--diagram-ink`. No property is new.
+    - They aren't inside their Edge's `<g>`, where an Edge drawn later could run over them. So what fades or lights an Edge finds its tags by `data-edge-role`, as it finds its label by `data-edge-label`.
+11. **The description.** An end's roles follow its Node's title in parentheses, each by its name in full, after the Row it attaches to, if any: "Catalog (open host service, published language) is upstream of Ordering (conformist): Products." `sentenceOf` makes it, so the web component's list will say the same.
+12. **A model without a direction.** A JSON model that leaves `direction` out passed validation and the schema, then crashed layout. Validation now fills in `right`, so that everything after it finds a direction. The SVG is the one that a model which says `right` gets, byte for byte, its metadata included. The schema takes its default from validation.
+13. **Fixtures and tests.**
+    - `test/fixtures/context-map.ts` draws a shop's seven contexts in either direction, with an Edge of each Kind and every role: two Edges enter one context side by side, three leave it, and a symmetric Edge shares a Port with a directed one. Its golden file is `context-map.svg`, drawn `right`.
+    - Both drawings join the tests over every fixture. The one about arrowheads now expects none on a symmetric Edge, which it reads from the fixture's Notation.
+    - The properties of role tags run over every fixture too: each sits on its own Edge's line, nearer the end that carries it, after its end's other tags, and clear of Nodes, callouts, Group labels, Edge labels and other tags.
+    - The tests' plumbing Notation has roles of its own, with `oneOf` at a `from` end and an Edge Kind that takes a role at one end only. The definitions test keeps the names of the engine's roles out of the core, as it keeps its Kinds' names out.
+14. **The skill.**
+    - A new section, `## Context maps`, says what differs from an architecture Diagram, and "When a Diagram helps" says which Notation to pick. Its description, and AGENTS.md, name a doc about how bounded contexts relate as a case for reading it.
+    - Its example is the package's second one, `docs/example-context-map.diagram.ts`, with its SVG and a doc that shows it. The skill's tests run its commands on both examples, hold each to its module byte for byte, and require it to name every Kind, status and role of every Notation.
+15. **Left for later.**
+    - Issue 4: the `context` Group Kind, ids local to it, the rule against mixing the two forms, and Rows for aggregates, which adds `rows` to the Notation's fields for contexts too.
+    - Issue 7: nothing in the SVG marks a symmetric Edge but its Kind (issue 2, decision 5). The component can look `symmetric` up in the definition that the model's `notation` names, or add a hook.
+    - Issue 10: a definition says nothing about flow animation. That issue adds what says that architecture's Edges flow and that domain's don't.
+    - The glossary has no entry for a role. The spec's own words, "role" and "role tag", are used as it uses them.
+16. **Speed.** On one machine, `pnpm bench` reported 88 ms median drawn `right`, 118 ms drawn `down`, and 377 and 156 ms with every Edge labeled, for the commit this issue started from, and 88, 123, 383 and 157 ms with it. The crowded fixture has no roles.
 
 **Issue 12**
 

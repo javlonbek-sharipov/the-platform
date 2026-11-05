@@ -14,7 +14,7 @@ Multi-context: `GLOSSARY-MAP.md` at the root lists each context's `GLOSSARY.md`.
 
 ### Diagrams
 
-Read the `diagrams` skill (`packages/diagrams/skills/diagrams/SKILL.md`) before drawing or editing a Diagram (`*.diagram.ts`), writing a doc that describes how systems talk, or fixing `diagrams lint`.
+Read the `diagrams` skill (`packages/diagrams/skills/diagrams/SKILL.md`) before drawing or editing a Diagram (`*.diagram.ts`), writing a doc that describes how systems talk or how bounded contexts relate, or fixing `diagrams lint`.
 
 ## Docs site
 
