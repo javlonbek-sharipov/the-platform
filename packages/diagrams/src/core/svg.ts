@@ -10,15 +10,14 @@
  * show a negative zero, and lines end with LF, as does the file.
  */
 
-import type { Diagram } from "../authoring/model.ts";
+import type { AnyDiagram } from "../authoring/model.ts";
 import {
-	architectureEdgeLooks,
-	architectureGroupLooks,
-	architectureNodeLooks,
-	architectureStatusLooks,
-	logoUnits,
-	technologyOf,
-} from "../notations/architecture.ts";
+	definitionOf,
+	type EdgeKindDefinition,
+	type GroupKindDefinition,
+	type Notation,
+	type StatusDefinition,
+} from "../notations/notation.ts";
 import { compareText } from "./bundles.ts";
 import { descriptionOf } from "./description.ts";
 import { arrowhead, arrowOutline, chevronPath, globePath, linePath } from "./edge-paths.ts";
@@ -38,6 +37,7 @@ import type {
 	SceneText,
 } from "./scene.ts";
 import { colorUses, embeddedFonts, fontWeights, styleElement, themeRules } from "./style.ts";
+import { logoUnits, technologyOf } from "./technology.ts";
 import { collapseSpaces, type FontData, rowTextsOf } from "./text.ts";
 import { type Attribute, attributesText, element, empty, indent, number, start } from "./xml.ts";
 
@@ -46,10 +46,16 @@ const solidOpacity = 0.5;
 const badgeStroke = 1.5;
 /** How much wider a callout makes its Node's outline. */
 const highlightGain = 1;
-/** The dashes of a dashed line, a message's or a zone's: 6 px drawn, then 4 px left out. */
+/** The dashes of a dashed line, an Edge's or a Group's border: 6 px drawn, then 4 px left out. */
 const dashes = "6 4";
 
-export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): string {
+/** Writes a Diagram's scene as an SVG, with each Kind's look from the Diagram's Notation. */
+export function writeSvg(
+	diagram: AnyDiagram,
+	notation: Notation,
+	scene: Scene,
+	fontData?: FontData,
+): string {
 	const { bounds } = scene;
 	// Labels are drawn over every Edge, so that no route runs across one.
 	const labels = scene.edges.flatMap(({ id, label }): [string, SceneLabel][] =>
@@ -65,7 +71,7 @@ export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): s
 	// so it stays out of the scope's name, and editing it changes only these lines.
 	const about = [
 		indent(1, element("title", [], collapseSpaces(diagram.title))),
-		indent(1, element("desc", [], descriptionOf(diagram, scene))),
+		indent(1, element("desc", [], descriptionOf(diagram, notation, scene))),
 		indent(1, element("metadata", [], modelText(diagram))),
 	];
 	const body = [
@@ -83,7 +89,11 @@ export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): s
 			? []
 			: [
 					indent(1, start("g", [["class", "diagram-groups"]])),
-					...scene.groups.flatMap((group) => writeGroup(group).map((text) => indent(2, text))),
+					...scene.groups.flatMap((group) =>
+						writeGroup(group, definitionOf(notation.groupKinds, group.kind)).map((text) =>
+							indent(2, text),
+						),
+					),
 					indent(1, "</g>"),
 				]),
 		indent(
@@ -93,12 +103,14 @@ export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): s
 				["fill", "none"],
 			]),
 		),
-		// Edges that cross between regions or zones go beneath the others, so a
-		// trunk they share with Edges that don't shows the plain color.
+		// Edges that cross between Groups go beneath the others, so a trunk they
+		// share with Edges that don't shows the plain color.
 		...[
 			...scene.edges.filter((edge) => edge.crosses !== undefined),
 			...scene.edges.filter((edge) => edge.crosses === undefined),
-		].flatMap((edge) => writeEdge(edge).map((text) => indent(2, text))),
+		].flatMap((edge) =>
+			writeEdge(edge, definitionOf(notation.edgeKinds, edge.kind)).map((text) => indent(2, text)),
+		),
 		...(scene.junctions.length === 0
 			? []
 			: [
@@ -115,11 +127,11 @@ export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): s
 					indent(1, "</g>"),
 				]),
 		indent(1, start("g", [["class", "diagram-nodes"]])),
-		...scene.nodes.flatMap((node) => writeNode(node).map((text) => indent(2, text))),
+		...scene.nodes.flatMap((node) => writeNode(node, notation).map((text) => indent(2, text))),
 		indent(1, "</g>"),
 	];
 	const fonts = fontData === undefined ? [] : embeddedFonts(scene, fontData);
-	const uses = colorUses(body);
+	const uses = colorUses(body, notation);
 	// Inlined into a page, an SVG's style applies to the whole page, so the font's
 	// family and every selector carry a name made from everything else in the SVG.
 	const contents = [
@@ -145,9 +157,8 @@ export function writeSvg(diagram: Diagram, scene: Scene, fontData?: FontData): s
 }
 
 /** A Group's box, drawn as its Kind draws it, with its title in its label band. */
-function writeGroup(group: SceneGroup): string[] {
+function writeGroup(group: SceneGroup, look: GroupKindDefinition): string[] {
 	const { box, title } = group;
-	const look = architectureGroupLooks[group.kind];
 	return [
 		start("g", [
 			["data-group", group.id],
@@ -178,9 +189,9 @@ function writeGroup(group: SceneGroup): string[] {
  * title and its Technology's name; a line across it above its Rows, and their
  * names and values; its status mark; and its callout's tag.
  */
-function writeNode(node: SceneNode): string[] {
+function writeNode(node: SceneNode, notation: Notation): string[] {
 	const { box, badge, title, technology, logo, rows, callout } = node;
-	const look = architectureNodeLooks[node.kind];
+	const look = definitionOf(notation.nodeKinds, node.kind);
 	const outline = outlines[look.outline];
 	// A callout highlights the outline: wider, and in the accent color.
 	const width = callout === undefined ? outline.stroke : outline.stroke + highlightGain;
@@ -252,7 +263,9 @@ function writeNode(node: SceneNode): string[] {
 					]),
 				]),
 		...rowTextsOf(node).map((text) => writeText(text, "diagram-text")),
-		...(node.status === undefined ? [] : [writeStatus(node.status)]),
+		...(node.status === undefined
+			? []
+			: [writeStatus(node.status, definitionOf(notation.statuses, node.status.value))]),
 		...(callout === undefined
 			? []
 			: [
@@ -322,8 +335,7 @@ function writeText(text: SceneText, className: string): string {
 	);
 }
 
-function writeStatus({ value, mark }: SceneStatus): string {
-	const look = architectureStatusLooks[value];
+function writeStatus({ value, mark }: SceneStatus, look: StatusDefinition): string {
 	const paint: Attribute[] = look.line
 		? [
 				["fill", "none"],
@@ -349,7 +361,7 @@ function writeStatus({ value, mark }: SceneStatus): string {
  * The JSON model, on one line, with every object's fields in code unit order,
  * so that equal models give the same text however they were built.
  */
-function modelText(diagram: Diagram): string {
+function modelText(diagram: AnyDiagram): string {
 	return JSON.stringify(diagram, (_, value: unknown) =>
 		typeof value === "object" && value !== null && !Array.isArray(value)
 			? Object.fromEntries(
@@ -372,12 +384,13 @@ const casingWidth = markSizes.casing;
 
 /**
  * An Edge: its line, as a casing beneath a body; its chevrons, cased alike;
- * its arrowhead; and its badge, if it crosses between regions or zones.
+ * its arrowhead, unless its Kind is symmetric; and its badge, if it crosses
+ * between Groups.
  */
-function writeEdge(edge: SceneEdge): string[] {
-	const line = linePath(edge);
-	const dashed: Attribute[] =
-		architectureEdgeLooks[edge.kind].line === "dashed" ? [["stroke-dasharray", dashes]] : [];
+function writeEdge(edge: SceneEdge, look: EdgeKindDefinition): string[] {
+	const directed = look.symmetric !== true;
+	const line = linePath(edge, directed);
+	const dashed: Attribute[] = look.line === "dashed" ? [["stroke-dasharray", dashes]] : [];
 	const rounded: Attribute[] = [
 		["stroke-linecap", "round"],
 		["stroke-linejoin", "round"],
@@ -385,13 +398,17 @@ function writeEdge(edge: SceneEdge): string[] {
 	const parts = [
 		...cased(line, dashed),
 		...(edge.chevrons.length === 0 ? [] : cased(edge.chevrons.map(chevronPath).join(" "), rounded)),
-		empty("path", [
-			["class", "diagram-casing"],
-			["d", arrowhead(edge.toPort)],
-			["fill", "currentColor"],
-			["stroke-width", arrowOutline],
-			["stroke-linejoin", "round"],
-		]),
+		...(directed
+			? [
+					empty("path", [
+						["class", "diagram-casing"],
+						["d", arrowhead(edge.toPort)],
+						["fill", "currentColor"],
+						["stroke-width", arrowOutline],
+						["stroke-linejoin", "round"],
+					]),
+				]
+			: []),
 		...(edge.crosses === undefined ? [] : writeBadge(edge.crosses.badge)),
 	];
 	return [
@@ -474,7 +491,7 @@ function cased(d: string, attributes: Attribute[]): string[] {
 	];
 }
 
-/** The badge of an Edge that crosses between regions or zones: a disc in its color, with a globe on it. */
+/** The badge of an Edge that crosses between Groups: a disc in its color, with a globe on it. */
 const globeStroke = 1;
 
 /** A badge, centered on its point: a disc, cased like the Edge, with a globe on it. */

@@ -7,7 +7,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, relative, sep } from "node:path";
 import type { Declarations } from "../authoring/declarations.ts";
-import type { Diagram } from "../authoring/model.ts";
+import type { AnyDiagram } from "../authoring/model.ts";
 import { recordUnknownOptions } from "../authoring/options.ts";
 import { compareText } from "../core/bundles.ts";
 import { render } from "../core/render.ts";
@@ -48,7 +48,7 @@ export interface RenderedDiagram {
 	svgFile: string;
 	/** The fresh render, and the valid model, when the Diagram has no errors. */
 	svg?: string;
-	model?: Diagram;
+	model?: AnyDiagram;
 	declarations: Declarations;
 	messages: AtlasMessage[];
 }
@@ -262,7 +262,7 @@ function renderLoaded(root: string, loaded: Loaded): RenderedDiagram {
 	const messages = diagnostics.map((diagnostic) => located(module, declarations, diagnostic));
 	return svg === undefined
 		? { module, svgFile, declarations, messages }
-		: { module, svgFile, svg, model: exported as Diagram, declarations, messages };
+		: { module, svgFile, svg, model: exported as AnyDiagram, declarations, messages };
 }
 
 /** The config must load, and default-export what `atlas()` returns, with no option it doesn't know. */

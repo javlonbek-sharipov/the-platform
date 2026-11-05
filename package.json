@@ -14,6 +14,7 @@
 		"check": "biome check",
 		"typecheck": "tsc -p .",
 		"generate:font-metrics": "node packages/diagrams/scripts/generate-font-metrics.ts",
+		"generate:schema": "node packages/diagrams/scripts/generate-schema.ts",
 		"generate:technologies": "node packages/diagrams/scripts/generate-technologies.ts"
 	},
 	"dependencies": {

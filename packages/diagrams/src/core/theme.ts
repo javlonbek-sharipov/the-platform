@@ -3,7 +3,16 @@
  * custom property, `--diagram-` and its name, with a fallback for the light
  * theme and one for the dark theme. A page that defines the properties wins in
  * both themes; a standalone SVG follows its viewer's theme.
+ *
+ * These are the colors that every Diagram shares. Each Notation's definition
+ * adds a hue for each family of its Kinds.
  */
+
+/** A color of the theme: its fallback for the light theme, and for the dark theme. */
+export interface ThemeColor {
+	light: string;
+	dark: string;
+}
 
 export const palette = {
 	background: { light: "#ffffff", dark: "#0d1117" },
@@ -21,12 +30,6 @@ export const palette = {
 	"edge-casing": { light: "#424a53", dark: "#262c36" },
 	// The casing of an Edge drawn in the warning color, darker than it.
 	"warn-casing": { light: "#7d4e00", dark: "#4b2900" },
-	// One hue for each family of architecture Kinds.
-	"hue-users": { light: "#8250df", dark: "#ab7df8" },
-	"hue-system": { light: "#424a53", dark: "#b7bdc8" },
-	"hue-compute": { light: "#0969da", dark: "#4493f8" },
-	"hue-data": { light: "#1b7c83", dark: "#39c5cf" },
-	"hue-messaging": { light: "#bc4c00", dark: "#f0883e" },
-} as const;
+} as const satisfies Record<string, ThemeColor>;
 
 export type ColorName = keyof typeof palette;

@@ -15,7 +15,7 @@ import {
 } from "../atlas/atlas.ts";
 import { AtlasError, configFile, discover, findRoot, moduleSuffix } from "../atlas/discover.ts";
 import { type AtlasMessage, placeText } from "../atlas/messages.ts";
-import type { Diagram } from "../authoring/model.ts";
+import type { AnyDiagram } from "../authoring/model.ts";
 import { drawPng, type Theme, themes } from "./png.ts";
 
 export interface Output {
@@ -324,7 +324,7 @@ function exportName(id: string, { format, theme, scale }: ExportRequest): string
  * The model as JSON, indented by two spaces. The id that the Atlas gave it
  * goes where a builder writes one, after the notation.
  */
-function modelJson(model: Diagram): string {
+function modelJson(model: AnyDiagram): string {
 	const { version, notation, id, ...rest } = model;
 	return `${JSON.stringify({ version, notation, id, ...rest }, null, 2)}\n`;
 }

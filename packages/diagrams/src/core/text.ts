@@ -5,8 +5,7 @@
  * matches measured text.
  */
 
-import type { Diagram, Row } from "../authoring/model.ts";
-import { technologyOf } from "../notations/architecture.ts";
+import type { AnyDiagram, Row } from "../authoring/model.ts";
 import { codePointOf, type Diagnostic, list } from "./diagnostics.ts";
 import { fontMetrics } from "./font-metrics.ts";
 import type {
@@ -18,6 +17,7 @@ import type {
 	SceneNode,
 	SceneText,
 } from "./scene.ts";
+import { technologyOf } from "./technology.ts";
 import { type ModelText, textsOf } from "./texts.ts";
 
 /** The weights that text is drawn in: regular for Rows and labels, and semibold for titles. */
@@ -409,7 +409,7 @@ export function rowTextsOf(node: SceneNode): SceneText[] {
  * Technology and rate, as the model holds them.
  */
 export function textDiagnostics(
-	diagram: Diagram,
+	diagram: AnyDiagram,
 	nodes: SceneNode[],
 	groups: SceneGroup[],
 	edges: SceneEdge[],

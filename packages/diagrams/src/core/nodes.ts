@@ -5,10 +5,11 @@
  * room the header leaves it is shortened instead.
  */
 
-import type { Direction, Node } from "../authoring/model.ts";
-import { architectureNodeLooks, technologyOf } from "../notations/architecture.ts";
+import type { AnyNode, Direction } from "../authoring/model.ts";
+import type { NodeKindDefinition } from "../notations/notation.ts";
 import { outlines } from "./outlines.ts";
 import type { Box, SceneCallout, SceneLogo, SceneStatus, SceneText } from "./scene.ts";
+import { technologyOf } from "./technology.ts";
 import { calloutText, headerTexts } from "./text.ts";
 
 /**
@@ -47,9 +48,9 @@ export interface NodeFrame {
 	tagRoom: number;
 }
 
-/** A Node's size: its Kind's, with a band for each Row below the header. */
-export function frameOf(node: Node): NodeFrame {
-	const { width, height, outline } = architectureNodeLooks[node.kind];
+/** A Node's size: its Kind's, as its look gives it, with a band for each Row below the header. */
+export function frameOf(node: AnyNode, look: NodeKindDefinition): NodeFrame {
+	const { width, height, outline } = look;
 	const { headRoom } = outlines[outline];
 	const tagRoom = node.callout === undefined ? 0 : tagGap + tagHeight;
 	return {
@@ -62,8 +63,8 @@ export function frameOf(node: Node): NodeFrame {
 }
 
 /** The part of a Node's width that its outline's face covers, where its text goes. */
-export function faceOf(node: Node, box: Box): { x: number; width: number } {
-	const { inset } = outlines[architectureNodeLooks[node.kind].outline];
+export function faceOf(look: NodeKindDefinition, box: Box): { x: number; width: number } {
+	const { inset } = outlines[look.outline];
 	return { x: box.x + inset.left, width: box.width - inset.left - inset.right };
 }
 
@@ -83,9 +84,14 @@ export interface NodeParts {
  * Technology's logo before that. The title is centered between the badge and
  * whichever comes next, and the Technology's name below it.
  */
-export function partsOf(node: Node, box: Box, direction: Direction): NodeParts {
-	const { headerTop, headerHeight } = frameOf(node);
-	const { inset } = outlines[architectureNodeLooks[node.kind].outline];
+export function partsOf(
+	node: AnyNode,
+	look: NodeKindDefinition,
+	box: Box,
+	direction: Direction,
+): NodeParts {
+	const { headerTop, headerHeight } = frameOf(node, look);
+	const { inset } = outlines[look.outline];
 	const header = { x: box.x, y: box.y + headerTop, width: box.width, height: headerHeight };
 	const middle = header.y + header.height / 2;
 	const badge = {

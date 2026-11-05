@@ -9,11 +9,11 @@ export interface Diagnostic {
 	pointer?: string;
 }
 
-/** Words as a message lists them: `a, b and c`. */
-export function list(words: readonly string[]): string {
+/** Words as a message lists them: `a, b and c`, or `a, b or c` for a choice among them. */
+export function list(words: readonly string[], last: "and" | "or" = "and"): string {
 	return words.length < 2
 		? words.join("")
-		: `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
+		: `${words.slice(0, -1).join(", ")} ${last} ${words[words.length - 1]}`;
 }
 
 /** A field's name as one segment of a JSON Pointer, escaped as RFC 6901 says. */

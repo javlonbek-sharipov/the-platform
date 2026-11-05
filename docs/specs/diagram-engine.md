@@ -302,7 +302,7 @@ v1 is built in five slices, and each one ends with something people can use.
 The engine is a few deep modules with small interfaces. Each of the three test seams is the public surface of one of them.
 
 1. **Authoring API.**
-   - Holds one builder per Notation, the helper for the Atlas config, and the JSON model's types.
+   - Holds one builder per Notation, each made from its Notation's definition by what every builder shares, the helper for the Atlas config, and the JSON model's types.
    - A diagram module calls a builder and default-exports the result, which is the JSON model itself.
 2. **Core** (seam 1).
    - One entry point takes a Diagram, built by the authoring API or read from JSON.
@@ -394,6 +394,7 @@ Breaking any of these is a validation error.
 - **Kinds.**
   - `kind` must be one of the Notation's Kinds for a Node, Group or Edge, as the case may be.
   - An Edge's ends must have Kinds that its Edge Kind allows.
+- **Fields.** A Node, a Group or an Edge has only those of its optional fields that its Diagram's Notation lists.
 - **Values.**
   - `status` is one of `ok`, `degraded`, `down` and `unknown`.
   - `rate` is a number, an optional `k` or `M`, a slash, and then `s`, `min` or `h`, as in `2k/s` or `30/min`.
@@ -463,9 +464,16 @@ A Notation defines:
 - which Kinds of Nodes, Groups and Edges it allows;
 - which Node Kinds each Edge Kind may join;
 - how each Kind looks: its outline, badge, hue and size;
-- a sentence form for each Edge Kind, for screen readers and the SVG's description, such as "A calls B".
+- a sentence form for each Edge Kind, for screen readers and the SVG's description, such as "A calls B";
+- which Edge Kinds are symmetric, and so drawn without an arrowhead or chevrons;
+- which facts the description lists for a Node;
+- which Group Kinds make an Edge cross between them, as `region` and `zone` do in architecture;
+- how its Edges bundle;
+- which of the model's optional fields its Diagrams may have.
 
 A thing's Kind alone decides how it looks.
+
+Each Notation is one definition, which the rest of the engine reads: validation, layout, the SVG writer, the description, the JSON Schema, the model's types and the builder. Nothing outside the definition names one of its Kinds, so a Notation is added without touching the core.
 
 #### Architecture
 
@@ -757,7 +765,7 @@ The SVG writer turns a scene into one self-contained SVG, committed next to its 
   - `background`, `surface`, `border`, `ink` and `muted`;
   - `accent`, `ok`, `warn` and `danger`;
   - `edge` and `edge-casing`, an Edge's body and the casing around it, and `warn-casing`, the casing of an Edge in the warning color;
-  - one hue for each family of Kinds.
+  - one hue for each family of Kinds, which its Notation names, as in `hue-compute`.
 - Every use of a property has a fallback value.
 - A `prefers-color-scheme: dark` rule repeats those uses with dark fallbacks.
 - A page that defines the properties wins in both themes. A standalone SVG follows the viewer's theme, including on GitHub.
@@ -1860,6 +1868,65 @@ The fix of [code review 1](https://github.com/javlonbek-sharipov/the-platform/bl
     - `src/core/texts.ts` walks every text of the model, for validation's `invalid-character` check and for the drawing's text warnings alike. The `invalid-character` errors of one Node or Edge now come in model order: a Node's callout after its Rows and Links, and the Rows an Edge's ends name before its label.
     - `geometry.ts` holds the heading of a run, rounding up to a step, and a stretch of a line. `bundles.ts` holds the lane spacing and the default bundling, which `render` sets once.
 11. **Arithmetic.** Ticket 07's decision 1 now allows the arithmetic that the spec's Arithmetic allows, rounding included, so a chip's pins may round down.
+
+**Issue 2**
+
+1. **A Notation's definition.**
+   - It's one object, `src/notations/<name>.ts`, of the type `Notation` in `src/notations/notation.ts`. It holds:
+     - its `name`;
+     - the `fields` its Diagrams may have;
+     - its `hues`;
+     - its `nodeKinds`, each with its size, outline, badge and hue;
+     - its `statuses`, each with its mark and color;
+     - the `facts` the description lists for a Node;
+     - its `groupKinds`, each with its border and, when Edges cross between Groups of it, its `crossing`;
+     - its `edgeKinds`, each with its line, its sentence form, whether it's `symmetric`, and the Node Kinds it may start at and end at, `from` and `to`;
+     - its `bundling`.
+   - `src/notations/notations.ts` lists the engine's Notations. `render(diagram, { notations })` reads a Diagram in others instead, which is how the tests draw a Notation that only they define: a house's plumbing, in `test/support/plumbing.ts`.
+   - The package exports `architectureNotation` and `notations`, and `nodeKindsOf`, `groupKindsOf`, `edgeKindsOf` and `statusesOf`, which list a definition's Kinds and statuses in its order. They replace the lists and looks of ticket 07's decisions 1, 5 and 8, ticket 11's decision 1 and Review 1's decision 8: `architectureNodeKinds`, `architectureNodeLooks`, `architectureFamilies`, `architectureStatuses`, `architectureStatusLooks`, `architectureGroupKinds`, `architectureGroupLooks`, `architectureEdgeKinds` and `architectureEdgeLooks`.
+   - The Technology helpers moved to `src/core/technology.ts`, since they belong to no Notation. The logo table stays where its script writes it.
+2. **Hues live in the definition.** This changes ticket 07's decision 11.
+   - A definition names each hue and gives its light and dark fallbacks. Its property is still `--diagram-hue-` and its name. `src/core/theme.ts` keeps the colors that every Diagram shares.
+   - Two Notations that name a hue alike share its property, so a page sets it once for both.
+3. **Fields.**
+   - The model's optional fields are `technology`, `external`, `status`, `rows`, `description`, `links` and `callout` for a Node, `description` and `links` for a Group, and `label`, `technology` and `rate` for an Edge. A definition lists those its Diagrams may have. Every Notation's have the rest: `id`, `kind`, `title`, a Group's `members` and an Edge's ends. A Diagram's own fields are the same in every Notation.
+   - Any other field is still `model-shape`. When the model has the field but the Diagram's Notation doesn't, the message says so: "`/nodes/0/technology` must be left out: a Node has no such field in the plumbing Notation. Its fields are `id`, `kind`, `title`, `external`, `status`, `rows` and `description`." The builder's error for such an option reads alike: "A Node has no option `technology` in the plumbing Notation." Architecture lists every field, so none of its messages changed.
+   - A Notation's Nodes may have a `status` exactly when it has statuses.
+4. **Which Node Kinds an Edge Kind may join.**
+   - `from` lists the Kinds it may start at, and `to` those it may end at. Left out, any Kind will do, as for both of architecture's Edge Kinds.
+   - An end of another Kind is the new error `edge-end-kind`, at the end, or at its `node` for an end at a Row: "Edge `joint` starts at `kitchen-tap`, whose Kind is `tap`. An Edge of the Kind `pipe` may start only at a Node of the Kind `tank` or `pump`."
+   - It isn't reported for an end, or an Edge, whose own Kind the Notation lacks, which has its error already.
+5. **Symmetric Edge Kinds.**
+   - An Edge of a Kind with `symmetric: true` has no chevrons in the scene and no arrowhead in the SVG, and its line runs into its target's Port instead of stopping inside an arrowhead.
+   - Layout, routing and bundling treat it like any Edge, so its `to` still ranks after its `from`.
+   - Nothing in the SVG marks it but its Kind. A ticket that needs a hook for it adds one.
+6. **Crossing between Groups.** This widens ticket 11's decision 6.
+   - A Group Kind with a `crossing` is one that Edges cross between, and `crossing` is how the description says so: `across regions`.
+   - An Edge is flagged for the first such Kind, in the definition's order, for which its ends sit in different Groups. So architecture lists `region` before `zone`.
+   - The scene's `crosses.kind` and the SVG's `data-crosses` hold the Group Kind's name. The warning color and the badge are the core's, the same in every Notation.
+7. **Bundling.** `render` bundles as the Diagram's Notation says, unless `bundle` says otherwise. This changes the default of ticket 09's decision 2.
+8. **Facts.** `facts` lists which of a Node's Kind, Technology, External flag and status the description names, in order. Architecture lists all four, in the order its descriptions had them (ticket 11's decision 7, and ticket 12's decision 8).
+9. **The JSON Schema is generated.** This replaces "written by hand", and the names of the `$defs`, of ticket 14's decision 1.
+   - `schemaOf(notations)`, in `src/core/schema.ts`, makes the schema for a set of Notations. `pnpm generate:schema` writes the shipped one from the engine's, laid out as Biome formats JSON. A test runs the script twice and compares both outputs with the committed file, so a Kind added to a definition fails that test until the script has run.
+   - The root holds what every Diagram shares, with `notation` one of the Notations' names. Then an `allOf` has an `if` and a `then` for each Notation: a Diagram that names it must match `#/$defs/<name>`, which holds that Notation's `node`, `group` and `edge`, as in `#/$defs/architecture/$defs/node`. With `oneOf`, a validator would report a Diagram's errors against every Notation.
+   - The parts that the Notations share keep their names: `id`, `text`, `someText`, `technology`, `row`, `end`, `rowEnd`, `link`, `idLink` and `docLink`. A Notation can't take one of those names.
+   - The shipped schema accepts and rejects what it did. Its shared parts are the same, key for key, and architecture's `node`, `group` and `edge` differ from the old ones in four descriptions only. An Edge's `kind` no longer says how each Kind is drawn, since that's the definition's to say.
+   - Its patterns for ids, Edge ids, slugs and rates are validation's own, `formats` in `src/core/validate.ts`.
+   - Its description names `edge-end-kind` among the rules it can't express.
+10. **The model's types.**
+    - `DiagramOf<N>`, `NodeOf<N>`, `GroupOf<N>` and `EdgeOf<N>` take a Notation's Kinds, statuses and fields from its definition's type. `Diagram`, `Node`, `Group` and `Edge` are those of any of the engine's Notations: a union, told apart by `notation`, which today is architecture's alone.
+    - The core, the Atlas and the CLI read an `AnyDiagram`, a Diagram of any Notation, as validation leaves it.
+    - The scene names each Kind and status as a string, since a scene may be of any Notation. The SVG writer looks each one up in the definition, and throws on one that validation should have rejected. This changes Review 1's decision 8.
+11. **What every builder shares.**
+    - `builderOf(definition)`, in `src/authoring/builder.ts`, makes a Notation's builder: handles, Groups that declare their members in a callback, Rows whose names the types carry, an error for each unknown option, and each declaration's place. `architecture` is `builderOf(architectureNotation)`.
+    - Its types are `Builder<N>`, `DiagramDeclaration`, `NodeDeclaration<N, R>`, `RowDeclaration<R>`, `GroupDeclaration<N>` and `EdgeDeclaration<N>`. Architecture's public types, `ArchitectureNode` to `EdgeOptions`, are those for its definition, and are now type aliases.
+    - The definition's type has a name, `ArchitectureNotation`, so that a type error reads `NodeKindOf<ArchitectureNotation>` and not the whole definition.
+12. **Holding the engine to one definition.** `test/definitions.test.ts` reads the engine's sources.
+    - Outside `src/notations/<name>.ts`, no module names one of that Notation's Kinds as a string. Two uses are excused, since neither names a Kind: the `message` event of a worker thread, in `src/atlas/load.ts`, and `typeof x === "function"` anywhere. The test lists any other that only looks like a Kind's name.
+    - Only `src/authoring/<name>.ts`, `src/notations/notations.ts` and `src/index.ts` import the definition.
+    - Each definition refers only to hues and Node Kinds that it defines, and sizes its Nodes in steps of 16 px.
+13. **Left for the domain Notation.** A definition holds nothing yet for an Edge's `roles`, for ids that are local to a `context` Group, or for a rule about a whole Diagram, such as the one against mixing a context map with an aggregate diagram. Issues 3 and 4 add what they need.
+14. **Speed.** On one machine, `pnpm bench` reported 81 ms median drawn `right`, 109 ms drawn `down`, and 354 and 146 ms with every Edge labeled, for the commit this issue started from, and 81, 111, 356 and 143 ms with it.
 
 ### References
 

@@ -2,10 +2,10 @@ import { describe, expect, test } from "vitest";
 import {
 	type ArchitectureNodeKind,
 	architecture,
-	architectureNodeKinds,
-	architectureNodeLooks,
+	architectureNotation,
 	type Box,
 	type Direction,
+	nodeKindsOf,
 } from "../src/index.ts";
 import {
 	draw,
@@ -20,11 +20,12 @@ import {
 import { computedStyle, contrast, type Point, runsOf } from "./support/svg.ts";
 
 const directions: Direction[] = ["right", "down"];
+const nodeKinds = nodeKindsOf(architectureNotation);
 
 /** One Node of each architecture Kind, with ids named after their Kinds, all with one title. */
 function oneOfEach(title: string, direction: Direction = "right") {
 	return architecture({ title: "Kinds", direction }, (d) => {
-		for (const kind of architectureNodeKinds) {
+		for (const kind of nodeKinds) {
 			d.node({ id: kind, kind, title });
 		}
 	});
@@ -34,9 +35,9 @@ describe("each architecture Kind", () => {
 	test("is the size its Notation sets, whatever its title", () => {
 		for (const title of ["Shop", "Warehouse inventory reconciliation service"]) {
 			const scene = sceneOf(oneOfEach(title));
-			for (const kind of architectureNodeKinds) {
+			for (const kind of nodeKinds) {
 				const { box } = nodeOf(scene, kind);
-				const look = architectureNodeLooks[kind];
+				const look = architectureNotation.nodeKinds[kind];
 				expect([box.width, box.height], `${kind}, titled ${title}`).toEqual([
 					look.width,
 					look.height,
@@ -131,14 +132,14 @@ describe("each Kind's drawing", () => {
 	});
 
 	test("has a badge and an outline that each differ from every other Kind's, without color", () => {
-		const looks = architectureNodeKinds.map((kind) => looksOf(draw(oneOfEach("Shop")), kind));
+		const looks = nodeKinds.map((kind) => looksOf(draw(oneOfEach("Shop")), kind));
 		for (const part of ["badge", "outline"] as const) {
 			const drawings = looks.map((look) => look[part]);
 			expect(
 				drawings.every((drawing) => drawing !== ""),
 				part,
 			).toBe(true);
-			expect(new Set(drawings).size, part).toBe(architectureNodeKinds.length);
+			expect(new Set(drawings).size, part).toBe(nodeKinds.length);
 		}
 	});
 
@@ -146,15 +147,16 @@ describe("each Kind's drawing", () => {
 		const drawn = draw(oneOfEach("Shop"));
 		for (const theme of ["light", "dark"] as const) {
 			const hues = new Map<ArchitectureNodeKind, string>();
-			for (const kind of architectureNodeKinds) {
+			for (const kind of nodeKinds) {
 				const strokes = [...strokesOf(drawn, kind, theme)];
 				expect(strokes, `${kind}, ${theme}`).toHaveLength(1);
 				hues.set(kind, strokes[0] ?? "");
 			}
 			expect(new Set(hues.values()).size, theme).toBeGreaterThan(1);
-			for (const a of architectureNodeKinds) {
-				for (const b of architectureNodeKinds) {
-					const sameFamily = architectureNodeLooks[a].family === architectureNodeLooks[b].family;
+			for (const a of nodeKinds) {
+				for (const b of nodeKinds) {
+					const looks = architectureNotation.nodeKinds;
+					const sameFamily = looks[a].hue === looks[b].hue;
 					expect(hues.get(a) === hues.get(b), `${a} and ${b}, ${theme}`).toBe(sameFamily);
 				}
 			}
@@ -190,7 +192,7 @@ describe("each Kind's drawing", () => {
 function withRows(direction: Direction) {
 	return architecture({ title: "Rows", direction }, (d) => {
 		for (const count of [0, 1, 3]) {
-			for (const kind of architectureNodeKinds) {
+			for (const kind of nodeKinds) {
 				const rows = Array.from({ length: count }, (_, at) => ({ name: `row ${at}`, value: "1" }));
 				d.node({ id: `${kind}-${count}`, kind, title: "Shop", rows });
 			}

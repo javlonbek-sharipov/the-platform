@@ -1,15 +1,28 @@
-import { describe, expect, test } from "vitest";
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
+import { describe, expect, onTestFinished, test } from "vitest";
 import {
-	architectureEdgeKinds,
-	architectureGroupKinds,
-	architectureNodeKinds,
-	architectureStatuses,
+	architectureNotation,
+	edgeKindsOf,
+	groupKindsOf,
+	nodeKindsOf,
 	render,
+	schemaOf,
+	statusesOf,
 } from "../src/index.ts";
 import everyField from "./fixtures/every-field.json" with { type: "json" };
 import everyKind from "./fixtures/every-kind.ts";
 import { everyFixture } from "./support/fixtures.ts";
-import { schema, schemaErrors, schemaPointers } from "./support/schema.ts";
+import { plumbingModel, plumbingNotation } from "./support/plumbing.ts";
+import { schema, schemaChecker, schemaErrors, schemaPointers } from "./support/schema.ts";
+
+const run = promisify(execFile);
+const script = fileURLToPath(new URL("../scripts/generate-schema.ts", import.meta.url));
+const committed = fileURLToPath(new URL("../diagram.schema.json", import.meta.url));
 
 /**
  * A copy of the every-field model, changed at each pointer: the value there
@@ -165,21 +178,22 @@ describe("the JSON Schema", () => {
 	});
 
 	test("has the Notation's Kinds and statuses, no more and no fewer", () => {
-		const { $defs } = schema;
-		expect($defs.node.properties.kind.enum).toEqual(architectureNodeKinds);
-		expect($defs.group.properties.kind.enum).toEqual(architectureGroupKinds);
-		expect($defs.edge.properties.kind.enum).toEqual(architectureEdgeKinds);
-		expect($defs.node.properties.status.enum).toEqual(architectureStatuses);
+		const { node, group, edge } = schema.$defs.architecture.$defs;
+		expect(node.properties.kind.enum).toEqual(nodeKindsOf(architectureNotation));
+		expect(group.properties.kind.enum).toEqual(groupKindsOf(architectureNotation));
+		expect(edge.properties.kind.enum).toEqual(edgeKindsOf(architectureNotation));
+		expect(node.properties.status.enum).toEqual(statusesOf(architectureNotation));
 	});
 
 	test("allows each object the fields that the core does, and no others", () => {
 		const { $defs } = schema;
+		const { node, group, edge } = $defs.architecture.$defs;
 		const objects: [what: string, pointer: string, properties: object[]][] = [
 			["a Diagram", "", [schema.properties]],
-			["a Node", "/nodes/2", [$defs.node.properties]],
+			["a Node", "/nodes/2", [node.properties]],
 			["a Row", "/nodes/2/rows/0", [$defs.row.properties]],
-			["a Group", "/groups/0", [$defs.group.properties]],
-			["an Edge", "/edges/1", [$defs.edge.properties]],
+			["a Group", "/groups/0", [group.properties]],
+			["an Edge", "/edges/1", [edge.properties]],
 			["an Edge end at a Row", "/edges/2/from", [$defs.rowEnd.properties]],
 			["a Link", "/nodes/2/links/0", [$defs.idLink.properties, $defs.docLink.properties]],
 		];
@@ -299,5 +313,121 @@ describe("the JSON Schema", () => {
 		for (const rule of ["kind-conflict", "title-conflict", "broken-link"]) {
 			expect(schema.description, rule).toContain(`\`${rule}\``);
 		}
+	});
+});
+
+describe("the JSON Schema's source", () => {
+	test("is the Notations' definitions: the schema script generates the shipped schema from them, the same each run", async () => {
+		const folder = await mkdtemp(join(tmpdir(), "diagrams-schema-"));
+		onTestFinished(() => rm(folder, { recursive: true, force: true }));
+		const first = join(folder, "first.json");
+		const second = join(folder, "second.json");
+
+		await run(process.execPath, [script, first]);
+		await run(process.execPath, [script, second]);
+
+		const generated = await readFile(first, "utf8");
+		expect(generated).toBe(await readFile(committed, "utf8"));
+		expect(await readFile(second, "utf8")).toBe(generated);
+	});
+});
+
+describe("a JSON Schema generated for two Notations", () => {
+	const both = [architectureNotation, plumbingNotation];
+	const checker = schemaChecker(schemaOf(both));
+	/** A boiler in a cellar that feeds a pump, with every field that a plumbing Diagram may have. */
+	const cellar = plumbingModel({
+		description: "Where the hot water comes from.",
+		members: ["cellar"],
+		nodes: [
+			{
+				id: "boiler",
+				kind: "tank",
+				title: "Boiler",
+				external: true,
+				status: "open",
+				rows: [{ name: "litres", value: "200" }],
+				description: "Heats the water.",
+			},
+			{ id: "pump", kind: "pump", title: "Pump" },
+		],
+		groups: [
+			{
+				id: "cellar",
+				kind: "room",
+				title: "Cellar",
+				members: ["boiler", "pump"],
+				description: "Below the kitchen.",
+			},
+		],
+		edges: [{ id: "boiler->pump", kind: "pipe", from: "boiler", to: "pump", label: "Hot water" }],
+	});
+	/** The cellar's model with the value at a pointer replaced. */
+	const changed = (pointer: string, value: unknown) => {
+		const model = structuredClone(cellar);
+		const path = pointer.split("/").slice(1);
+		const field = path.pop() ?? "";
+		const parent = path.reduce(
+			(at, segment) => (at as Record<string, unknown>)[segment],
+			model as unknown,
+		) as Record<string, unknown>;
+		parent[field] = value;
+		return model;
+	};
+
+	test("passes a Diagram of each Notation, which the core draws", () => {
+		for (const model of [cellar, everyField]) {
+			expect(checker.errors(model)).toEqual([]);
+			expect(render(model, { notations: both }).diagnostics).toEqual([]);
+		}
+	});
+
+	test("checks each Diagram against its own Notation's Kinds, statuses and fields, where the core does", () => {
+		const broken: [what: string, pointer: string, value: unknown, rule: string][] = [
+			["a Node Kind of the other Notation", "/nodes/0/kind", "service", "unknown-kind"],
+			["a Group Kind of the other Notation", "/groups/0/kind", "zone", "unknown-kind"],
+			["an Edge Kind of the other Notation", "/edges/0/kind", "call", "unknown-kind"],
+			["a status of the other Notation", "/nodes/0/status", "degraded", "unknown-status"],
+			["a Node field of the other Notation", "/nodes/0/technology", "copper", "model-shape"],
+			["another Node field of the other Notation", "/nodes/1/callout", "leaks", "model-shape"],
+			["a Group field of the other Notation", "/groups/0/links", [{ id: "pump" }], "model-shape"],
+			["an Edge field of the other Notation", "/edges/0/rate", "2/s", "model-shape"],
+			["a field that no Notation has", "/nodes/0/extrenal", true, "model-shape"],
+			["a Notation that neither is", "/notation", "wiring", "unknown-notation"],
+		];
+		for (const [what, pointer, value, rule] of broken) {
+			const model = changed(pointer, value);
+
+			expect.soft(checker.pointers(model), what).toContain(pointer);
+			expect
+				.soft(render(model, { notations: both }).diagnostics, what)
+				.toContainEqual(expect.objectContaining({ severity: "error", rule, pointer }));
+		}
+		// The same Kinds are right for a Diagram of the Notation that has them.
+		expect(checker.errors(changed("/notation", "architecture"))).not.toEqual([]);
+		expect(checker.errors(everyKind)).toEqual([]);
+		expect(checker.errors({ ...everyKind, notation: "plumbing" })).not.toEqual([]);
+	});
+
+	test("names each Notation's Kinds and statuses, no more and no fewer", () => {
+		const { $defs } = schemaOf(both);
+		const { node, group, edge } = $defs.plumbing.$defs;
+
+		expect(node.properties.kind?.enum).toEqual(["tank", "pump", "tap"]);
+		expect(node.properties.status?.enum).toEqual(["open", "shut"]);
+		expect(group.properties.kind?.enum).toEqual(["room", "floor"]);
+		expect(edge.properties.kind?.enum).toEqual(["pipe", "drain", "coupling"]);
+		// What the schema holds for a Notation is the same beside any other.
+		expect($defs.architecture).toEqual(schema.$defs.architecture);
+	});
+
+	test("passes a model that breaks the rule about an Edge's ends' Kinds, which it can't express, and names that rule", () => {
+		const model = changed("/edges/0/to", "boiler");
+
+		expect(checker.errors(model)).toEqual([]);
+		expect(render(model, { notations: both }).diagnostics).toMatchObject([
+			{ severity: "error", rule: "edge-end-kind", pointer: "/edges/0/to" },
+		]);
+		expect(schema.description).toContain("`edge-end-kind`");
 	});
 });
