@@ -1,3 +1,32 @@
+# Dependencies
 node_modules/
+
+# Reference clones, read-only (see AGENTS.md). Anchored to the root, so a folder
+# named `repos` anywhere else stays tracked.
+/repos/
+
+# The diagrams engine's cache (the engine also writes a .gitignore inside it)
 .diagrams-cache/
-repos/
+
+# Build, test and tool output
+dist/
+coverage/
+*.tsbuildinfo
+*.log
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Local to one checkout: Claude Code's personal settings and worktrees, and
+# lefthook's personal overrides
+**/.claude/settings.local.json
+.claude/worktrees/
+lefthook-local.yml
+.lefthook-local/
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
