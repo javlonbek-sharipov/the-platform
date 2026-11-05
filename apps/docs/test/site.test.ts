@@ -679,11 +679,42 @@ describe("Atlas navigation on the built site", () => {
 
 	beforeAll(async () => {
 		const overview = domain({ id: "packages/shop/docs/overview", title: "Shop overview" }, (d) => {
-			d.node({ id: "shop", kind: "context", title: "Shop", links: [{ term: "Cart" }] });
+			d.node({
+				id: "shop",
+				kind: "context",
+				title: "Shop",
+				links: [
+					{ term: "Cart" },
+					{ doc: "docs/adr/0001-payments.md", label: "Payments decision" },
+					{ doc: "docs/specs/payments.md", section: "Problem Statement", label: "Payment problem" },
+					{
+						doc: "docs/specs/payments.md",
+						section: "problem-statement-1",
+						label: "Second problem",
+					},
+					{ doc: "docs/specs/payments.md", section: "Payments v1", label: "Payment title" },
+				],
+			});
 		});
 		const drawing = render(overview).svg;
 		if (drawing === undefined) throw new Error("the navigation Diagram has errors");
 		const repo = await sampleRepo({
+			"docs/adr/0001-payments.md": lines(
+				"# Payments decision",
+				"",
+				"Keep the reason for accepting cash.",
+			),
+			"docs/specs/payments.md": lines(
+				"# Payments v1",
+				"",
+				"## Problem Statement",
+				"",
+				"The first problem.",
+				"",
+				"## Problem Statement",
+				"",
+				"The second problem.",
+			),
 			"diagrams.config.ts":
 				'export default { contexts: { shop: { glossary: "packages/shop/GLOSSARY.md" } } };',
 			"packages/shop/GLOSSARY.md": lines(
@@ -720,6 +751,52 @@ describe("Atlas navigation on the built site", () => {
 			await definition.waitFor();
 			expect(await definition.textContent()).toContain(
 				"What a shopper has **picked**, before placing an order.",
+			);
+		} finally {
+			await reader.close();
+		}
+	});
+
+	test("a term Link opens its glossary entry without taking a heading's anchor", async () => {
+		const reader = await reading(site);
+		try {
+			const page = await open(reader, "packages/shop/docs/overview");
+			await page.locator("platform-diagram").getByText("Shop", { exact: true }).click();
+			await page
+				.getByRole("dialog", { name: "Shop details" })
+				.getByRole("button", { name: "Cart", exact: true })
+				.click();
+
+			await page.waitForURL("**/packages/shop/glossary/#cart-1");
+			expect(await page.locator(":target").textContent()).toContain("Cart");
+			expect(
+				await page.getByRole("heading", { name: "Cart", exact: true }).getAttribute("id"),
+			).toBe("cart");
+		} finally {
+			await reader.close();
+		}
+	});
+
+	test.each([
+		["Payments decision", "/docs/adr/0001-payments/", undefined],
+		["Payment problem", "/docs/specs/payments/#problem-statement", "problem-statement"],
+		["Second problem", "/docs/specs/payments/#problem-statement-1", "problem-statement-1"],
+		["Payment title", "/docs/specs/payments/#_top", "_top"],
+	])("a document Link to %s opens its page and heading", async (label, url, anchor) => {
+		const reader = await reading(site);
+		try {
+			const page = await open(reader, "packages/shop/docs/overview");
+			await page.locator("platform-diagram").getByText("Shop", { exact: true }).click();
+			await page
+				.getByRole("dialog", { name: "Shop details" })
+				.getByRole("button", { name: label, exact: true })
+				.click();
+
+			await page.waitForURL(`**${url}`);
+			if (anchor !== undefined)
+				expect(await page.locator(":target").getAttribute("id")).toBe(anchor);
+			expect(await page.getByRole("heading", { level: 1 }).textContent()).toBe(
+				label === "Payments decision" ? "Payments decision" : "Payments v1",
 			);
 		} finally {
 			await reader.close();

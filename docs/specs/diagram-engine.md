@@ -2292,6 +2292,7 @@ Walkthroughs. This is GitHub's issue #11, not ticket 11 above.
 Links, drill-down and Node URLs on the docs site. This is GitHub's issue #13, not ticket 13 above.
 
 1. **The built index.** The app opens the Atlas in Node while reading its config, using `openAtlas` and `indexAtlas`. An Astro integration exposes the resulting plain index through a Vite virtual module, bundled once for every page to share. The page gives that same index to every component; term hover and details use the component's existing lookup and rendering. No Node-only Atlas code goes into the browser. A repo with prose alone and no Atlas config gets an empty index.
+2. **Document and term anchors.** A build records the actual heading ids using the same Sätteri heading plugin as the pages. Document Links resolve by `pageOf` and the Atlas's browser-safe `anchorOf` helper, now exported at the package root. A section that names the first h1 goes to Starlight's `#_top`; repeated headings retain their numbered anchors. A glossary plugin gives each entry's paragraph the index's exported anchor, matching its source file and line. It changes no heading anchor, including when a term and a heading have the same name. A target without a published page or heading has no site URL; activating it leaves the page alone.
 
 ### References
 
