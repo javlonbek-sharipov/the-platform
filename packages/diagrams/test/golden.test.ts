@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { aggregates } from "./fixtures/aggregate.ts";
 import { contextMap } from "./fixtures/context-map.ts";
 import { crowded } from "./fixtures/crowded.ts";
 import edges from "./fixtures/edges.ts";
@@ -18,6 +19,8 @@ const fixtures = {
 	edges,
 	// The domain Notation's context map: an Edge of each Kind, with every role.
 	"context-map": contextMap("right"),
+	// One context's aggregates and events, with an event borrowed from another context.
+	aggregates: aggregates("right"),
 };
 
 describe("golden files", () => {

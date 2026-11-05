@@ -1,4 +1,5 @@
 import { domain } from "@the-platform/diagrams";
+import { ordering as orderingContext } from "./shared/ordering.ts";
 
 /**
  * A small example context map: the shop's Catalog, Ordering and Shipping
@@ -16,7 +17,7 @@ export default domain({ title: "Example context map" }, (d) => {
 		title: "Card payments",
 		external: true,
 	});
-	const ordering = d.node({ id: "ordering", kind: "context", title: "Ordering" });
+	const ordering = d.node(orderingContext);
 	const shipping = d.node({ id: "shipping", kind: "context", title: "Shipping" });
 
 	d.edge(catalog, ordering, {

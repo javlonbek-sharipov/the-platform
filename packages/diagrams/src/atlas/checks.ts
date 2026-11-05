@@ -9,6 +9,8 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { Declarations } from "../authoring/declarations.ts";
 import type { AnyDiagram, Link } from "../authoring/model.ts";
 import { list } from "../core/diagnostics.ts";
+import type { Notation } from "../notations/notation.ts";
+import { notations } from "../notations/notations.ts";
 import { anchorOf, headingAnchors } from "./markdown.ts";
 import { type AtlasMessage, located } from "./messages.ts";
 
@@ -97,6 +99,45 @@ export function checkIds(diagrams: CheckedDiagram[]): AtlasMessage[] {
 					pointer: `${drawn.pointer}/${field}`,
 				});
 			});
+		}),
+	);
+}
+
+/** A borrowed namespaced Node needs a drawing inside its own namespace somewhere in the Atlas. */
+export function checkNamespaceHomes(diagrams: CheckedDiagram[]): AtlasMessage[] {
+	const scoped = diagrams.flatMap((diagram) => {
+		const notation: Notation | undefined = notations.find(
+			({ name }) => name === diagram.model.notation,
+		);
+		const kinds = new Set(
+			Object.entries(notation?.groupKinds ?? {})
+				.filter(([, kind]) => kind.namespace === true)
+				.map(([name]) => name),
+		);
+		return kinds.size === 0 ? [] : [{ diagram, kinds }];
+	});
+	const homes = new Set(
+		scoped.flatMap(({ diagram, kinds }) =>
+			diagram.model.groups
+				.filter((group) => kinds.has(group.kind))
+				.flatMap((group) => group.members.map((id) => `${diagram.model.notation}:${id}`)),
+		),
+	);
+	return scoped.flatMap(({ diagram }) =>
+		diagram.model.nodes.flatMap((node, index) => {
+			const slash = node.id.lastIndexOf("/");
+			if (slash < 0 || homes.has(`${diagram.model.notation}:${node.id}`)) {
+				return [];
+			}
+			const namespace = node.id.slice(0, slash);
+			return [
+				located(diagram.module, diagram.declarations, {
+					severity: "warning",
+					rule: "namespace-home-missing",
+					pointer: `/nodes/${index}/id`,
+					message: `Node \`${node.id}\` is drawn from namespace \`${namespace}\`, but no Diagram in the Atlas draws it inside Group \`${namespace}\`. Draw it inside its own namespace on another Diagram so readers can find where it belongs.`,
+				}),
+			];
 		}),
 	);
 }

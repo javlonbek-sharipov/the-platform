@@ -5,7 +5,9 @@
  * core.
  */
 
+import type { AnyDiagram } from "../authoring/model.ts";
 import type { Bundling } from "../core/bundles.ts";
+import type { Diagnostic } from "../core/diagnostics.ts";
 import type { Outline } from "../core/outlines.ts";
 import type { ColorName, ThemeColor } from "../core/theme.ts";
 
@@ -67,6 +69,12 @@ export interface Notation {
 	bundling: Bundling;
 	/** Whether directed Edges carry moving flow marks. Symmetric Edges never do. */
 	flow: boolean;
+	/** Rules about a whole Diagram, checked after its model and namespace rules pass. */
+	validation?: {
+		/** Each rule's meaning, for the JSON Schema's description. */
+		rules: Readonly<Record<string, string>>;
+		check(diagram: AnyDiagram): Diagnostic[];
+	};
 }
 
 /** How a Node of one Kind looks: its size, its outline, its badge and its hue. A Kind alone decides it. */
@@ -140,6 +148,8 @@ export interface GroupKindDefinition {
 	stroke: number;
 	/** Its box's line: solid or dashed. */
 	line: "solid" | "dashed";
+	/** Whether members' local ids are prefixed with this Group's id and a slash. */
+	namespace?: boolean;
 	/**
 	 * Set when an Edge crosses between two Groups of this Kind, as it does
 	 * between two of architecture's regions: how the description says so, such
@@ -171,8 +181,8 @@ export type EndRoles = { anyOf: readonly string[] } | { oneOf: readonly string[]
  * may join, and which roles its ends may carry. A Kind alone decides them.
  */
 export interface EdgeKindDefinition {
-	/** Its line: solid or dashed. */
-	line: "solid" | "dashed";
+	/** Its line: solid, dashed or dotted. */
+	line: "solid" | "dashed" | "dotted";
 	/**
 	 * Its sentence form: the sentence that names an Edge of this Kind, for
 	 * screen readers and the SVG's description. `{from}` and `{to}` stand for

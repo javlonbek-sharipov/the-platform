@@ -423,7 +423,8 @@ const casingWidth = markSizes.casing;
 function writeEdge(edge: SceneEdge, look: EdgeKindDefinition): string[] {
 	const directed = look.symmetric !== true;
 	const line = linePath(edge, directed);
-	const dashed: Attribute[] = look.line === "dashed" ? [["stroke-dasharray", dashes]] : [];
+	const dashed: Attribute[] =
+		look.line === "solid" ? [] : [["stroke-dasharray", look.line === "dotted" ? "1 4" : dashes]];
 	const rounded: Attribute[] = [
 		["stroke-linecap", "round"],
 		["stroke-linejoin", "round"],
