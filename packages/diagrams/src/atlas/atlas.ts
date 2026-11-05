@@ -19,6 +19,7 @@ import {
 	configFile,
 	discover,
 	moduleSuffix,
+	stagedAtlas,
 	svgSuffix,
 } from "./discover.ts";
 import { type Loaded, load, type Place } from "./load.ts";
@@ -70,16 +71,27 @@ export async function renderDiagrams(root: string, modules: string[]): Promise<R
 	return (await load(modules)).map((loaded) => renderLoaded(root, loaded));
 }
 
+/** What lint found: how many Diagrams it checked, and its messages, file by file. */
+export interface Linted {
+	diagrams: number;
+	messages: AtlasMessage[];
+}
+
 /**
  * Lints the whole Atlas. It loads the config and every Diagram, renders each
  * Diagram, and runs every check: each model's own rules, the checks that span
  * Diagrams, and each SVG on disk against its fresh render. The messages come
  * file by file.
+ *
+ * `files` are the Atlas's files, which discovery finds unless given, and
+ * `svgWords` how the messages about SVGs read.
  */
 export async function lintAtlas(
 	root: string,
-): Promise<{ diagrams: number; messages: AtlasMessage[] }> {
-	const files = await discover(root);
+	files?: AtlasFiles,
+	svgWords: SvgWords = workingTree,
+): Promise<Linted> {
+	files ??= await discover(root);
 	const [config, ...modules] = await load([join(root, configFile), ...files.modules]);
 	const rendered = modules.map((loaded) => renderLoaded(root, loaded));
 	const valid = rendered.flatMap(({ module, model, declarations }) =>
@@ -88,15 +100,63 @@ export async function lintAtlas(
 	const messages = [
 		...(config === undefined ? [] : checkConfig(root, config)),
 		...rendered.flatMap((diagram) => {
-			const stale = diagram.svg === undefined ? undefined : checkSvg(diagram.svgFile, diagram.svg);
+			const stale =
+				diagram.svg === undefined ? undefined : checkSvg(diagram.svgFile, diagram.svg, svgWords);
 			return stale === undefined ? diagram.messages : [...diagram.messages, stale];
 		}),
-		...checkOrphans(files),
+		...checkOrphans(files, svgWords),
 		...checkIds(valid),
 		...checkLinks(root, valid, new Set(modules.flatMap(idsDrawnBy))),
 	];
 	return { diagrams: rendered.length, messages: messages.sort(byPlace) };
 }
+
+/**
+ * Lints what git has staged under the Atlas's root, which is what a commit
+ * would hold, rather than the working tree: a copy of the staged files, which
+ * the messages name by their own paths. So an SVG rendered but left unstaged
+ * beside its staged source fails, as do a source or an import staged without
+ * its new SVG.
+ */
+export async function lintStaged(root: string, cwd: string): Promise<Linted> {
+	const staged = await stagedAtlas(root, cwd);
+	try {
+		const { diagrams, messages } = await lintAtlas(staged.root, staged.files, stagedFiles);
+		const own = (text: string) => text.replaceAll(staged.root, root);
+		return {
+			diagrams,
+			messages: messages.map((message) => ({
+				...message,
+				file: own(message.file),
+				message: own(message.message),
+			})),
+		};
+	} finally {
+		await staged.remove();
+	}
+}
+
+/** How the messages about SVGs read: about the working tree, or about what's staged. */
+interface SvgWords {
+	missing: string;
+	outOfDate: string;
+	orphaned: (source: string) => string;
+}
+
+const workingTree: SvgWords = {
+	missing: "The SVG is missing. Run `diagrams render`, and commit the SVG with its source.",
+	outOfDate: "The SVG no longer matches its source. Run `diagrams render`.",
+	orphaned: (source) =>
+		`The SVG's source, \`${source}\`, isn't in the Atlas. Delete the SVG, or restore its source.`,
+};
+
+const stagedFiles: SvgWords = {
+	missing: "The SVG isn't staged. Run `diagrams render`, and stage the SVG with its source.",
+	outOfDate:
+		"The staged SVG doesn't match its staged source. Run `diagrams render`, and stage the SVG with its source.",
+	orphaned: (source) =>
+		`The staged SVG's source, \`${source}\`, isn't staged. Stage its source, or delete the SVG and stage that.`,
+};
 
 /**
  * The Atlas index (spec: The Atlas index): every Diagram, and every id with
@@ -249,7 +309,7 @@ function repoPath(root: string, file: string): string {
 }
 
 /** Every SVG needs its source beside it. */
-function checkOrphans({ modules, svgs }: AtlasFiles): AtlasMessage[] {
+function checkOrphans({ modules, svgs }: AtlasFiles, words: SvgWords): AtlasMessage[] {
 	const drawn = new Set(modules.map(svgFileOf));
 	return svgs
 		.filter((svg) => !drawn.has(svg))
@@ -257,26 +317,16 @@ function checkOrphans({ modules, svgs }: AtlasFiles): AtlasMessage[] {
 			file: svg,
 			severity: "error",
 			rule: "svg-orphaned",
-			message: `The SVG's source, \`${basename(svg).slice(0, -svgSuffix.length)}${moduleSuffix}\`, isn't in the Atlas. Delete the SVG, or restore its source.`,
+			message: words.orphaned(`${basename(svg).slice(0, -svgSuffix.length)}${moduleSuffix}`),
 		}));
 }
 
-function checkSvg(svgFile: string, svg: string): AtlasMessage | undefined {
+function checkSvg(svgFile: string, svg: string, words: SvgWords): AtlasMessage | undefined {
 	if (!existsSync(svgFile)) {
-		return {
-			file: svgFile,
-			severity: "error",
-			rule: "svg-missing",
-			message: "The SVG is missing. Run `diagrams render`, and commit the SVG with its source.",
-		};
+		return { file: svgFile, severity: "error", rule: "svg-missing", message: words.missing };
 	}
 	if (!readFileSync(svgFile).equals(Buffer.from(svg, "utf8"))) {
-		return {
-			file: svgFile,
-			severity: "error",
-			rule: "svg-out-of-date",
-			message: "The SVG no longer matches its source. Run `diagrams render`.",
-		};
+		return { file: svgFile, severity: "error", rule: "svg-out-of-date", message: words.outOfDate };
 	}
 	return undefined;
 }

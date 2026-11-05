@@ -1,5 +1,7 @@
-# Biome first, then `diagrams lint`, so that broken or stale Diagrams never
-# reach a commit. Install with `pnpm install` (the root `prepare` script).
+# Biome first, then `diagrams lint --staged`, so that broken or stale Diagrams
+# never reach a commit. `--staged` lints what the commit would hold, not the
+# working tree, so an SVG rendered but left unstaged is caught too. Install
+# with `pnpm install` (the root `prepare` script).
 pre-commit:
   piped: true
   commands:
@@ -8,4 +10,4 @@ pre-commit:
       run: pnpm exec biome check --staged --no-errors-on-unmatched
     diagrams-lint:
       priority: 2
-      run: pnpm exec diagrams lint
+      run: pnpm exec diagrams lint --staged

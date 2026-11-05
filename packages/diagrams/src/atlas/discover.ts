@@ -4,8 +4,10 @@
  */
 
 import { execFile } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
-import { dirname, join, resolve, sep } from "node:path";
+import { existsSync, mkdirSync, readdirSync, realpathSync, symlinkSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 
 export const moduleSuffix = ".diagram.ts";
@@ -75,24 +77,125 @@ function inGitRepo(folder: string): boolean {
  * still exist: git still lists a tracked file that was deleted.
  */
 async function gitFiles(root: string): Promise<string[]> {
-	// Ask about the repo that holds `root`, not one that the environment
-	// points at, as it does inside a git hook.
+	const args = ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--"];
+	const listing = await git(root, gitEnvironment(), [...args, `*${moduleSuffix}`, `*${svgSuffix}`]);
+	return pathsIn(listing)
+		.map((path) => join(root, path))
+		.filter((file) => existsSync(file));
+}
+
+/**
+ * The environment git runs in: the CLI's, but asking about the repo that
+ * holds the Atlas, not one that the environment points at, as it does inside
+ * a git hook.
+ */
+function gitEnvironment(): NodeJS.ProcessEnv {
 	const env = { ...process.env };
 	for (const name of ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"]) {
 		delete env[name];
 	}
-	let listing: string;
+	return env;
+}
+
+/** Runs git in a folder, feeding it `input`, and returns what it prints. */
+async function git(
+	cwd: string,
+	env: NodeJS.ProcessEnv,
+	args: string[],
+	input?: string,
+): Promise<string> {
 	try {
-		const args = ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--"];
-		const patterns = [`*${moduleSuffix}`, `*${svgSuffix}`];
-		listing = (await run("git", [...args, ...patterns], { cwd: root, env })).stdout;
+		const running = run("git", args, { cwd, env, maxBuffer: 1 << 28 });
+		running.child.stdin?.end(input);
+		return (await running).stdout;
 	} catch (error) {
 		const reason = error instanceof Error ? error.message : String(error);
-		throw new AtlasError(`git couldn't list the files of the repo at ${root}: ${reason}`);
+		throw new AtlasError(`git couldn't read the repo at ${cwd}: ${reason}`);
 	}
-	// During a merge, git lists a file once for each side of a conflict.
-	const paths = new Set(listing.split("\0").filter((path) => path !== ""));
-	return [...paths].map((path) => join(root, path)).filter((file) => existsSync(file));
+}
+
+/** The paths git lists with `-z`, once each: during a merge, it lists a file once for each side. */
+function pathsIn(listing: string): string[] {
+	return [...new Set(listing.split("\0").filter((path) => path !== ""))];
+}
+
+/** What git has staged under the Atlas's root, copied out, so that lint can judge what a commit would hold. */
+export interface StagedAtlas {
+	/** The copy of the root. */
+	root: string;
+	/** The files of the Atlas in the copy, each list in path order. */
+	files: AtlasFiles;
+	/** Removes the copy. */
+	remove(): Promise<void>;
+}
+
+/**
+ * Copies every file that git has staged under the Atlas's root, as staged,
+ * into a temporary folder: what a commit would hold. The copy reaches the
+ * packages the repo has installed through links to its `node_modules`
+ * folders, from the root up to the repo's top.
+ *
+ * Inside a pre-commit hook, git names the index that the commit is made from
+ * in `GIT_INDEX_FILE`, which differs from the usual one for `git commit -a`
+ * and for `git commit <paths>`. The copy follows it when it lies inside the
+ * Atlas's repo, a relative path being relative to `cwd`.
+ */
+export async function stagedAtlas(root: string, cwd: string): Promise<StagedAtlas> {
+	if (!inGitRepo(root)) {
+		throw new AtlasError(
+			"`--staged` lints what git has staged, but the Atlas isn't in a git repo.",
+		);
+	}
+	const real = realpathSync(root);
+	const env = gitEnvironment();
+	const index = process.env.GIT_INDEX_FILE;
+	if (index !== undefined && index !== "") {
+		const gitFolder = realpathSync(
+			(await git(real, env, ["rev-parse", "--absolute-git-dir"])).trim(),
+		);
+		const file = resolve(cwd, index);
+		const inside = relative(gitFolder, existsSync(file) ? realpathSync(file) : file);
+		if (inside !== "" && inside.split(sep)[0] !== ".." && !isAbsolute(inside)) {
+			env.GIT_INDEX_FILE = file;
+		}
+	}
+	const top = (await git(real, env, ["rev-parse", "--show-toplevel"])).trim();
+	const prefix = (await git(real, env, ["rev-parse", "--show-prefix"])).trim();
+	const paths = pathsIn(await git(real, env, ["ls-files", "-z", "--cached", "--", "."]));
+	const copy = realpathSync(await mkdtemp(join(tmpdir(), "diagrams-staged-")));
+	const remove = () => rm(copy, { recursive: true, force: true });
+	try {
+		await git(
+			real,
+			env,
+			["checkout-index", "-z", "--stdin", `--prefix=${copy}${sep}`],
+			paths.join("\0"),
+		);
+		for (let folder = real; ; folder = dirname(folder)) {
+			const installed = join(folder, "node_modules");
+			const linked = join(copy, relative(top, folder), "node_modules");
+			if (existsSync(installed) && !existsSync(linked)) {
+				mkdirSync(dirname(linked), { recursive: true });
+				symlinkSync(installed, linked, "junction");
+			}
+			if (folder === top || dirname(folder) === folder) {
+				break;
+			}
+		}
+	} catch (error) {
+		await remove();
+		throw error;
+	}
+	const stagedRoot = join(copy, prefix);
+	const files = paths.map((path) => join(stagedRoot, path)).sort(byPath);
+	return {
+		root: stagedRoot,
+		files: {
+			modules: files.filter((file) => file.endsWith(moduleSuffix)),
+			svgs: files.filter((file) => file.endsWith(svgSuffix)),
+		},
+		remove,
+	};
 }
 
 /** The Atlas's files under `root`, in every folder except `.git` and `node_modules`. */

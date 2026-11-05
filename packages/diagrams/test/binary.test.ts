@@ -1,10 +1,10 @@
 import { execFile } from "node:child_process";
-import { readFile, rm } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { expect, test } from "vitest";
-import { sampleAtlas, shopModule } from "./support/atlas.ts";
+import { git, sampleAtlas, shopModule } from "./support/atlas.ts";
 import { pngSize } from "./support/png.ts";
 
 const run = promisify(execFile);
@@ -43,4 +43,51 @@ test("the diagrams binary exports a PNG, and prints its path", async () => {
 		stderr: "",
 	});
 	expect(pngSize(await readFile(png)).width).toBeGreaterThan(0);
+});
+
+test("as a git pre-commit hook, `diagrams lint --staged` judges each commit by what it would hold", async () => {
+	const atlas = await sampleAtlas({ "docs/shop.diagram.ts": shopModule("Shop") });
+	const diagrams = join(repo, "node_modules", ".bin", "diagrams");
+	git(atlas, "init", "-q");
+	const hook = `#!/bin/sh\nexec "${diagrams}" lint --staged\n`;
+	await writeFile(join(atlas, ".git/hooks/pre-commit"), hook, { mode: 0o755 });
+	const env = { ...process.env };
+	for (const name of ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"]) {
+		delete env[name];
+	}
+	const commit = (...args: string[]) =>
+		run(
+			"git",
+			[
+				"-c",
+				"user.name=Test",
+				"-c",
+				"user.email=test@example.com",
+				"-c",
+				"commit.gpgsign=false",
+			].concat(["commit", "-q", "-m", "Draw the shop", ...args]),
+			{ cwd: atlas, env },
+		);
+	const commits = () => git(atlas, "rev-list", "--count", "HEAD").trim();
+
+	await run(diagrams, ["render"], { cwd: atlas });
+	git(atlas, "add", "-A");
+	await commit();
+	expect(commits()).toBe("1");
+
+	// Render an edit, then commit the module alone: git gives the hook an
+	// index that holds the new module beside the old SVG.
+	await writeFile(join(atlas, "docs/shop.diagram.ts"), shopModule("Store"));
+	await run(diagrams, ["render"], { cwd: atlas });
+	// Git sends what a hook prints to stderr.
+	await expect(commit("--", "docs/shop.diagram.ts")).rejects.toMatchObject({
+		stderr: expect.stringContaining(
+			"docs/shop.diagram.svg: error: The staged SVG doesn't match its staged source.",
+		),
+	});
+	expect(commits()).toBe("1");
+
+	// `git commit -a` takes the SVG too.
+	await commit("-a");
+	expect(commits()).toBe("2");
 });

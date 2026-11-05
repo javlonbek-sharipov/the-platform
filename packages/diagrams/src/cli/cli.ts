@@ -5,7 +5,13 @@
 
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { cacheFolderOf, indexAtlas, lintAtlas, renderDiagrams } from "../atlas/atlas.ts";
+import {
+	cacheFolderOf,
+	indexAtlas,
+	lintAtlas,
+	lintStaged,
+	renderDiagrams,
+} from "../atlas/atlas.ts";
 import { AtlasError, configFile, discover, findRoot, moduleSuffix } from "../atlas/discover.ts";
 import { type AtlasMessage, placeText } from "../atlas/messages.ts";
 import type { Diagram } from "../authoring/model.ts";
@@ -25,7 +31,9 @@ const usage = `Usage: diagrams <command>
 
 Commands:
   render [paths...]  Write each Diagram's SVG next to its source
-  lint [--json]      Check the whole Atlas: every Diagram, Link and SVG
+  lint [--json] [--staged]
+                     Check the whole Atlas: every Diagram, Link and SVG, as
+                     the working tree has them, or as git has them staged
   export <diagram> --format png|json [--theme light|dark] [--scale n] [--out path]
                      Write a Diagram, named by its module's path, as a PNG or
                      as its JSON model, and print the file's path
@@ -97,12 +105,15 @@ async function renderCommand(paths: string[], context: CliContext): Promise<numb
 }
 
 async function lintCommand(options: string[], context: CliContext): Promise<number> {
-	const unknown = options.find((option) => option !== "--json");
+	const unknown = options.find((option) => option !== "--json" && option !== "--staged");
 	if (unknown !== undefined) {
 		context.stderr.write(`Unknown option \`${unknown}\`.\n\n${usage}`);
 		return 2;
 	}
-	const { diagrams, messages } = await lintAtlas(findRoot(context.cwd));
+	const root = findRoot(context.cwd);
+	const { diagrams, messages } = options.includes("--staged")
+		? await lintStaged(root, context.cwd)
+		: await lintAtlas(root);
 	const errors = messages.filter((message) => message.severity === "error").length;
 	const warnings = messages.length - errors;
 	if (options.includes("--json")) {
