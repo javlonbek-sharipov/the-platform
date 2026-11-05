@@ -5,7 +5,7 @@
  * the Edge falls back to a simple route, and the router warns about it.
  */
 
-import { type Diagram, endNode, parentsOf, type RowEnd } from "../authoring/model.ts";
+import { type AnyDiagram, endNode, parentsOf, type RowEnd } from "../authoring/model.ts";
 import { type Bundling, compareText, laneGroups, lanes } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import { buildGrid, type Grid, pointOf, vertexAt } from "./grid.ts";
@@ -124,7 +124,7 @@ const outOf: Record<Side, Heading> = {
 };
 
 export function route(
-	diagram: Diagram,
+	diagram: AnyDiagram,
 	nodes: SceneNode[],
 	groups: SceneGroup[],
 	options: RouteOptions,

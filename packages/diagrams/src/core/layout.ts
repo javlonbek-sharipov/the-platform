@@ -15,11 +15,11 @@
  */
 
 import {
-	type Diagram,
+	type AnyDiagram,
+	type AnyEdge,
+	type AnyNode,
 	type Direction,
-	type Edge,
 	endNode,
-	type Node,
 	parentsOf,
 } from "../authoring/model.ts";
 import { definitionOf, type Notation } from "../notations/notation.ts";
@@ -128,7 +128,7 @@ const extentOf = { x: "width", y: "height" } as const;
  * labeled Edges that keep lanes of their own, as the router will route them.
  */
 export function layOut(
-	diagram: Diagram,
+	diagram: AnyDiagram,
 	notation: Notation,
 	bundle: Bundling,
 	ownLanes: ReadonlySet<string> = new Set(),
@@ -144,7 +144,7 @@ export function layOut(
 	 * where it sits above or below a run across the gap, and as tall for
 	 * `down`.
 	 */
-	const labelRoom = (edge: Edge) => {
+	const labelRoom = (edge: AnyEdge) => {
 		const size = labelSize(edge);
 		return size === undefined ? 0 : size[extentOf[rank]] + 2 * labelEnds;
 	};
@@ -152,7 +152,7 @@ export function layOut(
 	// lane for each group that crosses it.
 	const laneOf = laneGroups(diagram, bundle, ownLanes);
 	const groupsById = new Map(diagram.groups.map((group) => [group.id, group]));
-	const lookOf = (node: Node) => definitionOf(notation.nodeKinds, node.kind);
+	const lookOf = (node: AnyNode) => definitionOf(notation.nodeKinds, node.kind);
 	// A Node is as tall as its Kind's header and its Rows' bands together.
 	const frames = new Map(diagram.nodes.map((node) => [node.id, frameOf(node, lookOf(node))]));
 	/** The Group that each Node or Group is a member of, unless it's on the Diagram itself. */

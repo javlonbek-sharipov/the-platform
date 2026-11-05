@@ -4,12 +4,12 @@
  */
 
 import {
-	type Diagram,
-	type Edge,
+	type AnyDiagram,
+	type AnyEdge,
+	type AnyGroup,
+	type AnyNode,
 	endNode,
-	type Group,
 	type Link,
-	type Node,
 	type Row,
 	type RowEnd,
 } from "../authoring/model.ts";
@@ -30,7 +30,7 @@ import { type TextField, type TextOwner, textsOf } from "./texts.ts";
 /** What validation found: only diagnostics, or a Diagram without errors and its Notation. */
 export type Validation =
 	| { diagnostics: Diagnostic[]; diagram?: undefined }
-	| { diagnostics: Diagnostic[]; diagram: Diagram; notation: Notation };
+	| { diagnostics: Diagnostic[]; diagram: AnyDiagram; notation: Notation };
 
 const kebabCase = "[a-z0-9]+(?:-[a-z0-9]+)*";
 const id = `${kebabCase}(?:/${kebabCase})*`;
@@ -71,7 +71,7 @@ function fieldsOf<T>(fields: Record<keyof T, true>): readonly string[] {
  * those that its Notation's definition lists.
  */
 const fields = {
-	diagram: fieldsOf<Diagram>({
+	diagram: fieldsOf<AnyDiagram>({
 		version: true,
 		notation: true,
 		id: true,
@@ -84,7 +84,7 @@ const fields = {
 		edges: true,
 		walkthroughs: true,
 	}),
-	node: fieldsOf<Node>({
+	node: fieldsOf<AnyNode>({
 		id: true,
 		kind: true,
 		title: true,
@@ -97,7 +97,7 @@ const fields = {
 		callout: true,
 	}),
 	row: fieldsOf<Row>({ name: true, value: true }),
-	group: fieldsOf<Group>({
+	group: fieldsOf<AnyGroup>({
 		id: true,
 		kind: true,
 		title: true,
@@ -105,7 +105,7 @@ const fields = {
 		description: true,
 		links: true,
 	}),
-	edge: fieldsOf<Edge>({
+	edge: fieldsOf<AnyEdge>({
 		id: true,
 		kind: true,
 		from: true,
@@ -132,7 +132,7 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 	if (shape.length > 0) {
 		return { diagnostics: shape };
 	}
-	const diagram = input as Diagram;
+	const diagram = input as AnyDiagram;
 	const nodeKinds: readonly string[] = nodeKindsOf(notation);
 	const groupKinds: readonly string[] = groupKindsOf(notation);
 	const edgeKinds: readonly string[] = edgeKindsOf(notation);
@@ -356,8 +356,8 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
  * keeps the default, and is an error when another Edge would get it too.
  * Two Edges that both keep it are already a `duplicate-id` error.
  */
-function checkDefaultEdgeIds(diagram: Diagram): Diagnostic[] {
-	const nameOf = (edge: Diagram["edges"][number]) => `${endNode(edge.from)}->${endNode(edge.to)}`;
+function checkDefaultEdgeIds(diagram: AnyDiagram): Diagnostic[] {
+	const nameOf = (edge: AnyEdge) => `${endNode(edge.from)}->${endNode(edge.to)}`;
 	return diagram.edges.flatMap((edge, index) => {
 		const name = nameOf(edge);
 		const other = diagram.edges.find(
@@ -403,7 +403,7 @@ function checkTechnology(
  * surrogate pairs on their own, and U+FFFE and U+FFFF. A Technology and a
  * rate have formats that leave them out already, as ids and Kinds do.
  */
-function checkCharacters(diagram: Diagram): Diagnostic[] {
+function checkCharacters(diagram: AnyDiagram): Diagnostic[] {
 	return textsOf(diagram).flatMap(({ owner, field, text, pointer }) => {
 		if (field.name === "technology" || field.name === "rate") {
 			return [];
@@ -510,7 +510,7 @@ function parentName(parent: string | undefined): string {
  * Every Node and Group is a member of exactly one parent: the Diagram itself,
  * or one Group. So Groups nest as a tree, rooted at the Diagram.
  */
-function checkNesting(diagram: Diagram): Diagnostic[] {
+function checkNesting(diagram: AnyDiagram): Diagnostic[] {
 	const diagnostics: Diagnostic[] = [];
 	const things = new Map<string, string>([
 		...diagram.groups.map((group) => [group.id, "Group"] as const),
@@ -579,7 +579,7 @@ function checkNesting(diagram: Diagram): Diagnostic[] {
  * it comes back round. Each cycle is reported once, at the first of its
  * Groups in model order, where that Group lists the next one.
  */
-function checkCycles(diagram: Diagram, parents: Map<string, string | undefined>): Diagnostic[] {
+function checkCycles(diagram: AnyDiagram, parents: Map<string, string | undefined>): Diagnostic[] {
 	const index = new Map(diagram.groups.map((group, at) => [group.id, at]));
 	const seen = new Set<string>();
 	const diagnostics: Diagnostic[] = [];

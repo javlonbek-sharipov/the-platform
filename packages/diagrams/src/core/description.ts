@@ -4,14 +4,20 @@
  * carries, which lists the Nodes and then the Edges.
  */
 
-import { type Diagram, type Edge, endNode, type Node, type RowEnd } from "../authoring/model.ts";
-import { technologyOf } from "../notations/architecture.ts";
+import {
+	type AnyDiagram,
+	type AnyEdge,
+	type AnyNode,
+	endNode,
+	type RowEnd,
+} from "../authoring/model.ts";
 import { definitionOf, type NodeFact, type Notation } from "../notations/notation.ts";
 import type { Scene } from "./scene.ts";
+import { technologyOf } from "./technology.ts";
 import { collapseSpaces } from "./text.ts";
 
 /** What a description says of a Node for each fact, if the Node has it. */
-const factOf: Record<NodeFact, (node: Node) => string | undefined> = {
+const factOf: Record<NodeFact, (node: AnyNode) => string | undefined> = {
 	kind: (node) => node.kind,
 	// The drawing shows it beside a logo.
 	technology: (node) =>
@@ -26,7 +32,7 @@ const factOf: Record<NodeFact, (node: Node) => string | undefined> = {
  * Notation's definition lists, such as its Kind and its status; then each
  * Edge as a sentence. Both lists are in model order.
  */
-export function descriptionOf(diagram: Diagram, notation: Notation, scene: Scene): string {
+export function descriptionOf(diagram: AnyDiagram, notation: Notation, scene: Scene): string {
 	const crosses = new Map(scene.edges.map((edge) => [edge.id, edge.crosses?.kind]));
 	const nodes = diagram.nodes.map((node) => {
 		const facts = notation.facts.flatMap((fact) => factOf[fact](node) ?? []);
@@ -50,9 +56,9 @@ export function descriptionOf(diagram: Diagram, notation: Notation, scene: Scene
  * authorize".
  */
 export function sentenceOf(
-	diagram: Diagram,
+	diagram: AnyDiagram,
 	notation: Notation,
-	edge: Edge,
+	edge: AnyEdge,
 	crosses?: string,
 ): string {
 	const titles = new Map(diagram.nodes.map((node) => [node.id, collapseSpaces(node.title)]));

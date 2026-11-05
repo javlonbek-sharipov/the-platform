@@ -10,8 +10,7 @@
  * show a negative zero, and lines end with LF, as does the file.
  */
 
-import type { Diagram } from "../authoring/model.ts";
-import { logoUnits, technologyOf } from "../notations/architecture.ts";
+import type { AnyDiagram } from "../authoring/model.ts";
 import {
 	definitionOf,
 	type EdgeKindDefinition,
@@ -39,6 +38,7 @@ import type {
 	SceneText,
 } from "./scene.ts";
 import { colorUses, embeddedFonts, fontWeights, styleElement, themeRules } from "./style.ts";
+import { logoUnits, technologyOf } from "./technology.ts";
 import { collapseSpaces, type FontData, rowTextsOf } from "./text.ts";
 import { type Attribute, attributesText, element, empty, indent, number, start } from "./xml.ts";
 
@@ -52,7 +52,7 @@ const dashes = "6 4";
 
 /** Writes a Diagram's scene as an SVG, with each Kind's look from the Diagram's Notation. */
 export function writeSvg(
-	diagram: Diagram,
+	diagram: AnyDiagram,
 	notation: Notation,
 	scene: Scene,
 	fontData?: FontData,
@@ -362,7 +362,7 @@ function writeStatus({ value, mark }: SceneStatus, look: StatusDefinition): stri
  * The JSON model, on one line, with every object's fields in code unit order,
  * so that equal models give the same text however they were built.
  */
-function modelText(diagram: Diagram): string {
+function modelText(diagram: AnyDiagram): string {
 	return JSON.stringify(diagram, (_, value: unknown) =>
 		typeof value === "object" && value !== null && !Array.isArray(value)
 			? Object.fromEntries(

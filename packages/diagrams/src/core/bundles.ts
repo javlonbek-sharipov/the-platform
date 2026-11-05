@@ -5,7 +5,7 @@
  * router merges each bundle into one trunk.
  */
 
-import type { Diagram, RowEnd } from "../authoring/model.ts";
+import type { AnyDiagram, RowEnd } from "../authoring/model.ts";
 
 /**
  * Which Edges share a trunk (spec: Edge routing, step 4): those of one Kind
@@ -35,7 +35,7 @@ export const lanes = { spacing: 8, minimum: 4, padding: 8 };
  * holds its label (step 8).
  */
 export function laneGroups(
-	diagram: Diagram,
+	diagram: AnyDiagram,
 	bundle: Bundling,
 	ownLanes: ReadonlySet<string> = new Set(),
 ): Map<string, string> {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { architectureNotation, render } from "../src/index.ts";
+import { architectureNotation, builderOf, nodeKindsOf, render, schemaOf } from "../src/index.ts";
 import {
 	draw,
 	edgeGroupOf,
@@ -9,7 +9,9 @@ import {
 	strokeOf,
 	strokesOf,
 } from "./support/drawn.ts";
+import { withMainframe } from "./support/mainframe.ts";
 import { plumbingModel, plumbingNotation } from "./support/plumbing.ts";
+import { schemaChecker, schemaPointers } from "./support/schema.ts";
 import { computedStyle, descendants, isShape, runsOf } from "./support/svg.ts";
 
 /** Reads only the plumbing Notation, in place of the engine's own. */
@@ -523,5 +525,42 @@ describe("a Notation defined only in the tests", () => {
 		expect(render(calledOut("plumbing", "tank"), both).diagnostics).toMatchObject([
 			{ severity: "error", rule: "model-shape", pointer: "/nodes/0/callout" },
 		]);
+	});
+});
+
+describe("a Kind added to a Notation's definition", () => {
+	/** A bank whose ledger runs on a mainframe: a Kind that only the changed definition has. */
+	const bank = builderOf(withMainframe)({ title: "Bank" }, (d) => {
+		const ledger = d.node({ id: "ledger", kind: "mainframe", title: "Ledger" });
+		const teller = d.node({ id: "teller-app", kind: "client", title: "Teller app" });
+		d.edge(teller, ledger, { kind: "call" });
+	});
+
+	test("is unknown to validation and to the schema until the definition has it", () => {
+		expect(render(bank).diagnostics).toEqual([
+			{
+				severity: "error",
+				rule: "unknown-kind",
+				message:
+					"Node `ledger` has the Kind `mainframe`, which the architecture Notation doesn't have. Its Node Kinds are person, system, client, gateway, service, worker, function, database, cache, queue, storage and search.",
+				pointer: "/nodes/0/kind",
+			},
+		]);
+		expect(schemaPointers(bank)).toContain("/nodes/0/kind");
+	});
+
+	test("changes validation, the schema and the drawing together, with nothing else to change", () => {
+		const { diagnostics, scene, svg } = render(bank, { notations: [withMainframe] });
+		const schema = schemaOf([withMainframe]);
+
+		expect(diagnostics).toEqual([]);
+		expect(scene?.nodes[0]).toMatchObject({ id: "ledger", kind: "mainframe", box: { width: 208 } });
+		expect(svg).toContain('<g data-node="ledger" data-kind="mainframe">');
+		expect(schemaChecker(schema).errors(bank)).toEqual([]);
+		expect(schema.$defs.architecture.$defs.node.properties.kind?.enum).toEqual([
+			...nodeKindsOf(architectureNotation),
+			"mainframe",
+		]);
+		// The types change with it too: `notation.test-d.ts` checks the builder's and the model's.
 	});
 });

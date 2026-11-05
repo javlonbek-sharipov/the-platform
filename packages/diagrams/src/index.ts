@@ -6,24 +6,37 @@ export type {
 	ArchitectureNode,
 	ArchitectureOptions,
 	ArchitectureRow,
-	EdgeEnd,
-	EdgeHandle,
 	EdgeOptions,
-	GroupHandle,
-	NodeHandle,
 } from "./authoring/architecture.ts";
 export { architecture } from "./authoring/architecture.ts";
 export type { AtlasConfig } from "./authoring/atlas.ts";
 export { atlas } from "./authoring/atlas.ts";
 export type {
+	Builder,
+	DiagramDeclaration,
+	EdgeDeclaration,
+	EdgeEnd,
+	EdgeHandle,
+	GroupDeclaration,
+	GroupHandle,
+	NodeDeclaration,
+	NodeHandle,
+	RowDeclaration,
+} from "./authoring/builder.ts";
+export { builderOf } from "./authoring/builder.ts";
+export type {
 	Diagram,
+	DiagramOf,
 	Direction,
 	DocLink,
 	Edge,
+	EdgeOf,
 	Group,
+	GroupOf,
 	IdLink,
 	Link,
 	Node,
+	NodeOf,
 	Row,
 	RowEnd,
 } from "./authoring/model.ts";
@@ -52,14 +65,13 @@ export type {
 } from "./core/scene.ts";
 export type { DiagramSchema, NotationSchema } from "./core/schema.ts";
 export { schemaOf } from "./core/schema.ts";
+export type { KnownTechnology, Technology } from "./core/technology.ts";
 export type { FontData, FontRequest, FontWeight } from "./core/text.ts";
 export type {
 	ArchitectureEdgeKind,
 	ArchitectureGroupKind,
 	ArchitectureNodeKind,
 	ArchitectureStatus,
-	KnownTechnology,
-	Technology,
 } from "./notations/architecture.ts";
 export { architectureNotation } from "./notations/architecture.ts";
 export type {

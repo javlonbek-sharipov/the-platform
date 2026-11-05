@@ -26,14 +26,26 @@ export function optionsOf<T>(options: Record<keyof T, true>): readonly string[] 
 }
 
 /**
- * A `model-shape` error for each option given that isn't one of `known`, at
- * the pointer where it would go in the model. `thing` names what takes the
+ * The options that something takes: those it knows, in the order messages
+ * list them. For a Node, a Group or an Edge, `all` holds every option that
+ * the model has for it, of which its Notation's take only `known`, and
+ * `notation` names that Notation.
+ */
+export interface KnownOptions {
+	known: readonly string[];
+	all?: readonly string[];
+	notation?: string;
+}
+
+/**
+ * A `model-shape` error for each option given that isn't one of those known,
+ * at the pointer where it would go in the model. `thing` names what takes the
  * options, as in `An Edge`. An option set to `undefined` is no option, as it
  * is for the options a function knows.
  */
 export function unknownOptions(
 	given: object,
-	known: readonly string[],
+	{ known, all = known, notation }: KnownOptions,
 	thing: string,
 	pointer: string,
 ): Diagnostic[] {
@@ -46,7 +58,8 @@ export function unknownOptions(
 		.map(([option]) => ({
 			severity: "error",
 			rule: "model-shape",
-			message: `${thing} has no option \`${option}\`. ${options}`,
+			// An option that another Notation's things take is missing only from this one.
+			message: `${thing} has no option \`${option}\`${all.includes(option) ? ` in the ${notation} Notation` : ""}. ${options}`,
 			pointer: `${pointer}/${pointerSegment(option)}`,
 		}));
 }

@@ -7,7 +7,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { Declarations } from "../authoring/declarations.ts";
-import type { Diagram, Link } from "../authoring/model.ts";
+import type { AnyDiagram, Link } from "../authoring/model.ts";
 import { list } from "../core/diagnostics.ts";
 import { anchorOf, headingAnchors } from "./markdown.ts";
 import { type AtlasMessage, located } from "./messages.ts";
@@ -17,7 +17,7 @@ export interface CheckedDiagram {
 	module: string;
 	/** The module's path from the repo root, minus `.diagram.ts`. */
 	id: string;
-	model: Diagram;
+	model: AnyDiagram;
 	declarations: Declarations;
 }
 
@@ -40,7 +40,7 @@ interface Drawing {
 }
 
 /** Every Node and Group a Diagram draws, Nodes first, each in model order. */
-function thingsOf(model: Diagram): Thing[] {
+function thingsOf(model: AnyDiagram): Thing[] {
 	return [
 		...model.nodes.map((node, index) => ({ thing: "Node", ...node, pointer: `/nodes/${index}` })),
 		...model.groups.map((group, index) => ({

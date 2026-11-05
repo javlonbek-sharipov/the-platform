@@ -1,42 +1,12 @@
 /**
- * The Kinds of the architecture Notation, how each Node Kind looks, and the
- * Technologies that have a logo.
+ * The architecture Notation: the one definition of everything about
+ * architecture Diagrams that depends on Kinds. Validation, layout, the SVG
+ * writer, the description, the JSON Schema, the model's types and the builder
+ * all read it, so nothing outside this file names an architecture Kind.
  */
 
 import type { EdgeKindOf, GroupKindOf, NodeKindOf, Notation, StatusOf } from "./notation.ts";
-import { technologies } from "./technologies.ts";
 
-/** The slug of a Technology that has a logo, which editors offer for `technology`. */
-export type KnownTechnology = keyof typeof technologies;
-
-/**
- * A Technology's slug, such as `postgres` or `grpc`. Editors offer the slugs
- * that have a logo, but any slug works: one without a logo is drawn as its
- * name. Intersecting `string` with `{}` keeps the union from widening into
- * plain `string`, which would leave editors nothing to offer.
- */
-export type Technology = KnownTechnology | (string & {});
-
-/** Every logo in the logo table is drawn in a square this many units wide. */
-export const logoUnits = 24;
-
-const knownTechnologies: ReadonlyMap<string, { name: string; path: string }> = new Map(
-	Object.entries(technologies),
-);
-
-/**
- * A Technology as it's drawn: with its display name and its logo's path
- * data, when the logo table has it, or else by its slug alone.
- */
-export function technologyOf(slug: string): { name: string; logo?: string } {
-	const known = knownTechnologies.get(slug);
-	return known === undefined ? { name: slug } : { name: known.name, logo: known.path };
-}
-
-/**
- * The architecture Notation's definition: everything about architecture
- * Diagrams that depends on Kinds, which the rest of the engine reads from here.
- */
 export const architectureNotation = {
 	name: "architecture",
 	// The Kinds of one family share a hue: the people who use the system and

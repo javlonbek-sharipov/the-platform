@@ -23,8 +23,7 @@
  * out: the caller routes it again in a lane of its own.
  */
 
-import type { Direction, Edge } from "../authoring/model.ts";
-import { technologyOf } from "../notations/architecture.ts";
+import type { AnyEdge, Direction } from "../authoring/model.ts";
 import { compareText } from "./bundles.ts";
 import type { Diagnostic } from "./diagnostics.ts";
 import type { LineSpan } from "./geometry.ts";
@@ -37,6 +36,7 @@ import type {
 	SceneLabel,
 	SceneNode,
 } from "./scene.ts";
+import { technologyOf } from "./technology.ts";
 import {
 	type LabelContent,
 	type LabelTechnology,
@@ -68,7 +68,7 @@ const sameLine = 0.5;
  * What an Edge's label shows, if it shows anything. Its Technology shows by
  * its display name, after its logo, or by its slug when it has no logo.
  */
-export function labelContent(edge: Edge): LabelContent | undefined {
+export function labelContent(edge: AnyEdge): LabelContent | undefined {
 	const { label, technology, rate } = edge;
 	if (label === undefined && technology === undefined && rate === undefined) {
 		return undefined;
@@ -87,7 +87,7 @@ function labelTechnology(slug: string): LabelTechnology {
 }
 
 /** The size of an Edge's label box, if the Edge has a label, a Technology or a rate. */
-export function labelSize(edge: Edge): { width: number; height: number } | undefined {
+export function labelSize(edge: AnyEdge): { width: number; height: number } | undefined {
 	const content = labelContent(edge);
 	return content === undefined ? undefined : labelBoxSize(content, labelWidth(content));
 }
@@ -116,7 +116,7 @@ export interface Labeling {
  * share a lane, as a bundle's trunk does.
  */
 export function placeLabels(
-	diagram: { direction: Direction; edges: Edge[] },
+	diagram: { direction: Direction; edges: AnyEdge[] },
 	nodes: SceneNode[],
 	groups: SceneGroup[],
 	edges: SceneEdge[],

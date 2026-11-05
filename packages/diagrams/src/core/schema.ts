@@ -7,7 +7,7 @@
  * A model that fails the schema fails validation too, at the same pointer.
  */
 
-import type { Diagram, Edge, Group, Node } from "../authoring/model.ts";
+import type { AnyDiagram, AnyEdge, AnyGroup, AnyNode } from "../authoring/model.ts";
 import {
 	edgeKindsOf,
 	groupKindsOf,
@@ -48,7 +48,7 @@ export interface DiagramSchema<Name extends string = string> {
 	title: string;
 	description: string;
 	type: "object";
-	properties: Record<keyof Diagram, Schema>;
+	properties: Record<keyof AnyDiagram, Schema>;
 	required: string[];
 	additionalProperties: false;
 	allOf: Schema[];
@@ -194,7 +194,7 @@ function fieldsOf<T>(
 function notationSchema(notation: Notation): NotationSchema {
 	const { name } = notation;
 	const of = (thing: string) => ({ $ref: `#/$defs/${name}/$defs/${thing}` });
-	const node = fieldsOf<Node>(notation, "node", {
+	const node = fieldsOf<AnyNode>(notation, "node", {
 		id: {
 			description:
 				"The Node's id, which names one thing across the Atlas: it has one Kind and one title on every Diagram.",
@@ -235,7 +235,7 @@ function notationSchema(notation: Notation): NotationSchema {
 			...someText,
 		},
 	});
-	const group = fieldsOf<Group>(notation, "group", {
+	const group = fieldsOf<AnyGroup>(notation, "group", {
 		id: {
 			description:
 				"The Group's id, which names one thing across the Atlas: it has one Kind and one title on every Diagram.",
@@ -254,7 +254,7 @@ function notationSchema(notation: Notation): NotationSchema {
 		description: { description: "What the Group is, which isn't drawn.", ...text },
 		links,
 	});
-	const edge = fieldsOf<Edge>(notation, "edge", {
+	const edge = fieldsOf<AnyEdge>(notation, "edge", {
 		id: {
 			description:
 				"An id, or the Edge's default name: its two Nodes' ids joined by `->`, as in `checkout-api->payments-api`.",

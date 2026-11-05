@@ -5,11 +5,11 @@
  * room the header leaves it is shortened instead.
  */
 
-import type { Direction, Node } from "../authoring/model.ts";
-import { technologyOf } from "../notations/architecture.ts";
+import type { AnyNode, Direction } from "../authoring/model.ts";
 import type { NodeKindDefinition } from "../notations/notation.ts";
 import { outlines } from "./outlines.ts";
 import type { Box, SceneCallout, SceneLogo, SceneStatus, SceneText } from "./scene.ts";
+import { technologyOf } from "./technology.ts";
 import { calloutText, headerTexts } from "./text.ts";
 
 /**
@@ -49,7 +49,7 @@ export interface NodeFrame {
 }
 
 /** A Node's size: its Kind's, as its look gives it, with a band for each Row below the header. */
-export function frameOf(node: Node, look: NodeKindDefinition): NodeFrame {
+export function frameOf(node: AnyNode, look: NodeKindDefinition): NodeFrame {
 	const { width, height, outline } = look;
 	const { headRoom } = outlines[outline];
 	const tagRoom = node.callout === undefined ? 0 : tagGap + tagHeight;
@@ -85,7 +85,7 @@ export interface NodeParts {
  * whichever comes next, and the Technology's name below it.
  */
 export function partsOf(
-	node: Node,
+	node: AnyNode,
 	look: NodeKindDefinition,
 	box: Box,
 	direction: Direction,

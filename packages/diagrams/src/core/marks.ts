@@ -10,7 +10,7 @@
  * corner point, ignoring the arcs that round the corners.
  */
 
-import { type Diagram, parentsOf } from "../authoring/model.ts";
+import { type AnyDiagram, parentsOf } from "../authoring/model.ts";
 import { definitionOf, type Notation } from "../notations/notation.ts";
 import { headingOf } from "./geometry.ts";
 import type { Box, Point, RoutePoint, SceneChevron, SceneEdge, SceneJunction } from "./scene.ts";
@@ -74,7 +74,11 @@ function byPort(edges: SceneEdge[], end: "fromPort" | "toPort"): Map<string, Sce
  * crossing unset. An Edge of a symmetric Kind runs neither way, so it gets no
  * chevrons.
  */
-export function markEdges(diagram: Diagram, notation: Notation, edges: SceneEdge[]): SceneEdge[] {
+export function markEdges(
+	diagram: AnyDiagram,
+	notation: Notation,
+	edges: SceneEdge[],
+): SceneEdge[] {
 	const fromPort = byPort(edges, "fromPort");
 	const toPort = byPort(edges, "toPort");
 	const clear = clearOf(edges);
@@ -125,7 +129,7 @@ export function markEdges(diagram: Diagram, notation: Notation, edges: SceneEdge
  * Kind.
  */
 function crossingOf(
-	diagram: Diagram,
+	diagram: AnyDiagram,
 	notation: Notation,
 ): (from: string, to: string) => string | undefined {
 	const crossed = Object.entries(notation.groupKinds).flatMap(([kind, { crossing }]) =>
