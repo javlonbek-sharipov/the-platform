@@ -6,7 +6,7 @@
  */
 
 import type { StarlightUserConfig } from "@astrojs/starlight/types";
-import { idOf } from "./repo.ts";
+import { idOf, scopeOf } from "./repo.ts";
 
 type Sidebar = NonNullable<StarlightUserConfig["sidebar"]>;
 
@@ -23,11 +23,6 @@ export function sidebarOf(docs: string[], title: string): Sidebar {
 			label: scope === "" ? title : labelOf(scope.split("/").at(-2) ?? scope),
 			items: itemsOf(paths, scope.length),
 		}));
-}
-
-/** The package or app that a doc belongs to, as `packages/shop/`, or nothing for the repo's own. */
-function scopeOf(path: string): string {
-	return /^(apps|packages)\/[^/]+\//.exec(path)?.[0] ?? "";
 }
 
 /**

@@ -3,7 +3,7 @@
  * where each doc is on the site.
  */
 
-import { type Dirent, readdirSync, realpathSync } from "node:fs";
+import { type Dirent, lstatSync, readdirSync, realpathSync } from "node:fs";
 import { isAbsolute, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -30,6 +30,21 @@ const others = "repos";
 /** The folders whose own folders are the repo's packages and apps. */
 const workspaces = ["apps", "packages"];
 
+/** The names of a glossary, and of the map of the repo's glossaries. */
+const glossaries = ["GLOSSARY-MAP.md", "GLOSSARY.md"];
+
+/** The file of a Diagram's drawing, which a doc embeds as an image. */
+export const diagramSuffix = ".diagram.svg";
+
+/**
+ * The package or app that a file belongs to, by its path from the root, as
+ * `packages/shop/`. It's empty for a file of the repo itself.
+ */
+export function scopeOf(path: string): string {
+	const [first = "", second] = path.split("/");
+	return workspaces.includes(first) && second !== undefined ? `${first}/${second}/` : "";
+}
+
 /**
  * Whether a file is one of the repo's docs, by its path from the root: a
  * glossary, the glossary map, or Markdown in a `docs` folder, of the repo
@@ -38,11 +53,9 @@ const workspaces = ["apps", "packages"];
  * `node_modules/` ever is.
  */
 export function isDoc(path: string): boolean {
-	const [first = "", second, ...rest] = path.split("/");
-	const inside = workspaces.includes(first) && second !== undefined ? rest : path.split("/");
-	const [name = "", ...below] = inside;
+	const [name = "", ...below] = path.slice(scopeOf(path).length).split("/");
 	if (below.length === 0) {
-		return name === "GLOSSARY.md" || name === "GLOSSARY-MAP.md";
+		return glossaries.includes(name);
 	}
 	return (
 		name === "docs" &&
@@ -52,17 +65,23 @@ export function isDoc(path: string): boolean {
 }
 
 /**
- * The docs of the repo at `root`, as paths from it, in path order. Only the
- * places where a doc can be are read.
+ * The places where the docs of the repo at `root` are, as paths from it: the
+ * `docs` folder and the glossaries of the repo itself, and of each of its
+ * packages and apps. Nothing else is read to find the docs, or watched for
+ * changes to them.
  */
-export function docsOf(root: string): string[] {
+export function docPlaces(root: string): string[] {
 	const scopes = ["", ...workspaces.flatMap((folder) => foldersIn(root, folder))];
 	return scopes
-		.flatMap((scope) => [
-			...["GLOSSARY-MAP.md", "GLOSSARY.md"].map((name) => `${scope}${name}`),
-			...filesIn(root, `${scope}docs`),
-		])
-		.filter((path) => isDoc(path) && isFile(root, path))
+		.flatMap((scope) => [...glossaries, "docs"].map((name) => `${scope}${name}`))
+		.filter((place) => kindOf(join(root, place)) === (place.endsWith(".md") ? "file" : "folder"));
+}
+
+/** The docs of the repo at `root`, as paths from it, in path order. */
+export function docsOf(root: string): string[] {
+	return docPlaces(root)
+		.flatMap((place) => (place.endsWith(".md") ? [place] : filesIn(root, place)))
+		.filter(isDoc)
 		.sort();
 }
 
@@ -73,7 +92,7 @@ function foldersIn(root: string, folder: string): string[] {
 		.map((entry) => `${folder}/${entry.name}/`);
 }
 
-/** Every file under a folder of the repo, as paths from the root. Links aren't followed. */
+/** Every file under a folder, as paths from `root`. Links aren't followed. */
 export function filesIn(root: string, folder: string): string[] {
 	return entriesOf(root, folder).flatMap((entry) => {
 		const path = folder === "" ? entry.name : `${folder}/${entry.name}`;
@@ -84,7 +103,7 @@ export function filesIn(root: string, folder: string): string[] {
 	});
 }
 
-/** What a folder of the repo holds, or nothing, if it isn't there. */
+/** What a folder holds, or nothing, if it isn't there. */
 function entriesOf(root: string, folder: string): Dirent[] {
 	try {
 		return readdirSync(join(root, folder), { withFileTypes: true });
@@ -93,11 +112,14 @@ function entriesOf(root: string, folder: string): Dirent[] {
 	}
 }
 
-function isFile(root: string, path: string): boolean {
-	const slash = path.lastIndexOf("/");
-	return entriesOf(root, path.slice(0, Math.max(slash, 0))).some(
-		(entry) => entry.isFile() && entry.name === path.slice(slash + 1),
-	);
+/** Whether a path is a file or a folder. It's neither when it's a link, or isn't there. */
+function kindOf(path: string): "file" | "folder" | undefined {
+	try {
+		const found = lstatSync(path);
+		return found.isFile() ? "file" : found.isDirectory() ? "folder" : undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 /**

@@ -8,9 +8,7 @@
 
 import { readFileSync } from "node:fs";
 import type { MdastPluginDefinition } from "satteri";
-import { embeddedFile, pathIn } from "../repo.ts";
-
-const diagram = ".diagram.svg";
+import { diagramSuffix, embeddedFile, pathIn } from "../repo.ts";
 
 /**
  * Turns each image of a `*.diagram.svg` in the docs of the repo at `root`
@@ -22,7 +20,7 @@ export function diagramImages(root: string): MdastPluginDefinition {
 		name: "diagram-images",
 		image(node, ctx) {
 			const file = embeddedFile(root, node.url, ctx.fileURL);
-			if (file === undefined || !file.endsWith(diagram)) {
+			if (file === undefined || !file.endsWith(diagramSuffix)) {
 				return;
 			}
 			let svg: string;

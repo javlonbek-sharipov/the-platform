@@ -1,11 +1,11 @@
 import { existsSync } from "node:fs";
-import { symlink } from "node:fs/promises";
+import { symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { closeBrowser, open, reading } from "./support/browser.ts";
 import { checkoutSvg, sampleRepo } from "./support/repo.ts";
-import { buildSite, type Site } from "./support/site.ts";
+import { buildSite, type DevelopedSite, developSite, type Site } from "./support/site.ts";
 
 /** The lines of a Markdown file. */
 const lines = (...text: string[]) => `${text.join("\n")}\n`;
@@ -332,5 +332,78 @@ describe("a doc that embeds a file it can't show", () => {
 		await symlink("../repos/quorum/board.diagram.svg", join(repo, "docs/linked.diagram.svg"));
 
 		await expect(buildSite(repo)).rejects.toThrow(message);
+	});
+});
+
+describe("the docs site, while it's being developed", () => {
+	let repo: string;
+	let site: DevelopedSite;
+
+	beforeAll(async () => {
+		repo = await sampleRepo({
+			"GLOSSARY-MAP.md": lines("# Glossary Map", "", "The shop has one context so far."),
+			"docs/specs/checkout.md": lines("# Checkout v1", "", "Shoppers pay in cash."),
+			"packages/shop/docs/checkout.md": lines(
+				"# Checkout",
+				"",
+				"![Checkout](./checkout.diagram.svg)",
+			),
+			"packages/shop/docs/checkout.diagram.svg": svg,
+			"repos/quorum/docs/board.md": theirs("# Board"),
+		});
+		site = await developSite(repo);
+	}, 120_000);
+
+	afterAll(() => site?.stop());
+
+	test("shows a doc as it's edited", async () => {
+		expect(await site.page("docs/specs/checkout")).toContain("Shoppers pay in cash.");
+
+		await writeFile(
+			join(repo, "docs/specs/checkout.md"),
+			lines("# Checkout v1", "", "Shoppers pay by card."),
+		);
+
+		await expect.poll(() => site.page("docs/specs/checkout")).toContain("Shoppers pay by card.");
+	});
+
+	test("shows a glossary as it's edited", async () => {
+		await writeFile(
+			join(repo, "GLOSSARY-MAP.md"),
+			lines("# Glossary Map", "", "The shop has two contexts now."),
+		);
+
+		await expect.poll(() => site.page("glossary-map")).toContain("The shop has two contexts now.");
+	});
+
+	test("shows a Diagram as it's drawn again", async () => {
+		expect(await site.page("packages/shop/docs/checkout")).toContain(">Checkout API</text>");
+
+		await writeFile(
+			join(repo, "packages/shop/docs/checkout.diagram.svg"),
+			svg.replaceAll("Checkout API", "Payments API"),
+		);
+
+		await expect
+			.poll(() => site.page("packages/shop/docs/checkout"))
+			.toContain(">Payments API</text>");
+	});
+
+	test("shows a doc that's added", async () => {
+		await writeFile(
+			join(repo, "docs/specs/refunds.md"),
+			lines("# Refunds v1", "", "Shoppers get their money back."),
+		);
+
+		await expect
+			.poll(() => site.page("docs/specs/refunds"))
+			.toContain("Shoppers get their money back.");
+	});
+
+	test("watches the repo's docs, and nothing in repos/", () => {
+		const watched = site.watched();
+
+		expect(watched).toContain(join(repo, "docs/specs/checkout.md"));
+		expect(watched.filter((path) => path.startsWith(join(repo, "repos")))).toEqual([]);
 	});
 });

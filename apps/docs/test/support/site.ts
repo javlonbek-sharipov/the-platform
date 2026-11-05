@@ -7,7 +7,7 @@ import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { build } from "astro";
+import { build, dev } from "astro";
 import { afterAll } from "vitest";
 
 /** The docs app. */
@@ -70,6 +70,50 @@ export async function buildSite(repo: string): Promise<Site> {
 				}
 			}
 			return holding;
+		},
+	};
+}
+
+export interface DevelopedSite {
+	/** The HTML of a page as the dev server sends it now, by its path on the site. */
+	page(path: string): Promise<string>;
+	/** Every folder and file that the dev server watches for changes. */
+	watched(): string[];
+	stop(): Promise<void>;
+}
+
+/**
+ * Starts the site's dev server, as `astro dev` does, for the repo at `repo`,
+ * on a port of its own. Its `stop` must be called before another site is
+ * built or developed.
+ */
+export async function developSite(repo: string): Promise<DevelopedSite> {
+	const folder = await mkdtemp(join(tmpdir(), "docs-site-"));
+	written.push(folder);
+	process.env.DOCS_REPO = repo;
+	// Astro's dev server answers no request when it finds that Vitest started it, so that
+	// Vitest's own server can use Astro's plugins. Here it's the site's server that is wanted.
+	const { VITEST } = process.env;
+	delete process.env.VITEST;
+	const server = await dev({
+		root: app,
+		cacheDir: join(folder, "cache"),
+		logLevel: "silent",
+		server: { port: 0 },
+	}).finally(() => {
+		process.env.VITEST = VITEST;
+	});
+	const [url = ""] = server.resolvedUrls.local;
+	return {
+		page: async (path) => (await fetch(new URL(`${path}/`, url))).text(),
+		watched: () =>
+			Object.entries(server.watcher.getWatched()).flatMap(([watchedFolder, names]) => [
+				watchedFolder,
+				...names.map((name) => join(watchedFolder, name)),
+			]),
+		stop: async () => {
+			await server.stop();
+			delete process.env.DOCS_REPO;
 		},
 	};
 }
