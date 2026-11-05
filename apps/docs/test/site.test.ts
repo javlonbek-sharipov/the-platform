@@ -18,6 +18,12 @@ const svg = checkoutSvg();
 const notOurs = "Not ours to show";
 const theirs = (...text: string[]) => lines(...text, "", `${notOurs}.`);
 
+/** A picture of one white pixel. */
+const pixel = Buffer.from(
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
+	"base64",
+);
+
 /** A sample repo, laid out as the-platform is: a shop, with one context. */
 const shop = {
 	"GLOSSARY-MAP.md": lines(
@@ -108,11 +114,7 @@ const shop = {
 		"[logo]: ./logo.png",
 		"[drawing]: ./checkout.diagram.svg",
 	),
-	// A picture of one white pixel.
-	"packages/shop/docs/logo.png": Buffer.from(
-		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
-		"base64",
-	),
+	"packages/shop/docs/logo.png": pixel,
 	// Other projects' files, kept in `repos/` for reading, in every place where a doc of ours could be.
 	"repos/GLOSSARY.md": theirs("# Theirs"),
 	"repos/docs/notes.md": theirs("# Their notes"),
@@ -456,6 +458,21 @@ describe("a doc that embeds a file it can't show", () => {
 });
 
 describe("a site that is built again", () => {
+	afterAll(closeBrowser);
+
+	test("still shows the picture of a doc that is as it was", async () => {
+		const repo = await sampleRepo({
+			"docs/logo.md": lines("# Logo", "", "![The shop's logo](./logo.png)"),
+			"docs/logo.png": pixel,
+		});
+		const site = await (await buildSite(repo)).again();
+
+		const page = await open(await reading(site), "docs/logo");
+
+		const picture = page.getByRole("img", { name: "The shop's logo" });
+		expect(await picture.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(1);
+	});
+
 	test("shows a Diagram that was drawn again, though its doc is as it was", async () => {
 		const repo = await sampleRepo({
 			"docs/checkout.md": lines("# Checkout", "", "![Checkout](./checkout.diagram.svg)"),
