@@ -32,6 +32,15 @@ export const plumbingNotation = {
 		// A spout.
 		tap: { width: 112, height: 48, outline: "pill", badge: "M 2 8 H 14 M 8 2 V 14", hue: "metal" },
 	},
+	groupKinds: {
+		room: { stroke: 1, line: "dashed" },
+		floor: { stroke: 2.5, line: "solid" },
+	},
+	edgeKinds: {
+		pipe: { line: "solid", sentence: "{from} feeds {to}" },
+		drain: { line: "dashed", sentence: "{from} drains into {to}" },
+		coupling: { line: "solid", sentence: "{from} is coupled with {to}" },
+	},
 } as const satisfies Notation;
 
 /** A plumbing Diagram's model, as a tool would write it, with nothing on it unless given. */

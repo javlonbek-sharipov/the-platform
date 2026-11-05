@@ -11,14 +11,14 @@
  */
 
 import type { Diagram } from "../authoring/model.ts";
+import { architectureStatusLooks, logoUnits, technologyOf } from "../notations/architecture.ts";
 import {
-	architectureEdgeLooks,
-	architectureGroupLooks,
-	architectureStatusLooks,
-	logoUnits,
-	technologyOf,
-} from "../notations/architecture.ts";
-import { type NodeKindDefinition, type Notation, nodeLookOf } from "../notations/notation.ts";
+	definitionOf,
+	type EdgeKindDefinition,
+	type GroupKindDefinition,
+	type NodeKindDefinition,
+	type Notation,
+} from "../notations/notation.ts";
 import { compareText } from "./bundles.ts";
 import { descriptionOf } from "./description.ts";
 import { arrowhead, arrowOutline, chevronPath, globePath, linePath } from "./edge-paths.ts";
@@ -71,7 +71,7 @@ export function writeSvg(
 	// so it stays out of the scope's name, and editing it changes only these lines.
 	const about = [
 		indent(1, element("title", [], collapseSpaces(diagram.title))),
-		indent(1, element("desc", [], descriptionOf(diagram, scene))),
+		indent(1, element("desc", [], descriptionOf(diagram, notation, scene))),
 		indent(1, element("metadata", [], modelText(diagram))),
 	];
 	const body = [
@@ -89,7 +89,11 @@ export function writeSvg(
 			? []
 			: [
 					indent(1, start("g", [["class", "diagram-groups"]])),
-					...scene.groups.flatMap((group) => writeGroup(group).map((text) => indent(2, text))),
+					...scene.groups.flatMap((group) =>
+						writeGroup(group, definitionOf(notation.groupKinds, group.kind)).map((text) =>
+							indent(2, text),
+						),
+					),
 					indent(1, "</g>"),
 				]),
 		indent(
@@ -104,7 +108,9 @@ export function writeSvg(
 		...[
 			...scene.edges.filter((edge) => edge.crosses !== undefined),
 			...scene.edges.filter((edge) => edge.crosses === undefined),
-		].flatMap((edge) => writeEdge(edge).map((text) => indent(2, text))),
+		].flatMap((edge) =>
+			writeEdge(edge, definitionOf(notation.edgeKinds, edge.kind)).map((text) => indent(2, text)),
+		),
 		...(scene.junctions.length === 0
 			? []
 			: [
@@ -122,7 +128,7 @@ export function writeSvg(
 				]),
 		indent(1, start("g", [["class", "diagram-nodes"]])),
 		...scene.nodes.flatMap((node) =>
-			writeNode(node, nodeLookOf(notation, node.kind)).map((text) => indent(2, text)),
+			writeNode(node, definitionOf(notation.nodeKinds, node.kind)).map((text) => indent(2, text)),
 		),
 		indent(1, "</g>"),
 	];
@@ -153,9 +159,8 @@ export function writeSvg(
 }
 
 /** A Group's box, drawn as its Kind draws it, with its title in its label band. */
-function writeGroup(group: SceneGroup): string[] {
+function writeGroup(group: SceneGroup, look: GroupKindDefinition): string[] {
 	const { box, title } = group;
-	const look = architectureGroupLooks[group.kind];
 	return [
 		start("g", [
 			["data-group", group.id],
@@ -381,10 +386,9 @@ const casingWidth = markSizes.casing;
  * An Edge: its line, as a casing beneath a body; its chevrons, cased alike;
  * its arrowhead; and its badge, if it crosses between regions or zones.
  */
-function writeEdge(edge: SceneEdge): string[] {
+function writeEdge(edge: SceneEdge, look: EdgeKindDefinition): string[] {
 	const line = linePath(edge);
-	const dashed: Attribute[] =
-		architectureEdgeLooks[edge.kind].line === "dashed" ? [["stroke-dasharray", dashes]] : [];
+	const dashed: Attribute[] = look.line === "dashed" ? [["stroke-dasharray", dashes]] : [];
 	const rounded: Attribute[] = [
 		["stroke-linecap", "round"],
 		["stroke-linejoin", "round"],

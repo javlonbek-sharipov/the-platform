@@ -4,7 +4,7 @@
  */
 
 import type { ColorName } from "../core/theme.ts";
-import type { NodeKindOf, Notation } from "./notation.ts";
+import type { EdgeKindOf, GroupKindOf, NodeKindOf, Notation } from "./notation.ts";
 import { technologies } from "./technologies.ts";
 
 /** The slug of a Technology that has a logo, which editors offer for `technology`. */
@@ -33,44 +33,6 @@ export function technologyOf(slug: string): { name: string; logo?: string } {
 	const known = knownTechnologies.get(slug);
 	return known === undefined ? { name: slug } : { name: known.name, logo: known.path };
 }
-
-export const architectureEdgeKinds = ["call", "message"] as const;
-
-export type ArchitectureEdgeKind = (typeof architectureEdgeKinds)[number];
-
-/** How an Edge of one Kind looks, and how a sentence names it. A Kind alone decides both. */
-export interface ArchitectureEdgeLook {
-	/** Its line: solid for a call, which waits for its answer, and dashed for a message, which doesn't. */
-	line: "solid" | "dashed";
-	/**
-	 * The sentence that names an Edge of this Kind, for screen readers and the
-	 * SVG's description. `{from}` and `{to}` stand for its two ends.
-	 */
-	sentence: string;
-}
-
-export const architectureEdgeLooks: Record<ArchitectureEdgeKind, ArchitectureEdgeLook> = {
-	call: { line: "solid", sentence: "{from} calls {to}" },
-	message: { line: "dashed", sentence: "{from} sends messages to {to}" },
-};
-
-export const architectureGroupKinds = ["system", "region", "zone"] as const;
-
-export type ArchitectureGroupKind = (typeof architectureGroupKinds)[number];
-
-/** How a Group of one Kind draws its box. A Kind alone decides it. */
-export interface ArchitectureGroupLook {
-	/** How wide its box's stroke is, in px: a `system` heavier than a `region`. */
-	stroke: number;
-	/** Its box's line: solid, or dashed for a `zone`. */
-	line: "solid" | "dashed";
-}
-
-export const architectureGroupLooks: Record<ArchitectureGroupKind, ArchitectureGroupLook> = {
-	system: { stroke: 2, line: "solid" },
-	region: { stroke: 1.5, line: "solid" },
-	zone: { stroke: 1.5, line: "dashed" },
-};
 
 /** How a Node is doing. Each status shows as a mark with a shape and a color of its own. */
 export const architectureStatuses = ["ok", "degraded", "down", "unknown"] as const;
@@ -220,6 +182,19 @@ export const architectureNotation = {
 			hue: "data",
 		},
 	},
+	groupKinds: {
+		// A `system` is heavier than a `region`, and a `zone` is dashed.
+		system: { stroke: 2, line: "solid" },
+		region: { stroke: 1.5, line: "solid" },
+		zone: { stroke: 1.5, line: "dashed" },
+	},
+	edgeKinds: {
+		// Solid for a call, which waits for its answer, and dashed for a message, which doesn't.
+		call: { line: "solid", sentence: "{from} calls {to}" },
+		message: { line: "dashed", sentence: "{from} sends messages to {to}" },
+	},
 } as const satisfies Notation;
 
 export type ArchitectureNodeKind = NodeKindOf<typeof architectureNotation>;
+export type ArchitectureGroupKind = GroupKindOf<typeof architectureNotation>;
+export type ArchitectureEdgeKind = EdgeKindOf<typeof architectureNotation>;

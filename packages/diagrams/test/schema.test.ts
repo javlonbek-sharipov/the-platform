@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 import {
-	architectureEdgeKinds,
-	architectureGroupKinds,
 	architectureNotation,
 	architectureStatuses,
+	edgeKindsOf,
+	groupKindsOf,
 	nodeKindsOf,
 	render,
 } from "../src/index.ts";
@@ -168,8 +168,8 @@ describe("the JSON Schema", () => {
 	test("has the Notation's Kinds and statuses, no more and no fewer", () => {
 		const { $defs } = schema;
 		expect($defs.node.properties.kind.enum).toEqual(nodeKindsOf(architectureNotation));
-		expect($defs.group.properties.kind.enum).toEqual(architectureGroupKinds);
-		expect($defs.edge.properties.kind.enum).toEqual(architectureEdgeKinds);
+		expect($defs.group.properties.kind.enum).toEqual(groupKindsOf(architectureNotation));
+		expect($defs.edge.properties.kind.enum).toEqual(edgeKindsOf(architectureNotation));
 		expect($defs.node.properties.status.enum).toEqual(architectureStatuses);
 	});
 

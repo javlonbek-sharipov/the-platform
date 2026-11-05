@@ -14,12 +14,8 @@ import {
 	type RowEnd,
 } from "../authoring/model.ts";
 import { unknownOptionsOf } from "../authoring/options.ts";
-import {
-	architectureEdgeKinds,
-	architectureGroupKinds,
-	architectureStatuses,
-} from "../notations/architecture.ts";
-import { type Notation, nodeKindsOf } from "../notations/notation.ts";
+import { architectureStatuses } from "../notations/architecture.ts";
+import { edgeKindsOf, groupKindsOf, type Notation, nodeKindsOf } from "../notations/notation.ts";
 import { codePointOf, type Diagnostic, list, pointerSegment } from "./diagnostics.ts";
 import { type TextField, type TextOwner, textsOf } from "./texts.ts";
 
@@ -28,8 +24,6 @@ export type Validation =
 	| { diagnostics: Diagnostic[]; diagram?: undefined }
 	| { diagnostics: Diagnostic[]; diagram: Diagram; notation: Notation };
 
-const groupKinds: readonly string[] = architectureGroupKinds;
-const edgeKinds: readonly string[] = architectureEdgeKinds;
 const statuses: readonly string[] = architectureStatuses;
 
 const kebabCase = "[a-z0-9]+(?:-[a-z0-9]+)*";
@@ -121,6 +115,8 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 		throw new Error("The shape check lets through only a Diagram in one of the Notations");
 	}
 	const nodeKinds: readonly string[] = nodeKindsOf(notation);
+	const groupKinds: readonly string[] = groupKindsOf(notation);
+	const edgeKinds: readonly string[] = edgeKindsOf(notation);
 	const diagnostics: Diagnostic[] = [];
 
 	const nodeIds = new Set<string>();
@@ -212,7 +208,7 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 			diagnostics.push(
 				error(
 					"unknown-kind",
-					`Group \`${group.id}\` has the Kind \`${group.kind}\`, which the architecture Notation doesn't have. Its Group Kinds are ${list(groupKinds)}.`,
+					`Group \`${group.id}\` has the Kind \`${group.kind}\`, which the ${notation.name} Notation doesn't have. Its Group Kinds are ${list(groupKinds)}.`,
 					`/groups/${index}/kind`,
 				),
 			);
@@ -282,7 +278,7 @@ export function validate(input: unknown, notations: readonly Notation[]): Valida
 			diagnostics.push(
 				error(
 					"unknown-kind",
-					`Edge \`${edge.id}\` has the Kind \`${edge.kind}\`, which the architecture Notation doesn't have. Its Edge Kinds are ${list(edgeKinds)}.`,
+					`Edge \`${edge.id}\` has the Kind \`${edge.kind}\`, which the ${notation.name} Notation doesn't have. Its Edge Kinds are ${list(edgeKinds)}.`,
 					`/edges/${index}/kind`,
 				),
 			);

@@ -6,7 +6,7 @@
  */
 
 import { architectureStatuses, architectureStatusLooks } from "../notations/architecture.ts";
-import { type Notation, nodeKindsOf, nodeLookOf } from "../notations/notation.ts";
+import { definitionOf, type Notation, nodeKindsOf } from "../notations/notation.ts";
 import { base64 } from "./encoding.ts";
 import type { Scene } from "./scene.ts";
 import { drawnTexts, type FontData, type FontWeight, hasCharacter } from "./text.ts";
@@ -83,7 +83,7 @@ export function colorUses(drawing: string[], notation: Notation): ColorUse[] {
 	// One rule for each hue, which the Kinds that share it take together.
 	const hues = Object.entries(notation.hues).flatMap(([hue, fallback]): PossibleUse[] => {
 		const members = nodeKindsOf(notation).filter(
-			(kind) => kinds.has(kind) && nodeLookOf(notation, kind).hue === hue,
+			(kind) => kinds.has(kind) && definitionOf(notation.nodeKinds, kind).hue === hue,
 		);
 		return members.length === 0
 			? []

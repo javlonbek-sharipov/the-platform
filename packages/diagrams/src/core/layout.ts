@@ -22,7 +22,7 @@ import {
 	type Node,
 	parentsOf,
 } from "../authoring/model.ts";
-import { type Notation, nodeLookOf } from "../notations/notation.ts";
+import { definitionOf, type Notation } from "../notations/notation.ts";
 import { type Bundling, laneGroups, lanes } from "./bundles.ts";
 import { roundUp } from "./geometry.ts";
 import { labelEnds, labelSize } from "./labels.ts";
@@ -152,7 +152,7 @@ export function layOut(
 	// lane for each group that crosses it.
 	const laneOf = laneGroups(diagram, bundle, ownLanes);
 	const groupsById = new Map(diagram.groups.map((group) => [group.id, group]));
-	const lookOf = (node: Node) => nodeLookOf(notation, node.kind);
+	const lookOf = (node: Node) => definitionOf(notation.nodeKinds, node.kind);
 	// A Node is as tall as its Kind's header and its Rows' bands together.
 	const frames = new Map(diagram.nodes.map((node) => [node.id, frameOf(node, lookOf(node))]));
 	/** The Group that each Node or Group is a member of, unless it's on the Diagram itself. */

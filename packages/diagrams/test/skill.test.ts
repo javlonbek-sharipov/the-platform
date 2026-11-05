@@ -3,10 +3,10 @@ import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import {
-	architectureEdgeKinds,
-	architectureGroupKinds,
 	architectureNotation,
 	architectureStatuses,
+	edgeKindsOf,
+	groupKindsOf,
 	nodeKindsOf,
 	technologies,
 } from "../src/index.ts";
@@ -78,8 +78,8 @@ describe("the agent skill", () => {
 		const skill = await readFile(skillFile, "utf8");
 		const words = [
 			...nodeKindsOf(architectureNotation),
-			...architectureGroupKinds,
-			...architectureEdgeKinds,
+			...groupKindsOf(architectureNotation),
+			...edgeKindsOf(architectureNotation),
 			...architectureStatuses,
 			...Object.keys(technologies),
 		];

@@ -53,9 +53,7 @@ export type {
 export type { FontData, FontRequest, FontWeight } from "./core/text.ts";
 export type {
 	ArchitectureEdgeKind,
-	ArchitectureEdgeLook,
 	ArchitectureGroupKind,
-	ArchitectureGroupLook,
 	ArchitectureNodeKind,
 	ArchitectureStatus,
 	ArchitectureStatusLook,
@@ -63,14 +61,18 @@ export type {
 	Technology,
 } from "./notations/architecture.ts";
 export {
-	architectureEdgeKinds,
-	architectureEdgeLooks,
-	architectureGroupKinds,
-	architectureGroupLooks,
 	architectureNotation,
 	architectureStatuses,
 	architectureStatusLooks,
 } from "./notations/architecture.ts";
-export type { NodeKindDefinition, NodeKindOf, Notation } from "./notations/notation.ts";
-export { nodeKindsOf } from "./notations/notation.ts";
+export type {
+	EdgeKindDefinition,
+	EdgeKindOf,
+	GroupKindDefinition,
+	GroupKindOf,
+	NodeKindDefinition,
+	NodeKindOf,
+	Notation,
+} from "./notations/notation.ts";
+export { edgeKindsOf, groupKindsOf, nodeKindsOf } from "./notations/notation.ts";
 export { technologies } from "./notations/technologies.ts";

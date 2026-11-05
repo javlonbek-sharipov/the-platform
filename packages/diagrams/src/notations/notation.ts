@@ -20,6 +20,10 @@ export interface Notation {
 	hues: Record<string, ThemeColor>;
 	/** Its Node Kinds, in the order messages list them, each with its look. */
 	nodeKinds: Record<string, NodeKindDefinition>;
+	/** Its Group Kinds, in the order messages list them, each with its look. */
+	groupKinds: Record<string, GroupKindDefinition>;
+	/** Its Edge Kinds, in the order messages list them, each with its look and its sentence form. */
+	edgeKinds: Record<string, EdgeKindDefinition>;
 }
 
 /** How a Node of one Kind looks. A Kind alone decides it. */
@@ -35,6 +39,26 @@ export interface NodeKindDefinition {
 	hue: string;
 }
 
+/** How a Group of one Kind draws its box. A Kind alone decides it. */
+export interface GroupKindDefinition {
+	/** How wide its box's stroke is, in px. */
+	stroke: number;
+	/** Its box's line: solid or dashed. */
+	line: "solid" | "dashed";
+}
+
+/** How an Edge of one Kind looks, and how a sentence names it. A Kind alone decides both. */
+export interface EdgeKindDefinition {
+	/** Its line: solid or dashed. */
+	line: "solid" | "dashed";
+	/**
+	 * Its sentence form: the sentence that names an Edge of this Kind, for
+	 * screen readers and the SVG's description. `{from}` and `{to}` stand for
+	 * its two ends.
+	 */
+	sentence: string;
+}
+
 /** The names of a Notation's Node Kinds. */
 export type NodeKindOf<N extends Notation> = keyof N["nodeKinds"] & string;
 
@@ -43,14 +67,34 @@ export function nodeKindsOf<N extends Notation>(notation: N): NodeKindOf<N>[] {
 	return Object.keys(notation.nodeKinds);
 }
 
+/** The names of a Notation's Group Kinds. */
+export type GroupKindOf<N extends Notation> = keyof N["groupKinds"] & string;
+
+/** A Notation's Group Kinds, in its definition's order. */
+export function groupKindsOf<N extends Notation>(notation: N): GroupKindOf<N>[] {
+	return Object.keys(notation.groupKinds);
+}
+
+/** The names of a Notation's Edge Kinds. */
+export type EdgeKindOf<N extends Notation> = keyof N["edgeKinds"] & string;
+
+/** A Notation's Edge Kinds, in its definition's order. */
+export function edgeKindsOf<N extends Notation>(notation: N): EdgeKindOf<N>[] {
+	return Object.keys(notation.edgeKinds);
+}
+
 /**
- * How a Node of a Kind looks. Validation has checked every Kind against the
- * definition before anything is drawn, so a Kind it lacks is a bug.
+ * What a definition says of one of its Kinds, such as
+ * `definitionOf(notation.nodeKinds, node.kind)`. Validation checks every Kind
+ * against the definition before anything is laid out or drawn, so a Kind that
+ * the definition lacks is a bug.
  */
-export function nodeLookOf(notation: Notation, kind: string): NodeKindDefinition {
-	const look = notation.nodeKinds[kind];
-	if (look === undefined) {
-		throw new Error(`The ${notation.name} Notation has no Node Kind ${kind}`);
+export function definitionOf<T>(kinds: Readonly<Record<string, T>>, kind: string): T {
+	const definition = kinds[kind];
+	if (definition === undefined) {
+		throw new Error(
+			`The Notation's definition has no \`${kind}\`, which validation should have rejected`,
+		);
 	}
-	return look;
+	return definition;
 }
