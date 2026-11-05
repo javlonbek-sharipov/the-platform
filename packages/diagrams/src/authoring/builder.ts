@@ -229,8 +229,7 @@ export function builderOf<const N extends Notation>(
 	/** The options that one of the Notation's things takes, and every option that the model has for it. */
 	const optionsOfIts = (thing: "node" | "group" | "edge") => ({
 		known: options[thing].filter((option) => hasField(notation, thing, option)),
-		all: options[thing],
-		notation: notation.name,
+		of: { all: options[thing], notation: notation.name },
 	});
 	const known = {
 		node: optionsOfIts("node"),
