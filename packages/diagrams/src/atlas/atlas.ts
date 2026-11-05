@@ -84,7 +84,7 @@ export interface OpenAtlas {
 	messages: AtlasMessage[];
 	/** Even an invalid Diagram may draw an id, so Links don't duplicate its own errors. */
 	drawn: ReadonlySet<string>;
-	/** Host-excluded folders, applied before reading configured glossaries and Link documents. */
+	/** Host-excluded folders, retained for checks after opening the Atlas. */
 	excluded?: readonly string[];
 }
 

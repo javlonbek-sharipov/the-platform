@@ -11,6 +11,24 @@ import type {
 import "@the-platform/diagrams/web-component";
 import atlas from "virtual:diagram-atlas";
 
+function own<T>(entries: Record<string, T>, id: string): T | undefined {
+	return Object.hasOwn(entries, id) ? entries[id] : undefined;
+}
+
+/** Document Links use repo paths, including dot segments, never URLs or paths outside the repo. */
+function documentPath(path: string): string | undefined {
+	if (path.startsWith("/")) return undefined;
+	const parts: string[] = [];
+	for (const part of path.split("/")) {
+		if (part === "" || part === ".") continue;
+		if (part === "..") {
+			if (parts.length === 0) return undefined;
+			parts.pop();
+		} else parts.push(part);
+	}
+	return parts.join("/");
+}
+
 /** Prefer the doc beside the module when it embeds the drawing, then the first embedding doc in path order. */
 function diagramUrl(id: string): string | undefined {
 	if (!atlas.index.diagrams.some((diagram) => diagram.id === id)) return undefined;
@@ -20,12 +38,13 @@ function diagramUrl(id: string): string | undefined {
 }
 
 const diagrams = [...document.querySelectorAll("platform-diagram")];
+let restoring = false;
 for (const diagram of diagrams) {
 	diagram.atlasIndex = atlas.index;
 	diagram.resolveUrl = (target) => {
 		if (typeof target === "string") return diagramUrl(target);
 		if (target.id !== undefined) {
-			const drawn = atlas.index.ids[target.id];
+			const drawn = own(atlas.index.ids, target.id);
 			const node = drawn?.asNode.find((id) => diagramUrl(id) !== undefined);
 			const destination = node ?? drawn?.asGroup.find((id) => diagramUrl(id) !== undefined);
 			const url = destination === undefined ? undefined : diagramUrl(destination);
@@ -34,15 +53,16 @@ for (const diagram of diagrams) {
 				: `${url}&node=${encodeURIComponent(target.id)}`;
 		}
 		if (target.doc !== undefined) {
-			const page = atlas.pages[target.doc];
+			const path = documentPath(target.doc);
+			const page = path === undefined ? undefined : own(atlas.pages, path);
 			if (page === undefined) return undefined;
 			if (target.section === undefined) return page.url;
-			const anchor = page.sections[anchorOf(target.section)];
+			const anchor = own(page.sections, anchorOf(target.section));
 			return anchor === undefined ? undefined : `${page.url}#${encodeURIComponent(anchor)}`;
 		}
 		if (target.term === undefined) return undefined;
 		const term = termOf(atlas.index.terms, target);
-		const page = term === undefined ? undefined : atlas.pages[term.glossary];
+		const page = term === undefined ? undefined : own(atlas.pages, term.glossary);
 		return page === undefined || term === undefined
 			? undefined
 			: `${page.url}#${encodeURIComponent(term.anchor)}`;
@@ -52,16 +72,18 @@ for (const diagram of diagrams) {
 		if (url !== undefined) window.location.assign(url);
 	});
 	diagram.addEventListener("diagram-select", (event) => {
+		if (restoring) return;
 		const target = (event as DiagramSelectionEvent).detail;
 		const id = diagram.dataset.diagram;
-		if (
-			id === undefined ||
-			target?.kind !== "node" ||
-			!atlas.index.ids[target.id]?.asNode.includes(id)
-		)
-			return;
+		if (id === undefined) return;
 		const url = new URL(window.location.href);
-		url.hash = `diagram=${encodeURIComponent(id)}&node=${encodeURIComponent(target.id)}`;
+		if (target?.kind === "node") {
+			if (!own(atlas.index.ids, target.id)?.asNode.includes(id)) return;
+			url.hash = `diagram=${encodeURIComponent(id)}&node=${encodeURIComponent(target.id)}`;
+		} else {
+			if (new URLSearchParams(url.hash.slice(1)).get("diagram") !== id) return;
+			url.hash = `diagram=${encodeURIComponent(id)}`;
+		}
 		window.history.replaceState(null, "", url);
 	});
 }
@@ -75,8 +97,15 @@ function showTarget(): void {
 	const diagram = diagrams.find((element) => element.dataset.diagram === id);
 	if (diagram === undefined || id === null) return;
 	const node = parameters.get("node");
-	if (node !== null) {
-		if (!atlas.index.ids[node]?.asNode.includes(id) || !diagram.selectNode(node)) return;
+	if (node !== null && !own(atlas.index.ids, node)?.asNode.includes(id)) return;
+	restoring = true;
+	try {
+		if (!diagram.selectNode(node ?? undefined)) return;
+		for (const other of diagrams) {
+			if (other !== diagram) other.selectNode(undefined);
+		}
+	} finally {
+		restoring = false;
 	}
 	diagram.scrollIntoView({ block: "center" });
 }
